@@ -11,7 +11,7 @@
 //! character is used, and a character no font has is reported and left out.
 
 use crate::fonts;
-use crate::page::{self, PrintLayout};
+use crate::page::PrintSet;
 use craft_pdf::write::{self, Metadata, WriteError, Writer, backend as k};
 use egui::epaint::{ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
 use egui::{Color32, FontFamily, LayerId, Pos2, RawInput, Rect, Shape, vec2};
@@ -56,21 +56,14 @@ impl From<WriteError> for ExportError {
 }
 
 fn export(score: &Score, request: &PdfRequest) -> Result<PdfDocument, ExportError> {
-    if request.tracks.is_empty() {
-        return Err(ExportError("no tracks to print".into()));
-    }
-    let mut layouts: Vec<(usize, PrintLayout)> = Vec::new();
-    for &ti in &request.tracks {
-        let layout = page::print_layout(score, ti, request.notation).ok_or_else(|| ExportError(format!("track {} does not exist", ti + 1)))?;
-        layouts.push((ti, layout));
-    }
-    let total: usize = layouts.iter().map(|(_, l)| l.pages.len()).sum();
+    let pages = PrintSet::new(score, &request.tracks, request.notation).map_err(ExportError)?;
+    let total = pages.pages();
     if total > MAX_PAGES {
         return Err(ExportError(format!("the score would take {total} pages; print fewer tracks (the limit is {MAX_PAGES} pages)")));
     }
 
     // A context whose fonts are the page's fonts, at a fine pixel grid. Fonts apply from the next pass.
-    let (defs, set) = fonts::definitions();
+    let (defs, fonts) = fonts::definitions();
     let ctx = egui::Context::default();
     ctx.set_fonts(defs.clone());
     ctx.set_pixels_per_point(LAYOUT_SCALE);
@@ -88,33 +81,29 @@ fn export(score: &Score, request: &PdfRequest) -> Result<PdfDocument, ExportErro
     let mut writer = Writer::new(k::SerializeSettings::default(), metadata);
     let mut bank = FontBank::new(defs);
     let mut warnings = BTreeSet::new();
-    let mut number = 0;
-    for (ti, layout) in &layouts {
-        for pi in 0..layout.pages.len() {
-            number += 1;
-            let m = layout.metrics;
-            let raw = RawInput { screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(m.page_w, m.page_h))), ..RawInput::default() };
-            ctx.begin_pass(raw);
-            let painter = ctx.layer_painter(LayerId::background());
-            page::paint_print_page(&painter, score, *ti, layout, pi, (number, total), set);
-            // Nothing is uploaded to a GPU, so the texture changes are discarded.
-            let mut out = ctx.end_pass();
-            out.textures_delta.clear();
-            let shapes = out.shapes;
+    for n in 0..total {
+        let Some((_, layout, _)) = pages.page(n) else { continue };
+        let m = layout.metrics;
+        let raw = RawInput { screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(m.page_w, m.page_h))), ..RawInput::default() };
+        ctx.begin_pass(raw);
+        let painter = ctx.layer_painter(LayerId::background());
+        pages.paint(&painter, score, n, fonts);
+        // Nothing is uploaded to a GPU, so the texture changes are discarded.
+        let mut out = ctx.end_pass();
+        out.textures_delta.clear();
+        let shapes = out.shapes;
 
-            let settings =
-                k::page::PageSettings::from_wh(m.page_w * PX_TO_PT, m.page_h * PX_TO_PT).ok_or_else(|| ExportError("the page has no size".into()))?;
-            let mut page = writer.document_mut().start_page_with(settings);
-            let mut surface = page.surface();
-            surface.push_transform(&Transform::from_scale(PX_TO_PT, PX_TO_PT));
-            let mut conv = Converter { bank: &mut bank, warnings: &mut warnings };
-            for clipped in &shapes {
-                conv.shape(&mut surface, &clipped.shape);
-            }
-            surface.pop();
-            surface.finish();
-            page.finish();
+        let settings = k::page::PageSettings::from_wh(m.page_w * PX_TO_PT, m.page_h * PX_TO_PT).ok_or_else(|| ExportError("the page has no size".into()))?;
+        let mut page = writer.document_mut().start_page_with(settings);
+        let mut surface = page.surface();
+        surface.push_transform(&Transform::from_scale(PX_TO_PT, PX_TO_PT));
+        let mut conv = Converter { bank: &mut bank, warnings: &mut warnings };
+        for clipped in &shapes {
+            conv.shape(&mut surface, &clipped.shape);
         }
+        surface.pop();
+        surface.finish();
+        page.finish();
     }
     warnings.extend(bank.warnings);
     let bytes = writer.finish()?;
@@ -401,6 +390,27 @@ mod tests {
         assert!(text.contains("FontFile2") || text.contains("FontFile3"), "no embedded font program");
         assert!(text.contains("Test Piece") && text.contains("Guitario"), "metadata missing");
         assert!(doc.warnings.is_empty(), "{:?}", doc.warnings);
+    }
+
+    #[test]
+    fn the_pages_are_the_size_of_the_pages_setup() {
+        let mut s = two_tracks();
+        let size = |s: &Session| {
+            let doc = render(s.score(), vec![0], true).unwrap();
+            pages_of(&doc.bytes).first().copied().unwrap()
+        };
+        let near = |(w, h): (f32, f32), (ew, eh): (f32, f32)| (w - ew).abs() < 0.5 && (h - eh).abs() < 0.5;
+        // Points: Letter is 8.5 x 11 in, Legal 8.5 x 14 in, A5 is 148 x 210 mm.
+        s.run("score.setPage", &json!({"paper": "letter"})).unwrap();
+        assert!(near(size(&s), (612.0, 792.0)), "{:?}", size(&s));
+        s.run("score.setPage", &json!({"landscape": true})).unwrap();
+        assert!(near(size(&s), (792.0, 612.0)), "{:?}", size(&s));
+        s.run("score.setPage", &json!({"paper": "legal", "landscape": false})).unwrap();
+        assert!(near(size(&s), (612.0, 1008.0)), "{:?}", size(&s));
+        s.run("score.setPage", &json!({"paper": "a5"})).unwrap();
+        assert!(near(size(&s), (419.5, 595.3)), "{:?}", size(&s));
+        s.run("score.setPage", &json!({"reset": true})).unwrap();
+        assert!(near(size(&s), (595.3, 841.9)), "{:?}", size(&s));
     }
 
     #[test]

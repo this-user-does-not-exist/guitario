@@ -10,7 +10,7 @@ use crate::theme::{Tokens, tokens};
 use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
 use guitario_engine::Cursor;
 use guitario_score::{
-    Beat, BeatTechnique, BrushKind, DirectionTarget, Fade, Jump, MeasureHeader, Note, NoteKind, Score, Slide, StrokeDirection, Track, TripletFeel,
+    Beat, BeatTechnique, BrushKind, DirectionTarget, Fade, Jump, MeasureHeader, Note, NoteKind, PageSetup, Score, Slide, StrokeDirection, Track, TripletFeel,
 };
 
 const PAGE_GAP: f32 = 24.0;
@@ -43,12 +43,12 @@ pub struct Output {
 }
 
 /// The layout metrics for `track`: a drum staff or notation over tab, with room for chord names.
-fn metrics_for(track: &Track, zoom: f32, notation: bool, voice: usize) -> Metrics {
+fn metrics_for(track: &Track, page: &PageSetup, zoom: f32, notation: bool, voice: usize) -> Metrics {
     let m = if track.is_drums() { Metrics::for_drums(zoom) } else { Metrics::new(zoom, notation, track.string_count()) };
-    m.with_annotations(track).with_voice(voice)
+    m.with_page(page).with_annotations(track).with_voice(voice)
 }
 
-/// One track laid out for paper: A4 pages at 100 %.
+/// One track laid out for paper: the score's pages at 100 %.
 pub struct PrintLayout {
     pub metrics: Metrics,
     pub pages: Vec<PageBox>,
@@ -56,8 +56,54 @@ pub struct PrintLayout {
 
 pub fn print_layout(score: &Score, track_index: usize, notation: bool) -> Option<PrintLayout> {
     let track = score.tracks.get(track_index)?;
-    let metrics = metrics_for(track, 1.0, notation, 0);
+    let metrics = metrics_for(track, &score.page, 1.0, notation, 0);
     Some(PrintLayout { pages: layout(score, track_index, &metrics), metrics })
+}
+
+/// A document's pages: every chosen track laid out in order, numbered through the whole. The PDF,
+/// the printer and the print preview all take their pages from one of these.
+pub struct PrintSet {
+    layouts: Vec<(usize, PrintLayout)>,
+}
+
+impl PrintSet {
+    /// Lays out `tracks` (indexes, in print order). An error says what was asked that cannot be printed.
+    pub fn new(score: &Score, tracks: &[usize], notation: bool) -> Result<PrintSet, String> {
+        if tracks.is_empty() {
+            return Err("no tracks to print".into());
+        }
+        let mut layouts = Vec::with_capacity(tracks.len());
+        for &ti in tracks {
+            let layout = print_layout(score, ti, notation).ok_or_else(|| format!("track {} does not exist", ti.saturating_add(1)))?;
+            layouts.push((ti, layout));
+        }
+        Ok(PrintSet { layouts })
+    }
+
+    /// Pages in the whole document.
+    pub fn pages(&self) -> usize {
+        self.layouts.iter().map(|(_, l)| l.pages.len()).sum()
+    }
+
+    /// Page `n` (0-based): its track, that track's layout and the page's place in it.
+    pub fn page(&self, n: usize) -> Option<(usize, &PrintLayout, usize)> {
+        let mut before = 0;
+        for (track, layout) in &self.layouts {
+            let here = layout.pages.len();
+            if n < before + here {
+                return Some((*track, layout, n - before));
+            }
+            before += here;
+        }
+        None
+    }
+
+    /// Paints page `n` (0-based) with its top-left corner at the origin.
+    pub fn paint(&self, painter: &Painter, score: &Score, n: usize, fonts: FontSet) {
+        if let Some((track, layout, page)) = self.page(n) {
+            paint_print_page(painter, score, track, layout, page, (n + 1, self.pages()), fonts);
+        }
+    }
 }
 
 /// Paints page `page` of a track's print layout with its top-left corner at the origin: the same
@@ -88,7 +134,7 @@ pub fn paint_print_page(painter: &Painter, score: &Score, track_index: usize, pl
         cx.header(rect);
     }
     painter.text(
-        rect.right_bottom() - vec2(m.margin_x, m.margin_bottom * 0.5),
+        rect.right_bottom() - vec2(m.margin_right, m.margin_bottom * 0.5),
         egui::Align2::RIGHT_CENTER,
         format!("{}/{}", number.0, number.1),
         serif(9.0 * m.zoom),
@@ -99,7 +145,7 @@ pub fn paint_print_page(painter: &Painter, score: &Score, track_index: usize, pl
 
 pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Output {
     let Some(track) = score.tracks.get(cursor.track) else { return Output { click: None, drag: None, cursor_rect: None, play_rect: None } };
-    let m = metrics_for(track, view.zoom, view.notation, cursor.voice);
+    let m = metrics_for(track, &score.page, view.zoom, view.notation, cursor.voice);
     let pages = layout(score, cursor.track, &m);
     let width = (m.page_w + 2.0 * PAGE_GAP).max(ui.available_width());
     let height = pages.len() as f32 * (m.page_h + PAGE_GAP) + PAGE_GAP;
@@ -135,7 +181,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
             cx.header(rect);
         }
         painter.text(
-            rect.right_bottom() - vec2(m.margin_x, m.margin_bottom * 0.5),
+            rect.right_bottom() - vec2(m.margin_right, m.margin_bottom * 0.5),
             egui::Align2::RIGHT_CENTER,
             format!("{}/{}", pi + 1, pages.len()),
             serif(9.0 * m.zoom),
@@ -206,13 +252,14 @@ impl<'a> Ctx<'a> {
         let meta = &self.score.meta;
         let mut y = page.top() + m.margin_top;
         let title = if meta.title.is_empty() { "Untitled" } else { meta.title.as_str() };
-        self.p().text(pos2(page.center().x, y), egui::Align2::CENTER_TOP, title, serif(33.0 * m.zoom), self.t.ink);
+        let center = page.left() + m.center_x();
+        self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, title, serif(33.0 * m.zoom), self.t.ink);
         y += 10.0 * m.space;
         if !meta.artist.is_empty() {
-            self.p().text(pos2(page.center().x, y), egui::Align2::CENTER_TOP, &meta.artist, serif(16.0 * m.zoom), self.t.ink);
+            self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, &meta.artist, serif(16.0 * m.zoom), self.t.ink);
         }
         if !meta.author.is_empty() {
-            self.p().text(pos2(page.right() - m.margin_x, y), egui::Align2::RIGHT_TOP, format!("Tab: {}", meta.author), serif(10.0 * m.zoom), self.t.ink);
+            self.p().text(pos2(page.right() - m.margin_right, y), egui::Align2::RIGHT_TOP, format!("Tab: {}", meta.author), serif(10.0 * m.zoom), self.t.ink);
         }
         // Tuning legend for anything but standard tuning, as Guitar Pro does.
         let tuning = &self.track.tuning;
@@ -225,7 +272,7 @@ impl<'a> Ctx<'a> {
             legend.push(format!("Capo fret {}", self.track.capo));
         }
         for (i, l) in legend.iter().enumerate() {
-            self.p().text(pos2(page.left() + m.margin_x, y + i as f32 * 2.6 * m.space), egui::Align2::LEFT_TOP, l, serif(10.0 * m.zoom), self.t.ink);
+            self.p().text(pos2(page.left() + m.margin_left, y + i as f32 * 2.6 * m.space), egui::Align2::LEFT_TOP, l, serif(10.0 * m.zoom), self.t.ink);
         }
     }
 
@@ -236,7 +283,7 @@ impl<'a> Ctx<'a> {
             if !self.p().clip_rect().intersects(sys_rect) {
                 continue;
             }
-            self.system(sys, rect.left() + self.m.margin_x + self.m.indent(), top, first_page && si == 0);
+            self.system(sys, rect.left() + self.m.margin_left + self.m.indent(), top, first_page && si == 0);
         }
     }
 

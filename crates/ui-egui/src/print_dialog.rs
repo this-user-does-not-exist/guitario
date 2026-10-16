@@ -98,8 +98,14 @@ impl GuitarioApp {
     /// File › Print…: opens the dialog and starts looking for printers.
     pub fn open_print(&mut self) {
         let notation = self.view.notation;
+        self.open_print_with(false, notation);
+    }
+
+    /// The dialog with the track choice and notation setting already made (the preview's).
+    pub(crate) fn open_print_with(&mut self, all_tracks: bool, notation: bool) {
         let spooler = self.session.spooler().cloned();
         self.print.start(notation, spooler);
+        self.print.all_tracks = all_tracks && self.session.score().tracks.len() > 1;
     }
 
     /// Hands the chosen job to a worker thread.
@@ -171,6 +177,8 @@ impl GuitarioApp {
         let tracks = self.session.score().tracks.len();
         let current = self.session.score().tracks.get(self.session.cursor().track).map(|t| t.name.clone()).unwrap_or_default();
         let busy = self.print.sending.is_some();
+        let page = self.session.score().page;
+        let paper = format!("{} {}", page.paper.name(), if page.landscape { "landscape" } else { "portrait" });
         let mut print = false;
         let mut cancel = false;
         let d = &mut self.print;
@@ -233,7 +241,7 @@ impl GuitarioApp {
                 ui.end_row();
             });
             ui.add_space(6.0);
-            ui.label(egui::RichText::new("Pages are A4 and are shrunk to fit other paper.").small());
+            ui.label(egui::RichText::new(format!("Pages are {paper} (File › Page Setup); other paper in the printer shrinks them to fit.")).small());
             if let Some(e) = &d.error {
                 ui.add_space(4.0);
                 ui.colored_label(egui::Color32::from_rgb(0xff, 0x7a, 0x6a), e);

@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (PDF export and printing: the alpha gate passes) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (print preview and page setup; menus 130/173) · **Target:** Guitar Pro 8
 
 Forward-looking plan: milestones, the **Current focus** list, and what's next with estimates.
 Where we stand today is in [`target-app-parity.md`](target-app-parity.md) (headline numbers, by
@@ -13,7 +13,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started. Hours are Opus 5
 for one agent working sequentially (uncalibrated, see
 [`target-app-parity.md`](target-app-parity.md#remaining-effort-and-calibration)).
 
-**Stage: alpha** (ready for real work ~27%). The alpha gate below passes; beta is ~880–1,490 h away.
+**Stage: alpha** (ready for real work ~27%). The alpha gate below passes; beta is ~870–1,470 h away.
 
 ## Alpha gate
 
@@ -45,7 +45,7 @@ in Guitar Pro 8.
 | M4 Playback | 🟡 | plucked-string synth, transport, loop, speed, metronome, count-in, WAV export; no drums or samples |
 | M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 and GP6 drums remain |
 | M6 Drums | 🟡 | kit tracks, drum pad, notation, GM playback, `.gp` drum import, drum demos, a second voice for the feet; a step editor missing |
-| M7 Print, PDF, MusicXML | 🟡 | PDF export and printing; no MusicXML, preview or page setup |
+| M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, page setup; no MusicXML, headers and footers |
 | M8 Tools | ⬜ | tuner, chord engine, scales |
 | M9 Automation | ⬜ | control channel, MCP |
 | M10 Distribution | ⬜ | packaging, signing, icon, web build |
@@ -56,7 +56,7 @@ Ranked; each item links to its gap entry. Pick from the top unless an issue is a
 
 1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): chord diagrams, lyrics, grace notes, layouts. 90–160 h.
 2. **Guitar Pro import depth** ([G3](gaps.md#g3-guitar-pro-exchange)): Guitar Pro 6 drums, MIDI and MusicXML import, a human check of `.gp` exports. 40–80 h.
-3. **Print depth** ([G2](gaps.md#g2-print-depth)): preview, page setup, layouts, a real-printer check. 20–40 h.
+3. **Print depth** ([G2](gaps.md#g2-print-depth)): headers and footers, layouts, selected bars, a real-printer check. 10–20 h.
 
 ## What's next, with estimates
 
@@ -67,7 +67,7 @@ Ranked; each item links to its gap entry. Pick from the top unless an issue is a
 | 0.4 "ties and voices" | ✅ ties, slurs and up to four voices landed 2026-10-16 | done |
 | 0.5 "print it" | ✅ PDF export and printing landed 2026-10-16 | done |
 | Alpha | ✅ the alpha gate passes (2026-10-16) | done |
-| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~880–1,490 h total |
+| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~870–1,470 h total |
 
 ## Milestone definitions
 
@@ -92,6 +92,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-16 | minor | Print preview and page setup (Letter, Legal, A5, landscape, margins; kept in `.gt`, `.gp` and `.gp5`); G2 left 10–20 h; beta ~870–1,470 h |
 | 2026-10-16 | minor | PDF export and printing: the share workflow passes, so the alpha gate passes; stage alpha; beta ~880–1,490 h (G2's 60–100 h done, 20–40 h of print depth added) |
 | 2026-10-16 | minor | `.gp` export: the share workflow only lacks print/PDF; beta ~920–1,550 h |
 | 2026-10-16 | minor | Ties, slurs and up to four voices: the notation workflow passes; alpha ~70–120 h; print/PDF is the focus |

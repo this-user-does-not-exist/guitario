@@ -113,6 +113,25 @@ mod tests {
     }
 
     #[test]
+    fn files_saved_before_page_setup_load_with_the_default_page() {
+        let mut s = Score::new();
+        s.page.paper = guitario_score::Paper::Letter;
+        let mut v: serde_json::Value = serde_json::from_slice(&to_bytes(&s).unwrap()).unwrap();
+        assert_eq!(v["score"]["page"]["paper"], "letter");
+        if let Some(score) = v["score"].as_object_mut() {
+            score.remove("page");
+        }
+        assert_eq!(from_bytes(v.to_string().as_bytes()).unwrap().page, guitario_score::PageSetup::default());
+        // A page the layout could not use is refused like any other broken file.
+        v["score"]["page"] = serde_json::json!({"margin_left": 200});
+        assert!(matches!(from_bytes(v.to_string().as_bytes()), Err(FormatError::Invalid(_))));
+        // A partial page setup keeps the defaults for what it leaves out.
+        v["score"]["page"] = serde_json::json!({"landscape": true});
+        let page = from_bytes(v.to_string().as_bytes()).unwrap().page;
+        assert!(page.landscape && page.paper == guitario_score::Paper::A4 && page.margin_top == 15);
+    }
+
+    #[test]
     fn rejects_garbage() {
         assert!(from_bytes(b"").is_err());
         assert!(from_bytes(b"{}").is_err());

@@ -70,6 +70,15 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
     if let Some(s) = child(root, "Score") {
         let get = |k: &str| text(s, k).unwrap_or_default().to_string();
         score.meta = Meta { title: get("Title"), artist: get("Artist"), album: get("Album"), author: get("Tabber"), notes: get("Notices") };
+        if let Some(ps) = child(s, "PageSetup") {
+            let mm = |k: &str| text(ps, k).and_then(|v| v.trim().parse::<f64>().ok()).filter(|v| v.is_finite()).map(|v| v.round().clamp(-1e6, 1e6) as i32);
+            if let (Some(width), Some(height)) = (mm("Width"), mm("Height")) {
+                let landscape = text(ps, "Orientation").map(|o| o.trim().eq_ignore_ascii_case("landscape"));
+                let margins =
+                    [mm("LeftMargin").unwrap_or(10), mm("RightMargin").unwrap_or(10), mm("TopMargin").unwrap_or(15), mm("BottomMargin").unwrap_or(10)];
+                score.page = crate::page::from_gp(width, height, landscape, margins, &mut warnings);
+            }
+        }
     }
 
     // ---- master bars -------------------------------------------------------------------

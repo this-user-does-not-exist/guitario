@@ -12,6 +12,100 @@ pub struct Score {
     pub tempo: u16,
     pub headers: Vec<MeasureHeader>,
     pub tracks: Vec<Track>,
+    /// Paper, orientation and margins for the page view, PDF and print.
+    #[serde(default)]
+    pub page: PageSetup,
+}
+
+/// A paper size.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Paper {
+    #[default]
+    A4,
+    A5,
+    Letter,
+    Legal,
+}
+
+impl Paper {
+    pub const ALL: [Paper; 4] = [Paper::A4, Paper::A5, Paper::Letter, Paper::Legal];
+
+    /// Width and height upright, in millimetres.
+    pub fn size_mm(self) -> (f32, f32) {
+        match self {
+            Paper::A4 => (210.0, 297.0),
+            Paper::A5 => (148.0, 210.0),
+            Paper::Letter => (215.9, 279.4),
+            Paper::Legal => (215.9, 355.6),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Paper::A4 => "A4",
+            Paper::A5 => "A5",
+            Paper::Letter => "Letter",
+            Paper::Legal => "Legal",
+        }
+    }
+
+    /// The paper called `name`, in any case.
+    pub fn from_name(name: &str) -> Option<Paper> {
+        Paper::ALL.into_iter().find(|p| p.name().eq_ignore_ascii_case(name.trim()))
+    }
+}
+
+/// How pages are laid out: the paper, its orientation and the margins in millimetres. The defaults
+/// are Guitar Pro's stylesheet: A4 upright, 10 mm at the sides, 15 mm above, 12 mm below.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PageSetup {
+    pub paper: Paper,
+    pub landscape: bool,
+    pub margin_left: u8,
+    pub margin_right: u8,
+    pub margin_top: u8,
+    pub margin_bottom: u8,
+}
+
+impl Default for PageSetup {
+    fn default() -> Self {
+        PageSetup { paper: Paper::A4, landscape: false, margin_left: 10, margin_right: 10, margin_top: 15, margin_bottom: 12 }
+    }
+}
+
+impl PageSetup {
+    /// No margin is wider than this, in millimetres.
+    pub const MAX_MARGIN: u8 = 60;
+    /// What is left of the page inside the margins is at least this wide and this tall, in millimetres.
+    pub const MIN_PRINTABLE: f32 = 100.0;
+
+    /// The page's width and height as it lies, in millimetres.
+    pub fn size_mm(&self) -> (f32, f32) {
+        let (w, h) = self.paper.size_mm();
+        if self.landscape { (h, w) } else { (w, h) }
+    }
+
+    /// Why this setup cannot be used, if it cannot.
+    pub fn check(&self) -> Result<(), String> {
+        let margins = [("left", self.margin_left), ("right", self.margin_right), ("top", self.margin_top), ("bottom", self.margin_bottom)];
+        if let Some((side, v)) = margins.into_iter().find(|(_, v)| *v > Self::MAX_MARGIN) {
+            return Err(format!("the {side} margin is {v} mm; at most {} mm", Self::MAX_MARGIN));
+        }
+        let (w, h) = self.size_mm();
+        let printable_w = w - f32::from(self.margin_left) - f32::from(self.margin_right);
+        let printable_h = h - f32::from(self.margin_top) - f32::from(self.margin_bottom);
+        if printable_w < Self::MIN_PRINTABLE || printable_h < Self::MIN_PRINTABLE {
+            return Err(format!(
+                "the margins leave {printable_w:.0} x {printable_h:.0} mm of {} paper; at least {:.0} x {:.0} mm is needed",
+                self.paper.name(),
+                Self::MIN_PRINTABLE,
+                Self::MIN_PRINTABLE
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -523,7 +617,7 @@ impl Score {
     pub fn new() -> Score {
         let headers = vec![MeasureHeader::new(TimeSignature::COMMON)];
         let tracks = vec![Track::new("Guitar", Tuning::standard(), &headers)];
-        Score { meta: Meta::default(), tempo: DEFAULT_TEMPO, headers, tracks }
+        Score { meta: Meta::default(), tempo: DEFAULT_TEMPO, headers, tracks, page: PageSetup::default() }
     }
 
     pub fn measure_count(&self) -> usize {

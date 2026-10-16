@@ -170,8 +170,9 @@ impl Writer {
         self.i32(100);
         self.i32(0);
         self.fill(0, 11);
-        // Page setup: A4 in millimetres, margins, score size, header/footer flags and templates.
-        for v in [210, 297, 10, 10, 15, 10, 100] {
+        // Page setup: paper in millimetres, margins, score size, header/footer flags and templates.
+        let (width, height, [left, right, top, bottom]) = crate::page::to_gp(&score.page);
+        for v in [width, height, left, right, top, bottom, 100] {
             self.i32(v);
         }
         self.i16(0x01ff);
