@@ -344,6 +344,31 @@ pub struct Beat {
     /// Brush (strum) or arpeggio across the strings of this beat.
     #[serde(default)]
     pub brush: Option<Brush>,
+    /// A chord name (and diagram) shown above the beat.
+    #[serde(default)]
+    pub chord: Option<Chord>,
+}
+
+/// A chord symbol, with the fingering diagram Guitar Pro draws above the staff when it has one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Chord {
+    pub name: String,
+    /// Fret per string, highest string first; `None` is a string not played. Empty without a diagram.
+    #[serde(default)]
+    pub frets: Vec<Option<u8>>,
+    /// The fret the diagram starts at (1 is the nut).
+    #[serde(default = "first_fret")]
+    pub first_fret: u8,
+}
+
+fn first_fret() -> u8 {
+    1
+}
+
+impl Chord {
+    pub fn named(name: impl Into<String>) -> Chord {
+        Chord { name: name.into(), frets: Vec::new(), first_fret: 1 }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -388,7 +413,18 @@ pub enum BrushKind {
 
 impl Beat {
     pub fn rest(duration: Duration) -> Beat {
-        Beat { duration, rest: true, notes: Vec::new(), dynamic: Dynamic::default(), text: None, stroke: None, technique: None, fade: None, brush: None }
+        Beat {
+            duration,
+            rest: true,
+            notes: Vec::new(),
+            dynamic: Dynamic::default(),
+            text: None,
+            stroke: None,
+            technique: None,
+            fade: None,
+            brush: None,
+            chord: None,
+        }
     }
 
     pub fn note_on(&self, string: u8) -> Option<&Note> {

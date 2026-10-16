@@ -113,6 +113,8 @@ fn enter_beat(s: &mut Session, spec: &str, advance: bool) -> R {
             run(s, "beat.toggleRest", Value::Null)?;
         } else if tok == "~" {
             run(s, "note.toggleTie", Value::Null)?;
+        } else if let Some(name) = tok.strip_prefix('%') {
+            run(s, "beat.setChord", json!({"name": name}))?;
         } else if let Some(d) = tok.strip_prefix('@') {
             run(s, "beat.setDynamic", json!({"dynamic": d}))?;
         } else if let Some(fx) = tok.strip_prefix('+') {
@@ -205,6 +207,7 @@ fn write(s: &mut Session, dir: &Path, name: &str) -> R {
     run(s, "file.save", json!({"path": path("", "gt")}))?;
     run(s, "file.exportMidi", json!({"path": path("midi", "mid")}))?;
     run(s, "file.exportAscii", json!({"path": path("tab", "txt")}))?;
+    run(s, "file.exportGp5", json!({"path": path("gp5", "gp5")}))?;
     run(s, "score.validate", Value::Null)
 }
 
@@ -696,10 +699,10 @@ fn ballad() -> R<Session> {
     )?;
     let arp = |bass: &str, mid: &str, top: &str| format!("8 {bass} +lr @mp, 8 {mid}, 8 {top}, 8 1:0, 8 {top}, 8 {mid}, 8 {top}, 8 1:0");
     let _ = &arp;
-    let am = "8 5:0 +lr @mp, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
-    let f = "8 4:3 +lr, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
-    let c = "8 5:3 +lr, 8 3:0, 8 2:1, 8 1:0, 8 2:1, 8 3:0, 8 2:1, 8 1:0";
-    let g = "8 6:3 +lr, 8 4:0, 8 3:0, 8 2:0, 8 3:0, 8 4:0, 8 3:0, 8 2:0";
+    let am = "8 5:0 +lr @mp %Am, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
+    let f = "8 4:3 +lr %F, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
+    let c = "8 5:3 +lr %C, 8 3:0, 8 2:1, 8 1:0, 8 2:1, 8 3:0, 8 2:1, 8 1:0";
+    let g = "8 6:3 +lr %G, 8 4:0, 8 3:0, 8 2:0, 8 3:0, 8 4:0, 8 3:0, 8 2:0";
     play_track(&mut s, 0, &[bar(am).mark("Acoustic intro"), bar(f), bar(c), bar(g), bar(am).mark("Heavy").tempo(112), bar(f), bar(c), bar(g)])?;
     add_track(&mut s, "Distortion Guitar", "standard", 30)?;
     let chug = |chord: String| format!("8 {chord} *pm @f, 8 {chord} *pm, 8 {chord} *pm, 8 r, 8 {chord} *pm, 8 {chord} *pm, 4 {chord} *a");
@@ -853,14 +856,14 @@ fn demo_dir() -> PathBuf {
 
 fn main() -> ExitCode {
     let dir = demo_dir();
-    for sub in ["", "midi", "tab"] {
+    for sub in ["", "midi", "tab", "gp5"] {
         if let Err(e) = std::fs::create_dir_all(dir.join(sub)) {
             eprintln!("cannot create {}: {e}", dir.join(sub).display());
             return ExitCode::FAILURE;
         }
     }
     // Replace the whole suite: drop outputs of demos that no longer exist.
-    for (sub, ext) in [("", "gt"), ("midi", "mid"), ("tab", "txt")] {
+    for (sub, ext) in [("", "gt"), ("midi", "mid"), ("tab", "txt"), ("gp5", "gp5")] {
         if let Ok(entries) = std::fs::read_dir(dir.join(sub)) {
             for e in entries.flatten().filter(|e| e.path().extension().is_some_and(|x| x == ext)) {
                 let _ = std::fs::remove_file(e.path());

@@ -44,7 +44,7 @@ pub struct Output {
 
 pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Output {
     let Some(track) = score.tracks.get(cursor.track) else { return Output { click: None, drag: None, cursor_rect: None, play_rect: None } };
-    let m = if track.is_drums() { Metrics::for_drums(view.zoom) } else { Metrics::new(view.zoom, view.notation, track.string_count()) };
+    let m = if track.is_drums() { Metrics::for_drums(view.zoom) } else { Metrics::new(view.zoom, view.notation, track.string_count()) }.with_annotations(track);
     let pages = layout(score, cursor.track, &m);
     let width = (m.page_w + 2.0 * PAGE_GAP).max(ui.available_width());
     let height = pages.len() as f32 * (m.page_h + PAGE_GAP) + PAGE_GAP;
@@ -366,7 +366,8 @@ impl<'a> Ctx<'a> {
             }
             if let Some(text) = &h.marker {
                 let galley = self.p().layout_no_wrap(text.clone(), serif(10.0 * m.zoom), t.ink);
-                let r = Rect::from_min_size(pos2(mx + 0.4 * s, sys_top - 8.6 * s), galley.size() + vec2(0.8 * s, 0.4 * s));
+                // At the top of the lane, above chord names and text.
+                let r = Rect::from_min_size(pos2(mx + 0.4 * s, sys_top - m.lane_above() + 0.4 * s), galley.size() + vec2(0.8 * s, 0.4 * s));
                 self.p().rect_stroke(r, 0.0, Stroke::new(1.0, t.ink), egui::StrokeKind::Inside);
                 self.p().galley(r.min + vec2(0.4 * s, 0.2 * s), galley, t.ink);
             }
@@ -417,6 +418,13 @@ impl<'a> Ctx<'a> {
                         self.p().rect_stroke(r, 2.0, Stroke::new(1.5, t.cursor_stroke), egui::StrokeKind::Outside);
                     }
                     self.cursor_rect = Some(col);
+                }
+                // Chord names, then beat text, above the system as Guitar Pro stacks them.
+                if let Some(chord) = beat.chord.as_ref().filter(|c| !c.name.is_empty()) {
+                    self.p().text(pos2(x, sys_top - 6.4 * s), egui::Align2::CENTER_BOTTOM, &chord.name, serif(10.5 * m.zoom), t.ink);
+                }
+                if let Some(text) = &beat.text {
+                    self.p().text(pos2(x, sys_top - 5.1 * s), egui::Align2::CENTER_BOTTOM, text, serif_italic(8.5 * m.zoom), t.ink);
                 }
                 self.hits.push(Hit { rect: col, measure: mb.index, beat: bi, tab_top: tt });
                 placed.push(Placed { x, w: *w, beat });

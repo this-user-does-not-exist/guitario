@@ -35,10 +35,12 @@ equivalents found in the system font folders, `CRAFT_FONTS_DIR` or `GUITARIO_FON
 | `GUITARIO_MUSIC_FONT` | A SMuFL font file to use |
 | `GUITARIO_SOUNDS` | The sound-bank folder of SFZ instruments ([`sounds.md`](sounds.md)); default is the per-user data folder |
 | `GUITARIO_SFZ_DIR`, `GUITARIO_SFZ_FILE`, `GUITARIO_SFZ_RENDER`, `GUITARIO_SFZ_OUT` | Run the real-library tests in `crates/playback/tests/real_libraries.rs` (parse a folder, print a key map, render a riff to a WAV) |
+| `GUITARIO_GP_CORPUS`, `GUITARIO_GP_DUMP` | Import every Guitar Pro file in a local folder (`crates/gp/tests/corpus.rs`); GP3-5 files must also come back unchanged through the `.gp5` writer. `GUITARIO_GP_DUMP=1` prints what each file imported as. Real files belong to their authors: keep the corpus local |
 
 ## Headless CLI
 
 `guitario-cli commands | info <file> | convert <in> <out> [--sounds <dir>] | run <file|-> <script.json> [--save <path>]`.
+Inputs are `.gt` or any Guitar Pro file (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`); outputs are `.gt`, `.gp5`, `.mid`, `.wav` or `.txt`.
 A script is a JSON array of `["command.id", {params}]` steps.
 
 ## Native format (.gt)

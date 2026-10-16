@@ -8,10 +8,11 @@ use std::process::ExitCode;
 const USAGE: &str = "guitario-cli <command>
 
   commands                       list every command id with its parameters (JSON)
-  info <file>                    summarise a .gt or .gp file
+  info <file>                    summarise a .gt or Guitar Pro (.gp, .gpx, .gp5, .gp4, .gp3) file
   convert <in> <out> [--sounds <dir>]
-                                 .gp/.gt in; .gt, .mid, .wav or .txt (ASCII tab) out. For .wav,
-                                 --sounds renders drums, bass and guitars from the SFZ bank in <dir>
+                                 .gt or Guitar Pro in; .gt, .gp5, .mid, .wav or .txt (ASCII tab)
+                                 out. For .wav, --sounds renders drums, bass and guitars from the SFZ
+                                 bank in <dir>
   run <file|-> <script.json>     run [[\"command.id\", {params}], ...] on a score; `-` starts a new one;
                                  prints each result as JSON. Add --save <path> to write the result.
 ";
@@ -20,9 +21,7 @@ fn open(s: &mut Session, path: &str) -> Result<(), EngineError> {
     if path == "-" {
         return Ok(());
     }
-    let lower = path.to_lowercase();
-    let id = if lower.ends_with(".gp") { "file.importGp" } else { "file.open" };
-    let r = s.run(id, &json!({"path": path}))?;
+    let r = s.run("file.open", &json!({"path": path}))?;
     if let Some(w) = r.get("warnings").and_then(Value::as_array) {
         for w in w {
             eprintln!("warning: {}", w.as_str().unwrap_or_default());
@@ -57,10 +56,12 @@ fn real_main(args: &[String]) -> Result<(), String> {
                 "file.exportWav"
             } else if lower.ends_with(".txt") {
                 "file.exportAscii"
+            } else if lower.ends_with(".gp5") {
+                "file.exportGp5"
             } else if lower.ends_with(".gt") {
                 "file.save"
             } else {
-                return Err("output must end in .gt, .mid, .wav or .txt".into());
+                return Err("output must end in .gt, .gp5, .mid, .wav or .txt".into());
             };
             let params = match args.iter().position(|x| x == "--sounds") {
                 Some(pos) => json!({"path": out, "sounds": a(pos + 1)?}),

@@ -1170,6 +1170,7 @@ dependencies = [
 name = "guitario-gp"
 version = "0.1.0"
 dependencies = [
+ "guitario-format",
  "guitario-score",
  "guitario-theory",
  "roxmltree",

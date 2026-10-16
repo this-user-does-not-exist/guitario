@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-15 · **Last updated:** 2026-10-16 · **Change:** minor (G5: SFZ sampled instruments landed; earlier G1: drum tracks, drum notation, GM drum playback and `.gp` drum import landed; G1 drops to medium and the alpha-blocking rank moves to G3) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G3: Guitar Pro 3-6 import and `.gp5` export landed, G3 no longer blocks alpha; G4: chord names) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -20,7 +20,7 @@ agent can't finish alone.
 |---|---|---|---|---:|---|
 | G1 | Drums: depth (two voices, step editor, articulations) | features, playback | medium | 40–80 h | [scorecard](scorecard.md#editing) |
 | G2 | Print and PDF export | file format | blocks alpha | 60–100 h | [file-format-parity](file-format-parity.md) |
-| G3 | Guitar Pro exchange (legacy import, `.gp` export, import depth) | file format | blocks alpha | 150–250 h | [file-format-parity](file-format-parity.md) |
+| G3 | Guitar Pro exchange (`.gp` export, import depth) | file format | high | 60–110 h | [file-format-parity](file-format-parity.md) |
 | G4 | Notation depth (ties, voices, endings, chords, lyrics) | features | high | 150–250 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
 | G6 | Editing depth (bend editor, tuplets, paste special, track tools) | features | medium-high | 80–140 h | [scorecard](scorecard.md#editing) |
@@ -54,18 +54,26 @@ agent can't finish alone.
 - **Estimate:** 60–100 h.
 
 ### G3. Guitar Pro exchange
-- **Missing:** `.gp5`/`.gp4`/`.gp3` (binary) and `.gpx` (GP6) import; `.gp` export; import of
-  voices 2–4, grace notes, alternate endings, directions, lyrics, chord diagrams, whammy, sections
-  beyond text; MusicXML and MIDI import.
-- **Evidence:** FILE-2 partial, FILE-3/4/6 missing; `crates/gp/tests/fixture.rs` covers what is read.
-  No real-world `.gp` corpus yet: the format notes' sample files contain no notes.
-- **Estimate:** 150–250 h (+ a human to collect a licensed corpus of real files).
+- **Landed 2026-10-16:** `.gp5`, `.gp4` and `.gp3` import (`crates/gp/src/legacy.rs`), `.gpx`
+  (Guitar Pro 6) import (`gpx.rs`), `.gp5` export (`write5.rs`, File › Export › Guitar Pro 5…) and
+  chord names. File › Open tells the format by content. Checked against a local corpus of 39 real
+  GP3-5 and 37 real GP6 files (`crates/gp/tests/corpus.rs` with `GUITARIO_GP_CORPUS`): all
+  import, and the GP3-5 ones come back unchanged through the GP5 writer. The corpus is public test
+  data from other projects, used locally and not committed.
+- **Missing:** `.gp` (7/8) export; voices 2–4 from `.gp`/`.gpx` (the GP5 reader keeps two);
+  Guitar Pro 6 drum hits (kit element and variation, no MIDI number in the file); grace notes,
+  trills, tremolo picking, whammy, fingering and lyrics on import (the model lacks them, G4);
+  MusicXML and MIDI import.
+- **Evidence:** FILE-3 partial, FILE-10 done, FILE-4/6 missing.
+- **Estimate:** 60–110 h (+ a human to check `.gp` exports in Guitar Pro).
 
 ### G4. Notation depth
-- **Missing:** ties and slurs between notes, multiple voices, alternate endings and directions,
-  chord names and diagrams, lyrics, tremolo slashes, grace notes, fermatas, mid-system key
-  changes, beaming by the time signature's grouping, sloped beams.
-- **Evidence:** NOTE-3/4 partial, NOTE-5/9/12 missing, EDIT-9/11/16 missing.
+- **Landed 2026-10-16:** chord names (model, `beat.setChord`, Guitar Pro import and export) and
+  beat text drawn above the system.
+- **Missing:** ties and slurs between notes, multiple voices, chord diagrams, lyrics, tremolo
+  slashes, grace notes, fermatas, mid-system key changes, beaming by the time signature's
+  grouping, sloped beams.
+- **Evidence:** NOTE-3/4/12 partial, NOTE-5/9 missing, EDIT-9 missing, EDIT-16 partial.
 - **Estimate:** 150–250 h.
 
 ### G5. Playback realism
@@ -135,3 +143,4 @@ agent can't finish alone.
 | 2026-10-15 | major | First ranked list (G1–G13) |
 | 2026-10-16 | minor | G6: bar, track and technique commands landed (menus 94 → 117) |
 | 2026-10-16 | minor | G5: SFZ sampled instruments for drums, bass and guitars landed (estimate 300–600 h to 250–500 h) |
+| 2026-10-16 | minor | G3: GP3-6 import and `.gp5` export landed, no longer blocks alpha (150–250 h to 60–110 h); G4: chord names |

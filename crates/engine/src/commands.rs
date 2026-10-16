@@ -48,13 +48,15 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .chain(crate::tracks::specs())
         .chain(crate::techniques::specs())
         .chain(crate::tools::specs())
+        .chain(crate::exchange::specs())
+        .chain(crate::chords::specs())
         .collect()
 });
 
 const CORE: [CommandSpec; 54] = [
     cmd("file.new", "New", "File", Some("Cmd+N"), "", false, file_new),
-    cmd("file.open", "Open…", "File", Some("Cmd+O"), "path", false, file_open),
-    cmd("file.importGp", "Import Guitar Pro 7/8…", "File", None, "path", false, import_gp),
+    cmd("file.open", "Open…", "File", Some("Cmd+O"), "path (.gt, or a Guitar Pro .gp/.gpx/.gp5/.gp4/.gp3 to import)", false, file_open),
+    cmd("file.importGp", "Import Guitar Pro…", "File/Import", None, "path (.gp, .gpx, .gp5, .gp4 or .gp3)", false, import_gp),
     cmd("file.save", "Save", "File", Some("Cmd+S"), "path?", false, file_save),
     cmd("file.exportMidi", "Export MIDI…", "File/Export", None, "path", false, export_midi),
     cmd(
@@ -198,13 +200,20 @@ fn file_new(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     ok()
 }
 
+/// Opens a `.gt`, or imports a Guitar Pro file by its extension.
 fn file_open(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
-    let path = PathBuf::from(p::string(params, "path")?);
+    let raw = p::string(params, "path")?;
+    if guitario_gp::is_guitar_pro_path(raw) {
+        return import_gp(s, params);
+    }
+    let path = PathBuf::from(raw);
     let score = guitario_format::open(&path)?;
     s.replace_score(score, Some(path));
     ok()
 }
 
+/// Imports any Guitar Pro version (told by the file's contents). The score stays unsaved, so a
+/// later Save asks for a `.gt` path instead of overwriting the Guitar Pro file.
 fn import_gp(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let import = guitario_gp::import_file(std::path::Path::new(p::string(params, "path")?))?;
     s.replace_score(import.score, None);

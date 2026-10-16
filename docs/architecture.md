@@ -23,7 +23,7 @@ L1  score      the document: Score > Track > Measure > Voice > Beat > Note; vali
 L2  midi       Standard MIDI File export
 L2  playback   tempo map, scheduler, plucked-string synth, WAV
 L3  format     native .gt (versioned JSON, craft-atomic saves)
-L3  gp         Guitar Pro 7/8 .gp import (ZIP + score.gpif)
+L3  gp         Guitar Pro import (.gp, .gpx, .gp5/.gp4/.gp3) and .gp5 export
 L4  audio      sound-card output (cpal): the only platform audio below the shell
 L5  engine     Session (score, cursor, selection, clipboard, undo) and the command registry
 L6  ui-egui    the shell: Guitar Pro layout, page engraving, menus from the GP menu catalog

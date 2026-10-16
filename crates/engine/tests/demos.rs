@@ -1,6 +1,6 @@
 //! The demo suite in `demos/` (regenerate with `cargo run -p guitario-engine --example demos`):
 //! every score must load, validate, export and play, and the suite must keep its metal focus.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)]
 
 use guitario_engine::Session;
 use serde_json::{Value, json};
@@ -48,9 +48,9 @@ fn the_suite_is_complete() {
     ] {
         assert!(names.iter().any(|n| n.contains(want)), "missing a `{want}` demo in {names:?}");
     }
-    // Each score ships with MIDI and ASCII tab copies.
+    // Each score ships with MIDI, ASCII tab and Guitar Pro 5 copies.
     for n in &names {
-        for (sub, ext) in [("midi", "mid"), ("tab", "txt")] {
+        for (sub, ext) in [("midi", "mid"), ("tab", "txt"), ("gp5", "gp5")] {
             let p = demos().join(sub).join(format!("{n}.{ext}"));
             assert!(std::fs::metadata(&p).is_ok_and(|m| m.len() > 0), "{} missing or empty", p.display());
         }
@@ -163,6 +163,36 @@ fn the_guitar_pro_fixture_imports_through_the_engine() {
     s.run("file.save", &json!({"path": tmp.display().to_string()})).unwrap();
     assert_eq!(**open(&tmp).score(), **s.score());
     std::fs::remove_file(tmp).ok();
+}
+
+#[test]
+fn every_guitar_pro_5_copy_opens_as_its_score() {
+    for (name, path) in scores() {
+        let native = open(&path);
+        let mut s = Session::new();
+        let gp5 = demos().join("gp5").join(format!("{name}.gp5"));
+        let r = s.run("file.open", &json!({"path": gp5.display().to_string()})).unwrap_or_else(|e| panic!("{name}.gp5: {e}"));
+        assert_eq!(r["warnings"].as_array().map(Vec::len), Some(0), "{name}.gp5: {r}");
+        // An import is a new, unsaved document: Save must not overwrite the Guitar Pro file.
+        assert!(s.path().is_none() && s.is_dirty(), "{name}");
+        let (a, b) = (native.score(), s.score());
+        assert_eq!((a.headers.len(), a.tracks.len(), a.tempo, &a.meta), (b.headers.len(), b.tracks.len(), b.tempo, &b.meta), "{name}");
+        for (ta, tb) in a.tracks.iter().zip(&b.tracks) {
+            let notes = |t: &guitario_score::Track| {
+                t.measures
+                    .iter()
+                    .flat_map(|m| &m.voices[0].beats)
+                    .map(|b| (b.duration, b.notes.iter().map(|n| (n.string, n.fret, n.kind)).collect::<Vec<_>>()))
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(notes(ta), notes(tb), "{name}: track `{}`", ta.name);
+        }
+    }
+    // The ballad's chord names travel too.
+    let (_, path) = scores().into_iter().find(|(n, _)| n.contains("ashes")).unwrap();
+    let chords: Vec<String> =
+        open(&path).score().tracks[0].measures.iter().filter_map(|m| m.voices[0].beats[0].chord.as_ref()).map(|c| c.name.clone()).collect();
+    assert_eq!(chords.get(..4), Some(&["Am", "F", "C", "G"].map(String::from)[..]));
 }
 
 #[test]

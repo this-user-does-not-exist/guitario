@@ -203,8 +203,7 @@ impl GuitarioApp {
     }
 
     fn open_path_now(&mut self, path: &str) {
-        let id = if path.to_lowercase().ends_with(".gp") { "file.importGp" } else { "file.open" };
-        if self.run(id, json!({"path": path})).is_some() {
+        if self.run("file.open", json!({"path": path})).is_some() {
             self.remember(path);
         }
     }
@@ -234,6 +233,8 @@ impl GuitarioApp {
             U::ExportMidi => self.export_dialog("MIDI", "mid", "file.exportMidi"),
             U::ExportWav => self.export_dialog("WAV audio", "wav", "file.exportWav"),
             U::ExportAscii => self.export_dialog("Text", "txt", "file.exportAscii"),
+            U::ExportGp5 => self.export_dialog("Guitar Pro 5", "gp5", "file.exportGp5"),
+            U::ImportGuitarPro => self.open_dialog(),
             U::Quit => ctx_quit(),
             U::SongInfo => {
                 self.panels.inspector = true;
@@ -400,7 +401,8 @@ impl GuitarioApp {
                 self.follow_cursor = true;
                 self.status.clear();
                 if let Some(w) = v.get("warnings").and_then(Value::as_array).filter(|w| !w.is_empty()) {
-                    self.status = format!("Imported with {} warning(s): {}", w.len(), w.first().and_then(Value::as_str).unwrap_or_default());
+                    let done = if id.starts_with("file.export") { "Exported" } else { "Imported" };
+                    self.status = format!("{done} with {} warning(s): {}", w.len(), w.first().and_then(Value::as_str).unwrap_or_default());
                 }
                 Some(v)
             }
@@ -417,7 +419,10 @@ impl GuitarioApp {
     }
 
     fn open_dialog_now(&mut self) {
-        if let Some(p) = rfd::FileDialog::new().add_filter("Guitar scores", &["gt", "gp"]).pick_file() {
+        let mut kinds = vec!["gt"];
+        kinds.extend(guitario_engine::GUITAR_PRO_EXTENSIONS);
+        let dialog = rfd::FileDialog::new().add_filter("Guitar scores", &kinds).add_filter("Guitar Pro", &guitario_engine::GUITAR_PRO_EXTENSIONS);
+        if let Some(p) = dialog.pick_file() {
             self.open_path_now(&p.display().to_string());
         }
     }
