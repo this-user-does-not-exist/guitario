@@ -823,6 +823,10 @@ impl Parser<'_> {
         if flags & 0x08 != 0 {
             self.note_effects(&mut note)?;
         }
+        // A wide vibrato replaces the plain one: the two flags are never both on in the model.
+        if note.effects.wide_vibrato {
+            note.effects.vibrato = false;
+        }
         let voice = t.last_fret.get_mut(vi.min(1)).and_then(|v| v.get_mut(string));
         let fret = u8::try_from(fret).unwrap_or(0);
         let fret = match kind {

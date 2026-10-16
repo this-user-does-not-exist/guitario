@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: ties, slurs and multiple voices landed; G1: drums' second voice; G3: voices 2-4 from `.gp`) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -20,7 +20,7 @@ agent can't finish alone.
 |---|---|---|---|---:|---|
 | G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
 | G2 | Print and PDF export | file format | blocks alpha | 60–100 h | [file-format-parity](file-format-parity.md) |
-| G3 | Guitar Pro exchange (`.gp` export, import depth) | file format | high | 60–110 h | [file-format-parity](file-format-parity.md) |
+| G3 | Guitar Pro exchange (import depth, MusicXML, MIDI import) | file format | medium-high | 40–80 h | [file-format-parity](file-format-parity.md) |
 | G4 | Notation depth (diagrams, lyrics, grace notes, layouts) | features | high | 90–160 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
 | G6 | Editing depth (bend editor, tuplets, paste special, track tools) | features | medium-high | 80–140 h | [scorecard](scorecard.md#editing) |
@@ -61,11 +61,18 @@ agent can't finish alone.
   GP3-5 and 37 real GP6 files (`crates/gp/tests/corpus.rs` with `GUITARIO_GP_CORPUS`): all
   import, and the GP3-5 ones come back unchanged through the GP5 writer. The corpus is public test
   data from other projects, used locally and not committed.
-- **Missing:** `.gp` (7/8) export; Guitar Pro 6 drum hits (kit element and variation, no MIDI number in the file); grace notes,
+- **Landed 2026-10-16:** `.gp` (Guitar Pro 7/8) export (`writegp.rs`, `file.exportGp`, File ›
+  Export › Guitar Pro 8…): up to four voices, ties, every effect the model carries, repeats,
+  endings, directions, drum kits. Every demo and all 76 corpus files read back unchanged.
+  **Not yet opened in Guitar Pro itself** (no copy here): it follows the structure of the
+  importer's fixture and of real GP6 `score.gpif` files, so a human should open a few exports in
+  Guitar Pro 8 before this is called done. Chord names and track volume/pan are not written (the
+  importer does not read them either).
+- **Missing:** Guitar Pro 6 drum hits (kit element and variation, no MIDI number in the file); grace notes,
   trills, tremolo picking, whammy, fingering and lyrics on import (the model lacks them, G4);
   MusicXML and MIDI import.
-- **Evidence:** FILE-3 partial, FILE-10 done, FILE-4/6 missing.
-- **Estimate:** 60–110 h (+ a human to check `.gp` exports in Guitar Pro).
+- **Evidence:** FILE-3 partial, FILE-4 and FILE-10 done, FILE-6 missing.
+- **Estimate:** 40–80 h (+ a human to check `.gp` exports in Guitar Pro).
 
 ### G4. Notation depth
 - **Landed 2026-10-16:** chord names (model, `beat.setChord`, Guitar Pro import and export) and
@@ -149,3 +156,4 @@ agent can't finish alone.
 | 2026-10-16 | minor | G5: SFZ sampled instruments for drums, bass and guitars landed (estimate 300–600 h to 250–500 h) |
 | 2026-10-16 | minor | G3: GP3-6 import and `.gp5` export landed, no longer blocks alpha (150–250 h to 60–110 h); G4: chord names |
 | 2026-10-16 | minor | G4: ties, slurs and up to four voices landed (150–250 h to 90–160 h); G1: drums' second voice (40–80 h to 30–60 h) |
+| 2026-10-16 | minor | G3: `.gp` (Guitar Pro 7/8) export landed, unverified in Guitar Pro itself (60–110 h to 40–80 h) |

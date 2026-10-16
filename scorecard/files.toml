@@ -24,8 +24,8 @@ note = "crates/gp/src/legacy.rs and gpx.rs: two voices, chords, repeats and endi
 [[item]]
 id = "FILE-4"
 target = "Guitar Pro (.gp) export"
-status = "missing"
-note = "Guitar Pro 5 export exists (FILE-10)"
+status = "done"
+note = "crates/gp/src/writegp.rs, file.exportGp (File › Export › Guitar Pro 8…): every demo and all 76 real corpus files read back unchanged (crates/gp/tests/gp7.rs, corpus.rs); chord names and track volume/pan are left out and reported; not yet opened in Guitar Pro itself (needs a human check)"
 
 [[item]]
 id = "FILE-5"

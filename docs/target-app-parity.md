@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (ties, slurs and four voices: breadth ~45% → ~47%, ready ~22% → ~25%) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (`.gp` export: breadth ~47% → ~48%, ready ~25% → ~26%) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); the ranked work list is [`gaps.md`](gaps.md);
@@ -12,21 +12,21 @@ the measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scoreca
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Guitar Pro feature exist?) | **~47%** | partly measured (menus 125/172), weights below |
-| **Ready for real work** (could a guitarist replace Guitar Pro with it?) | **~25%** (range 20–30%) | estimated, evidence below |
-| **Mainstream user** (writes and learns tab every week) | **~32%** (27–37%) | estimated, [method](#readiness-by-audience) |
+| **Feature breadth** (does each Guitar Pro feature exist?) | **~48%** | partly measured (menus 126/172), weights below |
+| **Ready for real work** (could a guitarist replace Guitar Pro with it?) | **~26%** (range 21–31%) | estimated, evidence below |
+| **Mainstream user** (writes and learns tab every week) | **~34%** (29–39%) | estimated, [method](#readiness-by-audience) |
 | **Essentials user** (enter a riff, hear it, save it) | **~68%** (60–76%) | estimated |
 | **Stage** | **pre-alpha** | the [alpha gate](roadmap.md#alpha-gate) fails: no print or PDF |
 | Remaining to **alpha** | **~70–120 Opus 5.5 agent-hours** | estimated; G2 in [gaps](gaps.md) |
-| Remaining to **beta** (~75% ready) | **~950–1,600 Opus 5.5 agent-hours** | estimated |
-| Remaining to **full parity** (~95–100%) | **~2,000–3,550 Opus 5.5 agent-hours** | estimated; sampled-instrument playback (RSE) dominates |
+| Remaining to **beta** (~75% ready) | **~920–1,550 Opus 5.5 agent-hours** | estimated |
+| Remaining to **full parity** (~95–100%) | **~1,970–3,500 Opus 5.5 agent-hours** | estimated; sampled-instrument playback (RSE) dominates |
 
 ### Readiness by audience
 
 | Audience | Ready % | Opus 5.5 agent-hours to ~95% | Work that dominates |
 |---|---:|---:|---|
-| Full target (ready for real work) | ~25% | 1,950–3,500 | Everything below, plus sampled playback, tools (tuner, chords, scales), PowerTab and TablEdit, distribution |
-| Mainstream user (band arranger, teacher, learner) | ~32% | 950–1,700 | `.gp` export, print/PDF, playback that sounds like an instrument |
+| Full target (ready for real work) | ~26% | 1,920–3,450 | Everything below, plus sampled playback, tools (tuner, chords, scales), PowerTab and TablEdit, distribution |
+| Mainstream user (band arranger, teacher, learner) | ~34% | 920–1,650 | print/PDF, playback that sounds like an instrument |
 | Essentials user | ~68% | 100–220 | PDF export |
 
 Each tier is a subset of the one above. A mainstream Guitar Pro user, by the tabs shared online
@@ -46,18 +46,18 @@ plays back with drums, loops and slows passages, opens files from others (mostly
   shortcut defaults and sound banks.
 - Clean-room: behaviour and look only. No Guitar Pro code, sounds, fonts or stylesheets are used.
 
-## Feature breadth: ~47% (weighted)
+## Feature breadth: ~48% (weighted)
 
 | Component | Weight | Ours / Guitar Pro | % | Kind |
 |---|---:|---|---:|---|
-| Menu commands | 30% | 125 / 172 catalog items live | 73% | measured (`cargo xtask parity`) |
+| Menu commands | 30% | 126 / 172 catalog items live | 73% | measured (`cargo xtask parity`) |
 | Notation and engraving | 15% | page view, notation + tab, drum staff, effects lanes, alternate endings, directions, chord names and text, ties, slurs, up to four voices; no chord diagrams, lyrics, grace notes, layouts | ~50% | estimated ([scorecard](scorecard.md#notation-and-engraving)) |
 | Instruments and track types | 10% | fretted strings in any tuning (4–12 strings, 12 presets) and a GM drum kit; no keys or other instruments | ~50% | estimated |
 | Playback | 15% | physical-model guitar/bass, synthesised drums, transport, loop, speed, metronome, count-in; no samples, effects, mixer, automations | ~35% | estimated ([scorecard](scorecard.md#playback)) |
-| File formats (usage-weighted) | 15% | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` import (checked on 76 real files), `.gp5`/MIDI/WAV/ASCII export; no `.gp`/MusicXML/PDF export, no MIDI/MusicXML/PowerTab import | ~40% | estimated ([file-format-parity](file-format-parity.md)) |
+| File formats (usage-weighted) | 15% | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` import (checked on 76 real files), `.gp`/`.gp5`/MIDI/WAV/ASCII export (`.gp` not yet opened in Guitar Pro itself); no MusicXML/PDF export, no MIDI/MusicXML/PowerTab import | ~45% | estimated ([file-format-parity](file-format-parity.md)) |
 | Tools (tuner, chord engine, scales, line in) | 10% | none | 0% | measured (absent) |
 | Ecosystem and automation | 5% | engine commands, CLI, scripts; no control channel or MCP | ~30% | estimated |
-| **Weighted** | 100% | | **~47%** | |
+| **Weighted** | 100% | | **~48%** | |
 
 ## Ready for real work, by dimension
 
@@ -66,7 +66,7 @@ plays back with drums, loops and slows passages, opens files from others (mostly
 | Editing | 55% | 110–200 | [scorecard › Editing](scorecard.md#editing) |
 | Notation | 45% | 110–220 | chord diagrams, lyrics, grace notes, layouts missing |
 | Playback | 30% | 380–750 | no samples, effects or mixer; synth checked by tests only, not by ear |
-| Files and exchange | 35% | 220–380 | [file-format-parity](file-format-parity.md) |
+| Files and exchange | 45% | 190–340 | [file-format-parity](file-format-parity.md) |
 | UI/UX fidelity | 45% | 200–350 | [ui-parity](ui-parity.md); layout matches GP, depth does not |
 | Tools | 0% | 120–200 | tuner, chords, scales, line in |
 | Stability | 50% | 60–120 | never-crash lints on every crate and a command fuzz test; no field reports yet, no fuzzers on readers, no autosave |
@@ -85,6 +85,7 @@ merged PRs). Re-calibrate after the first 100 PRs here. About 70% of the work pa
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-16 | minor | `.gp` export: menus 126/172, breadth ~48%, ready ~26% |
 | 2026-10-16 | minor | Ties, slurs and four voices: menus 125/172, breadth ~47%, ready ~25%, alpha ~70–120 h |
 | 2026-10-16 | minor | Guitar Pro 3-6 import, `.gp5` export, chord names: menus 121/172, breadth ~45%, ready ~22%, alpha ~130–230 h |
 | 2026-10-16 | minor | Bar/track/technique commands, tuplets, triplet feel: menus 117/172, breadth ~41% |

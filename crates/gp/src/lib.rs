@@ -1,5 +1,5 @@
 //! L3 Guitar Pro exchange: import of `.gp` (Guitar Pro 7/8), `.gpx` (6) and the binary `.gp5`,
-//! `.gp4` and `.gp3`; export to `.gp5`.
+//! `.gp4` and `.gp3`; export to `.gp` and `.gp5`.
 //!
 //! A `.gp` file is a ZIP archive whose `Content/score.gpif` holds the music as ID-referenced XML;
 //! `.gpx` keeps the same XML in its own compressed container ([`gpx`]); Guitar Pro 3-5 files are a
@@ -13,12 +13,14 @@ mod gpif;
 mod gpx;
 mod legacy;
 mod write5;
+mod writegp;
 
 use guitario_score::{Score, ScoreError};
 use std::io::Read;
 
 pub use gpif::parse_gpif;
 pub use write5::{Export, export_gp5};
+pub use writegp::export_gp;
 
 /// Largest `score.gpif` accepted after decompression.
 const MAX_GPIF: u64 = 128 * 1024 * 1024;

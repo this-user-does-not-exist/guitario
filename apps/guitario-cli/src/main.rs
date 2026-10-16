@@ -10,7 +10,7 @@ const USAGE: &str = "guitario-cli <command>
   commands                       list every command id with its parameters (JSON)
   info <file>                    summarise a .gt or Guitar Pro (.gp, .gpx, .gp5, .gp4, .gp3) file
   convert <in> <out> [--sounds <dir>]
-                                 .gt or Guitar Pro in; .gt, .gp5, .mid, .wav or .txt (ASCII tab)
+                                 .gt or Guitar Pro in; .gt, .gp, .gp5, .mid, .wav or .txt (ASCII tab)
                                  out. For .wav, --sounds renders drums, bass and guitars from the SFZ
                                  bank in <dir>
   run <file|-> <script.json>     run [[\"command.id\", {params}], ...] on a score; `-` starts a new one;
@@ -58,10 +58,12 @@ fn real_main(args: &[String]) -> Result<(), String> {
                 "file.exportAscii"
             } else if lower.ends_with(".gp5") {
                 "file.exportGp5"
+            } else if lower.ends_with(".gp") {
+                "file.exportGp"
             } else if lower.ends_with(".gt") {
                 "file.save"
             } else {
-                return Err("output must end in .gt, .gp5, .mid, .wav or .txt".into());
+                return Err("output must end in .gt, .gp, .gp5, .mid, .wav or .txt".into());
             };
             let params = match args.iter().position(|x| x == "--sounds") {
                 Some(pos) => json!({"path": out, "sounds": a(pos + 1)?}),
