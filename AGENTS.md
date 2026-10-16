@@ -27,7 +27,7 @@ crates/
   theory                  L0 standalone: durations, time signatures, tunings, pitch
   score                   L1 the document model (pure data), validation, playback timeline
   midi playback           L2 MIDI export; tempo map, scheduler, plucked-string synth, WAV
-  format gp               L3 native .gt (craft-atomic saves); Guitar Pro 7/8 .gp import
+  format gp               L3 native .gt (craft-atomic saves); Guitar Pro .gp/.gpx/.gp5/.gp4/.gp3 import, .gp5 export
   audio                   L4 sound-card output (cpal)
   engine                  L5 Session + command registry (every action is a command)
   ui-egui                 L6 egui shell in Guitar Pro's layout; menus from the GP menu catalog

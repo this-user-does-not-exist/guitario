@@ -5,7 +5,8 @@ copied from existing songs. Every band piece has a drum part.
 
 Open any `.gt` file with **File → Open** (or `cargo run -p guitario -- demos/01-thrash-attack.gt`),
 put the cursor in a bar and press **Space**. Each score also comes as a Standard MIDI File in
-`midi/` and plain-text tab in `tab/`.
+`midi/`, plain-text tab in `tab/` and a Guitar Pro 5 file in `gp5/` (opens in Guitar Pro and most tab
+software).
 
 | File | Style | Tempo | Tuning | What to look at |
 |---|---|---|---|---|
@@ -19,7 +20,7 @@ put the cursor in a bar and press **Space**. Each score also comes as a Standard
 | `07-iron-gallop` | Classic heavy metal | 168 | Standard | Harmonised twin leads in A minor over a galloping bass |
 | `08-frostbitten-dawn` | Black metal | 190 | Standard | Tremolo-picked melody in F# minor (three sharps), open-fifth tremolo chords |
 | `09-breakdown-protocol` | Metalcore | 140 | Drop B | Syncopated palm-muted chugs, dead notes, slide-out, pinch harmonic |
-| `10-ashes-to-distortion` | Ballad into heavy | 84 → 112 | Standard | A fingerpicked nylon intro that the distorted band joins at bar 5 |
+| `10-ashes-to-distortion` | Ballad into heavy | 84 → 112 | Standard | A fingerpicked nylon intro with chord names that the distorted band joins at bar 5 |
 | `11-fretboard-fury` | Shred solo | 140 | Standard | Bends, legato runs, a shift slide, natural harmonic, triplet pentatonics over a gallop |
 | `12-metal-technique-showcase` | Reference | 120 | Standard | One bar per technique: hammer-ons, slides, bends, harmonics, palm mute, tremolo, dead and ghost notes, ties, triplets |
 | `13-bass-rumble` | Bass study | 180 | Bass | Pick gallops, a climbing line, a fill, with a rock beat |
@@ -36,7 +37,7 @@ The scores are written in a compact tab notation in
 engine's own commands, so they double as an editing test:
 
 ```sh
-cargo run -p guitario-engine --example demos      # rewrites demos/*.gt, midi/ and tab/
+cargo run -p guitario-engine --example demos      # rewrites demos/*.gt, midi/, tab/ and gp5/
 cargo run -p guitario-gp --example fixture        # rewrites guitar-pro/import-test.gp
 cargo test -p guitario-engine --test demos        # checks every demo loads, plays and is metal
 ```

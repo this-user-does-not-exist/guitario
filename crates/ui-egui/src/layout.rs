@@ -20,6 +20,8 @@ pub struct Metrics {
     pub strings: usize,
     /// A drum track: one percussion staff, no tablature.
     pub drums: bool,
+    /// The track has chord names or beat text: a taller lane above each system holds them.
+    pub annotations: bool,
 }
 
 impl Metrics {
@@ -38,7 +40,14 @@ impl Metrics {
             notation,
             strings: strings.max(1),
             drums: false,
+            annotations: false,
         }
+    }
+
+    /// Room for chord names and beat text above every system when `track` has any.
+    pub fn with_annotations(self, track: &Track) -> Metrics {
+        let annotations = track.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).any(|b| b.chord.is_some() || b.text.is_some());
+        Metrics { annotations, ..self }
     }
 
     /// Metrics for a drum track: a five-line percussion staff only.
@@ -56,9 +65,10 @@ impl Metrics {
         self.page_w - 2.0 * self.margin_x - self.indent()
     }
 
-    /// Space above the first staff: tempo, markers, bar numbers.
+    /// Space above the first staff: section markers, chord names and text, directions, tempo,
+    /// bar numbers.
     pub fn lane_above(&self) -> f32 {
-        9.0 * self.space
+        if self.annotations { 11.0 * self.space } else { 9.0 * self.space }
     }
 
     pub fn staff_h(&self) -> f32 {

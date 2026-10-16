@@ -13,3 +13,6 @@ guitario-score = { workspace = true }
 thiserror = { workspace = true }
 roxmltree = "0.21"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+guitario-format = { workspace = true }

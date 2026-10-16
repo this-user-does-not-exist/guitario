@@ -1,5 +1,5 @@
 # Scorecard checklist: editing. An item is done when it has a command, a UI and tests.
-# Statuses must be true on main. Verified 2026-10-15.
+# Statuses must be true on main. Verified 2026-10-16.
 area = "editing"
 title = "Editing"
 order = 1
@@ -96,4 +96,5 @@ note = "track.addDrums, note.setDrum, drum pad and two-digit GM entry (crates/en
 [[item]]
 id = "EDIT-16"
 target = "Grace notes, trills, tremolo picking marks, fingering, lyrics, chord names"
-status = "missing"
+status = "partial"
+note = "chord names and diagrams in the model (beat.setChord, crates/engine/src/chords.rs) and imported from Guitar Pro; grace notes, trills, tremolo picking, fingering and lyrics missing"

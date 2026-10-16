@@ -6,9 +6,11 @@
 
 mod ascii;
 mod bars;
+mod chords;
 mod commands;
 mod drums;
 mod error;
+mod exchange;
 mod params;
 mod selection;
 mod session;
@@ -20,4 +22,7 @@ pub use bars::direction_targets;
 pub use commands::{CommandSpec, registry};
 pub use error::EngineError;
 pub use selection::{Clip, Selection};
+
+/// File extensions `file.open` imports as Guitar Pro.
+pub const GUITAR_PRO_EXTENSIONS: [&str; 5] = guitario_gp::EXTENSIONS;
 pub use session::{Cursor, Session};

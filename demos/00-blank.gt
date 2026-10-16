@@ -20,7 +20,13 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
-        "marker": null
+        "marker": null,
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
       },
       {
         "time_signature": {
@@ -31,7 +37,13 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
-        "marker": null
+        "marker": null,
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
       },
       {
         "time_signature": {
@@ -42,7 +54,13 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
-        "marker": null
+        "marker": null,
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
       },
       {
         "time_signature": {
@@ -53,7 +71,13 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
-        "marker": null
+        "marker": null,
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
       },
       {
         "time_signature": {
@@ -64,7 +88,13 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
-        "marker": null
+        "marker": null,
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
       },
       {
         "time_signature": {
@@ -75,7 +105,13 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
-        "marker": null
+        "marker": null,
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
       },
       {
         "time_signature": {
@@ -86,7 +122,13 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
-        "marker": null
+        "marker": null,
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
       },
       {
         "time_signature": {
@@ -97,7 +139,13 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
-        "marker": null
+        "marker": null,
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
       }
     ],
     "tracks": [
@@ -138,7 +186,12 @@
                     "rest": true,
                     "notes": [],
                     "dynamic": "mf",
-                    "text": null
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null
                   }
                 ]
               }
@@ -160,7 +213,12 @@
                     "rest": true,
                     "notes": [],
                     "dynamic": "mf",
-                    "text": null
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null
                   }
                 ]
               }
@@ -182,7 +240,12 @@
                     "rest": true,
                     "notes": [],
                     "dynamic": "mf",
-                    "text": null
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null
                   }
                 ]
               }
@@ -204,7 +267,12 @@
                     "rest": true,
                     "notes": [],
                     "dynamic": "mf",
-                    "text": null
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null
                   }
                 ]
               }
@@ -226,7 +294,12 @@
                     "rest": true,
                     "notes": [],
                     "dynamic": "mf",
-                    "text": null
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null
                   }
                 ]
               }
@@ -248,7 +321,12 @@
                     "rest": true,
                     "notes": [],
                     "dynamic": "mf",
-                    "text": null
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null
                   }
                 ]
               }
@@ -270,7 +348,12 @@
                     "rest": true,
                     "notes": [],
                     "dynamic": "mf",
-                    "text": null
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null
                   }
                 ]
               }
@@ -292,7 +375,12 @@
                     "rest": true,
                     "notes": [],
                     "dynamic": "mf",
-                    "text": null
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null
                   }
                 ]
               }

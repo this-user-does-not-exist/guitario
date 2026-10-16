@@ -1,4 +1,4 @@
-# Scorecard checklist: notation and engraving. Verified 2026-10-15 by offscreen renders
+# Scorecard checklist: notation and engraving. Verified 2026-10-16 by offscreen renders
 # (cargo run -p guitario-ui-egui --example snapshot).
 area = "notation"
 title = "Notation and engraving"
@@ -68,4 +68,5 @@ note = "percussion clef, kit-map staff positions, cross noteheads for cymbals (t
 [[item]]
 id = "NOTE-12"
 target = "Chord diagrams and chord names above the staff"
-status = "missing"
+status = "partial"
+note = "chord names and beat text drawn above the system in a lane that grows when a track has them (page.rs, layout.rs); diagrams not drawn yet"

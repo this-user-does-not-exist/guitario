@@ -1,11 +1,8 @@
-use crate::{GpError, Import};
+use crate::{GpError, Import, MAX_MEASURES, MAX_TRACKS};
 use guitario_score::*;
 use guitario_theory::{Duration, NoteValue, TimeSignature, Tuning};
 use roxmltree::{Document, Node};
 use std::collections::HashMap;
-
-const MAX_MEASURES: usize = 20_000;
-const MAX_TRACKS: usize = 15;
 
 type Table<'a> = HashMap<u32, Node<'a, 'a>>;
 
@@ -112,23 +109,31 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
         let my_staff = staff_offset;
         staff_offset += staves.len().max(1);
         let name = text(*tn, "Name").unwrap_or("Track").to_string();
-        let is_drums = child(*tn, "InstrumentSet").and_then(|i| text(i, "Type")) == Some("drumKit");
+        // Guitar Pro 7 names a drum kit's instrument set; Guitar Pro 6 plays it on the percussion table.
+        let is_drums = child(*tn, "InstrumentSet").and_then(|i| text(i, "Type")) == Some("drumKit")
+            || child(*tn, "GeneralMidi").and_then(|g| g.attribute("table")) == Some("Percussion");
         if score.tracks.len() >= MAX_TRACKS {
             warnings.push(format!("track `{name}` skipped: at most {MAX_TRACKS} tracks are supported"));
             continue;
         }
-        let Some(staff) = staves.first() else {
-            warnings.push(format!("track `{name}` has no staff and was skipped"));
+        // Guitar Pro 6 has no staves: tuning and capo sit on the track itself.
+        let staff = staves.first().copied().unwrap_or(*tn);
+        if !is_drums && property(staff, "Tuning").is_none() {
+            warnings.push(format!("track `{name}` is not a fretted instrument and was skipped"));
             continue;
-        };
+        }
         let kit = is_drums.then(|| articulations(*tn));
-        match build_track(*tn, *staff, my_staff, &name, kit.as_deref(), &masters, &score.headers, (&bars, &voices, &beats, &notes, &rhythms), &mut warnings) {
+        match build_track(*tn, staff, my_staff, &name, kit.as_deref(), &masters, &score.headers, (&bars, &voices, &beats, &notes, &rhythms), &mut warnings) {
             Some(t) => score.tracks.push(t),
             None => warnings.push(format!("track {} (`{name}`) could not be read and was skipped", ti + 1)),
         }
     }
     if score.tracks.is_empty() {
         return Err(GpError::Damaged("no readable tracks".into()));
+    }
+    let gp6_drums = notes.values().filter(|n| property(**n, "Element").is_some() && property(**n, "Midi").is_none()).count();
+    if gp6_drums > 0 {
+        warnings.push(format!("Guitar Pro 6 drum hits (kit element and variation) are not supported yet and were dropped ({gp6_drums})"));
     }
     score.validate()?;
     Ok(Import { score, warnings })
@@ -282,13 +287,17 @@ fn build_track(
         .map(|s| s.split_whitespace().filter_map(|v| v.parse::<u8>().ok()).collect())
         .unwrap_or_default();
     pitches.reverse();
-    let tuning_name = text(child(staff, "Properties")?, "Name").unwrap_or("Custom").to_string();
+    let preset = || Tuning::presets().into_iter().find(|t| t.strings == pitches).map_or_else(|| "Custom".to_string(), |t| t.name);
+    let tuning_name = child(staff, "Properties").and_then(|p| text(p, "Name")).filter(|n| !n.is_empty()).map_or_else(preset, str::to_string);
     let tuning = Tuning::new(tuning_name, pitches).ok()?;
     let mut track = Track::new(name, tuning, headers);
     track.capo = prop_num::<u8>(staff, "CapoFret").unwrap_or(0).min(24);
-    if let Some(p) =
-        child(tn, "Sounds").and_then(|s| child(s, "Sound")).and_then(|s| child(s, "MIDI")).and_then(|m| text(m, "Program")).and_then(|v| v.parse::<u8>().ok())
-    {
+    let program = child(tn, "Sounds")
+        .and_then(|s| child(s, "Sound"))
+        .and_then(|s| child(s, "MIDI"))
+        .and_then(|m| text(m, "Program"))
+        .or_else(|| child(tn, "GeneralMidi").and_then(|g| text(g, "Program")));
+    if let Some(p) = program.and_then(|v| v.parse::<u8>().ok()) {
         track.program = p.min(127);
     }
     match text(tn, "PlaybackState") {
@@ -461,7 +470,8 @@ fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
             f if f & 32 != 0 => Some(Slide::IntoFromAbove),
             _ => None,
         };
-        if prop_on(nn, "Harmonic") {
+        // Guitar Pro 6 marks a harmonic by its type alone.
+        if prop_on(nn, "Harmonic") || property(nn, "HarmonicType").is_some() {
             e.harmonic = match prop_value(nn, "HarmonicType") {
                 Some("Natural") => Some(Harmonic::Natural),
                 Some("Artificial") => Some(Harmonic::Artificial),
@@ -578,6 +588,7 @@ mod tests {
 
     #[test]
     fn bad_container() {
-        assert!(matches!(crate::import(b"nope"), Err(GpError::NotZip)));
+        assert!(matches!(crate::import(b"nope"), Err(GpError::NotGuitarPro)));
+        assert!(matches!(crate::import(b"PK nope"), Err(GpError::NotGuitarPro)));
     }
 }

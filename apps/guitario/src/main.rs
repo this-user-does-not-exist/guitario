@@ -5,11 +5,10 @@ use serde_json::json;
 fn main() -> eframe::Result {
     let mut session = Session::new();
     let mut startup_error = None;
-    if let Some(path) = std::env::args().nth(1) {
-        let id = if path.to_lowercase().ends_with(".gp") { "file.importGp" } else { "file.open" };
-        if let Err(e) = session.run(id, &json!({"path": path})) {
-            startup_error = Some(e.to_string());
-        }
+    if let Some(path) = std::env::args().nth(1)
+        && let Err(e) = session.run("file.open", &json!({"path": path}))
+    {
+        startup_error = Some(e.to_string());
     }
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([1440.0, 900.0]).with_min_inner_size([900.0, 600.0]).with_title("Guitario"),

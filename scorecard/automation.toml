@@ -10,7 +10,7 @@ status = "done"
 
 [[item]]
 id = "AUTO-2"
-target = "Headless CLI: commands, info, convert (.gp/.gt to .gt/.mid/.wav/.txt), run scripts"
+target = "Headless CLI: commands, info, convert (any Guitar Pro file or .gt to .gt/.gp5/.mid/.wav/.txt), run scripts"
 status = "done"
 
 [[item]]
