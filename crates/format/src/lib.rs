@@ -1,10 +1,15 @@
-//! L3 the native `.gt` file: versioned JSON, validated on load, written atomically.
+//! L3 the native `.gt` file: versioned JSON, validated on load, written atomically. Files saved
+//! before the app was renamed from Guitario (`.gt`, format tag `guitario`) still load.
 
 use guitario_score::{Score, ScoreError};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub const FORMAT: &str = "guitario";
+/// The format tag files carried before the rename; read, never written.
+pub const LEGACY_FORMAT: &str = "guitario";
+/// Native file extensions: `.gt`, and `.gt` from before the rename.
+pub const EXTENSIONS: [&str; 2] = ["gt", "gt"];
 pub const VERSION: u32 = 1;
 /// Refuse absurd inputs before parsing.
 const MAX_BYTES: usize = 256 * 1024 * 1024;
@@ -50,7 +55,7 @@ pub fn from_bytes(bytes: &[u8]) -> Result<Score, FormatError> {
         return Err(FormatError::TooLarge);
     }
     let file: FileIn = serde_json::from_slice(bytes)?;
-    if file.format != FORMAT {
+    if file.format != FORMAT && file.format != LEGACY_FORMAT {
         return Err(FormatError::NotGuitario);
     }
     if file.version > VERSION {
@@ -95,6 +100,16 @@ mod tests {
         let mut s = Score::new();
         s.meta.title = "Test".into();
         assert_eq!(from_bytes(&to_bytes(&s).unwrap()).unwrap(), s);
+    }
+
+    #[test]
+    fn files_from_before_the_rename_still_load() {
+        let mut s = Score::new();
+        s.meta.title = "Old".into();
+        let mut v: serde_json::Value = serde_json::from_slice(&to_bytes(&s).unwrap()).unwrap();
+        assert_eq!(v["format"], "guitario");
+        v["format"] = LEGACY_FORMAT.into();
+        assert_eq!(from_bytes(v.to_string().as_bytes()).unwrap(), s);
     }
 
     #[test]

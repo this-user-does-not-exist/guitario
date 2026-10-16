@@ -3,7 +3,8 @@
 <p align="center">
   <b>Tablature, notation and playback; an open-source, clean-room take on Guitar Pro, rebuilt in pure Rust.</b><br>
   Tab and standard notation on real pages, Guitar Pro's keys and palette, playback with loops and<br>
-  slow-down, and Guitar Pro files, in a native app written entirely in Rust. Open source, offline, and yours.
+  slow-down, and Guitar Pro files, in a native app written entirely in Rust. Open source, offline, and yours.<br>
+  <sub>Formerly Guitario: <code>.gt</code> files still open.</sub>
 </p>
 
 <p align="center">

@@ -139,9 +139,9 @@ impl GuitarioApp {
     }
 
     /// Opens persistent preferences the suite's way: `config.toml` in the platform folder, or
-    /// `GUITARIO_CONFIG_DIR`.
+    /// `GUITARIO_CONFIG_DIR`. The first run after the rename imports Guitario's preferences.
     pub fn open_settings() -> (prefs::Store, craft_settings::LoadReport) {
-        prefs::Store::open(craft_settings::Location::Auto)
+        prefs::Store::open_with(craft_settings::OpenOptions::new(craft_settings::Location::Auto).legacy(prefs::legacy_files()))
     }
 
     /// Writes the current UI state into the settings store; it saves shortly after a change.
@@ -419,7 +419,7 @@ impl GuitarioApp {
     }
 
     fn open_dialog_now(&mut self) {
-        let mut kinds = vec!["gt"];
+        let mut kinds = guitario_engine::NATIVE_EXTENSIONS.to_vec();
         kinds.extend(guitario_engine::GUITAR_PRO_EXTENSIONS);
         let dialog = rfd::FileDialog::new().add_filter("Guitar scores", &kinds).add_filter("Guitar Pro", &guitario_engine::GUITAR_PRO_EXTENSIONS);
         if let Some(p) = dialog.pick_file() {

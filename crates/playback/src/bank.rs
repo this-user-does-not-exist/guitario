@@ -71,6 +71,18 @@ impl std::fmt::Debug for SoundBank {
     }
 }
 
+/// The per-user `sounds` folder of an app called `name` (`folder` on Linux).
+fn data_dir(name: &str, folder: &str) -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    if cfg!(target_os = "macos") {
+        home.map(|h| h.join("Library/Application Support").join(name).join("sounds"))
+    } else if cfg!(target_os = "windows") {
+        std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join(name).join("sounds"))
+    } else {
+        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).or_else(|| home.map(|h| h.join(".local/share"))).map(|d| d.join(folder).join("sounds"))
+    }
+}
+
 impl SoundBank {
     /// Reads `<dir>/bank.json`. Unknown roles and missing files are skipped (reported by [`apply`]).
     pub fn open(dir: &Path) -> Result<SoundBank, String> {
@@ -81,19 +93,20 @@ impl SoundBank {
         Ok(SoundBank { dir: dir.to_path_buf(), entries, cache: std::sync::Mutex::default() })
     }
 
-    /// Where banks live by default: `$GUITARIO_SOUNDS`, else the per-user data folder.
+    /// Where banks live by default: `$GUITARIO_SOUNDS`, else the per-user data folder. A bank
+    /// installed before the app was renamed from Guitario is used where it is until Guitario has
+    /// its own.
     pub fn default_dir() -> Option<PathBuf> {
         if let Some(d) = std::env::var_os("GUITARIO_SOUNDS").filter(|d| !d.is_empty()) {
             return Some(PathBuf::from(d));
         }
-        let home = std::env::var_os("HOME").map(PathBuf::from);
-        if cfg!(target_os = "macos") {
-            home.map(|h| h.join("Library/Application Support/Guitario/sounds"))
-        } else if cfg!(target_os = "windows") {
-            std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("Guitario").join("sounds"))
-        } else {
-            std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).or_else(|| home.map(|h| h.join(".local/share"))).map(|d| d.join("guitario/sounds"))
+        let dir = data_dir("Guitario", "guitario")?;
+        if !dir.exists()
+            && let Some(old) = data_dir("Guitario", "guitario").filter(|d| d.exists())
+        {
+            return Some(old);
         }
+        Some(dir)
     }
 
     /// The bank at [`default_dir`](Self::default_dir), if one is installed.

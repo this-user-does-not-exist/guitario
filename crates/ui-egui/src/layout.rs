@@ -148,8 +148,10 @@ pub struct PageBox {
 }
 
 fn beat_natural(b: &Beat, space: f32) -> f32 {
+    // Width grows with the log of the length, from 2.7 spaces for a sixteenth.
+    let sixteenth = (guitario_theory::TICKS_PER_QUARTER / 4) as f32;
     let ticks = b.duration.ticks().max(1) as f32;
-    let mut w = space * (2.7 + 1.15 * (ticks / 240.0).log2()).max(1.9);
+    let mut w = space * (2.7 + 1.15 * (ticks / sixteenth).log2()).max(1.9);
     if b.notes.iter().any(|n| n.fret >= 10) {
         w += 0.5 * space;
     }
@@ -326,6 +328,26 @@ mod tests {
         assert!(d.system_h() < g.system_h() * 0.7, "{} vs {}", d.system_h(), g.system_h());
         let pages = layout(&score(40), 0, &d);
         assert!(pages.iter().flat_map(|p| &p.systems).all(|s| s.y + d.system_h() <= d.page_h));
+    }
+
+    #[test]
+    fn a_bar_of_eighths_leaves_room_for_more_bars() {
+        // Spacing is relative to the tick resolution: a sixteenth is 2.7 spaces whatever
+        // TICKS_PER_QUARTER is, and four bars of straight eighths share one A4 system.
+        let m = Metrics::new(1.0, true, 6);
+        let sixteenth = Beat {
+            rest: false,
+            notes: vec![guitario_score::Note::new(0, 0)],
+            ..Beat::rest(guitario_theory::Duration::new(guitario_theory::NoteValue::Sixteenth))
+        };
+        assert!((beat_natural(&sixteenth, m.space) - 2.7 * m.space).abs() < 0.01);
+        let mut s = score(8);
+        let eighth = Beat { rest: false, notes: vec![guitario_score::Note::new(0, 5)], ..Beat::rest(guitario_theory::Duration::EIGHTH) };
+        for m in &mut s.tracks[0].measures {
+            m.voices[0].beats = vec![eighth.clone(); 8];
+        }
+        let pages = layout(&s, 0, &m);
+        assert!(pages[0].systems[0].measures.len() >= 3, "{} bars on the first system", pages[0].systems[0].measures.len());
     }
 
     #[test]

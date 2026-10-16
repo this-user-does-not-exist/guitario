@@ -25,4 +25,6 @@ pub use selection::{Clip, Selection};
 
 /// File extensions `file.open` imports as Guitar Pro.
 pub const GUITAR_PRO_EXTENSIONS: [&str; 5] = guitario_gp::EXTENSIONS;
+/// Native file extensions: `.gt`, and `.gt` from before the rename.
+pub const NATIVE_EXTENSIONS: [&str; 2] = guitario_format::EXTENSIONS;
 pub use session::{Cursor, Session};

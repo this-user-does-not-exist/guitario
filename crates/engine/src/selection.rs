@@ -307,9 +307,8 @@ mod tests {
 
     #[test]
     fn paste_overwrites_and_pads() {
-        let mut v = Voice {
-            beats: vec![Beat::rest(Duration::new(guitario_theory::NoteValue::Half)), Beat::rest(Duration::new(guitario_theory::NoteValue::Half))],
-        };
+        let mut v =
+            Voice { beats: vec![Beat::rest(Duration::new(guitario_theory::NoteValue::Half)), Beat::rest(Duration::new(guitario_theory::NoteValue::Half))] };
         let q = guitario_theory::TICKS_PER_QUARTER;
         paste_into(&mut v, 0, &[beat(3, Duration::QUARTER)], 4 * q).unwrap();
         // A quarter replaced the first half; a quarter rest fills the gap.

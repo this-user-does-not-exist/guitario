@@ -133,13 +133,10 @@ fn every_demo_survives_guitar_pro_5() {
 
 fn riff() -> Score {
     let mut s = Score::new();
-    s.meta = Meta {
-        title: "Ünïcode – riff".into(),
-        artist: "Guitario".into(),
-        album: "Tests".into(),
-        author: "Tabber".into(),
-        notes: "line one\nline two".into(),
-    };
+    s.meta =
+        Meta {
+            title: "Ünïcode – riff".into(), artist: "Guitario".into(), album: "Tests".into(), author: "Tabber".into(), notes: "line one\nline two".into()
+        };
     s.tempo = 152;
     let e = Duration::EIGHTH;
     let mut h = MeasureHeader::new(TimeSignature::COMMON);
