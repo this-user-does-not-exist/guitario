@@ -40,8 +40,16 @@ pub fn registry() -> &'static [CommandSpec] {
     &REGISTRY
 }
 
-static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> =
-    std::sync::LazyLock::new(|| CORE.into_iter().chain(crate::selection::specs()).chain(crate::drums::specs()).collect());
+static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::new(|| {
+    CORE.into_iter()
+        .chain(crate::selection::specs())
+        .chain(crate::drums::specs())
+        .chain(crate::bars::specs())
+        .chain(crate::tracks::specs())
+        .chain(crate::techniques::specs())
+        .chain(crate::tools::specs())
+        .collect()
+});
 
 const CORE: [CommandSpec; 54] = [
     cmd("file.new", "New", "File", Some("Cmd+N"), "", false, file_new),
@@ -75,7 +83,15 @@ const CORE: [CommandSpec; 54] = [
     cmd("note.setFret", "Set Fret", "Note", None, "fret (0..=36)", true, set_fret),
     cmd("note.clear", "Delete Note", "Note", Some("Backspace"), "", true, clear_note),
     cmd("note.setKind", "Note Type", "Note", None, "kind: normal|dead|tie", true, set_kind),
-    cmd("note.toggleEffect", "Toggle Effect", "Note/Effects", None, "effect: hammer|vibrato|palmMute|letRing|ghost|accent|staccato", true, toggle_effect),
+    cmd(
+        "note.toggleEffect",
+        "Toggle Effect",
+        "Note/Effects",
+        None,
+        "effect: hammer|vibrato|wideVibrato|palmMute|letRing|ghost|accent|heavyAccent|staccato|tapping|leftHandTapping",
+        true,
+        toggle_effect,
+    ),
     cmd("note.setBend", "Bend", "Note/Effects", None, "quarterTones (0 clears, max 12)", true, set_bend),
     cmd("note.setSlide", "Slide", "Note/Effects", None, "slide: shift|legato|intoFromBelow|intoFromAbove|outDown|outUp|none", true, set_slide),
     cmd("note.setHarmonic", "Harmonic", "Note/Effects", None, "harmonic: natural|artificial|pinch|tapped|semi|none", true, set_harmonic),
@@ -160,7 +176,7 @@ impl Session {
         Arc::make_mut(&mut self.score).tracks.get_mut(i).ok_or_else(|| EngineError::invalid("no such track"))
     }
 
-    fn header_mut(&mut self) -> Result<&mut MeasureHeader, EngineError> {
+    pub(crate) fn header_mut(&mut self) -> Result<&mut MeasureHeader, EngineError> {
         let i = self.cursor.measure;
         Arc::make_mut(&mut self.score).headers.get_mut(i).ok_or_else(|| EngineError::invalid("no such measure"))
     }
@@ -341,6 +357,10 @@ fn effect_flag<'a>(n: &'a mut Note, name: &str) -> Option<&'a mut bool> {
         "ghost" => &mut n.effects.ghost,
         "accent" => &mut n.effects.accent,
         "staccato" => &mut n.effects.staccato,
+        "heavyAccent" => &mut n.effects.heavy_accent,
+        "wideVibrato" => &mut n.effects.wide_vibrato,
+        "tapping" => &mut n.effects.tapped,
+        "leftHandTapping" => &mut n.effects.left_hand_tapped,
         _ => return None,
     })
 }
@@ -522,7 +542,7 @@ fn measure_insert(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     let at = s.cursor.measure;
     let score = Arc::make_mut(&mut s.score);
     let template = score.headers.get(at).cloned().ok_or_else(|| EngineError::invalid("no such measure"))?;
-    let fresh = MeasureHeader { tempo: None, repeat_open: false, repeat_close: 0, marker: None, ..template };
+    let fresh = MeasureHeader { tempo: None, repeat_open: false, repeat_close: 0, marker: None, double_bar: false, ..template };
     for t in &mut score.tracks {
         t.measures.insert(at, Measure::empty_for(&fresh));
     }

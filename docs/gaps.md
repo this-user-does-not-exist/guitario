@@ -81,8 +81,11 @@ agent can't finish alone.
   (**human**).
 
 ### G6. Editing depth
-- **Missing:** bend-curve editor (pre-bend, release, multi-point), wide vibrato, tuplets other than
-  triplets, Paste Special, duplicate/reorder/transpose tracks, clear bar.
+- **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double
+  bars, free time, triplet feel (played), duplicate and reorder tracks, wide vibrato, heavy accent,
+  tapping, slap/pop, pick strokes, fade in/out and swell, brush, arpeggio and rasgueado (played).
+- **Missing:** bend-curve editor (pre-bend, release, multi-point), nested tuplets, Paste Special,
+  transpose track, alternate endings and directions.
 - **Evidence:** EDIT-3/5/8/13 in the scorecard.
 - **Estimate:** 80–140 h.
 
@@ -128,4 +131,5 @@ agent can't finish alone.
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-15 | major | First ranked list (G1–G13) |
+| 2026-10-16 | minor | G6: bar, track and technique commands landed (menus 94 → 117) |
 | 2026-10-16 | minor | G5: SFZ sampled instruments for drums, bass and guitars landed (estimate 300–600 h to 250–500 h) |

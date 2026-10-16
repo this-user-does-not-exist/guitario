@@ -95,6 +95,50 @@ fn entry(app: &mut GuitarioApp, ui: &mut egui::Ui, item: &MenuItem) {
                 }
             });
         }
+        Action::Ui(UiAction::TripletFeel) => {
+            ui.menu_button(item.label, |ui| {
+                for (label, feel) in [
+                    ("None", "none"),
+                    ("Triplet 8th", "triplet8th"),
+                    ("Triplet 16th", "triplet16th"),
+                    ("Dotted 8th", "dotted8th"),
+                    ("Dotted 16th", "dotted16th"),
+                    ("Scottish 8th", "scottish8th"),
+                    ("Scottish 16th", "scottish16th"),
+                ] {
+                    if ui.button(label).clicked() {
+                        app.run("measure.setTripletFeel", json!({"feel": feel}));
+                        ui.close();
+                    }
+                }
+            });
+        }
+        Action::Ui(UiAction::Tuplet) => {
+            ui.menu_button(item.label, |ui| {
+                for (n, m) in [(1, 1), (3, 2), (5, 4), (6, 4), (7, 4), (9, 8), (10, 8)] {
+                    let label = if n == 1 { "None".to_string() } else { format!("{n}:{m}") };
+                    if ui.button(label).clicked() {
+                        app.run("beat.setTuplet", json!({"enters": n, "times": m}));
+                        ui.close();
+                    }
+                }
+            });
+        }
+        Action::Ui(UiAction::Brush(kind)) => {
+            ui.menu_button(item.label, |ui| {
+                for (label, dir) in [("Down (low to high strings)", "down"), ("Up (high to low strings)", "up")] {
+                    if ui.button(label).clicked() {
+                        app.run("beat.setBrush", json!({"kind": kind, "direction": dir}));
+                        ui.close();
+                    }
+                }
+                ui.separator();
+                if ui.button("None").clicked() {
+                    app.run("beat.setBrush", json!({"kind": "none"}));
+                    ui.close();
+                }
+            });
+        }
         Action::Missing => {
             ui.add_enabled(false, egui::Button::new(item.label)).on_disabled_hover_text("Not in Guitario yet (see docs/parity-checklist.md)");
         }

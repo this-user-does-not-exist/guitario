@@ -37,11 +37,78 @@ pub struct MeasureHeader {
     pub repeat_close: u8,
     #[serde(default)]
     pub marker: Option<String>,
+    /// A double bar line closes this measure.
+    #[serde(default)]
+    pub double_bar: bool,
+    /// Free time: no time signature is shown and the metronome is silent.
+    #[serde(default)]
+    pub free_time: bool,
+    #[serde(default)]
+    pub triplet_feel: TripletFeel,
+}
+
+/// Guitar Pro's triplet feels: how pairs of eighths or sixteenths are played.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TripletFeel {
+    #[default]
+    None,
+    /// Pairs of eighths swing as a quarter-eighth triplet.
+    Triplet8th,
+    Triplet16th,
+    /// Pairs played dotted eighth + sixteenth.
+    Dotted8th,
+    Dotted16th,
+    /// Scotch snap: the short note first.
+    Scottish8th,
+    Scottish16th,
+}
+
+const EIGHTH: u32 = guitario_theory::TICKS_PER_QUARTER / 2;
+
+impl TripletFeel {
+    /// `(pair length in ticks, where the second note of a pair starts as a fraction of the pair)`.
+    pub fn swing(self) -> Option<(u32, f64)> {
+        let (unit, split) = match self {
+            TripletFeel::None => return None,
+            TripletFeel::Triplet8th => (EIGHTH, 2.0 / 3.0),
+            TripletFeel::Triplet16th => (EIGHTH / 2, 2.0 / 3.0),
+            TripletFeel::Dotted8th => (EIGHTH, 0.75),
+            TripletFeel::Dotted16th => (EIGHTH / 2, 0.75),
+            TripletFeel::Scottish8th => (EIGHTH, 0.25),
+            TripletFeel::Scottish16th => (EIGHTH / 2, 0.25),
+        };
+        Some((unit * 2, split))
+    }
+
+    /// Moves a tick offset within a measure according to the feel.
+    pub fn warp(self, tick: u64) -> u64 {
+        let Some((pair, split)) = self.swing() else { return tick };
+        if pair == 0 {
+            return tick;
+        }
+        let pair = u64::from(pair);
+        let (base, x) = (tick - tick % pair, (tick % pair) as f64);
+        let half = pair as f64 / 2.0;
+        let target = split * pair as f64;
+        let y = if x < half { x * target / half } else { target + (x - half) * (pair as f64 - target) / half };
+        base + y.round() as u64
+    }
 }
 
 impl MeasureHeader {
     pub fn new(time_signature: TimeSignature) -> MeasureHeader {
-        MeasureHeader { time_signature, key: 0, tempo: None, repeat_open: false, repeat_close: 0, marker: None }
+        MeasureHeader {
+            time_signature,
+            key: 0,
+            tempo: None,
+            repeat_open: false,
+            repeat_close: 0,
+            marker: None,
+            double_bar: false,
+            free_time: false,
+            triplet_feel: TripletFeel::None,
+        }
     }
 
     pub fn capacity(&self) -> u32 {
@@ -196,11 +263,63 @@ pub struct Beat {
     pub dynamic: Dynamic,
     #[serde(default)]
     pub text: Option<String>,
+    /// Pick stroke direction (Effects › Pick Stroke Up / Down).
+    #[serde(default)]
+    pub stroke: Option<StrokeDirection>,
+    /// Slap or pop on a bass beat.
+    #[serde(default)]
+    pub technique: Option<BeatTechnique>,
+    /// Fade in or volume swell over the beat.
+    #[serde(default)]
+    pub fade: Option<Fade>,
+    /// Brush (strum) or arpeggio across the strings of this beat.
+    #[serde(default)]
+    pub brush: Option<Brush>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StrokeDirection {
+    Up,
+    Down,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BeatTechnique {
+    Slap,
+    Pop,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Fade {
+    In,
+    Out,
+    Swell,
+}
+
+/// A strum or arpeggio: the strings sound one after another instead of together.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Brush {
+    pub kind: BrushKind,
+    /// `true` strums from the lowest string up (a downstroke on a guitar).
+    pub down: bool,
+    /// Time from the first string to the last, in ticks (`TICKS_PER_QUARTER` per quarter).
+    pub ticks: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BrushKind {
+    Brush,
+    Arpeggio,
+    Rasgueado,
 }
 
 impl Beat {
     pub fn rest(duration: Duration) -> Beat {
-        Beat { duration, rest: true, notes: Vec::new(), dynamic: Dynamic::default(), text: None }
+        Beat { duration, rest: true, notes: Vec::new(), dynamic: Dynamic::default(), text: None, stroke: None, technique: None, fade: None, brush: None }
     }
 
     pub fn note_on(&self, string: u8) -> Option<&Note> {
@@ -264,6 +383,15 @@ pub struct NoteEffects {
     pub accent: bool,
     #[serde(default)]
     pub staccato: bool,
+    #[serde(default)]
+    pub heavy_accent: bool,
+    #[serde(default)]
+    pub wide_vibrato: bool,
+    /// Right-hand tapping.
+    #[serde(default)]
+    pub tapped: bool,
+    #[serde(default)]
+    pub left_hand_tapped: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

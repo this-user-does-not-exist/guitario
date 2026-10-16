@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha, ~220–420 h away (Guitar Pro exchange, print/PDF, ties and voices)
 
-> **Last reviewed:** 2026-10-15 · **Last updated:** 2026-10-15 · **Change:** minor (drums landed; headline numbers updated) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (menus 94 → 117: bar, track and technique commands, tuplets, triplet feel) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [target-app parity](docs/target-app-parity.md) (methodology, weights, evidence), [gaps](docs/gaps.md)
@@ -19,7 +19,7 @@ work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~37%** | partly measured: menus 94/172, [scorecard](docs/scorecard.md) |
+| **Feature breadth** | **~41%** | partly measured: menus 117/172, [scorecard](docs/scorecard.md) |
 | **Ready for real work** | **~20%** (15–25%) | estimated: weighted by dimension below |
 | Mainstream user | ~25% (20–30%) | estimated |
 | Essentials user | ~60% (50–70%) | estimated |

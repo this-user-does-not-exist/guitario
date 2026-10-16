@@ -56,7 +56,7 @@ fn measure_and_track_editing() {
     assert_eq!(s.score().tracks[1].measures.len(), 2);
     run(&mut s, "cursor.set", json!({"track": 0, "measure": 1}));
     run(&mut s, "measure.setTimeSignature", json!({"numerator": 3, "denominator": 4}));
-    assert_eq!(s.score().headers[1].capacity(), 2880);
+    assert_eq!(s.score().headers[1].capacity(), 3 * guitario_theory::TICKS_PER_QUARTER);
     run(&mut s, "measure.delete", Value::Null);
     assert_eq!(s.score().headers.len(), 1);
     assert!(s.score().validate().is_ok());
@@ -138,10 +138,10 @@ fn guitar_pro_style_toggles() {
     let mut s = Session::new();
     run(&mut s, "beat.setDuration", json!({"value": 4}));
     run(&mut s, "beat.toggleDot", Value::Null);
-    assert_eq!(s.score().tracks[0].measures[0].voices[0].beats[0].duration.ticks(), 1440);
+    assert_eq!(s.score().tracks[0].measures[0].voices[0].beats[0].duration.ticks(), guitario_theory::TICKS_PER_QUARTER * 3 / 2);
     run(&mut s, "beat.shorten", Value::Null);
     run(&mut s, "beat.toggleTriplet", Value::Null);
-    assert_eq!(s.score().tracks[0].measures[0].voices[0].beats[0].duration.ticks(), 480);
+    assert_eq!(s.score().tracks[0].measures[0].voices[0].beats[0].duration.ticks(), guitario_theory::TICKS_PER_QUARTER / 2);
     run(&mut s, "note.setFret", json!({"fret": 5}));
     run(&mut s, "note.toggleDead", Value::Null);
     run(&mut s, "note.toggleTie", Value::Null);

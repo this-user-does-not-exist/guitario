@@ -310,10 +310,11 @@ mod tests {
         let mut v = Voice {
             beats: vec![Beat::rest(Duration::new(guitario_theory::NoteValue::Half)), Beat::rest(Duration::new(guitario_theory::NoteValue::Half))],
         };
-        paste_into(&mut v, 0, &[beat(3, Duration::QUARTER)], 3840).unwrap();
+        let q = guitario_theory::TICKS_PER_QUARTER;
+        paste_into(&mut v, 0, &[beat(3, Duration::QUARTER)], 4 * q).unwrap();
         // A quarter replaced the first half; a quarter rest fills the gap.
-        assert_eq!(v.beats.iter().map(|b| b.duration.ticks()).collect::<Vec<_>>(), vec![960, 960, 1920]);
-        assert_eq!(v.ticks(), 3840);
-        assert!(paste_into(&mut v, 2, &[beat(1, Duration::WHOLE)], 3840).is_err());
+        assert_eq!(v.beats.iter().map(|b| b.duration.ticks()).collect::<Vec<_>>(), vec![q, q, 2 * q]);
+        assert_eq!(v.ticks(), 4 * q);
+        assert!(paste_into(&mut v, 2, &[beat(1, Duration::WHOLE)], 4 * q).is_err());
     }
 }

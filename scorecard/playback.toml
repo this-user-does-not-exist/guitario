@@ -36,7 +36,8 @@ note = "volume, pan, mute and solo apply; one fixed amp model per program; no ef
 [[item]]
 id = "PLAY-6"
 target = "Automations (tempo ramps, volume, pan) and triplet feel / swing"
-status = "missing"
+status = "partial"
+note = "triplet feel swings the timeline (score::TripletFeel::warp); fades, swells, strums and arpeggios play; no automations"
 
 [[item]]
 id = "PLAY-7"

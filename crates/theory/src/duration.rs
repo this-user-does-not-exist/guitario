@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-/// Sequencer resolution: ticks in a quarter note. Divisible by every value down to a 64th, by
-/// triplets and by quintuplets, so durations stay exact integers.
-pub const TICKS_PER_QUARTER: u32 = 960;
+/// Sequencer resolution: ticks in a quarter note (2^6 · 3^2 · 5 · 7). Divisible by every value
+/// down to a 64th and by 3-, 5-, 6-, 7-, 9- and 10-tuplets of them, so durations stay exact
+/// integers. Also a valid MIDI division (below 32768).
+pub const TICKS_PER_QUARTER: u32 = 20_160;
 
 /// The written note value, whole note down to a 64th.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -126,35 +127,50 @@ impl Default for TimeSignature {
 mod tests {
     use super::*;
 
+    const Q: u32 = TICKS_PER_QUARTER;
+
     #[test]
     fn plain_values() {
-        assert_eq!(Duration::WHOLE.ticks(), 3840);
-        assert_eq!(Duration::QUARTER.ticks(), 960);
-        assert_eq!(Duration::new(NoteValue::SixtyFourth).ticks(), 60);
+        assert_eq!(Duration::WHOLE.ticks(), 4 * Q);
+        assert_eq!(Duration::QUARTER.ticks(), Q);
+        assert_eq!(Duration::new(NoteValue::SixtyFourth).ticks(), Q / 16);
     }
 
     #[test]
     fn dots_and_tuplets() {
-        assert_eq!(Duration::QUARTER.dotted(1).ticks(), 1440);
-        assert_eq!(Duration::QUARTER.dotted(2).ticks(), 1680);
-        assert_eq!(Duration::new(NoteValue::SixtyFourth).dotted(2).ticks(), 105);
+        assert_eq!(Duration::QUARTER.dotted(1).ticks(), Q * 3 / 2);
+        assert_eq!(Duration::QUARTER.dotted(2).ticks(), Q * 7 / 4);
+        assert_eq!(Duration::new(NoteValue::SixtyFourth).dotted(2).ticks(), Q / 16 * 7 / 4);
         let triplet = Duration { tuplet: (3, 2), ..Duration::EIGHTH };
-        assert_eq!(triplet.ticks(), 320);
+        assert_eq!(triplet.ticks(), Q / 3);
+    }
+
+    #[test]
+    fn every_guitar_pro_tuplet_is_exact() {
+        for value in NoteValue::ALL {
+            for dots in 0..=2u8 {
+                for (n, m) in [(3u8, 2u8), (5, 4), (6, 4), (7, 4), (9, 8), (10, 8)] {
+                    let d = Duration { value, dots, tuplet: (n, m) };
+                    let plain = Duration { tuplet: (1, 1), ..d }.ticks();
+                    assert_eq!(d.ticks() * u32::from(n), plain * u32::from(m), "{value:?} {dots} {n}:{m}");
+                }
+            }
+        }
     }
 
     #[test]
     fn hostile_input_does_not_panic() {
         let d = Duration { value: NoteValue::Whole, dots: 255, tuplet: (0, 0) };
-        assert_eq!(d.ticks(), 3840 * 7 / 4);
+        assert_eq!(d.ticks(), 4 * Q * 7 / 4);
         assert_eq!(TimeSignature::new(0, 4), None);
         assert_eq!(TimeSignature::new(4, 5), None);
-        assert_eq!(TimeSignature { numerator: 255, denominator: 0 }.measure_ticks(), 255 * 3840);
+        assert_eq!(TimeSignature { numerator: 255, denominator: 0 }.measure_ticks(), 255 * 4 * Q);
     }
 
     #[test]
     fn measure_lengths() {
-        assert_eq!(TimeSignature::COMMON.measure_ticks(), 3840);
-        assert_eq!(TimeSignature::new(6, 8).map(TimeSignature::measure_ticks), Some(2880));
+        assert_eq!(TimeSignature::COMMON.measure_ticks(), 4 * Q);
+        assert_eq!(TimeSignature::new(6, 8).map(TimeSignature::measure_ticks), Some(3 * Q));
     }
 
     #[test]

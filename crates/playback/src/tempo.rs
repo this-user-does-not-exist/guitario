@@ -1,4 +1,5 @@
 use guitario_score::{Score, playback_order};
+use guitario_theory::TICKS_PER_QUARTER;
 
 /// One measure as played (repeats unrolled).
 #[derive(Clone, Debug, PartialEq)]
@@ -30,7 +31,7 @@ impl TempoMap {
         let (mut tick, mut sec) = (0u64, 0.0f64);
         for mi in playback_order(score) {
             let ticks = score.headers.get(mi).map_or(0, |h| h.capacity());
-            let sec_per_tick = 60.0 / (f64::from(score.tempo_at(mi).max(1)) * 960.0);
+            let sec_per_tick = 60.0 / (f64::from(score.tempo_at(mi).max(1)) * f64::from(TICKS_PER_QUARTER));
             segments.push(Segment { measure: mi, start_tick: tick, ticks, start_sec: sec, sec_per_tick });
             tick += u64::from(ticks);
             sec += f64::from(ticks) * sec_per_tick;
@@ -49,7 +50,7 @@ impl TempoMap {
 
     /// Seconds per tick at `tick`.
     pub fn rate_at(&self, tick: u64) -> f64 {
-        self.segment_at_tick(tick).map_or(60.0 / (120.0 * 960.0), |s| s.sec_per_tick)
+        self.segment_at_tick(tick).map_or(60.0 / (120.0 * f64::from(TICKS_PER_QUARTER)), |s| s.sec_per_tick)
     }
 
     /// Every beat of a track in playback order, for following the cursor during playback.
@@ -89,8 +90,8 @@ mod tests {
         let m = TempoMap::new(&s);
         // 4 beats at 60 bpm then 4 at 120.
         assert!((m.total_sec - 6.0).abs() < 1e-9);
-        assert!((m.tick_to_sec(3840) - 4.0).abs() < 1e-9);
-        assert!((m.tick_to_sec(3840 + 960) - 4.5).abs() < 1e-9);
+        assert!((m.tick_to_sec(u64::from(4 * TICKS_PER_QUARTER)) - 4.0).abs() < 1e-9);
+        assert!((m.tick_to_sec(u64::from(5 * TICKS_PER_QUARTER)) - 4.5).abs() < 1e-9);
         s.headers[1].repeat_close = 1;
         assert!((TempoMap::new(&s).total_sec - 12.0).abs() < 1e-9);
     }

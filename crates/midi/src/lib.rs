@@ -122,7 +122,7 @@ mod tests {
         let b = export(&one_note()).unwrap();
         assert_eq!(&b[0..4], b"MThd");
         assert_eq!(u16::from_be_bytes([b[10], b[11]]), 2);
-        assert_eq!(u16::from_be_bytes([b[12], b[13]]), 960);
+        assert_eq!(u16::from_be_bytes([b[12], b[13]]), 20_160);
         assert_eq!(b.windows(4).filter(|w| *w == b"MTrk").count(), 2);
     }
 

@@ -22,6 +22,12 @@ pub const NATURAL: char = '\u{E261}';
 pub const SHARP: char = '\u{E262}';
 pub const ACCENT_ABOVE: char = '\u{E4A0}';
 pub const STACCATO_ABOVE: char = '\u{E4A2}';
+/// articMarcatoAbove / Below: the heavy accent.
+pub const MARCATO_ABOVE: char = '\u{E4AC}';
+pub const MARCATO_BELOW: char = '\u{E4AD}';
+/// stringsDownBow / stringsUpBow: pick strokes.
+pub const STROKE_DOWN: char = '\u{E610}';
+pub const STROKE_UP: char = '\u{E612}';
 pub const REST_WHOLE: char = '\u{E4E3}';
 pub const REST_HALF: char = '\u{E4E4}';
 pub const REST_QUARTER: char = '\u{E4E5}';
@@ -189,6 +195,19 @@ impl Pen<'_> {
             }
             ACCENT_ABOVE => {
                 p.add(egui::Shape::line(vec![at + vec2(0.0, -0.7 * s), at + vec2(w, -0.35 * s), at], stroke));
+            }
+            MARCATO_ABOVE | MARCATO_BELOW => {
+                let d = if c == MARCATO_ABOVE { -1.0 } else { 1.0 };
+                p.add(egui::Shape::line(vec![at, at + vec2(w / 2.0, d * 0.9 * s), at + vec2(w, 0.0)], Stroke::new(0.22 * s, color)));
+            }
+            STROKE_DOWN => {
+                let r = egui::Rect::from_min_size(at - vec2(0.0, 0.9 * s), vec2(w, 0.9 * s));
+                p.line_segment([r.left_bottom(), r.left_top()], stroke);
+                p.line_segment([r.right_bottom(), r.right_top()], stroke);
+                p.rect_filled(egui::Rect::from_min_size(r.left_top(), vec2(w, 0.25 * s)), 0.0, color);
+            }
+            STROKE_UP => {
+                p.add(egui::Shape::line(vec![at + vec2(0.0, -1.1 * s), at, at + vec2(w, -1.1 * s)], stroke));
             }
             STACCATO_ABOVE => {
                 p.circle_filled(at + vec2(0.2 * s, -0.2 * s), 0.18 * s, color);
