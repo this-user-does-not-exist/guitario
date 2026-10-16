@@ -27,7 +27,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -45,7 +46,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -63,7 +65,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -81,7 +84,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -99,7 +103,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -117,7 +122,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -135,7 +141,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -153,7 +160,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -171,7 +179,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -189,7 +198,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -207,7 +217,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -225,7 +236,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -243,7 +255,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -261,7 +274,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -279,7 +293,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -297,7 +312,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -315,7 +331,8 @@
         "endings": 0,
         "targets": [],
         "jump": null,
-        "fermatas": []
+        "fermatas": [],
+        "beams": []
       }
     ],
     "tracks": [

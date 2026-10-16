@@ -600,6 +600,9 @@ fn set_time(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let at = s.cursor.measure;
     let score = Arc::make_mut(&mut s.score);
     let header = score.headers.get_mut(at).ok_or_else(|| EngineError::invalid("no such measure"))?;
+    if header.time_signature != ts {
+        header.beams.clear();
+    }
     header.time_signature = ts;
     let header = header.clone();
     for t in &mut score.tracks {

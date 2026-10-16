@@ -120,13 +120,16 @@ pub fn riff() -> Score {
 }
 
 /// What a score looks like after a trip through a Guitar Pro 7/8 file: what that file does not
-/// carry here (chord names on drum tracks, track volume and pan) is gone, the first bar's tempo is the song's
+/// carry here (chord names on drum tracks, track volume and pan, beam groupings) is gone, the first bar's tempo is the song's
 /// tempo, brush lengths are whole thousandths of a quarter, and voices that only rest are dropped.
 pub fn as_gp(s: &Score) -> Score {
     let mut s = s.clone();
     if let Some(t) = s.headers.first().and_then(|h| h.tempo) {
         s.tempo = t;
         s.headers[0].tempo = None;
+    }
+    for h in &mut s.headers {
+        h.beams.clear();
     }
     for t in &mut s.tracks {
         t.volume = 100;

@@ -905,7 +905,7 @@ impl<'a> Ctx<'a> {
             infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed, fingers }));
         }
 
-        let groups = beam_groups(beats, h.time_signature);
+        let groups = beam_groups(beats, h);
         // A beamed group shares one stem direction.
         for gr in &groups {
             let all: Vec<i32> = gr.iter().filter_map(|i| infos.get(*i).and_then(|x| x.as_ref())).flat_map(|x| x.pos.iter().map(|p| p.0)).collect();
@@ -1076,20 +1076,34 @@ impl<'a> Ctx<'a> {
                     Some((*i, x, y, info.up, info.div))
                 })
                 .collect();
-            let Some(&(_, _, _, up, _)) = ends.first() else { continue };
-            let beam_y = if up { ends.iter().map(|e| e.2).fold(f32::MAX, f32::min) } else { ends.iter().map(|e| e.2).fold(f32::MIN, f32::max) };
-            beamed_ends.extend(ends.iter().map(|e| (e.0, e.1, beam_y)));
+            let Some(&(_, x_first, y_first, up, _)) = ends.first() else { continue };
+            let &(_, x_last, y_last, _, _) = ends.last().unwrap_or(&(0, x_first, y_first, up, 0));
+            // The beam slopes with the outer notes, at most a staff space over the group, and lies
+            // flat when an inner note reaches past both ends. It then moves out until every stem
+            // is at least as long as the note alone would want.
+            let inner_beyond =
+                ends.iter().skip(1).take(ends.len().saturating_sub(2)).any(|e| if up { e.2 < y_first.min(y_last) } else { e.2 > y_first.max(y_last) });
+            let slope = if x_last - x_first < 1.0 || inner_beyond { 0.0 } else { (y_last - y_first).clamp(-s, s) / (x_last - x_first) };
+            let base = |x: f32| y_first + slope * (x - x_first);
+            let offset = ends.iter().map(|e| e.2 - base(e.1));
+            let offset = if up { offset.fold(0.0f32, f32::min) } else { offset.fold(0.0f32, f32::max) };
+            let beam_at = |x: f32| base(x) + offset;
+            beamed_ends.extend(ends.iter().map(|e| (e.0, e.1, beam_at(e.1))));
             for &(i, x, _, _, _) in &ends {
                 let Some(Some(info)) = infos.get(i) else { continue };
                 let (lo, hi) = (info.pos.first().map_or(4, |p| p.0), info.pos.last().map_or(4, |p| p.0));
                 let y0 = self.nota_y(nt, if up { lo } else { hi });
-                self.p().line_segment([pos2(x, y0), pos2(x, beam_y)], stem);
+                self.p().line_segment([pos2(x, y0), pos2(x, beam_at(x))], stem);
             }
             let dir = if up { 1.0 } else { -1.0 };
             for level in 0..4u32 {
                 let need = 8u32 << level;
-                let y = beam_y + dir * level as f32 * (beam_t + 0.25 * s);
-                let rect = |a: f32, b: f32| Rect::from_min_max(pos2(a.min(b), y.min(y + dir * beam_t)), pos2(a.max(b), y.max(y + dir * beam_t)));
+                let shift = dir * level as f32 * (beam_t + 0.25 * s);
+                // A parallelogram along the beam line from `a` to `b`.
+                let beam = |a: f32, b: f32| {
+                    let (ya, yb) = (beam_at(a) + shift, beam_at(b) + shift);
+                    egui::Shape::convex_polygon(vec![pos2(a, ya), pos2(b, yb), pos2(b, yb + dir * beam_t), pos2(a, ya + dir * beam_t)], ink, Stroke::NONE)
+                };
                 let mut k = 0;
                 while let Some(&(_, x, _, _, div)) = ends.get(k) {
                     if div < need {
@@ -1103,9 +1117,9 @@ impl<'a> Ctx<'a> {
                     let x_end = ends.get(j).map_or(x, |e| e.1);
                     if j == k {
                         let stub = if k + 1 < ends.len() { s } else { -s };
-                        self.p().rect_filled(rect(x, x + stub), 0.0, ink);
+                        self.p().add(beam(x.min(x + stub), x.max(x + stub)));
                     } else {
-                        self.p().rect_filled(rect(x, x_end), 0.0, ink);
+                        self.p().add(beam(x, x_end));
                     }
                     k = j + 1;
                 }
@@ -1114,9 +1128,8 @@ impl<'a> Ctx<'a> {
             if let Some(b) = gr.first().and_then(|i| beats.get(*i))
                 && b.duration.tuplet != (1, 1)
             {
-                let xs: Vec<f32> = ends.iter().map(|e| e.1).collect();
-                let cx = (xs.iter().copied().fold(f32::MAX, f32::min) + xs.iter().copied().fold(f32::MIN, f32::max)) / 2.0;
-                let y = beam_y - dir * 1.2 * s;
+                let cx = (x_first + x_last) / 2.0;
+                let y = beam_at(cx) - dir * 1.2 * s;
                 self.p().text(pos2(cx, y), egui::Align2::CENTER_CENTER, b.duration.tuplet.0.to_string(), serif(9.0 * self.m.zoom), ink);
             }
         }
@@ -1471,8 +1484,7 @@ impl<'a> Ctx<'a> {
             let mx = x0 + sys.prefix + mb.x;
             for vc in &mb.voices {
                 let beats = self.track.measures.get(mb.index).and_then(|x| x.voices.get(vc.voice)).map(|v| v.beats.as_slice()).unwrap_or_default();
-                let ts = self.score.headers.get(mb.index).map(|h| h.time_signature).unwrap_or_default();
-                let groups = beam_groups(beats, ts);
+                let groups = self.score.headers.get(mb.index).map(|h| beam_groups(beats, h)).unwrap_or_default();
                 let x_of = |bi: usize| vc.beats.get(bi).map(|cx| mx + cx);
                 for (bi, beat) in beats.iter().enumerate() {
                     let Some(x) = x_of(bi) else { continue };
@@ -1610,6 +1622,56 @@ mod tests {
         let rest = Beat::rest(Duration::new(guitario_theory::NoteValue::Half));
         s.tracks[0].measures[0].voices[0].beats = vec![beat, rest];
         s
+    }
+
+    #[test]
+    fn beams_slope_with_the_melody_but_lie_flat_over_a_peak() {
+        use guitario_theory::NoteValue;
+        // The beam's corners: each beam is a four-point polygon.
+        let beams = |s: &Score| {
+            let mut out = Vec::new();
+            let score = s.clone();
+            let mut fonts = None;
+            let mut harness = egui_kittest::Harness::builder().with_size(vec2(1400.0, 800.0)).build_ui(move |ui| {
+                let Some(fonts) = fonts else {
+                    fonts = Some(crate::fonts::install(ui.ctx()));
+                    return;
+                };
+                show(ui, &score, Cursor::default(), &View { zoom: 1.0, notation: true, fonts, play: None, selection: None });
+            });
+            harness.run_steps(3);
+            fn walk(shape: &egui::Shape, out: &mut Vec<Vec<egui::Pos2>>) {
+                match shape {
+                    egui::Shape::Vec(inner) => inner.iter().for_each(|s| walk(s, out)),
+                    egui::Shape::Path(p) if p.closed && p.points.len() == 4 => out.push(p.points.clone()),
+                    _ => {}
+                }
+            }
+            for c in &harness.output().shapes {
+                walk(&c.shape, &mut out);
+            }
+            out
+        };
+        let run = |frets: &[u8]| {
+            let mut s = Score::new();
+            let e = Duration::new(NoteValue::Eighth);
+            let mut bs: Vec<Beat> = frets.iter().map(|f| Beat { rest: false, notes: vec![Note::new(2, *f)], ..Beat::rest(e) }).collect();
+            bs.push(Beat::rest(Duration::new(NoteValue::Half)));
+            s.tracks[0].measures[0].voices[0].beats = bs;
+            s
+        };
+        // A rising pair: the beam's right end is higher (smaller y) than its left.
+        let rising = beams(&run(&[2, 9]));
+        let b = rising.first().expect("a beam");
+        assert!(b[1].y < b[0].y - 0.5, "{b:?}");
+        // Rising a long way: the slope is limited to a staff space.
+        let steep = beams(&run(&[0, 12]));
+        let b = steep.first().expect("a beam");
+        assert!(b[0].y - b[1].y <= 1.5875 * 96.0 / 25.4 + 0.5, "{b:?}");
+        // Equal ends: flat.
+        let flat = beams(&run(&[5, 5]));
+        let b = flat.first().expect("a beam");
+        assert!((b[1].y - b[0].y).abs() < 0.01, "{b:?}");
     }
 
     #[test]

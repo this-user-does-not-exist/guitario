@@ -130,6 +130,40 @@ fn a_riff_with_every_effect_round_trips() {
 }
 
 #[test]
+fn beam_groups_travel_with_the_time_signature() {
+    let mut s = riff();
+    s.headers[0].fermatas.clear();
+    // 4/4 beamed in halves, then 6/8 beamed in threes of twos: Guitar Pro 5 counts both in eighths.
+    s.headers[0].beams = vec![2, 2];
+    s.headers[1].beams = vec![2, 2, 2];
+    let (back, warnings, _) = round_trip(&s);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert_eq!((back.headers[0].beams.clone(), back.headers[1].beams.clone()), (vec![2, 2], vec![2, 2, 2]));
+    // The usual grouping comes back as none, and a bar between keeps its neighbour's.
+    let mut s = riff();
+    s.headers[0].fermatas.clear();
+    s.headers.push(s.headers[1].clone());
+    for t in &mut s.tracks {
+        let m = Measure::empty_for(&s.headers[2]);
+        t.measures.push(m);
+    }
+    s.headers[1].beams = vec![2, 2, 2];
+    s.headers[2].beams = vec![2, 2, 2];
+    let (back, _, _) = round_trip(&s);
+    assert!(back.headers[0].beams.is_empty());
+    assert_eq!(back.headers[2].beams, vec![2, 2, 2]);
+    // 13/16 as 4+4+5 is its usual grouping; 3+5+5 cannot be said in eighths and is reported.
+    let mut odd = Score::new();
+    odd.headers[0].time_signature = guitario_theory::TimeSignature::new(13, 16).unwrap();
+    odd.tracks[0].measures[0] = Measure::empty_for(&odd.headers[0]);
+    let (back, warnings, _) = round_trip(&odd);
+    assert!(back.headers[0].beams.is_empty() && warnings.is_empty(), "{warnings:?}");
+    odd.headers[0].beams = vec![3, 5, 5];
+    let out = export_gp5(&odd);
+    assert!(out.warnings.iter().any(|w| w.contains("beam")), "{:?}", out.warnings);
+}
+
+#[test]
 fn lyrics_belong_to_one_track_in_guitar_pro_5() {
     let mut s = riff();
     let (back, _, _) = round_trip(&s);

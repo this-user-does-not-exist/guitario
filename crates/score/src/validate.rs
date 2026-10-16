@@ -20,6 +20,8 @@ pub enum ScoreError {
     Page(String),
     #[error("measure {0} has a fermata outside the bar, two at one place, or too many")]
     Fermatas(usize),
+    #[error("measure {0} has an empty beam group or too many")]
+    Beams(usize),
 }
 
 /// Most fermatas one bar may hold.
@@ -48,6 +50,9 @@ impl crate::Score {
                 || h.fermatas.iter().enumerate().any(|(i, f)| h.fermatas.iter().take(i).any(|g| g.tick == f.tick))
             {
                 return Err(ScoreError::Fermatas(mi));
+            }
+            if h.beams.len() > crate::MAX_BEAM_GROUPS || h.beams.contains(&0) {
+                return Err(ScoreError::Beams(mi));
             }
         }
         for t in self.headers.iter().filter_map(|h| h.tempo).chain([self.tempo]) {
@@ -174,6 +179,10 @@ mod tests {
         assert_eq!(s.validate(), Err(ScoreError::Fermatas(0)), "past the end of the bar");
         s.headers[0].fermatas = vec![crate::Fermata { tick: 0, kind: crate::FermataKind::Long, length: 0 }; 2];
         assert_eq!(s.validate(), Err(ScoreError::Fermatas(0)), "two at one place");
+
+        let mut s = Score::new();
+        s.headers[0].beams = vec![2, 0];
+        assert_eq!(s.validate(), Err(ScoreError::Beams(0)));
 
         let mut s = Score::new();
         s.tempo = 5;

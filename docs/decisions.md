@@ -214,3 +214,20 @@ track or voice) and plays them 1.5, 2 or 3 times as long for short, medium and l
 timeline and every track stay as written; MIDI export writes the hold as a slower tempo and the
 bar's tempo after it. What Guitar Pro's `Length` does to playback is not documented, so it is kept
 for the trip back to a `.gp` file and not used. Guitar Pro 5 has no fermatas.
+
+## 2026-10-16: Beam groups are counted in the signature's note value
+
+Guitar Pro 5 stores "beam eighth notes by" (four sizes in eighths) with each time signature; an
+eighth cannot say 13/16 as 4+4+5, so the model counts a bar's groups in its own note value
+(`MeasureHeader::beams`, empty for the usual grouping) and converts at the file boundary: four
+sizes are repeated to fill the bar, and a grouping that cannot be said in eighths, or needs more
+than four sizes that do not repeat, is reported and written as the usual one. The usual groupings
+(`default_beaming`) are one beat each when the beat is a quarter or longer, dotted quarters in
+compound time, twos with a closing three in other eighth meters (7/8 as 2+2+3) and quarter notes'
+worth in shorter meters with up to half a group's remainder joining the last (13/16 as 4+4+5). The
+bytes this writer produces for a usual grouping read back as "usual", so files round-trip.
+
+Beams slope with the outer notes of their group, by at most a staff space, and lie flat when an
+inner note reaches past both ends; the beam then moves away from the heads until no stem is
+shorter than the note alone would want. The rhythm under a tab-only staff keeps flat beams, as
+Guitar Pro draws it.

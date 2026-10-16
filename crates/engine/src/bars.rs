@@ -30,8 +30,40 @@ pub fn specs() -> Vec<CommandSpec> {
             true,
             set_directions,
         ),
+        cmd(
+            "measure.setBeaming",
+            "Beaming",
+            "Bar",
+            None,
+            "groups: array of group sizes in the time signature's note value ([3, 2, 2] for 7/8 as 3+2+2; [] for the usual grouping); to? (last bar index, default this bar only)",
+            true,
+            set_beaming,
+        ),
         cmd("beat.setFermata", "Fermata", "Bar", None, "kind: short|medium|long|none (over the cursor beat; every track holds there)", true, set_fermata),
     ]
+}
+
+fn set_beaming(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let list = params.get("groups").and_then(Value::as_array).ok_or_else(|| EngineError::BadParam("`groups` must be an array of numbers".into()))?;
+    if list.len() > guitario_score::MAX_BEAM_GROUPS {
+        return Err(EngineError::BadParam(format!("at most {} beam groups", guitario_score::MAX_BEAM_GROUPS)));
+    }
+    let groups = list
+        .iter()
+        .map(|v| v.as_u64().filter(|g| (1..=64).contains(g)).map(|g| g as u8).ok_or_else(|| EngineError::BadParam("each group is 1..=64".into())))
+        .collect::<Result<Vec<u8>, _>>()?;
+    let from = s.cursor.measure;
+    let count = s.score.headers.len();
+    let to = p::opt_uint(params, "to", 1_000_000)?.map_or(from, |t| t as usize);
+    if to < from || to >= count {
+        return Err(EngineError::BadParam("`to` must be a bar at or after the cursor".into()));
+    }
+    let score = Arc::make_mut(&mut s.score);
+    for h in score.headers.iter_mut().skip(from).take(to - from + 1) {
+        // The usual grouping is kept as none, so a later time signature change starts fresh.
+        h.beams = if groups == guitario_score::default_beaming(h.time_signature) { Vec::new() } else { groups.clone() };
+    }
+    Ok(json!({"ok": true}))
 }
 
 /// A fermata over the beat under the cursor: it lives on the bar, at the beat's place in it.
@@ -188,6 +220,27 @@ mod tests {
     use guitario_score::FermataKind;
     use guitario_theory::TICKS_PER_QUARTER;
     use serde_json::{Value, json};
+
+    #[test]
+    fn beaming_is_set_per_bar_cleared_by_the_usual_grouping_and_by_a_new_signature() {
+        let mut s = Session::new();
+        s.run("measure.append", &Value::Null).unwrap();
+        s.run("cursor.set", &json!({"measure": 0, "beat": 0})).unwrap();
+        s.run("measure.setTimeSignature", &json!({"numerator": 7, "denominator": 8})).unwrap();
+        s.run("measure.setBeaming", &json!({"groups": [3, 2, 2]})).unwrap();
+        assert_eq!(s.score().headers[0].beams, vec![3, 2, 2]);
+        s.run("measure.setBeaming", &json!({"groups": [2, 2, 3]})).unwrap();
+        assert!(s.score().headers[0].beams.is_empty(), "the usual 7/8 grouping is stored as none");
+        s.run("measure.setBeaming", &json!({"groups": [4, 3]})).unwrap();
+        s.run("measure.setTimeSignature", &json!({"numerator": 4, "denominator": 4})).unwrap();
+        assert!(s.score().headers[0].beams.is_empty(), "a new signature starts from its usual grouping");
+        s.run("measure.setBeaming", &json!({"groups": [2, 2], "to": 1})).unwrap();
+        assert_eq!((s.score().headers[0].beams.clone(), s.score().headers[1].beams.clone()), (vec![2, 2], vec![2, 2]));
+        for bad in [json!({}), json!({"groups": [0]}), json!({"groups": [2], "to": 5}), json!({"groups": vec![1; 33]}), json!({"groups": ["2"]})] {
+            assert!(s.run("measure.setBeaming", &bad).is_err(), "{bad}");
+        }
+        assert!(s.score().validate().is_ok());
+    }
 
     #[test]
     fn a_fermata_goes_on_the_bar_at_the_cursor_beat_and_is_replaced_or_removed() {

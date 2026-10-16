@@ -212,6 +212,9 @@ impl Gpif {
         let tracks = score.tracks.len();
         for (mi, h) in headers.iter().enumerate() {
             xml.push_str(&master_bar(h, (0..tracks).map(|ti| mi * tracks + ti)));
+            if !h.beams.is_empty() {
+                self.drop("beam groupings");
+            }
         }
         xml.push_str("</MasterBars>\n");
         for (mi, _) in headers.iter().enumerate() {

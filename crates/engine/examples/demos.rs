@@ -39,10 +39,12 @@ struct Bar {
     marker: Option<String>,
     open: bool,
     close: u8,
+    /// Beam groups in the time signature's note value; empty keeps the usual grouping.
+    beams: Vec<u8>,
 }
 
 fn bar(beats: impl AsRef<str>) -> Bar {
-    Bar { beats: beats.as_ref().to_string(), voice2: None, ts: None, key: None, tempo: None, marker: None, open: false, close: 0 }
+    Bar { beats: beats.as_ref().to_string(), voice2: None, ts: None, key: None, tempo: None, marker: None, open: false, close: 0, beams: Vec::new() }
 }
 
 impl Bar {
@@ -52,6 +54,10 @@ impl Bar {
     }
     fn ts(mut self, n: u8, d: u8) -> Self {
         self.ts = Some((n, d));
+        self
+    }
+    fn beams(mut self, groups: &[u8]) -> Self {
+        self.beams = groups.to_vec();
         self
     }
     fn key(mut self, k: i8) -> Self {
@@ -245,6 +251,9 @@ fn play_track(s: &mut Session, track: usize, bars: &[Bar]) -> R {
             }
             if b.open || b.close > 0 {
                 run(s, "measure.setRepeat", json!({"open": b.open, "close": b.close}))?;
+            }
+            if !b.beams.is_empty() {
+                run(s, "measure.setBeaming", json!({"groups": b.beams}))?;
             }
         }
         let beats: Vec<&str> = b.beats.split(',').map(str::trim).collect();
@@ -666,8 +675,8 @@ fn odd_meters() -> R<Session> {
         &mut s,
         0,
         &[
-            bar(&seven).ts(7, 8).mark("7/8 (3+2+2)").open(),
-            bar(&seven_b).close(1),
+            bar(&seven).ts(7, 8).mark("7/8 (3+2+2)").beams(&[3, 2, 2]).open(),
+            bar(&seven_b).beams(&[3, 2, 2]).close(1),
             bar(&five).ts(5, 4).mark("5/4").tempo(132),
             bar(&thirteen).ts(13, 16).mark("13/16 (4+4+5)").tempo(150),
             bar(&six).ts(6, 8).mark("6/8").tempo(100).key(-3),

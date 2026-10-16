@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: fingering landed; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: beaming by the signature and sloped beams landed; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -21,7 +21,7 @@ agent can't finish alone.
 | G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
 | G2 | Print depth: headers and footers, layouts, selected bars | file format | low-medium | 10–20 h | [file-format-parity](file-format-parity.md) |
 | G3 | Guitar Pro exchange (import depth, MusicXML, MIDI import) | file format | medium-high | 40–80 h | [file-format-parity](file-format-parity.md) |
-| G4 | Notation depth (layouts, beaming, multivoice editing) | features | high | 40–80 h | [scorecard](scorecard.md#notation-and-engraving) |
+| G4 | Notation depth (layouts, multitrack, multivoice editing) | features | high | 35–70 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
 | G6 | Editing depth (bend editor, tuplets, paste special, track tools) | features | medium-high | 80–140 h | [scorecard](scorecard.md#editing) |
 | G7 | Tools: tuner, chord dictionary, scales, line in | features | medium | 110–185 h | [target-app-parity](target-app-parity.md#feature-breadth-33-weighted) |
@@ -146,11 +146,16 @@ agent can't finish alone.
   Fingering…): T and 1-4 beside the notehead, p i m a c stacked above the beat, in standard
   notation; read and written in Guitar Pro 3-5 (note flag 0x80) and GPIF (`LeftFingering`,
   `RightFingering`), the same on public GP4, GP5, GP6 and GP7 test files.
-- **Missing:** a chord list at the top of the score, a Multivoice Editing
-  mode, user-placed slurs, mid-system key changes, beaming by the time signature's grouping,
-  sloped beams, and offsetting heads where two voices share a pitch.
+- **Landed 2026-10-16:** beams by the bar's grouping (`measure.setBeaming`, counted in the
+  signature's note value) or the signature's usual one (one beat each in simple time, dotted
+  quarters in compound time, 2+2+3 in 7/8, 4+4+5 in 13/16), kept in Guitar Pro 5 files ("beam
+  eighth notes by"); and sloped beams (with the outer notes, at most a staff space, flat over an
+  inner peak, every stem long enough). Demo 06 beams its 7/8 as 3+2+2.
+- **Missing:** a chord list at the top of the score, a Multivoice Editing mode, user-placed slurs,
+  mid-system key changes, Guitar Pro's per-beat beam breaks, and offsetting heads where two voices
+  share a pitch.
 - **Evidence:** NOTE-5 and EDIT-9 done; NOTE-3/4/9/12 and EDIT-16 partial.
-- **Estimate:** 40–80 h.
+- **Estimate:** 35–70 h.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with
@@ -231,5 +236,6 @@ agent can't finish alone.
 | 2026-10-16 | minor | G4: lyrics landed (60–115 h to 50–95 h); G3: lyrics no longer dropped on import |
 | 2026-10-16 | minor | G4: fermatas landed (50–95 h to 45–85 h) |
 | 2026-10-16 | minor | G4: fingering landed (45–85 h to 40–80 h); G3: fingering no longer dropped |
+| 2026-10-16 | minor | G4: beaming by the signature and sloped beams (40–80 h to 35–70 h) |
 | 2026-10-16 | minor | G4: ties, slurs and up to four voices landed (150–250 h to 90–160 h); G1: drums' second voice (40–80 h to 30–60 h) |
 | 2026-10-16 | minor | G3: `.gp` (Guitar Pro 7/8) export landed, unverified in Guitar Pro itself (60–110 h to 40–80 h) |

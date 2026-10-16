@@ -153,6 +153,48 @@ pub struct MeasureHeader {
     /// Fermatas over this bar, by where they fall in it; every track holds there.
     #[serde(default)]
     pub fermatas: Vec<Fermata>,
+    /// How notes are beamed, as group sizes counted in the time signature's note value (`[3, 2, 2]`
+    /// beams 7/8 as 3+2+2, `[4, 4, 5]` beams 13/16 as 4+4+5). Empty is the time signature's usual
+    /// grouping ([`default_beaming`]).
+    #[serde(default)]
+    pub beams: Vec<u8>,
+}
+
+/// Most beam groups a bar may list.
+pub const MAX_BEAM_GROUPS: usize = 32;
+
+/// The usual beam groups of a time signature, counted in its note value: one beat each when the
+/// beat is a quarter or longer (4/4 as 1+1+1+1), dotted quarters in compound time (6/8 as 3+3),
+/// twos with a closing three in other eighth meters (5/8 as 2+3, 7/8 as 2+2+3), and quarter notes'
+/// worth in sixteenth meters with the rest joining the last group (13/16 as 4+4+5).
+pub fn default_beaming(ts: TimeSignature) -> Vec<u8> {
+    let num = ts.numerator.max(1);
+    let groups: Vec<u8> = match ts.denominator {
+        0..=4 => vec![1; usize::from(num)],
+        8 if num.is_multiple_of(3) => vec![3; usize::from(num / 3)],
+        8 => {
+            let mut g = vec![2; usize::from(num / 2)];
+            match g.last_mut() {
+                Some(last) if num % 2 == 1 => *last = 3,
+                Some(_) => {}
+                None => g.push(num),
+            }
+            g
+        }
+        d => {
+            // A quarter note's worth of this value.
+            let quarter = (d / 4).max(1);
+            let mut g = vec![quarter; usize::from(num / quarter)];
+            let rest = num % quarter;
+            match g.last_mut() {
+                Some(last) if rest > 0 && rest * 2 <= quarter => *last += rest,
+                _ if rest > 0 => g.push(rest),
+                _ => {}
+            }
+            g
+        }
+    };
+    groups.into_iter().take(MAX_BEAM_GROUPS).collect()
 }
 
 /// A fermata: the beat at `tick` (from the start of the bar) is held longer, in every track.
@@ -331,11 +373,34 @@ impl MeasureHeader {
             targets: Vec::new(),
             jump: None,
             fermatas: Vec::new(),
+            beams: Vec::new(),
         }
     }
 
     pub fn capacity(&self) -> u32 {
         self.time_signature.measure_ticks()
+    }
+
+    /// The beam groups this bar uses, in its time signature's note value: its own, or the usual ones.
+    pub fn beaming(&self) -> Vec<u8> {
+        if self.beams.is_empty() { default_beaming(self.time_signature) } else { self.beams.clone() }
+    }
+
+    /// Where each beam group starts, in ticks from the start of the bar; the first is 0. What is
+    /// left after the groups is a group of its own.
+    pub fn beam_starts(&self) -> Vec<u32> {
+        let cap = self.capacity();
+        let mut starts = vec![0u32];
+        let unit = 4 * guitario_theory::TICKS_PER_QUARTER / u32::from(self.time_signature.denominator.max(1));
+        let mut at = 0u32;
+        for g in self.beaming() {
+            at = at.saturating_add(u32::from(g).saturating_mul(unit));
+            if at >= cap {
+                break;
+            }
+            starts.push(at);
+        }
+        starts
     }
 }
 

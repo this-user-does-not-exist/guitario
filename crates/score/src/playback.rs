@@ -344,6 +344,34 @@ mod tests {
     }
 
     #[test]
+    fn beam_groups_follow_the_time_signature_or_the_bar() {
+        use crate::{MeasureHeader, default_beaming};
+        let ts = |n, d| TimeSignature::new(n, d).unwrap();
+        assert_eq!(default_beaming(TimeSignature::COMMON), vec![1, 1, 1, 1]);
+        assert_eq!(default_beaming(ts(3, 4)), vec![1, 1, 1]);
+        assert_eq!(default_beaming(ts(2, 2)), vec![1, 1]);
+        assert_eq!(default_beaming(ts(6, 8)), vec![3, 3]);
+        assert_eq!(default_beaming(ts(12, 8)), vec![3, 3, 3, 3]);
+        assert_eq!(default_beaming(ts(5, 8)), vec![2, 3]);
+        assert_eq!(default_beaming(ts(7, 8)), vec![2, 2, 3]);
+        assert_eq!(default_beaming(ts(13, 16)), vec![4, 4, 5]);
+        assert_eq!(default_beaming(ts(15, 16)), vec![4, 4, 4, 3]);
+        assert_eq!(default_beaming(ts(1, 8)), vec![1]);
+        let e = guitario_theory::TICKS_PER_QUARTER / 2;
+        let mut h = MeasureHeader::new(ts(7, 8));
+        assert_eq!(h.beam_starts(), vec![0, 2 * e, 4 * e]);
+        h.beams = vec![3, 2, 2];
+        assert_eq!(h.beam_starts(), vec![0, 3 * e, 5 * e]);
+        // Groups past the bar are cut; what the groups leave beams on its own.
+        h.beams = vec![4, 4, 4];
+        assert_eq!(h.beam_starts(), vec![0, 4 * e]);
+        h.beams = vec![2];
+        assert_eq!(h.beam_starts(), vec![0, 2 * e]);
+        assert_eq!(MeasureHeader::new(ts(13, 16)).beam_starts(), vec![0, 2 * e, 4 * e]);
+        assert_eq!(MeasureHeader::new(TimeSignature::COMMON).beam_starts(), vec![0, 2 * e, 4 * e, 6 * e]);
+    }
+
+    #[test]
     fn plain_order() {
         assert_eq!(playback_order(&score_with(3)), vec![0, 1, 2]);
     }

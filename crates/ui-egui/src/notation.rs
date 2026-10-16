@@ -94,15 +94,10 @@ impl Accidentals {
 }
 
 /// Beam groups for one measure: runs of two or more consecutive sounding beats of an eighth or
-/// shorter that start in the same beat unit (a dotted quarter in compound time, else one
-/// denominator beat). Returns beat indices.
-pub fn beam_groups(beats: &[guitario_score::Beat], ts: guitario_theory::TimeSignature) -> Vec<Vec<usize>> {
-    let unit = if ts.denominator == 8 && ts.numerator.is_multiple_of(3) {
-        guitario_theory::TICKS_PER_QUARTER * 3 / 2
-    } else {
-        4 * guitario_theory::TICKS_PER_QUARTER / u32::from(ts.denominator.max(1))
-    }
-    .max(1);
+/// shorter that start in the same beam group of the bar (its time signature's usual grouping, or
+/// the bar's own; see `MeasureHeader::beam_starts`). Returns beat indices.
+pub fn beam_groups(beats: &[guitario_score::Beat], header: &guitario_score::MeasureHeader) -> Vec<Vec<usize>> {
+    let starts = header.beam_starts();
     let mut groups: Vec<Vec<usize>> = Vec::new();
     let mut tick = 0u32;
     let mut prev_unit = None;
@@ -114,7 +109,7 @@ pub fn beam_groups(beats: &[guitario_score::Beat], ts: guitario_theory::TimeSign
             prev_unit = None;
             continue;
         }
-        let u = start / unit;
+        let u = starts.partition_point(|s| *s <= start);
         match groups.last_mut() {
             Some(g) if prev_unit == Some(u) && g.last().is_some_and(|&j| j + 1 == i) => g.push(i),
             _ => groups.push(vec![i]),
@@ -166,9 +161,15 @@ mod tests {
             n(NoteValue::Sixteenth),
             n(NoteValue::Eighth),
         ];
-        assert_eq!(beam_groups(&beats, TimeSignature::COMMON), vec![vec![0, 1], vec![5, 6, 7]]);
-        let six_eight = TimeSignature::new(6, 8).unwrap();
-        assert_eq!(beam_groups(&beats[..3], six_eight), vec![vec![0, 1, 2]]);
+        let bar = |n, d| guitario_score::MeasureHeader::new(TimeSignature::new(n, d).unwrap());
+        assert_eq!(beam_groups(&beats, &bar(4, 4)), vec![vec![0, 1], vec![5, 6, 7]]);
+        assert_eq!(beam_groups(&beats[..3], &bar(6, 8)), vec![vec![0, 1, 2]]);
+        // 7/8 beams 2+2+3 unless the bar says otherwise.
+        let seven: Vec<Beat> = (0..7).map(|_| n(NoteValue::Eighth)).collect();
+        assert_eq!(beam_groups(&seven, &bar(7, 8)), vec![vec![0, 1], vec![2, 3], vec![4, 5, 6]]);
+        let mut three_first = bar(7, 8);
+        three_first.beams = vec![3, 2, 2];
+        assert_eq!(beam_groups(&seven, &three_first), vec![vec![0, 1, 2], vec![3, 4], vec![5, 6]]);
     }
 
     #[test]

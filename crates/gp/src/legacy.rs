@@ -415,6 +415,8 @@ impl Parser<'_> {
         let v = self.v;
         let mut out: Vec<MeasureHeader> = Vec::new();
         let mut ts = TimeSignature::COMMON;
+        // Guitar Pro 5 writes the beaming with each time signature; bars in between keep it.
+        let mut beams: Vec<u8> = Vec::new();
         for i in 0..count {
             if v >= Version::V5 && i > 0 {
                 self.r.skip(1)?;
@@ -457,8 +459,14 @@ impl Parser<'_> {
             h.double_bar = flags & 0x80 != 0;
             if v >= Version::V5 {
                 if flags & 0x03 != 0 {
-                    self.r.skip(4)?; // beaming groups
+                    let bytes = self.r.array::<4>()?;
+                    beams = if bytes == crate::write5::default_gp5_beams(ts) {
+                        Vec::new()
+                    } else {
+                        crate::write5::from_gp5_beams(ts, &bytes).filter(|g| *g != default_beaming(ts)).unwrap_or_default()
+                    };
                 }
+                h.beams = beams.clone();
                 let endings = self.r.u8()?;
                 if flags & 0x10 != 0 {
                     h.endings = endings;
