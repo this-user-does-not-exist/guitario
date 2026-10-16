@@ -12,7 +12,7 @@ the measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scoreca
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Guitar Pro feature exist?) | **~41%** | partly measured (menus 117/172), weights below |
+| **Feature breadth** (does each Guitar Pro feature exist?) | **~41%** | partly measured (menus 119/172), weights below |
 | **Ready for real work** (could a guitarist replace Guitar Pro with it?) | **~20%** (range 15–25%) | estimated, evidence below |
 | **Mainstream user** (writes and learns tab every week) | **~25%** (20–30%) | estimated, [method](#readiness-by-audience) |
 | **Essentials user** (enter a riff, hear it, save it) | **~60%** (50–70%) | estimated |
@@ -50,7 +50,7 @@ plays back with drums, loops and slows passages, opens files from others (mostly
 
 | Component | Weight | Ours / Guitar Pro | % | Kind |
 |---|---:|---|---:|---|
-| Menu commands | 30% | 117 / 172 catalog items live | 68% | measured (`cargo xtask parity`) |
+| Menu commands | 30% | 119 / 172 catalog items live | 69% | measured (`cargo xtask parity`) |
 | Notation and engraving | 15% | page view, notation + tab, drum staff, effects lanes; no ties/slurs, voices, chords, lyrics, alternate endings, layouts | ~40% | estimated ([scorecard](scorecard.md#notation-and-engraving)) |
 | Instruments and track types | 10% | fretted strings in any tuning (4–12 strings, 12 presets) and a GM drum kit; no keys or other instruments | ~50% | estimated |
 | Playback | 15% | physical-model guitar/bass, synthesised drums, transport, loop, speed, metronome, count-in; no samples, effects, mixer, automations | ~35% | estimated ([scorecard](scorecard.md#playback)) |

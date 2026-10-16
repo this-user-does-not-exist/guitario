@@ -2,14 +2,16 @@
 //! tablature staff joined by a bracket, laid out by `layout` and painted here. Clicks move the
 //! cursor; the painter never edits the score directly.
 
-use crate::fonts::{FontSet, sans, serif};
+use crate::fonts::{FontSet, sans, serif, serif_italic};
 use crate::glyphs::{self as g, Pen};
 use crate::layout::{Metrics, PageBox, SystemBox, layout};
 use crate::notation::{Accidentals, Clef, beam_groups, spell, staff_pos};
 use crate::theme::{Tokens, tokens};
 use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
 use guitario_engine::Cursor;
-use guitario_score::{Beat, BeatTechnique, BrushKind, Fade, MeasureHeader, Note, NoteKind, Score, Slide, StrokeDirection, Track, TripletFeel};
+use guitario_score::{
+    Beat, BeatTechnique, BrushKind, DirectionTarget, Fade, Jump, MeasureHeader, Note, NoteKind, Score, Slide, StrokeDirection, Track, TripletFeel,
+};
 
 const PAGE_GAP: f32 = 24.0;
 
@@ -299,6 +301,54 @@ impl<'a> Ctx<'a> {
                 if h.double_bar {
                     self.staves_lines(end - 0.6 * s, nt, tt, tb, bar);
                 }
+            }
+            // Alternate endings: a bracket over the bar, numbered where the ending starts and
+            // closed where a repeat ends it.
+            if h.endings != 0 {
+                let y = sys_top - 3.2 * s;
+                let st = Stroke::new(1.0, t.ink);
+                let prev = mb.index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(0, |p| p.endings);
+                let starts = prev != h.endings;
+                let x_start = mx + 0.3 * s;
+                let x_end = end - 0.5 * s;
+                self.p().line_segment([pos2(x_start, y), pos2(x_end, y)], st);
+                if starts {
+                    self.p().line_segment([pos2(x_start, y), pos2(x_start, y + 1.6 * s)], st);
+                    let label: Vec<String> = (0..8).filter(|b| h.endings & (1 << b) != 0).map(|b| format!("{}.", b + 1)).collect();
+                    self.p().text(pos2(x_start + 0.4 * s, y + 0.2 * s), egui::Align2::LEFT_TOP, label.join(" "), serif(8.5 * m.zoom), t.ink);
+                }
+                if h.repeat_close > 0 {
+                    // Short, so the repeat count under it stays clear.
+                    self.p().line_segment([pos2(x_end, y), pos2(x_end, y + 0.8 * s)], st);
+                }
+            }
+            // Directions: segno and coda marks at the start of the bar, Fine and jumps at its end.
+            let dir_y = sys_top - 4.8 * s;
+            let mut dx = mx + 0.6 * s;
+            for target in &h.targets {
+                match target {
+                    DirectionTarget::Segno => dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                    DirectionTarget::SegnoSegno => {
+                        dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink);
+                        dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s;
+                    }
+                    DirectionTarget::Coda => dx += self.pen.glyph(g::CODA, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                    DirectionTarget::DoubleCoda => dx += self.pen.glyph(g::CODA_SQUARE, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                    DirectionTarget::Fine => {
+                        self.p().text(pos2(end - 0.4 * s, dir_y), egui::Align2::RIGHT_BOTTOM, "Fine", serif_italic(9.5 * m.zoom), t.ink);
+                    }
+                }
+            }
+            if let Some(jump) = h.jump {
+                let y = if h.targets.contains(&DirectionTarget::Fine) { dir_y - 1.8 * s } else { dir_y };
+                let mut x = end - 0.4 * s;
+                if matches!(jump, Jump::ToCoda | Jump::ToDoubleCoda) {
+                    let glyph = if jump == Jump::ToCoda { g::CODA } else { g::CODA_SQUARE };
+                    x -= self.pen.width(glyph);
+                    self.pen.glyph(glyph, pos2(x, y), t.ink);
+                    x -= 0.4 * s;
+                }
+                self.p().text(pos2(x, y), egui::Align2::RIGHT_BOTTOM, jump.label(), serif_italic(9.5 * m.zoom), t.ink);
             }
             // Triplet feel where it changes.
             let prev_feel = mb.index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(TripletFeel::None, |p| p.triplet_feel);

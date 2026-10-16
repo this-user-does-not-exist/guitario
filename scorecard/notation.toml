@@ -51,7 +51,8 @@ note = "fonts.rs, glyphs.rs"
 [[item]]
 id = "NOTE-9"
 target = "Tremolo picking slashes, grace notes, trills, fermatas, alternate ending brackets"
-status = "missing"
+status = "partial"
+note = "alternate ending brackets and direction marks (segno, coda, Fine, D.C./D.S.) drawn; tremolo slashes, grace notes, trills, fermatas missing"
 
 [[item]]
 id = "NOTE-10"

@@ -16,6 +16,7 @@ mod techniques;
 mod tools;
 mod tracks;
 
+pub use bars::direction_targets;
 pub use commands::{CommandSpec, registry};
 pub use error::EngineError;
 pub use selection::{Clip, Selection};

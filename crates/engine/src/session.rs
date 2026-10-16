@@ -207,7 +207,17 @@ pub(crate) fn fit_duration(remaining: u32, prefer: Duration) -> Duration {
 }
 
 pub(crate) fn append_measure(score: &mut Score, header: MeasureHeader) {
-    let fresh = MeasureHeader { tempo: None, repeat_open: false, repeat_close: 0, marker: None, double_bar: false, ..header };
+    let fresh = MeasureHeader {
+        tempo: None,
+        repeat_open: false,
+        repeat_close: 0,
+        marker: None,
+        double_bar: false,
+        endings: 0,
+        targets: Vec::new(),
+        jump: None,
+        ..header
+    };
     for t in &mut score.tracks {
         t.measures.push(Measure::empty_for(&fresh));
     }

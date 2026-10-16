@@ -1,23 +1,74 @@
 use crate::{Fade, NoteKind, Score};
 
-/// The order measures are played in with repeats unrolled. Each repeat close replays from the
-/// nearest earlier repeat open (or the start) `repeat_close` extra times. Total output is capped so
-/// a hostile file cannot make this allocate without bound.
+/// The order measures are played in, following repeats, alternate endings and directions.
+///
+/// - A repeat close replays from the nearest earlier repeat open (or the start) `repeat_close`
+///   extra times. Inside a repeat, a bar with alternate endings plays only on the passes it lists.
+/// - A D.C. or D.S. jump at the end of a bar is taken once. After it, repeats are not taken again
+///   and only the last ending of each ending group plays. "al Fine" stops at the end of a Fine bar;
+///   "al Coda" takes the next To Coda to the coda.
+///
+/// Total output is capped so a hostile file cannot make this allocate without bound.
 pub fn playback_order(score: &Score) -> Vec<usize> {
+    use crate::{DirectionTarget, Jump, JumpEnd};
     const CAP: usize = 100_000;
+    let headers = &score.headers;
+    let find = |t: DirectionTarget| headers.iter().position(|h| h.targets.contains(&t));
+    // The last ending of the group each bar belongs to: the highest ending number in its run of
+    // consecutive ending bars.
+    let mut last_ending = vec![0u8; headers.len()];
+    let mut i = 0;
+    while i < headers.len() {
+        if headers.get(i).is_some_and(|h| h.endings != 0) {
+            let mut j = i;
+            let mut bits = 0u8;
+            while let Some(h) = headers.get(j).filter(|h| h.endings != 0) {
+                bits |= h.endings;
+                j += 1;
+            }
+            let top = 1u8 << (7 - bits.leading_zeros().min(7));
+            for slot in last_ending.iter_mut().take(j).skip(i) {
+                *slot = top;
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+
     let mut order = Vec::new();
     let mut section_start = 0usize;
     let mut remaining: Vec<(usize, u8)> = Vec::new(); // (close measure, passes left)
+    let mut pass = 1u32; // 1-based pass through the current repeat section
+    let mut taken: Vec<usize> = Vec::new(); // jumps already taken
+    let mut after_jump: Option<JumpEnd> = None;
     let mut i = 0usize;
-    while let Some(header) = score.headers.get(i) {
+    while let Some(header) = headers.get(i) {
         if order.len() >= CAP {
             break;
         }
-        if header.repeat_open {
+        if header.repeat_open && section_start != i {
             section_start = i;
+            pass = 1;
+        }
+        // Alternate endings: skip bars that are not for this pass.
+        if header.endings != 0 {
+            let plays = match after_jump {
+                Some(_) => header.endings & last_ending.get(i).copied().unwrap_or(0) != 0,
+                None => pass <= 8 && header.endings & (1u8 << (pass - 1)) != 0,
+            };
+            if !plays {
+                i += 1;
+                continue;
+            }
         }
         order.push(i);
-        if header.repeat_close > 0 {
+        // Fine ends the piece after a jump "al Fine".
+        if after_jump == Some(JumpEnd::Fine) && header.targets.contains(&DirectionTarget::Fine) {
+            break;
+        }
+        // Repeats (not after a D.C./D.S.).
+        if header.repeat_close > 0 && after_jump.is_none() {
             let left = match remaining.iter().position(|(m, _)| *m == i) {
                 Some(p) => remaining.get(p).map_or(0, |r| r.1),
                 None => {
@@ -29,11 +80,36 @@ pub fn playback_order(score: &Score) -> Vec<usize> {
                 if let Some(entry) = remaining.iter_mut().find(|(m, _)| *m == i) {
                     entry.1 = left - 1;
                 }
+                pass += 1;
                 i = section_start;
                 continue;
             }
             remaining.retain(|(m, _)| *m != i);
+        }
+        // Jumps at the end of the bar.
+        if let Some(jump) = header.jump
+            && !taken.contains(&i)
+        {
+            let target = match jump {
+                Jump::DaCapo(end) => Some((0, Some(end))),
+                Jump::DalSegno(end) => find(DirectionTarget::Segno).map(|t| (t, Some(end))),
+                Jump::DalSegnoSegno(end) => find(DirectionTarget::SegnoSegno).map(|t| (t, Some(end))),
+                Jump::ToCoda if after_jump == Some(JumpEnd::Coda) => find(DirectionTarget::Coda).map(|t| (t, after_jump)),
+                Jump::ToDoubleCoda if after_jump == Some(JumpEnd::DoubleCoda) => find(DirectionTarget::DoubleCoda).map(|t| (t, after_jump)),
+                Jump::ToCoda | Jump::ToDoubleCoda => None,
+            };
+            if let Some((t, end)) = target {
+                taken.push(i);
+                after_jump = end;
+                section_start = t;
+                pass = 1;
+                i = t;
+                continue;
+            }
+        }
+        if header.repeat_close > 0 {
             section_start = i + 1;
+            pass = 1;
         }
         i += 1;
     }
@@ -173,6 +249,70 @@ mod tests {
         let mut s = score_with(2);
         s.headers[0].repeat_close = 2;
         assert_eq!(playback_order(&s), vec![0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn alternate_endings() {
+        // |: 0 1 [1. 2 :] [2. 3] 4
+        let mut s = score_with(5);
+        s.headers[0].repeat_open = true;
+        s.headers[2].endings = 0b01;
+        s.headers[2].repeat_close = 1;
+        s.headers[3].endings = 0b10;
+        assert_eq!(playback_order(&s), vec![0, 1, 2, 0, 1, 3, 4]);
+        // Three passes: endings 1 and 2 share a bar.
+        let mut s = score_with(4);
+        s.headers[0].repeat_open = true;
+        s.headers[1].endings = 0b011;
+        s.headers[1].repeat_close = 2;
+        s.headers[2].endings = 0b100;
+        assert_eq!(playback_order(&s), vec![0, 1, 0, 1, 0, 2, 3]);
+    }
+
+    #[test]
+    fn da_capo_al_fine() {
+        use crate::{DirectionTarget, Jump, JumpEnd};
+        let mut s = score_with(4);
+        s.headers[1].targets = vec![DirectionTarget::Fine];
+        s.headers[3].jump = Some(Jump::DaCapo(JumpEnd::Fine));
+        assert_eq!(playback_order(&s), vec![0, 1, 2, 3, 0, 1]);
+    }
+
+    #[test]
+    fn dal_segno_al_coda() {
+        use crate::{DirectionTarget, Jump, JumpEnd};
+        // 0 §1 2(To Coda) 3(D.S. al Coda) ⊕4 5
+        let mut s = score_with(6);
+        s.headers[1].targets = vec![DirectionTarget::Segno];
+        s.headers[2].jump = Some(Jump::ToCoda);
+        s.headers[3].jump = Some(Jump::DalSegno(JumpEnd::Coda));
+        s.headers[4].targets = vec![DirectionTarget::Coda];
+        assert_eq!(playback_order(&s), vec![0, 1, 2, 3, 1, 2, 4, 5]);
+    }
+
+    #[test]
+    fn repeats_are_not_taken_after_a_jump_and_the_last_ending_plays() {
+        use crate::{Jump, JumpEnd};
+        // |: 0 [1. 1 :] [2. 2] 3(D.C.)
+        let mut s = score_with(4);
+        s.headers[0].repeat_open = true;
+        s.headers[1].endings = 0b01;
+        s.headers[1].repeat_close = 1;
+        s.headers[2].endings = 0b10;
+        s.headers[3].jump = Some(Jump::DaCapo(JumpEnd::End));
+        assert_eq!(playback_order(&s), vec![0, 1, 0, 2, 3, 0, 2, 3]);
+    }
+
+    #[test]
+    fn a_jump_without_its_target_is_ignored_and_loops_terminate() {
+        use crate::{Jump, JumpEnd};
+        let mut s = score_with(2);
+        s.headers[1].jump = Some(Jump::DalSegno(JumpEnd::Coda));
+        assert_eq!(playback_order(&s), vec![0, 1]);
+        let mut s = score_with(2);
+        s.headers[0].jump = Some(Jump::DaCapo(JumpEnd::End));
+        s.headers[1].jump = Some(Jump::DaCapo(JumpEnd::End));
+        assert!(playback_order(&s).len() < 10);
     }
 
     #[test]
