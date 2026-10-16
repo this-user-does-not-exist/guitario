@@ -1,12 +1,3 @@
-<p align="center">
-  <a href="https://github.com/timothydaly1/guitario">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/guitario-logo-white.svg">
-      <img alt="Guitario" src="docs/brand/guitario-logo.svg" width="200">
-    </picture>
-  </a>
-</p>
-
 <h1 align="center">Guitario</h1>
 
 <p align="center">
@@ -22,15 +13,6 @@
   <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-d69e2e?style=flat-square">
 </p>
 
-<p align="center">
-  <a href="https://github.com/timothydaly1/guitario/discussions"><img alt="Join the Guitario community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/timothydaly1/guitario">Guitario</a> ·
-  <a href="https://github.com/timothydaly1/guitario">All sibling apps</a>
-</p>
-
 <br>
 
 <p align="center">
@@ -38,10 +20,6 @@
   <br>
   <sub><i>Steel Horizon</i>, one of the original metal demos: twin harmony leads, rhythm guitar and bass.</sub>
 </p>
-
-> [!NOTE]
-> **Guitario is a community of artists from all walks of life.** Digital, generative, music,
-> games &mdash; if you make things, you're one of us. **[Come say hi on Discord](https://github.com/timothydaly1/guitario/discussions).**
 
 > [!WARNING]
 > Guitario is **pre-alpha**. Writing, arranging with drums, playing and practising work end to
@@ -52,9 +30,7 @@
   <a href="#demos">Demos</a> ·
   <a href="#built-for-agents">Agents</a> ·
   <a href="#under-the-hood">Under the hood</a> ·
-  <a href="#get-started">Get started</a> ·
-  <a href="#the-crafting-apps">sibling apps</a> ·
-  <a href="https://github.com/timothydaly1/guitario/discussions">Discord</a>
+  <a href="#get-started">Get started</a>
 </p>
 
 <br>
@@ -144,27 +120,6 @@ Then click a beat, type a fret number and press Space. The [user guide](book/src
 
 See [SECURITY.md](SECURITY.md).
 
-## The sibling apps
-
-Guitario is one of the **sibling apps**: free, open-source creative tools from the
-[Guitario](https://github.com/timothydaly1/guitario) team, each written from scratch in Rust and each able to
-stand on its own.
-
-| App | What it's for | Code |
-|---|---|---|
-| **Guitario** | **Guitar tablature, notation and playback · you are here** | this repository |
-| **another app** | Image editing: layers, masks, type and real PSD files | [GitHub](https://github.com/storytold/craft-libs) |
-| **VectorCraft** | Vector illustration | [GitHub](https://github.com/storytold/vectorcraft) |
-| **another app** | Video editing, color and sound | [GitHub](https://github.com/storytold/craft-libs) |
-| **LightCraft** | Photo library and raw development | [GitHub](https://github.com/storytold/lightcraft) |
-| **PdfCraft** | Reading, organizing and protecting PDFs | [GitHub](https://github.com/storytold/pdfcraft) |
-| **another app** | Motion graphics and visual effects | [GitHub](https://github.com/storytold/craft-libs) |
-| **DesignCraft** | Page layout and publishing | [GitHub](https://github.com/storytold/designcraft) |
-
-And [**Guitario**](https://github.com/timothydaly1/guitario) itself, our AI image and video studio for artists who want real control.
-
-The sibling apps share the same conventions: clean-room and pure Rust, native on macOS, Windows and Linux, and fully drivable by agents.
-
 ---
 
 ## License and credits
@@ -175,13 +130,4 @@ Copyright (c) 2026 the Guitario contributors. Required notices are in [NOTICE](N
 Bundled assets are listed with their author, source and license in [ATTRIBUTION.md](ATTRIBUTION.md).
 Every demo score is an original composition.
 
-The Guitario name, wordmark and logos in [`docs/brand/`](docs/brand/) are trademarks of the
-Guitario Team and are not covered by this license; see [`docs/brand/LICENSE-brand.txt`](docs/brand/LICENSE-brand.txt).
-Forks and modified versions must remove them.
-
 <sub>Guitar Pro is a trademark of Arobas Music. Guitario is an independent, open-source project and is not affiliated with, sponsored by or endorsed by Arobas Music; the name is used only to describe the workflows it is compatible with.</sub>
-
-<p align="center">
-  <a href="https://github.com/timothydaly1/guitario"><img alt="Guitario" src="docs/brand/guitario-mark.svg" width="28"></a><br>
-  <sub>Made by the <a href="https://github.com/timothydaly1/guitario">Guitario</a> team and community.</sub>
-</p>

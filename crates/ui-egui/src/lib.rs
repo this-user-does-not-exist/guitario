@@ -348,9 +348,6 @@ impl GuitarioApp {
             ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
             ui.label("Tablature, notation and playback; a clean-room take on Guitar Pro in pure Rust.");
             ui.add_space(6.0);
-            ui.label("One of the sibling apps, made by the Guitario team and community.");
-            ui.hyperlink_to("guitario.com", "https://github.com/timothydaly1/guitario");
-            ui.add_space(6.0);
             ui.label(
                 egui::RichText::new("MIT OR Apache-2.0. Music symbols use a SMuFL font found on this computer (Bravura or Leland, SIL OFL) when present.")
                     .small(),

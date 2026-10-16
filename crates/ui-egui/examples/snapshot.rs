@@ -39,7 +39,7 @@ fn enter(s: &mut Session, beats: &[DemoBeat]) {
 
 fn demo() -> Session {
     let mut s = Session::new();
-    run(&mut s, "score.setMeta", json!({"title": "Demo Riff", "artist": "Guitario", "author": "Guitario"}));
+    run(&mut s, "score.setMeta", json!({"title": "Demo Riff", "artist": "Guitario", "author": "Guitario contributors"}));
     run(&mut s, "score.setTempo", json!({"bpm": 104}));
     run(&mut s, "track.rename", json!({"name": "Electric Guitar"}));
     run(&mut s, "track.setProgram", json!({"program": 29}));

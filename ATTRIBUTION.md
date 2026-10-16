@@ -5,7 +5,6 @@ same change that adds an asset, and keep the licence file next to the asset.
 
 | Path | Title | Author | Source | Licence |
 |---|---|---|---|---|
-| `docs/brand/guitario-*.svg`, `docs/brand/guitario-*.png` | Guitario logo, wordmark and mark | Guitario Team | guitario.com | Not open source: `docs/brand/LICENSE-brand.txt` |
 | `demos/*.gt`, `demos/midi/*`, `demos/tab/*` | Demo scores | Guitario contributors (original compositions) | `crates/engine/examples/demos.rs` | MIT OR Apache-2.0 |
 | `docs/images/guitario-*.png` | Screenshots of the demo scores | Guitario contributors (offscreen renders of original scores) | `crates/ui-egui/examples/snapshot.rs` | MIT OR Apache-2.0 |
 | `demos/guitar-pro/import-test.gp` | Guitar Pro import fixture | Guitario contributors | `crates/gp/examples/fixture.rs` | MIT OR Apache-2.0 |

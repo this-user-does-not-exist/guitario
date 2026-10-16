@@ -1,7 +1,7 @@
 # Contributing
 
 - **Language:** Rust only. No JavaScript or TypeScript.
-- **Licence:** contributions are MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`). The Guitario logos in `docs/brand/` are not open source (`docs/brand/LICENSE-brand.txt`).
+- **Licence:** contributions are MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`).
 - **Clean-room:** do not copy code, sounds, fonts, stylesheets or other assets from Guitar Pro or other tab editors. Match behaviour and look by observation and public format notes. Only use permissively licensed assets, keep their licence next to them and list them in `ATTRIBUTION.md`. **Fonts** live in craft-fonts, never in this repo.
 - **Original content:** demo scores and examples are original compositions (the suite centres on metal); never transcribe existing songs.
 - **Never crash:** non-test code must not panic: no `unwrap`/`expect`/`panic!`/`unreachable!`/`todo!`/`unimplemented!`, no indexing, no `unsafe`. Errors go through `Result`; input-derived numbers are checked; every crash fix ships with a regression test.
