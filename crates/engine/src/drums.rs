@@ -77,12 +77,5 @@ fn set_drum(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 }
 
 fn beat_has(s: &Session, lane: u8, midi: u8) -> bool {
-    let c = s.cursor;
-    s.score
-        .tracks
-        .get(c.track)
-        .and_then(|t| t.measures.get(c.measure))
-        .and_then(|m| m.voices.first())
-        .and_then(|v| v.beats.get(c.beat))
-        .is_some_and(|b| b.notes.iter().any(|n| n.string == lane && n.fret == midi))
+    s.voice_in(s.cursor.measure).and_then(|v| v.beats.get(s.cursor.beat)).is_some_and(|b| b.notes.iter().any(|n| n.string == lane && n.fret == midi))
 }

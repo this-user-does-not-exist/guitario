@@ -30,7 +30,8 @@ note = "beams are flat; beaming groups by beat, not by the signature's grouping 
 [[item]]
 id = "NOTE-5"
 target = "Ties and slurs drawn between notes in standard notation"
-status = "missing"
+status = "done"
+note = "tie arcs in notation and tab, across bar lines and system breaks; slurs for hammer-ons, pull-offs and legato slides; several voices with stems up and down (page.rs, layout.rs, page::tests); user-placed slurs are not modelled"
 
 [[item]]
 id = "NOTE-6"

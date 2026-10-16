@@ -54,8 +54,8 @@ status = "missing"
 [[item]]
 id = "EDIT-9"
 target = "Multiple voices per bar (up to 4)"
-status = "missing"
-note = "the model stores voices but every command edits voice 1"
+status = "done"
+note = "edit.setVoice and Edit › Voice 1-4 (crates/engine/src/voices.rs): every beat command, the clipboard and selection work on the cursor's voice; all voices play, export to MIDI and ASCII tab, and show in notation and tab; no Multivoice Editing mode (all voices at once) or voice shortcuts yet"
 
 [[item]]
 id = "EDIT-10"
@@ -91,7 +91,7 @@ note = "Session::run snapshots; failed_command_changes_nothing test"
 id = "EDIT-15"
 target = "Drum tracks and a percussion editor"
 status = "partial"
-note = "track.addDrums, note.setDrum, drum pad and two-digit GM entry (crates/engine/src/drums.rs, drum_tracks_take_kit_pieces_on_their_lanes); no step grid, one voice for hands and feet"
+note = "track.addDrums, note.setDrum, drum pad and two-digit GM entry (crates/engine/src/drums.rs, drum_tracks_take_kit_pieces_on_their_lanes); Voice 2 holds the feet (stems down) as Guitar Pro writes drums; no step grid"
 
 [[item]]
 id = "EDIT-16"

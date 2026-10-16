@@ -151,7 +151,7 @@ fn lcd(ui: &mut egui::Ui, score: &Score, c: guitario_engine::Cursor, w: f32, pla
     let header = score.headers.get(c.measure);
     let beat_ticks: u32 = track
         .and_then(|tr| tr.measures.get(c.measure))
-        .and_then(|m| m.voices.first())
+        .and_then(|m| m.voices.get(c.voice))
         .map_or(0, |v| v.beats.iter().take(c.beat).map(|b| b.duration.ticks()).sum());
     let (now, total) = song_times(score, c.measure, beat_ticks);
     let now = play.map_or(now, |p| p.0.max(0.0));

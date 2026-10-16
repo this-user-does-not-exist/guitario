@@ -67,7 +67,8 @@ impl Session {
     }
 
     fn position_exists(&self, track: usize, (m, b): (usize, usize)) -> bool {
-        self.score.tracks.get(track).and_then(|t| t.measures.get(m)).and_then(|x| x.voices.first()).is_some_and(|v| b < v.beats.len())
+        // A voice the bar lacks reads as one bar-long rest.
+        self.score.tracks.get(track).and_then(|t| t.measures.get(m)).is_some_and(|x| b < x.voices.get(self.cursor.voice).map_or(1, |v| v.beats.len()))
     }
 
     /// Drops a selection that no longer points at real beats (after undo, deletes …).
@@ -83,6 +84,7 @@ impl Session {
     pub(crate) fn selected_beats_mut(&mut self) -> Result<Vec<&mut Beat>, EngineError> {
         let sel = self.selection.ok_or_else(|| EngineError::invalid("nothing is selected"))?;
         let ((m0, b0), (m1, b1)) = sel.ordered();
+        let voice = self.cursor.voice;
         let track = Arc::make_mut(&mut self.score).tracks.get_mut(sel.track).ok_or_else(|| EngineError::invalid("no such track"))?;
         Ok(track
             .measures
@@ -91,7 +93,7 @@ impl Session {
             .filter(|(m, _)| (m0..=m1).contains(m))
             .flat_map(|(m, meas)| {
                 meas.voices
-                    .first_mut()
+                    .get_mut(voice)
                     .into_iter()
                     .flat_map(move |v| v.beats.iter_mut().enumerate().filter(move |(b, _)| (m > m0 || *b >= b0) && (m < m1 || *b <= b1)).map(|(_, beat)| beat))
             })
@@ -99,7 +101,7 @@ impl Session {
     }
 
     fn beats_in(&self, m: usize) -> usize {
-        self.score.tracks.get(self.cursor.track).and_then(|t| t.measures.get(m)).and_then(|x| x.voices.first()).map_or(0, |v| v.beats.len())
+        self.voice_in(m).map_or(1, |v| v.beats.len())
     }
 }
 
@@ -158,7 +160,7 @@ fn copy(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     let track = s.score.tracks.get(s.cursor.track).ok_or_else(|| EngineError::invalid("no such track"))?;
     let mut fragments = Vec::new();
     for m in m0..=m1 {
-        let beats = track.measures.get(m).and_then(|x| x.voices.first()).map(|v| v.beats.as_slice()).unwrap_or_default();
+        let beats = track.measures.get(m).and_then(|x| x.voices.get(s.cursor.voice)).map(|v| v.beats.as_slice()).unwrap_or_default();
         let start = if m == m0 { b0 } else { 0 };
         let end = if m == m1 { b1.saturating_add(1) } else { beats.len() };
         fragments.push(beats.get(start.min(beats.len())..end.min(beats.len())).unwrap_or_default().to_vec());
@@ -251,12 +253,7 @@ fn paste(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
             append_measure(score, h);
         }
         let cap = score.headers.get(m).map_or(0, MeasureHeader::capacity);
-        let voice = score
-            .tracks
-            .get_mut(c.track)
-            .and_then(|t| t.measures.get_mut(m))
-            .and_then(|x| x.voices.first_mut())
-            .ok_or_else(|| EngineError::invalid("no such measure"))?;
+        let voice = crate::session::voice_at_mut(score, c.track, m, c.voice).ok_or_else(|| EngineError::invalid("no such measure"))?;
         paste_into(voice, if i == 0 { c.beat } else { 0 }, frag, cap)?;
         beats += frag.len();
     }

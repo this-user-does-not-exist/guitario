@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G3: Guitar Pro 3-6 import and `.gp5` export landed, G3 no longer blocks alpha; G4: chord names) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: ties, slurs and multiple voices landed; G1: drums' second voice; G3: voices 2-4 from `.gp`) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -18,10 +18,10 @@ agent can't finish alone.
 
 | # | Gap | Kind | Impact | Estimate | Parity doc |
 |---|---|---|---|---:|---|
-| G1 | Drums: depth (two voices, step editor, articulations) | features, playback | medium | 40–80 h | [scorecard](scorecard.md#editing) |
+| G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
 | G2 | Print and PDF export | file format | blocks alpha | 60–100 h | [file-format-parity](file-format-parity.md) |
 | G3 | Guitar Pro exchange (`.gp` export, import depth) | file format | high | 60–110 h | [file-format-parity](file-format-parity.md) |
-| G4 | Notation depth (ties, voices, endings, chords, lyrics) | features | high | 150–250 h | [scorecard](scorecard.md#notation-and-engraving) |
+| G4 | Notation depth (diagrams, lyrics, grace notes, layouts) | features | high | 90–160 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
 | G6 | Editing depth (bend editor, tuplets, paste special, track tools) | features | medium-high | 80–140 h | [scorecard](scorecard.md#editing) |
 | G7 | Tools: tuner, chord engine, scales, line in | features | medium | 120–200 h | [target-app-parity](target-app-parity.md#feature-breadth-33-weighted) |
@@ -41,10 +41,11 @@ agent can't finish alone.
   `.gp` drum import by articulation index or MIDI number. Twelve demos have drum parts and
   `14-drum-grooves` covers skank, d-beat, gallop, double kick, half time, blasts, china hits and a
   triplet fill (`crates/engine/tests/demos.rs`).
-- **Missing:** two voices (hands up, feet down) as Guitar Pro writes drums; a step-grid drum
-  editor; articulations beyond the kit map (flams, rolls, ghost and accent noteheads, open-hat
-  circles); sampled drums.
-- **Estimate:** 40–80 h.
+- **Landed 2026-10-16:** a second voice for the feet (stems down, hands up) as Guitar Pro writes
+  drums: Edit › Voice 2, drawn and played, and read from `.gp5` and `.gp`.
+- **Missing:** a step-grid drum editor; articulations beyond the kit map (flams, rolls, ghost and
+  accent noteheads, open-hat circles); sampled drums.
+- **Estimate:** 30–60 h.
 
 ### G2. Print and PDF export
 - **Missing:** PDF export of the page view, system printing, print preview.
@@ -60,8 +61,7 @@ agent can't finish alone.
   GP3-5 and 37 real GP6 files (`crates/gp/tests/corpus.rs` with `GUITARIO_GP_CORPUS`): all
   import, and the GP3-5 ones come back unchanged through the GP5 writer. The corpus is public test
   data from other projects, used locally and not committed.
-- **Missing:** `.gp` (7/8) export; voices 2–4 from `.gp`/`.gpx` (the GP5 reader keeps two);
-  Guitar Pro 6 drum hits (kit element and variation, no MIDI number in the file); grace notes,
+- **Missing:** `.gp` (7/8) export; Guitar Pro 6 drum hits (kit element and variation, no MIDI number in the file); grace notes,
   trills, tremolo picking, whammy, fingering and lyrics on import (the model lacks them, G4);
   MusicXML and MIDI import.
 - **Evidence:** FILE-3 partial, FILE-10 done, FILE-4/6 missing.
@@ -70,11 +70,15 @@ agent can't finish alone.
 ### G4. Notation depth
 - **Landed 2026-10-16:** chord names (model, `beat.setChord`, Guitar Pro import and export) and
   beat text drawn above the system.
-- **Missing:** ties and slurs between notes, multiple voices, chord diagrams, lyrics, tremolo
-  slashes, grace notes, fermatas, mid-system key changes, beaming by the time signature's
-  grouping, sloped beams.
-- **Evidence:** NOTE-3/4/12 partial, NOTE-5/9 missing, EDIT-9 missing, EDIT-16 partial.
-- **Estimate:** 150–250 h.
+- **Landed 2026-10-16:** up to four voices per bar (Edit › Voice 1-4, `edit.setVoice`): voices
+  share columns by time so notes that sound together line up, Voice 1 takes stems up and Voice 2
+  stems down with rests moved apart, every voice plays and exports; ties drawn in notation and tab
+  (across bars and system breaks); slurs for hammer-ons, pull-offs and legato slides.
+- **Missing:** chord diagrams, lyrics, tremolo slashes, grace notes, fermatas, a Multivoice Editing
+  mode, user-placed slurs, mid-system key changes, beaming by the time signature's grouping,
+  sloped beams, and offsetting heads where two voices share a pitch.
+- **Evidence:** NOTE-5 and EDIT-9 done; NOTE-3/4/9/12 and EDIT-16 partial.
+- **Estimate:** 90–160 h.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with
@@ -144,3 +148,4 @@ agent can't finish alone.
 | 2026-10-16 | minor | G6: bar, track and technique commands landed (menus 94 → 117) |
 | 2026-10-16 | minor | G5: SFZ sampled instruments for drums, bass and guitars landed (estimate 300–600 h to 250–500 h) |
 | 2026-10-16 | minor | G3: GP3-6 import and `.gp5` export landed, no longer blocks alpha (150–250 h to 60–110 h); G4: chord names |
+| 2026-10-16 | minor | G4: ties, slurs and up to four voices landed (150–250 h to 90–160 h); G1: drums' second voice (40–80 h to 30–60 h) |

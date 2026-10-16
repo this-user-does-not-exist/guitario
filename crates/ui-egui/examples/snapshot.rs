@@ -129,6 +129,14 @@ fn main() {
     if let Some(t) = value("--track").and_then(|t| t.parse::<usize>().ok()) {
         run(&mut session, "track.select", json!({"index": t}));
     }
+    // `--voice n` puts the cursor in Voice n (1-4); `--bar b` and `--beat k` (1-based) move it.
+    if let Some(v) = value("--voice").and_then(|v| v.parse::<u64>().ok()) {
+        run(&mut session, "edit.setVoice", json!({"voice": v}));
+    }
+    let number = |flag: &str| value(flag).and_then(|v| v.parse::<usize>().ok()).and_then(|v| v.checked_sub(1));
+    if let Some(bar) = number("--bar") {
+        run(&mut session, "cursor.set", json!({"measure": bar, "beat": number("--beat").unwrap_or(0)}));
+    }
     let mut app = GuitarioApp::new(session, None);
     if let Some(z) = value("--zoom").and_then(|z| z.parse::<f32>().ok()) {
         app.view.zoom = z;

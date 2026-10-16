@@ -1,7 +1,8 @@
 # Files
 
-- **Open** `.gt` (Guitario) and `.gp` (Guitar Pro 7 and 8) files, drum tracks included. Some
-  notation (second voices, grace notes, alternate endings, lyrics) is skipped for now.
+- **Open** `.gt` (Guitario; `.gt` files from before the rename too) and Guitar Pro files
+  (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`), drum tracks and up to four voices included. Some notation
+  (grace notes, trills, tremolo picking, lyrics) is skipped for now, and Guitario tells you what.
 - **Save** as `.gt`. Saves are atomic: a crash or full disk never damages the previous save.
-- **Export** MIDI, WAV audio and ASCII tab from File › Export.
+- **Export** Guitar Pro 5, MIDI, WAV audio and ASCII tab from File › Export.
 - **Recent files** are under File › Open Recent.

@@ -26,6 +26,8 @@ type R<T = ()> = Result<T, String>;
 
 struct Bar {
     beats: String,
+    /// A second voice entered over the first, in the same notation.
+    voice2: Option<String>,
     ts: Option<(u8, u8)>,
     key: Option<i8>,
     tempo: Option<u16>,
@@ -35,10 +37,14 @@ struct Bar {
 }
 
 fn bar(beats: impl AsRef<str>) -> Bar {
-    Bar { beats: beats.as_ref().to_string(), ts: None, key: None, tempo: None, marker: None, open: false, close: 0 }
+    Bar { beats: beats.as_ref().to_string(), voice2: None, ts: None, key: None, tempo: None, marker: None, open: false, close: 0 }
 }
 
 impl Bar {
+    fn with_voice2(mut self, beats: impl AsRef<str>) -> Self {
+        self.voice2 = Some(beats.as_ref().to_string());
+        self
+    }
     fn ts(mut self, n: u8, d: u8) -> Self {
         self.ts = Some((n, d));
         self
@@ -177,11 +183,22 @@ fn play_track(s: &mut Session, track: usize, bars: &[Bar]) -> R {
         for (j, beat) in beats.iter().enumerate() {
             enter_beat(s, beat, j + 1 < beats.len()).map_err(|e| format!("track {track} bar {}: {e}", i + 1))?;
         }
+        if let Some(v2) = &b.voice2 {
+            run(s, "edit.setVoice", json!({"voice": 2}))?;
+            run(s, "cursor.set", json!({"measure": i, "beat": 0}))?;
+            let beats: Vec<&str> = v2.split(',').map(str::trim).collect();
+            for (j, beat) in beats.iter().enumerate() {
+                enter_beat(s, beat, j + 1 < beats.len()).map_err(|e| format!("track {track} bar {} voice 2: {e}", i + 1))?;
+            }
+            run(s, "edit.setVoice", json!({"voice": 1}))?;
+        }
         let score = s.score();
-        let used = score.tracks.get(track).and_then(|t| t.measures.get(i)).and_then(|m| m.voices.first()).map_or(0, |v| v.ticks());
+        let measure = score.tracks.get(track).and_then(|t| t.measures.get(i));
         let cap = score.headers.get(i).map_or(0, |h| h.capacity());
-        if used != cap {
-            return Err(format!("track {track} bar {}: {used} of {cap} ticks filled", i + 1));
+        for (vi, v) in measure.map(|m| m.voices.as_slice()).unwrap_or_default().iter().enumerate() {
+            if v.ticks() != cap {
+                return Err(format!("track {track} bar {} voice {}: {} of {cap} ticks filled", i + 1, vi + 1, v.ticks()));
+            }
         }
     }
     Ok(())
@@ -850,6 +867,42 @@ fn drum_grooves() -> R<Session> {
     Ok(s)
 }
 
+fn two_voices() -> R<Session> {
+    let mut s = new_demo(
+        "Two Voices",
+        "Guitario",
+        "A fingerstyle study in A minor: the melody is Voice 1 (stems up), the bass is Voice 2 (stems down). The G in bar 4 is tied over the bar line.",
+        92,
+        "Nylon Guitar",
+        24,
+        "standard",
+    )?;
+    let melody = [
+        "4 2:1 @mp, 8 1:0, 8 2:1, 4 3:2, 4 2:1",
+        "4 2:1, 8 1:1, 8 2:1, 4 3:2, 4 2:1",
+        "4 2:1, 8 2:0, 8 2:1, 4 1:0, 4 2:1",
+        "4 2:0, 4 3:0, 2 1:3",
+        "2 1:3 ~, 4 2:1, 4 3:2",
+        "4 1:1, 8 2:3, 8 2:1, 4 1:0, 4 2:3",
+        "4 2:0, 8 3:1, 8 2:0, 4 1:0, 4 2:0",
+        "1 2:1 +lr",
+    ];
+    let bass = [
+        "2 5:0 +lr, 2 4:2",
+        "2 6:1 +lr, 2 5:3",
+        "2 5:3 +lr, 2 4:2",
+        "2 6:3 +lr, 2 5:2",
+        "2 5:0 +lr, 2 4:2",
+        "2 4:0 +lr, 2 3:2",
+        "2 6:0 +lr, 2 5:2",
+        "1 5:0 +lr",
+    ];
+    let bars: Vec<Bar> =
+        melody.iter().zip(bass).enumerate().map(|(i, (m, b))| if i == 0 { bar(m).with_voice2(b).mark("Verse") } else { bar(m).with_voice2(b) }).collect();
+    play_track(&mut s, 0, &bars)?;
+    Ok(s)
+}
+
 fn demo_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos")
 }
@@ -871,7 +924,7 @@ fn main() -> ExitCode {
         }
     }
     type Make = fn() -> R<Session>;
-    let all: [(&str, Make); 15] = [
+    let all: [(&str, Make); 16] = [
         ("00-blank", blank),
         ("01-thrash-attack", thrash),
         ("02-funeral-procession", doom),
@@ -887,6 +940,7 @@ fn main() -> ExitCode {
         ("12-metal-technique-showcase", techniques),
         ("13-bass-rumble", bass_rumble),
         ("14-drum-grooves", drum_grooves),
+        ("15-two-voices", two_voices),
     ];
     let mut failed = false;
     for (name, make) in all {

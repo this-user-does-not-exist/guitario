@@ -17,6 +17,7 @@ mod session;
 mod techniques;
 mod tools;
 mod tracks;
+mod voices;
 
 pub use bars::direction_targets;
 pub use commands::{CommandSpec, registry};

@@ -13,7 +13,7 @@ note = "crates/format tests"
 id = "FILE-2"
 target = "Guitar Pro 7/8 (.gp) import"
 status = "partial"
-note = "notes, rhythms, effects, repeats, tempo, tunings, drum kits (articulation index or Midi number), shared objects; alternate endings, directions, triplet feel, free time, double bars, strums, pick strokes, slap/pop, fades, wide vibrato, heavy accents and tapping too; voices 2-4, grace notes and lyrics are dropped; tested on demos/guitar-pro/import-test.gp; the format is told by content, so File › Open takes any Guitar Pro file"
+note = "notes, rhythms, effects, repeats, tempo, tunings, drum kits (articulation index or Midi number), shared objects; alternate endings, directions, triplet feel, free time, double bars, strums, pick strokes, slap/pop, fades, wide vibrato, heavy accents and tapping too; voices 1-4 are read (rest-only voices dropped); grace notes and lyrics are dropped; tested on demos/guitar-pro/import-test.gp; the format is told by content, so File › Open takes any Guitar Pro file"
 
 [[item]]
 id = "FILE-3"

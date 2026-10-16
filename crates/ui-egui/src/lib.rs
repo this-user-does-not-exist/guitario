@@ -311,7 +311,7 @@ impl GuitarioApp {
             .tracks
             .get(c.track)
             .and_then(|t| t.measures.get(c.measure))
-            .and_then(|m| m.voices.first())
+            .and_then(|m| m.voices.get(c.voice))
             .and_then(|v| v.beats.get(c.beat))
             .map_or(4, |b| b.duration.value.divisor())
     }
@@ -601,7 +601,7 @@ impl GuitarioApp {
             .tracks
             .get(c.track)
             .and_then(|t| t.measures.get(c.measure))
-            .and_then(|m| m.voices.first())
+            .and_then(|m| m.voices.get(c.voice))
             .and_then(|v| v.beats.get(c.beat))
             .map_or(0, |b| b.duration.dots)
     }
@@ -648,7 +648,13 @@ impl GuitarioApp {
                     let sel = self.session.selection().map(|s| {
                         let ((m0, b0), (m1, b1)) = s.ordered();
                         let beats_in = |m: usize| {
-                            self.session.score().tracks.get(s.track).and_then(|t| t.measures.get(m)).and_then(|x| x.voices.first()).map_or(0, |v| v.beats.len())
+                            self.session
+                                .score()
+                                .tracks
+                                .get(s.track)
+                                .and_then(|t| t.measures.get(m))
+                                .and_then(|x| x.voices.get(c.voice))
+                                .map_or(1, |v| v.beats.len())
                         };
                         let n: usize = (m0..=m1)
                             .map(|m| {
@@ -659,8 +665,9 @@ impl GuitarioApp {
                             .sum();
                         format!("{n} beats selected · ")
                     });
+                    let voice = if c.voice > 0 { format!(" · Voice {}", c.voice + 1) } else { String::new() };
                     ui.label(
-                        egui::RichText::new(format!("{}Bar {} · Beat {} · String {}", sel.unwrap_or_default(), c.measure + 1, c.beat + 1, c.string + 1))
+                        egui::RichText::new(format!("{}Bar {} · Beat {} · String {}{voice}", sel.unwrap_or_default(), c.measure + 1, c.beat + 1, c.string + 1))
                             .small()
                             .color(t.text_dim),
                     );

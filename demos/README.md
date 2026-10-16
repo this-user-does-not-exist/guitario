@@ -25,6 +25,7 @@ software).
 | `12-metal-technique-showcase` | Reference | 120 | Standard | One bar per technique: hammer-ons, slides, bends, harmonics, palm mute, tremolo, dead and ghost notes, ties, triplets |
 | `13-bass-rumble` | Bass study | 180 | Bass | Pick gallops, a climbing line, a fill, with a rock beat |
 | `14-drum-grooves` | Drum reference | 160 → 200 | Drum kit | Skank beat, d-beat, kick gallop, double kick, half time, blast beats, china hits, a triplet tom fill |
+| `15-two-voices` | Fingerstyle study | 92 | Standard | Melody in Voice 1 (stems up) over a bass in Voice 2 (stems down) sharing one staff and tab, a note tied over a bar line |
 
 `guitar-pro/import-test.gp` is a small hand-built Guitar Pro 7 file used to test the importer
 (drop D, repeats, a tie, a slide, a bend, a harmonic, shared objects and a grace note). Open it from

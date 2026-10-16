@@ -141,75 +141,78 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
     let mut out: Vec<PlayedBeat> = Vec::new();
     for (ti, track) in score.tracks.iter().enumerate() {
         let mut clock: u64 = 0;
-        let mut open_tie: Vec<Option<usize>> = vec![None; track.string_count()];
+        // The attack a tied note extends, per voice and string.
+        let mut open_tie: Vec<Vec<Option<usize>>> = Vec::new();
         for &mi in &order {
             let Some(measure) = track.measures.get(mi) else { continue };
             let capacity = score.headers.get(mi).map_or(0, |h| h.capacity());
-            let Some(voice) = measure.voices.first() else {
-                clock += u64::from(capacity);
-                continue;
-            };
             let feel = score.headers.get(mi).map_or(crate::TripletFeel::None, |h| h.triplet_feel);
-            let mut at = clock;
-            for beat in &voice.beats {
-                let ticks = beat.duration.ticks();
-                // Swung start and end of this beat.
-                let (s0, s1) = (clock + feel.warp(at - clock), clock + feel.warp(at - clock + u64::from(ticks)));
-                let ticks_swung = u32::try_from(s1.saturating_sub(s0)).unwrap_or(ticks).max(1);
-                if !beat.rest {
-                    // Strings in strum order: a downstroke starts on the lowest string.
-                    let count = beat.notes.len();
-                    for note in &beat.notes {
-                        let s = usize::from(note.string);
-                        if note.kind == NoteKind::Tie
-                            && let Some(&Some(idx)) = open_tie.get(s)
-                        {
-                            if let Some(prev) = out.get_mut(idx) {
-                                prev.ticks += ticks_swung;
-                            }
-                            continue;
-                        }
-                        let dead = note.kind == NoteKind::Dead;
-                        let pitch = if dead { None } else { track.tuning.pitch(s, note.fret, track.capo) };
-                        let mut velocity = beat.dynamic.velocity();
-                        if note.effects.accent {
-                            velocity = velocity.saturating_add(15).min(127);
-                        }
-                        if note.effects.heavy_accent {
-                            velocity = velocity.saturating_add(28).min(127);
-                        }
-                        if note.effects.ghost {
-                            velocity = velocity.saturating_sub(25).max(1);
-                        }
-                        if beat.technique.is_some() {
-                            velocity = velocity.saturating_add(10).min(127);
-                        }
-                        let offset = match beat.brush {
-                            Some(b) if count > 1 => {
-                                let rank = beat.notes.iter().filter(|o| if b.down { o.string > note.string } else { o.string < note.string }).count();
-                                let span = u64::from(b.ticks.min(ticks_swung.saturating_sub(1)));
-                                span * rank as u64 / (count as u64 - 1)
-                            }
-                            _ => 0,
-                        };
-                        if let Some(slot) = open_tie.get_mut(s) {
-                            *slot = Some(out.len());
-                        }
-                        out.push(PlayedBeat {
-                            track: ti,
-                            measure: mi,
-                            start_tick: s0 + offset,
-                            ticks: ticks_swung.saturating_sub(u32::try_from(offset).unwrap_or(0)).max(1),
-                            string: note.string,
-                            pitch,
-                            velocity,
-                            dead,
-                            effects: note.effects,
-                            fade: beat.fade,
-                        });
-                    }
+            for (vi, voice) in measure.voices.iter().enumerate() {
+                if open_tie.len() <= vi {
+                    open_tie.resize_with(vi + 1, || vec![None; track.string_count()]);
                 }
-                at += u64::from(ticks);
+                let Some(ties) = open_tie.get_mut(vi) else { continue };
+                let mut at = clock;
+                for beat in &voice.beats {
+                    let ticks = beat.duration.ticks();
+                    // Swung start and end of this beat.
+                    let (s0, s1) = (clock + feel.warp(at - clock), clock + feel.warp(at - clock + u64::from(ticks)));
+                    let ticks_swung = u32::try_from(s1.saturating_sub(s0)).unwrap_or(ticks).max(1);
+                    if !beat.rest {
+                        // Strings in strum order: a downstroke starts on the lowest string.
+                        let count = beat.notes.len();
+                        for note in &beat.notes {
+                            let s = usize::from(note.string);
+                            if note.kind == NoteKind::Tie
+                                && let Some(&Some(idx)) = ties.get(s)
+                            {
+                                if let Some(prev) = out.get_mut(idx) {
+                                    prev.ticks += ticks_swung;
+                                }
+                                continue;
+                            }
+                            let dead = note.kind == NoteKind::Dead;
+                            let pitch = if dead { None } else { track.tuning.pitch(s, note.fret, track.capo) };
+                            let mut velocity = beat.dynamic.velocity();
+                            if note.effects.accent {
+                                velocity = velocity.saturating_add(15).min(127);
+                            }
+                            if note.effects.heavy_accent {
+                                velocity = velocity.saturating_add(28).min(127);
+                            }
+                            if note.effects.ghost {
+                                velocity = velocity.saturating_sub(25).max(1);
+                            }
+                            if beat.technique.is_some() {
+                                velocity = velocity.saturating_add(10).min(127);
+                            }
+                            let offset = match beat.brush {
+                                Some(b) if count > 1 => {
+                                    let rank = beat.notes.iter().filter(|o| if b.down { o.string > note.string } else { o.string < note.string }).count();
+                                    let span = u64::from(b.ticks.min(ticks_swung.saturating_sub(1)));
+                                    span * rank as u64 / (count as u64 - 1)
+                                }
+                                _ => 0,
+                            };
+                            if let Some(slot) = ties.get_mut(s) {
+                                *slot = Some(out.len());
+                            }
+                            out.push(PlayedBeat {
+                                track: ti,
+                                measure: mi,
+                                start_tick: s0 + offset,
+                                ticks: ticks_swung.saturating_sub(u32::try_from(offset).unwrap_or(0)).max(1),
+                                string: note.string,
+                                pitch,
+                                velocity,
+                                dead,
+                                effects: note.effects,
+                                fade: beat.fade,
+                            });
+                        }
+                    }
+                    at += u64::from(ticks);
+                }
             }
             clock += u64::from(capacity);
         }
@@ -229,6 +232,32 @@ mod tests {
         s.headers = vec![MeasureHeader::new(TimeSignature::COMMON); n];
         s.tracks = vec![Track::new("g", Tuning::standard(), &s.headers)];
         s
+    }
+
+    #[test]
+    fn every_voice_sounds_and_ties_stay_inside_their_voice() {
+        use crate::{Beat, Measure, Note, NoteKind, Voice};
+        use guitario_theory::Duration;
+        let mut s = score_with(1);
+        let note = |string: u8, fret: u8, kind: NoteKind, d: Duration| {
+            let mut n = Note::new(string, fret);
+            n.kind = kind;
+            Beat { rest: false, notes: vec![n], ..Beat::rest(d) }
+        };
+        let (q, h) = (Duration::QUARTER, Duration::new(guitario_theory::NoteValue::Half));
+        // Voice 1: a whole-note G on string 2 held as two tied halves. Voice 2: the same string,
+        // two quarters then a half rest, so its attacks must not extend voice 1's note.
+        let m: &mut Measure = &mut s.tracks[0].measures[0];
+        m.voices = vec![
+            Voice { beats: vec![note(2, 0, NoteKind::Normal, h), note(2, 0, NoteKind::Tie, h)] },
+            Voice { beats: vec![note(2, 5, NoteKind::Normal, q), note(2, 5, NoteKind::Tie, q), Beat::rest(h)] },
+        ];
+        let out = timeline(&s);
+        assert_eq!(out.len(), 2, "{out:?}");
+        let first = out.iter().find(|p| p.pitch == s.tracks[0].tuning.pitch(2, 0, 0)).unwrap();
+        let second = out.iter().find(|p| p.pitch == s.tracks[0].tuning.pitch(2, 5, 0)).unwrap();
+        assert_eq!((first.start_tick, first.ticks), (0, 2 * h.ticks()));
+        assert_eq!((second.start_tick, second.ticks), (0, 2 * q.ticks()));
     }
 
     #[test]
