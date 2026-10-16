@@ -129,3 +129,21 @@ nobody has opened one in Guitar Pro 8 to confirm (human check).
 `handle_keys` already stood down while a text field had focus and during the unsaved-changes prompt,
 but a dialog without a focused field (Print, Page Setup, Print Preview) let digits become frets and
 Space start playback behind it. `modal_open()` now covers every dialog.
+
+## 2026-10-16: Tremolo picking belongs to the beat, a trill to the note
+
+Guitar Pro 3-5 stores tremolo picking on each note and GPIF on the beat; the slashes are drawn
+on the stem and a picked chord repeats whole, so the model keeps it per beat (`Beat::tremolo`:
+eighth, sixteenth or thirty-second, the number of slashes) and the GP3-5 reader lifts it from the
+notes. A trill is the other way round: one string alternating with another fret
+(`NoteEffects::trill`: the other fret and a speed of 16th, 32nd or 64th). Playback expands both in
+the timeline (`attacks()`: contiguous, exact to the tick, at most 512 per note, so no duration can
+make a huge timeline); trill notes are marked legato so the synth does not re-pluck them, and a
+trill wins over tremolo picking on the same note. MIDI export follows because it reads the same
+timeline.
+
+GPIF facts are inferred, not documented: `<Tremolo>` is `1/8`, `1/4` or `1/2` for one, two or three
+slashes (the order the real tremolo test file lists them in, and what other readers do);
+`<Trill>` is the MIDI pitch of the other note and its period an `XProperty` in 960ths of a quarter
+(240, 120, 60), from a single real sample, whose trill pitch equals its own so it is ignored. The
+exports have not been opened in Guitar Pro 8 (human check), as for the rest of `.gp` export.

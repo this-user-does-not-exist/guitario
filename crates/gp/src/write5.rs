@@ -524,7 +524,7 @@ impl Writer {
             let mut sorted = notes;
             sorted.sort_by_key(|(s, _)| *s);
             for (_, n) in sorted {
-                self.note(n, b.dynamic);
+                self.note(n, b.dynamic, b.tremolo);
             }
         }
         self.i16(0);
@@ -596,9 +596,18 @@ impl Writer {
         self.int_byte_string("");
     }
 
-    fn note(&mut self, n: &Note, dynamic: Dynamic) {
+    fn note(&mut self, n: &Note, dynamic: Dynamic, tremolo: Option<TremoloSpeed>) {
         let e = &n.effects;
-        let has_fx = e.bend.is_some() || e.hammer || e.let_ring || e.staccato || e.palm_mute || e.slide.is_some() || e.harmonic.is_some() || e.vibrato;
+        let has_fx = e.bend.is_some()
+            || e.hammer
+            || e.let_ring
+            || e.staccato
+            || e.palm_mute
+            || e.slide.is_some()
+            || e.harmonic.is_some()
+            || e.vibrato
+            || e.trill.is_some()
+            || tremolo.is_some();
         let mut flags = 0x20u8;
         if e.heavy_accent {
             flags |= 0x02;
@@ -630,14 +639,20 @@ impl Writer {
         self.i8(i8::try_from(n.fret).unwrap_or(i8::MAX));
         self.u8(0); // accidental spelling
         if has_fx {
-            self.note_effects(n);
+            self.note_effects(n, tremolo);
         }
     }
 
-    fn note_effects(&mut self, n: &Note) {
+    fn note_effects(&mut self, n: &Note, tremolo: Option<TremoloSpeed>) {
         let e = &n.effects;
         let mut f1 = 0u8;
         let mut f2 = 0u8;
+        if tremolo.is_some() {
+            f2 |= 0x04;
+        }
+        if e.trill.is_some() {
+            f2 |= 0x20;
+        }
         if e.bend.is_some() {
             f1 |= 0x01;
         }
@@ -676,6 +691,9 @@ impl Writer {
                 self.u8(0);
             }
         }
+        if let Some(speed) = tremolo {
+            self.u8(speed.slashes());
+        }
         if let Some(s) = e.slide {
             self.u8(match s {
                 Slide::Shift => 0x01,
@@ -700,6 +718,14 @@ impl Writer {
                 Harmonic::Pinch => self.i8(4),
                 Harmonic::Semi => self.i8(5),
             }
+        }
+        if let Some(trill) = e.trill {
+            self.u8(trill.fret);
+            self.u8(match trill.speed {
+                TrillSpeed::Sixteenth => 1,
+                TrillSpeed::ThirtySecond => 2,
+                TrillSpeed::SixtyFourth => 3,
+            });
         }
     }
 }

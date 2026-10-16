@@ -85,6 +85,11 @@ impl crate::Score {
                         if note.fret > track.max_fret() {
                             return Err(bad(format!("fret {} is above {}", note.fret, track.max_fret())));
                         }
+                        if let Some(trill) = note.effects.trill
+                            && trill.fret > track.max_fret()
+                        {
+                            return Err(bad(format!("trill fret {} is above {}", trill.fret, track.max_fret())));
+                        }
                         if beat.notes.iter().take(i).any(|n| n.string == note.string) {
                             return Err(bad(format!("has two notes on string {}", note.string)));
                         }

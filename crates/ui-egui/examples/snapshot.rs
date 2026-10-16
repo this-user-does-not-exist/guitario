@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -172,6 +172,12 @@ fn main() {
     }
     if args.iter().any(|a| a == "--page-setup") {
         app.open_page_setup();
+    }
+    if args.iter().any(|a| a == "--trill") {
+        app.open_trill();
+    }
+    if args.iter().any(|a| a == "--tremolo") {
+        app.open_tremolo();
     }
     let mut harness = egui_kittest::Harness::builder().with_size(egui::vec2(w, h)).build_ui(move |ui| app.show(ui));
     harness.run_steps(4);

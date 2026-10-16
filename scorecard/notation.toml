@@ -53,7 +53,7 @@ note = "fonts.rs, glyphs.rs"
 id = "NOTE-9"
 target = "Tremolo picking slashes, grace notes, trills, fermatas, alternate ending brackets"
 status = "partial"
-note = "alternate ending brackets and direction marks (segno, coda, Fine, D.C./D.S.) drawn; tremolo slashes, grace notes, trills, fermatas missing"
+note = "alternate ending brackets and direction marks (segno, coda, Fine, D.C./D.S.) drawn; tremolo picking slashes (one to three through the stem, above a whole note, under the tab when notation is hidden) and trills (tr with a wavy line above the staff and in the tab lane) drawn, with painted-shape tests; grace notes and fermatas missing"
 
 [[item]]
 id = "NOTE-10"

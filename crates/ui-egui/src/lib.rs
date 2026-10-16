@@ -14,6 +14,7 @@ mod layout;
 mod menu_catalog;
 mod menus;
 mod notation;
+mod ornaments;
 mod page;
 mod page_setup;
 mod palette;
@@ -85,6 +86,7 @@ pub struct GuitarioApp {
     print: print_dialog::PrintDialog,
     page_setup: page_setup::PageSetupDialog,
     preview: preview::Preview,
+    ornaments: ornaments::OrnamentDialog,
 }
 
 /// What the unsaved-changes prompt will do once the user answers.
@@ -126,6 +128,7 @@ impl GuitarioApp {
             print: print_dialog::PrintDialog::default(),
             page_setup: page_setup::PageSetupDialog::default(),
             preview: preview::Preview::default(),
+            ornaments: ornaments::OrnamentDialog::default(),
         }
     }
 
@@ -256,6 +259,8 @@ impl GuitarioApp {
             U::Print => self.open_print(),
             U::PrintPreview => self.open_preview(),
             U::PageSetup => self.open_page_setup(),
+            U::Trill => self.open_trill(),
+            U::TremoloPicking => self.open_tremolo(),
             U::ImportGuitarPro => self.open_dialog(),
             U::Quit => ctx_quit(),
             U::SongInfo => {
@@ -575,7 +580,7 @@ impl GuitarioApp {
 
     /// A dialog has the window: keys must not reach the score behind it.
     fn modal_open(&self) -> bool {
-        self.pending.is_some() || self.print.open || self.preview.open || self.page_setup.open
+        self.pending.is_some() || self.print.open || self.preview.open || self.page_setup.open || self.ornaments.is_open()
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
@@ -661,6 +666,7 @@ impl GuitarioApp {
         self.about(&ctx);
         self.preview_dialog(&ctx);
         self.page_setup_dialog(&ctx);
+        self.ornament_dialog(&ctx);
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));

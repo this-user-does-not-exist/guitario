@@ -1,6 +1,6 @@
 # File format parity
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (page setup in files; print preview) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (tremolo picking and trills in files) · **Target:** Guitar Pro 8
 
 Guitar Pro 8's file formats, and what Guitario does with each. Part of
 [target-app parity](target-app-parity.md); gaps G2 and G3 in [gaps](gaps.md).
@@ -9,7 +9,7 @@ Guitar Pro 8's file formats, and what Guitario does with each. Part of
 |---|---|---|---|
 | `.gp` (Guitar Pro 7/8: ZIP + `score.gpif`) | read, write | **read (partial), write** | `crates/gp`. Reads tracks, tunings, capo, programs, bars, time/key signatures, repeats, sections, tempo, rhythms with dots and tuplets, dynamics, notes and their effects; shared objects; reads drum kits (by articulation index or MIDI number); reads up to four voices per bar, alternate endings and directions; drops grace notes, lyrics and chord diagrams with warnings. Fixture: `demos/guitar-pro/import-test.gp`. **Export** (`writegp.rs`, File › Export › Guitar Pro 8…) writes the same model back: up to four voices, ties and hammer-ons marked at both ends, every effect, repeats, endings, directions, drum kits; chord names and track volume/pan are left out with a warning. It reads back unchanged for every demo and all 76 real files tried, but has **not been opened in Guitar Pro itself** yet (human check) |
 | `.gpx` (Guitar Pro 6) | read | **read (partial)** | `crates/gp/src/gpx.rs`: the BCFZ-compressed BCFS container around the same GPIF XML, with Guitar Pro 6's track layout (tuning and capo on the track, `GeneralMidi` programs). 37 real files import (local corpus). Drum hits stored as kit element and variation are dropped with a warning; non-fretted tracks (voice, winds, keys) are skipped |
-| `.gp5` / `.gp4` / `.gp3` | read (and `.gp5` export) | **read, `.gp5` write** | `crates/gp/src/legacy.rs` reads the binary formats: song information, tracks with up to seven strings and their MIDI channels, two voices (GP5), bars with repeats, alternate endings (GP3/4 numbers and GP5 bit sets), markers, keys, triplet feel, GP5 directions, tempo changes from mix tables, chords, beat text, strokes, slap/pop/tapping, fades in and every note effect the model holds. Grace notes, trills, tremolo picking, whammy dives, fingering and lyrics are dropped and counted in the warnings. `crates/gp/src/write5.rs` writes 5.10 files (**File › Export › Guitar Pro 5…**). 39 real GP3-5 files import and come back unchanged through the writer; every demo round-trips (`crates/gp/tests/gp5.rs`, `demos/gp5/`) |
+| `.gp5` / `.gp4` / `.gp3` | read (and `.gp5` export) | **read, `.gp5` write** | `crates/gp/src/legacy.rs` reads the binary formats: song information, tracks with up to seven strings and their MIDI channels, two voices (GP5), bars with repeats, alternate endings (GP3/4 numbers and GP5 bit sets), markers, keys, triplet feel, GP5 directions, tempo changes from mix tables, chords, beat text, strokes, slap/pop/tapping, fades in and every note effect the model holds. Tremolo picking (one byte per note, kept per beat) and trills (the other fret and a period) are read and written; grace notes, whammy dives, fingering and lyrics are dropped and counted in the warnings. `crates/gp/src/write5.rs` writes 5.10 files (**File › Export › Guitar Pro 5…**). 39 real GP3-5 files import and come back unchanged through the writer; every demo round-trips (`crates/gp/tests/gp5.rs`, `demos/gp5/`) |
 | `.gtp`, PowerTab `.ptb`, TablEdit `.tef` | read | missing | |
 | MusicXML | read, write | missing | |
 | MIDI | read, write | **write** | `crates/midi`: format 1, repeats unrolled, ties merged, mute/solo respected |
@@ -26,6 +26,7 @@ Guitar Pro 8's file formats, and what Guitario does with each. Part of
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-15 | major | First list |
+| 2026-10-16 | minor | Tremolo picking and trills read and written in `.gp5` (checked on the real corpus: no longer dropped) and in `.gp`/GPIF (`<Tremolo>` 1/8, 1/4, 1/2 and `<Trill>` as a pitch; inferred from real files and one sample, not yet opened in Guitar Pro 8) |
 | 2026-10-16 | minor | Print preview and page setup (`score.setPage`, `preview.rs`, `page_setup.rs`); the page setup is read and written in `.gp5` and `.gp` (`crates/gp/src/page.rs`), checked on a real Letter file |
 | 2026-10-16 | minor | PDF export and printing (`crates/ui-egui/src/pdf.rs`, `spool.rs`, `print_dialog.rs`; engine `file.exportPdf`, `file.print`, `file.printers`) |
 | 2026-10-16 | minor | `.gp` export (`crates/gp/src/writegp.rs`); every demo and 76 real files round-trip; not yet opened in Guitar Pro itself |

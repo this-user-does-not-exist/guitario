@@ -133,9 +133,26 @@ pub struct PlayedBeat {
     pub fade: Option<Fade>,
 }
 
+/// Most attacks one note makes inside one beat, so a hostile duration cannot make a huge timeline.
+const MAX_ATTACKS: u32 = 512;
+
+/// Where the attacks of one note fall inside a beat of `total` ticks, as `(start, length)` from the
+/// beat's start: one attack, or a new one every `period` ticks (tremolo picking, a trill). `lead` delays
+/// the first (a brush). A period too long for two attacks to fit gives the single attack.
+fn attacks(period: Option<u32>, total: u32, lead: u32) -> Vec<(u32, u32)> {
+    let total = total.max(1);
+    let lead = lead.min(total - 1);
+    let span = total - lead;
+    let Some(period) = period.filter(|p| *p > 0 && *p < span) else { return vec![(lead, span)] };
+    let wanted = span.div_ceil(period);
+    let (n, step) = if wanted > MAX_ATTACKS { (MAX_ATTACKS, (span / MAX_ATTACKS).max(1)) } else { (wanted, period) };
+    (0..n).map(|i| (lead + i * step, if i + 1 == n { span - i * step } else { step })).collect()
+}
+
 /// Flattens the score into timed notes, following repeats. Tied notes extend the previous
 /// attack on the same string instead of re-attacking. Triplet feel moves notes inside each
-/// measure, and a brush or arpeggio staggers the strings of a beat.
+/// measure, and a brush or arpeggio staggers the strings of a beat. Tremolo picking picks a
+/// beat's notes again and again, and a trill alternates its note with another fret.
 pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
     let order = playback_order(score);
     let mut out: Vec<PlayedBeat> = Vec::new();
@@ -194,21 +211,38 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                 }
                                 _ => 0,
                             };
-                            if let Some(slot) = ties.get_mut(s) {
-                                *slot = Some(out.len());
+                            // A trill alternates with another fret; tremolo picking repeats the note.
+                            let trill = note.effects.trill.filter(|_| !dead);
+                            let period = match (trill, beat.tremolo) {
+                                (Some(t), _) => Some(t.speed.ticks()),
+                                (None, Some(speed)) => Some(speed.ticks()),
+                                (None, None) => None,
+                            };
+                            let other = trill.and_then(|t| track.tuning.pitch(s, t.fret, track.capo));
+                            let parts = attacks(period, ticks_swung, u32::try_from(offset).unwrap_or(0));
+                            let picks = parts.len();
+                            for (k, (start, len)) in parts.into_iter().enumerate() {
+                                let mut effects = note.effects;
+                                // Each trill note flows into the next without a new pluck.
+                                effects.hammer |= other.is_some() && k + 1 < picks;
+                                if k + 1 == picks
+                                    && let Some(slot) = ties.get_mut(s)
+                                {
+                                    *slot = Some(out.len());
+                                }
+                                out.push(PlayedBeat {
+                                    track: ti,
+                                    measure: mi,
+                                    start_tick: s0 + u64::from(start),
+                                    ticks: len,
+                                    string: note.string,
+                                    pitch: if k % 2 == 1 { other.or(pitch) } else { pitch },
+                                    velocity,
+                                    dead,
+                                    effects,
+                                    fade: beat.fade,
+                                });
                             }
-                            out.push(PlayedBeat {
-                                track: ti,
-                                measure: mi,
-                                start_tick: s0 + offset,
-                                ticks: ticks_swung.saturating_sub(u32::try_from(offset).unwrap_or(0)).max(1),
-                                string: note.string,
-                                pitch,
-                                velocity,
-                                dead,
-                                effects: note.effects,
-                                fade: beat.fade,
-                            });
                         }
                     }
                     at += u64::from(ticks);
@@ -408,5 +442,106 @@ mod tests {
         let by_string = |st: u8| t.iter().find(|p| p.string == st).map(|p| p.start_tick);
         let e = u64::from(guitario_theory::TICKS_PER_QUARTER / 8);
         assert_eq!((by_string(2), by_string(1), by_string(0)), (Some(0), Some(e / 2), Some(e)));
+    }
+
+    #[test]
+    fn attacks_tile_the_beat_exactly_and_are_bounded() {
+        assert_eq!(attacks(None, 100, 0), vec![(0, 100)]);
+        // A period that does not leave room for two attacks is one attack.
+        assert_eq!(attacks(Some(100), 100, 0), vec![(0, 100)]);
+        assert_eq!(attacks(Some(40), 100, 0), vec![(0, 40), (40, 40), (80, 20)]);
+        // A lead (a brush) delays the first and shortens the whole.
+        assert_eq!(attacks(Some(40), 100, 10), vec![(10, 40), (50, 40), (90, 10)]);
+        assert_eq!(attacks(Some(40), 100, 500), vec![(99, 1)]);
+        assert_eq!(attacks(Some(0), 100, 0), vec![(0, 100)]);
+        assert_eq!(attacks(Some(5), 0, 0), vec![(0, 1)]);
+        for (period, total, lead) in [(1, u32::MAX, 0), (1, 1_000_000, 7), (3, 1_000_001, 0), (7, 8, 0), (u32::MAX, u32::MAX, 0)] {
+            let parts = attacks(Some(period), total, lead);
+            assert!(parts.len() <= MAX_ATTACKS as usize, "{period} {total}: {}", parts.len());
+            let lead = lead.min(total.max(1) - 1);
+            assert_eq!(parts.first().map(|p| p.0), Some(lead));
+            assert_eq!(parts.iter().map(|p| u64::from(p.1)).sum::<u64>(), u64::from(total.max(1) - lead));
+            assert!(parts.windows(2).all(|w| w[0].0 + w[0].1 == w[1].0), "gaps or overlaps");
+        }
+    }
+
+    fn one_beat(s: &mut Score, beat: crate::Beat) {
+        s.tracks[0].measures[0].voices[0].beats = vec![beat];
+    }
+
+    #[test]
+    fn tremolo_picking_repeats_every_note_of_the_beat() {
+        use crate::{Beat, Note, TremoloSpeed};
+        use guitario_theory::{Duration, TICKS_PER_QUARTER};
+        let mut s = score_with(1);
+        one_beat(
+            &mut s,
+            Beat { rest: false, notes: vec![Note::new(0, 0), Note::new(1, 2)], tremolo: Some(TremoloSpeed::Sixteenth), ..Beat::rest(Duration::QUARTER) },
+        );
+        let t = timeline(&s);
+        let q = TICKS_PER_QUARTER;
+        assert_eq!(t.len(), 8, "two strings, four picks each");
+        for string in [0u8, 1] {
+            let mine: Vec<_> = t.iter().filter(|p| p.string == string).collect();
+            assert_eq!(mine.iter().map(|p| p.start_tick).collect::<Vec<_>>(), vec![0, u64::from(q / 4), u64::from(q / 2), u64::from(3 * q / 4)]);
+            assert!(mine.iter().all(|p| p.ticks == q / 4 && p.pitch == mine[0].pitch));
+        }
+        // Slower speeds pick less often.
+        s.tracks[0].measures[0].voices[0].beats[0].tremolo = Some(TremoloSpeed::Eighth);
+        assert_eq!(timeline(&s).len(), 4);
+        // A beat shorter than the period is picked once; no tremolo is the plain beat.
+        one_beat(
+            &mut s,
+            Beat {
+                rest: false,
+                notes: vec![Note::new(0, 0)],
+                tremolo: Some(TremoloSpeed::Eighth),
+                ..Beat::rest(Duration::new(guitario_theory::NoteValue::ThirtySecond))
+            },
+        );
+        assert_eq!(timeline(&s).len(), 1);
+        s.tracks[0].measures[0].voices[0].beats[0].tremolo = None;
+        assert_eq!(timeline(&s).len(), 1);
+    }
+
+    #[test]
+    fn a_trill_alternates_two_frets_legato_and_a_dead_note_does_not_trill() {
+        use crate::{Beat, Note, NoteKind, Trill, TrillSpeed};
+        use guitario_theory::{Duration, TICKS_PER_QUARTER};
+        let mut s = score_with(1);
+        let mut n = Note::new(2, 5);
+        n.effects.trill = Some(Trill { fret: 7, speed: TrillSpeed::ThirtySecond });
+        one_beat(&mut s, Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::QUARTER) });
+        let t = timeline(&s);
+        let tuning = &s.tracks[0].tuning;
+        let (low, high) = (tuning.pitch(2, 5, 0), tuning.pitch(2, 7, 0));
+        assert_eq!(t.len(), 8, "a quarter at 32nd speed");
+        assert_eq!(t.iter().map(|p| p.pitch).collect::<Vec<_>>(), (0..8).map(|i| if i % 2 == 0 { low } else { high }).collect::<Vec<_>>());
+        assert!(t.iter().all(|p| p.ticks == TICKS_PER_QUARTER / 8));
+        // Each note flows into the next; the last does not, since the note itself is no hammer-on.
+        assert_eq!(t.iter().map(|p| p.effects.hammer).collect::<Vec<_>>(), vec![true, true, true, true, true, true, true, false]);
+        // A dead note is struck once; the trill does not apply.
+        let mut dead = n;
+        dead.kind = NoteKind::Dead;
+        one_beat(&mut s, Beat { rest: false, notes: vec![dead], ..Beat::rest(Duration::QUARTER) });
+        assert_eq!(timeline(&s).len(), 1);
+    }
+
+    #[test]
+    fn a_tie_extends_the_last_pick_and_a_rest_never_picks() {
+        use crate::{Beat, Measure, Note, NoteKind, TremoloSpeed, Voice};
+        use guitario_theory::{Duration, TICKS_PER_QUARTER};
+        let mut s = score_with(1);
+        let picked = Beat { rest: false, notes: vec![Note::new(0, 3)], tremolo: Some(TremoloSpeed::Sixteenth), ..Beat::rest(Duration::QUARTER) };
+        let mut tied = Note::new(0, 3);
+        tied.kind = NoteKind::Tie;
+        let tie = Beat { rest: false, notes: vec![tied], ..Beat::rest(Duration::QUARTER) };
+        let rest = Beat { tremolo: Some(TremoloSpeed::Eighth), ..Beat::rest(Duration::QUARTER) };
+        let m: &mut Measure = &mut s.tracks[0].measures[0];
+        m.voices = vec![Voice { beats: vec![picked, tie, rest] }];
+        let t = timeline(&s);
+        assert_eq!(t.len(), 4, "four picks; the tie adds none and the rest nothing");
+        let q = TICKS_PER_QUARTER;
+        assert_eq!(t.last().map(|p| p.ticks), Some(q / 4 + q), "the tie holds the last pick");
     }
 }

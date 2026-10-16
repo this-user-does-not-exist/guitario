@@ -187,7 +187,7 @@ impl Session {
         Arc::make_mut(&mut self.score).headers.get_mut(i).ok_or_else(|| EngineError::invalid("no such measure"))
     }
 
-    fn note_mut(&mut self) -> Result<&mut Note, EngineError> {
+    pub(crate) fn note_mut(&mut self) -> Result<&mut Note, EngineError> {
         let string = self.cursor.string as u8;
         self.beat_mut()?.notes.iter_mut().find(|n| n.string == string).ok_or_else(|| EngineError::invalid("no note at the cursor"))
     }

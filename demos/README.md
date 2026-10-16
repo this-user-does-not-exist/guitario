@@ -18,11 +18,11 @@ software).
 | `05-seven-strings-deep` | Djent | 128 | 7-string, drop A | A 3+3+3+3+4 polyrhythm in sixteenths, a half-time breakdown, a pinch harmonic |
 | `06-odd-meter-assault` | Progressive | 150 | Drop D | 7/8, 5/4, 13/16, 6/8 and 12/8, tempo changes and a key change |
 | `07-iron-gallop` | Classic heavy metal | 168 | Standard | Harmonised twin leads in A minor over a galloping bass |
-| `08-frostbitten-dawn` | Black metal | 190 | Standard | Tremolo-picked melody in F# minor (three sharps), open-fifth tremolo chords |
+| `08-frostbitten-dawn` | Black metal | 190 | Standard | Tremolo-picked melody in F# minor (three sharps), open-fifth tremolo chords; each tremolo is one picked quarter note (thirty-second picking), not eight written notes |
 | `09-breakdown-protocol` | Metalcore | 140 | Drop B | Syncopated palm-muted chugs, dead notes, slide-out, pinch harmonic |
 | `10-ashes-to-distortion` | Ballad into heavy | 84 → 112 | Standard | A fingerpicked nylon intro with chord names that the distorted band joins at bar 5 |
 | `11-fretboard-fury` | Shred solo | 140 | Standard | Bends, legato runs, a shift slide, natural harmonic, triplet pentatonics over a gallop |
-| `12-metal-technique-showcase` | Reference | 120 | Standard | One bar per technique: hammer-ons, slides, bends, harmonics, palm mute, tremolo, dead and ghost notes, ties, triplets |
+| `12-metal-technique-showcase` | Reference | 120 | Standard | One bar per technique: hammer-ons, slides, bends, harmonics, palm mute, tremolo picking at three speeds, trills at three speeds, dead and ghost notes, ties, triplets |
 | `13-bass-rumble` | Bass study | 180 | Bass | Pick gallops, a climbing line, a fill, with a rock beat |
 | `14-drum-grooves` | Drum reference | 160 → 200 | Drum kit | Skank beat, d-beat, kick gallop, double kick, half time, blast beats, china hits, a triplet tom fill |
 | `15-two-voices` | Fingerstyle study | 92 | Standard | Melody in Voice 1 (stems up) over a bass in Voice 2 (stems down) sharing one staff and tab, a note tied over a bar line |

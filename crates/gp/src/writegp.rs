@@ -102,6 +102,8 @@ struct NoteOut {
     /// Elements before `<Properties>`.
     head: String,
     props: String,
+    /// `XProperty` elements, after `<Properties>`.
+    xprops: String,
     tie_origin: bool,
     tie_destination: bool,
 }
@@ -113,7 +115,8 @@ impl NoteOut {
         } else {
             String::new()
         };
-        format!("<Note id=\"{id}\">{tie}{}<Properties>{}</Properties></Note>\n", self.head, self.props)
+        let xprops = if self.xprops.is_empty() { String::new() } else { format!("<XProperties>{}</XProperties>", self.xprops) };
+        format!("<Note id=\"{id}\">{tie}{}<Properties>{}</Properties>{xprops}</Note>\n", self.head, self.props)
     }
 }
 
@@ -313,6 +316,12 @@ impl Gpif {
             None => {}
         }
         xml.push_str(&format!("<Rhythm ref=\"{rhythm}\"/>"));
+        match b.tremolo.filter(|_| !b.rest) {
+            Some(TremoloSpeed::Eighth) => xml.push_str("<Tremolo>1/8</Tremolo>"),
+            Some(TremoloSpeed::Sixteenth) => xml.push_str("<Tremolo>1/4</Tremolo>"),
+            Some(TremoloSpeed::ThirtySecond) => xml.push_str("<Tremolo>1/2</Tremolo>"),
+            None => {}
+        }
         if !note_ids.is_empty() {
             xml.push_str(&format!("<Notes>{}</Notes>", note_ids.join(" ")));
         }
@@ -380,6 +389,13 @@ impl Gpif {
         }
         if n.kind == NoteKind::Dead {
             out.props.push_str(&enable("Muted"));
+        }
+        if let Some(trill) = e.trill.filter(|_| !t.is_drums() && n.kind == NoteKind::Normal) {
+            // The pitch the note alternates with, and the period at 960 ticks per quarter.
+            let open = t.tuning.strings.get(usize::from(n.string)).copied().unwrap_or(0);
+            out.head.push_str(&format!("<Trill>{}</Trill>", u32::from(open) + u32::from(t.capo) + u32::from(trill.fret)));
+            let period = 960 / trill.speed.per_quarter();
+            out.xprops.push_str(&format!("<XProperty id=\"{}\"><Int>{period}</Int></XProperty>", crate::gpif::TRILL_SPEED_ID));
         }
         let accent = u8::from(e.staccato) | (u8::from(e.heavy_accent) << 2) | (u8::from(e.accent) << 3);
         if accent != 0 {

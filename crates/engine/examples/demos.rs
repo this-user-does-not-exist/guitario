@@ -7,10 +7,11 @@
 //! A bar is a comma-separated list of beats. A beat is a duration (`8`, `4.`, `2..`, `8t` for a
 //! triplet), then notes as `string:fret` (string 1 is the high E, `x` is a dead note) or `r` for a
 //! rest. Modifiers follow the note they belong to: `+pm` palm mute, `+lr` let ring, `+h`
-//! hammer/pull, `+v` vibrato, `+g` ghost, `+a` accent, `+st` staccato, `+b`/`+b2`/`+b6`/`+b8` bend
+//! hammer/pull, `+tr7` trill to fret 7 (`+tr7:32` and `+tr7:64` for faster ones), `+v` vibrato, `+g` ghost, `+a` accent, `+st` staccato, `+b`/`+b2`/`+b6`/`+b8` bend
 //! (quarter tones), `+sl` shift slide, `+sll` legato slide, `+sli`/`+sla` slide in from
 //! below/above, `+slo`/`+slu` slide out, `+nh`/`+ah`/`+ph` harmonics, `~` tie. `*pm` applies a
-//! modifier to every note in the beat so far; `@mf` sets the beat's dynamic. On a drum track a beat
+//! modifier to every note in the beat so far; `@mf` sets the beat's dynamic; `&tp8`, `&tp16` and
+//! `&tp32` make the beat tremolo-picked at that note value. On a drum track a beat
 //! lists kit pieces by their short names: `bd` kick, `sd` snare, `hh`/`oh`/`ph` hi-hat closed, open
 //! and pedal, `cr` crash, `ch` china, `sp` splash, `rd`/`rb` ride and bell, `t1`-`t4` and `ft` toms.
 
@@ -95,6 +96,17 @@ fn effect(s: &mut Session, fx: &str) -> R {
         "nh" => run(s, "note.setHarmonic", json!({"harmonic": "natural"})),
         "ah" => run(s, "note.setHarmonic", json!({"harmonic": "artificial"})),
         "ph" => run(s, "note.setHarmonic", json!({"harmonic": "pinch"})),
+        t if t.starts_with("tr") => {
+            // `tr7` or `tr7:32`: the other fret, and the speed as a note value (16, 32 or 64).
+            let (fret, speed) = t[2..].split_once(':').unwrap_or((&t[2..], "16"));
+            let speed = match speed {
+                "16" => "sixteenth",
+                "32" => "thirty_second",
+                "64" => "sixty_fourth",
+                other => return Err(format!("bad trill speed `{other}`")),
+            };
+            run(s, "note.setTrill", json!({"fret": fret.parse::<u8>().map_err(|_| format!("bad trill fret `{t}`"))?, "speed": speed}))
+        }
         b if b.starts_with('b') => {
             let q: u8 = b[1..].parse().map_err(|_| format!("bad bend `{b}`"))?;
             run(s, "note.setBend", json!({"quarterTones": q}))
@@ -121,6 +133,14 @@ fn enter_beat(s: &mut Session, spec: &str, advance: bool) -> R {
             run(s, "note.toggleTie", Value::Null)?;
         } else if let Some(name) = tok.strip_prefix('%') {
             run(s, "beat.setChord", json!({"name": name}))?;
+        } else if let Some(speed) = tok.strip_prefix("&tp") {
+            let speed = match speed {
+                "8" => "eighth",
+                "16" => "sixteenth",
+                "32" => "thirty_second",
+                other => return Err(format!("bad tremolo speed `{other}`")),
+            };
+            run(s, "beat.setTremolo", json!({"speed": speed}))?;
         } else if let Some(d) = tok.strip_prefix('@') {
             run(s, "beat.setDynamic", json!({"dynamic": d}))?;
         } else if let Some(fx) = tok.strip_prefix('+') {
@@ -658,14 +678,14 @@ fn black_metal() -> R<Session> {
     let mut s = new_demo(
         "Frostbitten Dawn",
         "Guitario",
-        "Tremolo-picked melody in F# minor over open fifths. Each tremolo is eight thirty-second notes.",
+        "Tremolo-picked melody in F# minor over open fifths. Each quarter note is tremolo picked in thirty-seconds.",
         190,
         "Tremolo Guitar",
         30,
         "standard",
     )?;
-    let t = |fret: u8| rep(8, &format!("32 2:{fret}"));
-    let c = |chord: &str| rep(8, &format!("32 {chord}"));
+    let t = |fret: u8| format!("4 2:{fret} &tp32");
+    let c = |chord: &str| format!("4 {chord} &tp32");
     let t1 = j(&[t(7), t(9), t(10), t(9)]);
     let t2 = j(&[t(12), t(10), t(9), t(7)]);
     let t3 = j(&[c("6:2 5:4 4:4"), c("6:0 5:2 4:2"), c("6:4 5:6 4:6"), c("6:2 5:4 4:4")]);
@@ -797,7 +817,9 @@ fn techniques() -> R<Session> {
             bar("4 3:7 +ph +v, 4 2:8 +ah, 4 1:7 +ph, 4 r").mark("Pinch and artificial harmonics"),
             bar(format!("{}, 2 5:0 4:2 3:2 2:1 1:0 *lr", rep(4, "8 6:0 +pm"))).mark("Palm mute, let ring"),
             bar(rep(4, &gallop(6, 0))).mark("Gallop"),
-            bar(format!("{}, {}, {}, {}", rep(8, "32 6:0 +pm"), rep(8, "32 6:1 +pm"), rep(8, "32 6:3 +pm"), rep(8, "32 6:1 +pm"))).mark("Tremolo picking"),
+            bar("4 6:0 +pm &tp32, 4 6:1 +pm &tp32, 4 6:3 +pm &tp32, 4 6:1 +pm &tp32").mark("Tremolo picking"),
+            bar("4 5:0 &tp8, 4 5:0 &tp16, 4 5:0 &tp32, 4 5:0 4:2 *pm &tp16").mark("Tremolo speeds"),
+            bar("4 1:12 +tr14, 4 1:12 +tr14:32, 4 1:10 +tr12:64, 4 r").mark("Trills"),
             bar("8 6:0 +pm, 8 6:x, 8 5:2 +g, 8 6:x, 8 6:0, 8 6:x, 8 5:2 +a, 8 6:x").mark("Dead, ghost, accent"),
             bar("4 1:5 @p, 4 1:5 ~, 2 1:7 @ff").mark("Ties and dynamics"),
             bar("8t 1:0, 8t 1:3, 8t 1:5, 8t 1:0, 8t 1:3, 8t 1:5, 4 1:7, 4 r").mark("Triplets"),

@@ -247,14 +247,19 @@ fn articulations(tn: Node) -> Vec<u8> {
 /// of their General MIDI number.
 #[derive(Clone, Copy)]
 enum Placement<'a> {
-    Strings(usize),
+    /// String pitches highest first, as the track holds them, and the capo fret.
+    Strings {
+        open: &'a [u8],
+        capo: u8,
+    },
     Drums(&'a [u8]),
 }
 
 impl Placement<'_> {
     fn place(self, nn: Node) -> Option<(u8, u8)> {
         match self {
-            Placement::Strings(strings) => {
+            Placement::Strings { open, .. } => {
+                let strings = open.len();
                 let gp_string = prop_num::<usize>(nn, "String")?;
                 let fret = prop_num::<u8>(nn, "Fret")?;
                 (gp_string < strings).then(|| ((strings - 1 - gp_string) as u8, fret.min(36)))
@@ -314,8 +319,9 @@ fn build_track(
         Some("Solo") => track.solo = true,
         _ => {}
     }
-    let strings = track.string_count();
-    fill_measures(&mut track, staff_index, name, Placement::Strings(strings), masters, headers, t, warnings);
+    let open = track.tuning.strings.clone();
+    let capo = track.capo;
+    fill_measures(&mut track, staff_index, name, Placement::Strings { open: &open, capo }, masters, headers, t, warnings);
     Some(track)
 }
 
@@ -396,7 +402,10 @@ fn rhythm_duration(r: Node) -> Option<Duration> {
     Some(Duration { value, dots, tuplet })
 }
 
-/// A beat `XProperty` by id, as an integer.
+/// The note `XProperty` that holds a trill's period, in 960ths of a quarter (240 sixteenth, 120 thirty-second, 60 sixty-fourth).
+pub(crate) const TRILL_SPEED_ID: &str = "688062467";
+
+/// An `XProperty` by id, as an integer.
 fn xproperty(bn: Node, id: &str) -> Option<i64> {
     child(bn, "XProperties")?
         .children()
@@ -460,6 +469,13 @@ fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
     };
     beat.text = text(bn, "FreeText").filter(|s| !s.is_empty()).map(str::to_string);
     beat_effects(bn, &mut beat);
+    // The fraction is the slash count's note value as Guitar Pro writes it: 1/8 one slash, 1/4 two, 1/2 three.
+    let tremolo = match text(bn, "Tremolo") {
+        Some("1/8") => Some(TremoloSpeed::Eighth),
+        Some("1/4") => Some(TremoloSpeed::Sixteenth),
+        Some("1/2") => Some(TremoloSpeed::ThirtySecond),
+        _ => None,
+    };
     for nid in ids(text(bn, "Notes")) {
         let Some(nn) = lookup(t.3, nid) else { continue };
         let Some((string, fret)) = place.place(nn) else { continue };
@@ -507,6 +523,21 @@ fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
                 _ => Some(Harmonic::Natural),
             };
         }
+        // A trill names the pitch it alternates with; the period is an XProperty in 960ths of a quarter.
+        if let (Some(target), Placement::Strings { open, capo }) = (text(nn, "Trill").and_then(|v| v.trim().parse::<i32>().ok()), place)
+            && let Some(base) = open.get(usize::from(string)).map(|o| i32::from(*o) + i32::from(capo))
+            && let alt = target - base
+            && (0..=36).contains(&alt)
+            && alt != i32::from(fret)
+            && note.kind == NoteKind::Normal
+        {
+            let speed = match xproperty(nn, TRILL_SPEED_ID) {
+                Some(t) if t <= 90 => TrillSpeed::SixtyFourth,
+                Some(t) if t <= 180 => TrillSpeed::ThirtySecond,
+                _ => TrillSpeed::Sixteenth,
+            };
+            e.trill = Some(Trill { fret: u8::try_from(alt).unwrap_or(0), speed });
+        }
         if prop_on(nn, "Bended") {
             // Curve values are hundredths of a whole tone; a quarter tone is 25.
             let peak = ["BendOriginValue", "BendMiddleValue", "BendDestinationValue"].iter().filter_map(|k| prop_num::<f32>(nn, k)).fold(0.0f32, f32::max);
@@ -517,6 +548,7 @@ fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
     }
     beat.notes.sort_by_key(|n| n.string);
     beat.rest = beat.notes.is_empty();
+    beat.tremolo = tremolo.filter(|_| !beat.rest);
     Some(beat)
 }
 
