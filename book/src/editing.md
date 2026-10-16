@@ -8,6 +8,9 @@
 - Select with Shift+arrows, a drag or Shift+click; ⌘C, ⌘X, ⌘V copy, cut and paste; ⌘↑/⌘↓ transpose.
   Techniques and dynamics apply to everything selected.
 - Click a fret on the fretboard to put that note under the cursor.
+- **Note › Grace Note…** adds a small quick note before the one under the cursor: pick its fret and
+  length, whether it comes before the beat or on it, and whether it slides, bends or hammers into
+  the note. **Note › Trill…** and **Note › Tremolo Picking…** work the same way.
 
 ## Drums
 

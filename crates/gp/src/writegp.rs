@@ -291,6 +291,9 @@ impl Gpif {
             ids.push(vid.to_string());
             let mut beat_ids = Vec::new();
             for beat in &voice.beats {
+                for id in self.grace_beats(ti, vi, t, beat) {
+                    beat_ids.push(id.to_string());
+                }
                 beat_ids.push(self.beat(ti, vi, t, beat).to_string());
             }
             self.voices.push_str(&format!("<Voice id=\"{vid}\"><Beats>{}</Beats></Voice>\n", beat_ids.join(" ")));
@@ -363,6 +366,75 @@ impl Gpif {
         }
         xml.push_str("</Beat>\n");
         self.beats.push_str(&xml);
+        id
+    }
+
+    /// The grace notes of a beat as the grace beats Guitar Pro writes before it: one per kind
+    /// (before or on the beat, and length) the beat's grace notes use.
+    fn grace_beats(&mut self, ti: usize, vi: usize, t: &Track, b: &Beat) -> Vec<usize> {
+        if b.rest || t.is_drums() {
+            return Vec::new();
+        }
+        let graced: Vec<(&Note, Grace)> = b.notes.iter().filter(|n| n.kind != NoteKind::Tie).filter_map(|n| n.effects.grace.map(|g| (n, g))).collect();
+        let mut kinds: Vec<(bool, GraceDuration)> = Vec::new();
+        for (_, g) in &graced {
+            if !kinds.contains(&(g.on_beat, g.duration)) {
+                kinds.push((g.on_beat, g.duration));
+            }
+        }
+        let mut ids = Vec::new();
+        for (on_beat, duration) in kinds {
+            let value = match duration {
+                GraceDuration::Sixteenth => NoteValue::Sixteenth,
+                GraceDuration::ThirtySecond => NoteValue::ThirtySecond,
+                GraceDuration::SixtyFourth => NoteValue::SixtyFourth,
+            };
+            let rhythm = self.rhythm(Duration::new(value));
+            let mut note_ids = Vec::new();
+            for (n, g) in graced.iter().filter(|(_, g)| (g.on_beat, g.duration) == (on_beat, duration)) {
+                note_ids.push(self.grace_note(ti, vi, t, n, *g).to_string());
+            }
+            let id = self.next_beat;
+            self.next_beat += 1;
+            self.beats.push_str(&format!(
+                "<Beat id=\"{id}\"><GraceNotes>{}</GraceNotes><Dynamic>{}</Dynamic><Rhythm ref=\"{rhythm}\"/><Notes>{}</Notes></Beat>\n",
+                if on_beat { "OnBeat" } else { "BeforeBeat" },
+                dynamic_name(b.dynamic),
+                note_ids.join(" ")
+            ));
+            ids.push(id);
+        }
+        ids
+    }
+
+    /// A grace note on the string of `n`: muted when dead; a hammer-on, legato slide or a bend up
+    /// to the note's pitch says how it moves into the note.
+    fn grace_note(&mut self, ti: usize, vi: usize, t: &Track, n: &Note, g: Grace) -> usize {
+        let id = self.notes.len();
+        let mut out = NoteOut::default();
+        let enable = |name: &str| format!("<Property name=\"{name}\"><Enable/></Property>");
+        let gp_string = t.string_count().saturating_sub(1).saturating_sub(usize::from(n.string));
+        out.props
+            .push_str(&format!("<Property name=\"String\"><String>{gp_string}</String></Property><Property name=\"Fret\"><Fret>{}</Fret></Property>", g.fret));
+        if g.dead {
+            out.props.push_str(&enable("Muted"));
+        }
+        match g.transition {
+            GraceTransition::None => {}
+            GraceTransition::Hammer => out.props.push_str(&enable("HopoOrigin")),
+            GraceTransition::Slide => out.props.push_str("<Property name=\"Slide\"><Flags>2</Flags></Property>"),
+            GraceTransition::Bend => {
+                // Up to the note's pitch: hundredths of a whole tone, 50 a semitone; at least a quarter tone.
+                let top = u32::from(n.fret.saturating_sub(g.fret)).saturating_mul(50).max(25);
+                out.props.push_str(&enable("Bended"));
+                out.props.push_str(&format!(
+                    "<Property name=\"BendOriginValue\"><Float>0</Float></Property><Property name=\"BendDestinationValue\"><Float>{top}</Float></Property><Property name=\"BendDestinationOffset\"><Float>60</Float></Property>"
+                ));
+            }
+        }
+        // The note after a hammered grace note is its destination.
+        self.last_on_string.insert((ti, vi, n.string), (id, g.transition == GraceTransition::Hammer));
+        self.notes.push(out);
         id
     }
 

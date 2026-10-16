@@ -147,3 +147,22 @@ slashes (the order the real tremolo test file lists them in, and what other read
 `<Trill>` is the MIDI pitch of the other note and its period an `XProperty` in 960ths of a quarter
 (240, 120, 60), from a single real sample, whose trill pitch equals its own so it is ignored. The
 exports have not been opened in Guitar Pro 8 (human check), as for the rest of `.gp` export.
+
+## 2026-10-16: A grace note belongs to the note it ornaments
+
+Guitar Pro 3-5 keeps one grace note per note (fret, dynamic, transition, length, flags); GPIF
+writes grace notes as beats of their own, before the beat, that take no time. Grace beats would
+make every duration sum, cursor move, selection and column in the editor skip beats that do not
+count, so the model follows Guitar Pro 5: `NoteEffects::grace` (a fret, sixteenth to sixty-fourth,
+before or on the beat, a transition, dead). The GPIF reader folds a grace beat into the next beat's
+notes on the same string (a second grace note on one string keeps the nearer one, and one with no
+struck note after it is dropped, both with a warning); the writer emits one grace beat per kind
+(before or on the beat, and length) a beat's grace notes use, so mixed kinds survive the trip.
+
+Playback: before the beat, the grace note ends where the beat starts and the note before it on the
+string is cut short; on the beat, it starts with the beat and the note is delayed by its length
+(never beyond the beat). A grace note on the first beat of a piece has no time to take from, so it
+goes on the beat. A slid or hammered grace note leads legato into the note; a bent one bends up to
+the note's pitch, which then carries on without a new pluck. A tied note takes no grace note.
+The GP3-5 byte order (fret, dynamic, transition, duration, then GP5 flags) was confirmed on public
+GP3, GP4 and GP5 test files, which read the same grace notes as the GP6 and GP7 copies.

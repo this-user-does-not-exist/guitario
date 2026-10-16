@@ -152,7 +152,8 @@ fn attacks(period: Option<u32>, total: u32, lead: u32) -> Vec<(u32, u32)> {
 /// Flattens the score into timed notes, following repeats. Tied notes extend the previous
 /// attack on the same string instead of re-attacking. Triplet feel moves notes inside each
 /// measure, and a brush or arpeggio staggers the strings of a beat. Tremolo picking picks a
-/// beat's notes again and again, and a trill alternates its note with another fret.
+/// beat's notes again and again, and a trill alternates its note with another fret. A grace note
+/// sounds just before its note (cutting the note before it short), or on the beat and delays it.
 pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
     let order = playback_order(score);
     let mut out: Vec<PlayedBeat> = Vec::new();
@@ -211,6 +212,54 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                 }
                                 _ => 0,
                             };
+                            // A grace note sounds just before the note, or on the beat and delays it.
+                            let mut lead = u32::try_from(offset).unwrap_or(0);
+                            if let Some(grace) = note.effects.grace {
+                                let at = s0 + u64::from(lead);
+                                let len = grace.duration.ticks().min(ticks_swung.saturating_sub(lead).saturating_sub(1)).max(1);
+                                // Before the very first beat there is no time to take it from: it goes on the beat.
+                                let start = if grace.on_beat || at < u64::from(len) {
+                                    lead = lead.saturating_add(len);
+                                    at
+                                } else {
+                                    at - u64::from(len)
+                                };
+                                // The note before it on this string stops for it.
+                                if let Some(prev) = ties.get(s).copied().flatten().and_then(|i| out.get_mut(i))
+                                    && prev.start_tick < start
+                                {
+                                    let room = u32::try_from(start - prev.start_tick).unwrap_or(u32::MAX);
+                                    prev.ticks = prev.ticks.min(room);
+                                }
+                                let grace_pitch = if grace.dead { None } else { track.tuning.pitch(s, grace.fret, track.capo) };
+                                let mut effects = crate::NoteEffects { palm_mute: note.effects.palm_mute, ..crate::NoteEffects::default() };
+                                match grace.transition {
+                                    crate::GraceTransition::None => {}
+                                    crate::GraceTransition::Hammer => effects.hammer = true,
+                                    crate::GraceTransition::Slide => effects.slide = Some(crate::Slide::Legato),
+                                    crate::GraceTransition::Bend => {
+                                        // Bent up to the note's pitch, which then carries on without a new pluck.
+                                        let up = match (grace_pitch, pitch) {
+                                            (Some(g), Some(p)) if p.0 > g.0 => p.0 - g.0,
+                                            _ => 0,
+                                        };
+                                        effects.bend = (up > 0).then(|| up.saturating_mul(2));
+                                        effects.hammer = true;
+                                    }
+                                }
+                                out.push(PlayedBeat {
+                                    track: ti,
+                                    measure: mi,
+                                    start_tick: start,
+                                    ticks: len,
+                                    string: note.string,
+                                    pitch: grace_pitch,
+                                    velocity,
+                                    dead: grace.dead || grace_pitch.is_none(),
+                                    effects,
+                                    fade: None,
+                                });
+                            }
                             // A trill alternates with another fret; tremolo picking repeats the note.
                             let trill = note.effects.trill.filter(|_| !dead);
                             let period = match (trill, beat.tremolo) {
@@ -219,7 +268,7 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                 (None, None) => None,
                             };
                             let other = trill.and_then(|t| track.tuning.pitch(s, t.fret, track.capo));
-                            let parts = attacks(period, ticks_swung, u32::try_from(offset).unwrap_or(0));
+                            let parts = attacks(period, ticks_swung, lead);
                             let picks = parts.len();
                             for (k, (start, len)) in parts.into_iter().enumerate() {
                                 let mut effects = note.effects;
@@ -525,6 +574,62 @@ mod tests {
         dead.kind = NoteKind::Dead;
         one_beat(&mut s, Beat { rest: false, notes: vec![dead], ..Beat::rest(Duration::QUARTER) });
         assert_eq!(timeline(&s).len(), 1);
+    }
+
+    #[test]
+    fn grace_notes_sound_before_the_beat_or_on_it() {
+        use crate::{Beat, Grace, GraceDuration, GraceTransition, Note};
+        use guitario_theory::{Duration, TICKS_PER_QUARTER};
+        let q = TICKS_PER_QUARTER;
+        let mut s = score_with(1);
+        let mut main = Note::new(2, 7);
+        main.effects.grace = Some(Grace { transition: GraceTransition::Hammer, ..Grace::new(5) });
+        s.tracks[0].measures[0].voices[0].beats = vec![
+            Beat { rest: false, notes: vec![Note::new(2, 3)], ..Beat::rest(Duration::QUARTER) },
+            Beat { rest: false, notes: vec![main], ..Beat::rest(Duration::QUARTER) },
+            Beat::rest(Duration::new(guitario_theory::NoteValue::Half)),
+        ];
+        let t = timeline(&s);
+        let tuning = &s.tracks[0].tuning;
+        let g = q / 8;
+        assert_eq!(t.len(), 3, "{t:?}");
+        // The first note stops for the grace note, which leads legato into the beat.
+        assert_eq!((t[0].start_tick, t[0].ticks), (0, q - g));
+        assert_eq!((t[1].start_tick, t[1].ticks, t[1].pitch, t[1].effects.hammer), (u64::from(q - g), g, tuning.pitch(2, 5, 0), true));
+        assert_eq!((t[2].start_tick, t[2].ticks, t[2].pitch), (u64::from(q), q, tuning.pitch(2, 7, 0)));
+        // On the beat it takes its time from the note.
+        if let Some(gr) = s.tracks[0].measures[0].voices[0].beats[1].notes[0].effects.grace.as_mut() {
+            gr.on_beat = true;
+            gr.duration = GraceDuration::Sixteenth;
+        }
+        let t = timeline(&s);
+        assert_eq!((t[0].start_tick, t[0].ticks), (0, q), "nothing is cut short");
+        assert_eq!((t[1].start_tick, t[1].ticks), (u64::from(q), q / 4));
+        assert_eq!((t[2].start_tick, t[2].ticks), (u64::from(q + q / 4), q - q / 4));
+        // On the first beat of the piece there is nothing to take time from: it goes on the beat.
+        let mut first = Note::new(0, 2);
+        first.effects.grace = Some(Grace { dead: true, ..Grace::new(0) });
+        one_beat(&mut s, Beat { rest: false, notes: vec![first], ..Beat::rest(Duration::WHOLE) });
+        let t = timeline(&s);
+        assert_eq!(t.len(), 2);
+        assert!(t[0].dead && t[0].pitch.is_none() && t[0].start_tick == 0);
+        assert_eq!(t[1].start_tick, u64::from(g));
+    }
+
+    #[test]
+    fn a_bent_grace_note_rises_to_its_note_and_a_tiny_beat_keeps_both() {
+        use crate::{Beat, Grace, GraceDuration, GraceTransition, Note};
+        use guitario_theory::{Duration, NoteValue};
+        let mut s = score_with(1);
+        let mut main = Note::new(1, 9);
+        main.effects.grace = Some(Grace { transition: GraceTransition::Bend, on_beat: true, duration: GraceDuration::Sixteenth, ..Grace::new(7) });
+        one_beat(&mut s, Beat { rest: false, notes: vec![main], ..Beat::rest(Duration::new(NoteValue::SixtyFourth)) });
+        let t = timeline(&s);
+        assert_eq!(t.len(), 2);
+        assert_eq!((t[0].effects.bend, t[0].effects.hammer), (Some(4), true), "a whole tone up");
+        assert!(t.iter().all(|p| p.ticks >= 1));
+        let total = Duration::new(NoteValue::SixtyFourth).ticks();
+        assert_eq!(t[0].ticks + t[1].ticks, total, "{t:?}");
     }
 
     #[test]

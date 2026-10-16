@@ -1,4 +1,4 @@
-use guitario_score::{Beat, NoteKind, Score, Track};
+use guitario_score::{Beat, GraceTransition, NoteKind, Score, Track};
 use guitario_theory::note_name;
 
 const WIDTH: usize = 78;
@@ -64,7 +64,19 @@ fn render_track(track: &Track, out: &mut String) {
                             "o".into()
                         }
                     }
-                    NoteKind::Normal => n.fret.to_string(),
+                    NoteKind::Normal => match n.effects.grace {
+                        // A grace note leads into the fret: `5h7` hammered, `5/7` slid, `5b7` bent, `(5)7` struck.
+                        Some(g) => {
+                            let from = if g.dead { "x".to_string() } else { g.fret.to_string() };
+                            match g.transition {
+                                GraceTransition::Hammer => format!("{from}h{}", n.fret),
+                                GraceTransition::Slide => format!("{from}{}{}", if n.fret >= g.fret { '/' } else { '\\' }, n.fret),
+                                GraceTransition::Bend => format!("{from}b{}", n.fret),
+                                GraceTransition::None => format!("({from}){}", n.fret),
+                            }
+                        }
+                        None => n.fret.to_string(),
+                    },
                 })
             };
             let w = (0..rows).map(|s| cell(s).len()).max().unwrap_or(0).max(1) + 1;
@@ -114,6 +126,25 @@ mod tests {
         let rows: Vec<&str> = t.lines().filter(|l| l.contains('|')).collect();
         assert_eq!(rows.first().copied(), Some("E|3---5-|"), "{t}");
         assert_eq!(rows.get(5).copied(), Some("E|0-2-4-|"), "{t}");
+    }
+
+    #[test]
+    fn grace_notes_lead_into_their_fret() {
+        use guitario_score::Grace;
+        let mut s = Score::new();
+        let graced = |fret: u8, g: Grace| {
+            let mut n = Note::new(0, fret);
+            n.effects.grace = Some(g);
+            Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::QUARTER) }
+        };
+        s.tracks[0].measures[0].voices[0].beats = vec![
+            graced(7, Grace { transition: GraceTransition::Hammer, ..Grace::new(5) }),
+            graced(5, Grace { transition: GraceTransition::Slide, ..Grace::new(7) }),
+            graced(9, Grace { transition: GraceTransition::Bend, ..Grace::new(7) }),
+            graced(3, Grace { dead: true, ..Grace::new(0) }),
+        ];
+        let t = render(&s);
+        assert!(t.contains("E|5h7-7\\5-7b9-(x)3-|"), "{t}");
     }
 
     #[test]

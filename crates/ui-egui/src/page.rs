@@ -684,6 +684,9 @@ impl<'a> Ctx<'a> {
             pos: Vec<Head>,
             up: bool,
             div: u32,
+            /// Grace notes before the beat, and whether they are slashed (before the beat, not on it).
+            graces: Vec<Head>,
+            slashed: bool,
         }
         let mut infos: Vec<Option<Info>> = Vec::new();
         for (bi, beat) in beats.iter().enumerate() {
@@ -708,6 +711,19 @@ impl<'a> Ctx<'a> {
                 infos.push(None);
                 continue;
             }
+            // Grace notes come before the beat, so their accidentals are spelled first.
+            let graces: Vec<Head> = beat
+                .notes
+                .iter()
+                .filter(|n| n.kind != NoteKind::Tie && !self.m.drums)
+                .filter_map(|n| {
+                    let g = n.effects.grace?;
+                    let p = self.track.tuning.pitch(usize::from(n.string), g.fret, self.track.capo)?;
+                    let sp = spell(p.0.saturating_add(12).min(127), h.key);
+                    Some((staff_pos(sp, self.clef), acc.next(sp, h.key), if g.dead { "x" } else { "n" }))
+                })
+                .collect();
+            let slashed = beat.notes.iter().filter_map(|n| n.effects.grace).any(|g| !g.on_beat);
             let keyed: Vec<(u8, Head)> = beat
                 .notes
                 .iter()
@@ -730,7 +746,7 @@ impl<'a> Ctx<'a> {
             pos.sort_by_key(|p| p.0);
             let avg = pos.iter().map(|p| p.0).sum::<i32>() as f32 / pos.len().max(1) as f32;
             // Drum parts are written stems up (one voice, hands and feet together).
-            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor() }));
+            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed }));
         }
 
         let groups = beam_groups(beats, h.time_signature);
@@ -788,6 +804,15 @@ impl<'a> Ctx<'a> {
                 if let Some(b) = beat {
                     let dot_pos = if pos % 2 == 0 { pos + 1 } else { *pos };
                     self.dots(b, left + hw + 0.4 * s, nt, dot_pos);
+                }
+            }
+            // Grace notes: small, left of the heads and their accidentals, slurred into the lowest head.
+            if !info.graces.is_empty() {
+                let room = if acc_col > 0 { 1.4 * s } else { 0.0 };
+                if let Some((gx, gpos)) = self.grace_group(left - 0.9 * s - room, nt, &info.graces, info.slashed) {
+                    let main = info.pos.first().map_or(4, |p| p.0);
+                    let arc = Stroke::new((0.14 * s).max(1.0), ink);
+                    g::arc(self.p(), pos2(gx, self.nota_y(nt, gpos) + 0.6 * s), pos2(left + 0.2 * hw, self.nota_y(nt, main) + 0.7 * s), 0.5 * s, arc);
                 }
             }
             // Stem.
@@ -946,6 +971,50 @@ impl<'a> Ctx<'a> {
         }
     }
 
+    /// Small grace notes whose heads end at `right`, sharing one stem up with an eighth flag, slashed
+    /// when they come before the beat. Returns the heads' centre and the lowest head's staff position.
+    fn grace_group(&self, right: f32, nt: f32, graces: &[(i32, Option<i8>, &'static str)], slashed: bool) -> Option<(f32, i32)> {
+        const SCALE: f32 = 0.62;
+        let (s, ink) = (self.m.space, self.t.ink);
+        let mut heads = graces.to_vec();
+        heads.sort_by_key(|g| g.0);
+        let (lo, hi) = (heads.first()?.0, heads.last()?.0);
+        let hw = self.pen.width(g::HEAD_BLACK) * SCALE;
+        let left = right - hw;
+        let thin = Stroke::new((0.1 * s).max(0.8), ink);
+        let mut acc_col = 0;
+        for (pos, accidental, kind) in &heads {
+            let y = self.nota_y(nt, *pos);
+            let mut lp = if *pos <= -2 { -2 } else { 10 };
+            while (*pos <= -2 && lp >= *pos) || (*pos >= 10 && lp <= *pos) {
+                let ly = self.nota_y(nt, lp);
+                self.p().line_segment([pos2(left - 0.25 * s, ly), pos2(left + hw + 0.25 * s, ly)], thin);
+                lp += if *pos <= -2 { -2 } else { 2 };
+            }
+            self.pen.glyph_scaled(if *kind == "x" { g::HEAD_X } else { g::HEAD_BLACK }, pos2(left, y), SCALE, ink);
+            if let Some(a) = accidental {
+                let c = match a {
+                    1 => g::SHARP,
+                    -1 => g::FLAT,
+                    _ => g::NATURAL,
+                };
+                let aw = self.pen.width(c) * SCALE;
+                self.pen.glyph_scaled(c, pos2(left - aw - 0.2 * s - acc_col as f32 * 0.8 * s, y), SCALE, ink);
+                acc_col = (acc_col + 1) % 2;
+            }
+        }
+        let sx = left + hw - thin.width / 2.0;
+        let (y0, y1) = (self.nota_y(nt, lo), self.nota_y(nt, hi + 5));
+        self.p().line_segment([pos2(sx, y0), pos2(sx, y1)], thin);
+        if let Some(f) = g::flag_for(8, true) {
+            self.pen.glyph_scaled(f, pos2(sx - thin.width / 2.0, y1), SCALE, ink);
+        }
+        if slashed {
+            self.p().line_segment([pos2(sx - 0.6 * s, y1 + 1.3 * s), pos2(sx + 0.8 * s, y1 + 0.3 * s)], thin);
+        }
+        Some((left + hw / 2.0, lo))
+    }
+
     /// Tremolo picking: short diagonal strokes across a stem, centred on `(x, y)`.
     fn slashes(&self, x: f32, y: f32, count: u8) {
         let s = self.m.space;
@@ -1030,6 +1099,9 @@ impl<'a> Ctx<'a> {
             self.p().rect_filled(r, 0.0, t.page);
             self.p().galley(pos2(r.center().x - galley.size().x / 2.0, y - galley.size().y / 2.0), galley, t.ink);
             let fw = r.width() / 2.0;
+            if let Some(grace) = n.effects.grace.filter(|_| n.kind != NoteKind::Tie) {
+                self.tab_grace(pb.x - fw, y, n.fret, grace);
+            }
             // A tied fret is joined to the last note on its string by an arc over the strings.
             if n.kind == NoteKind::Tie {
                 let from = before.iter().rev().find(|q| !q.beat.rest && q.beat.note_on(n.string).is_some()).map(|q| q.x + fw * 0.4);
@@ -1086,6 +1158,34 @@ impl<'a> Ctx<'a> {
                     q => format!("{:.2}", f32::from(q) / 4.0),
                 };
                 self.p().text(b - vec2(0.0, 0.8 * s), egui::Align2::CENTER_BOTTOM, label, serif(8.0 * m.zoom), t.effect_ink);
+            }
+        }
+    }
+
+    /// A grace note in the tab: a small fret just left of the note's fret, whose left edge is at
+    /// `right`, with the slur, slide or bend that takes it into the note.
+    fn tab_grace(&self, right: f32, y: f32, fret: u8, grace: guitario_score::Grace) {
+        let (m, t) = (self.m, self.t);
+        let s = m.space;
+        let fx = Stroke::new((0.13 * s).max(1.0), t.effect_ink);
+        let text = if grace.dead { "X".to_string() } else { grace.fret.to_string() };
+        let galley = self.p().layout_no_wrap(text, sans(m.tab_gap * 0.7), t.ink);
+        let gw = galley.size().x;
+        let cx = right - 0.9 * s - gw / 2.0;
+        let r = Rect::from_center_size(pos2(cx, y), vec2(gw + 1.0, m.tab_gap * 0.7));
+        self.p().rect_filled(r, 0.0, t.page);
+        self.p().galley(pos2(cx - gw / 2.0, y - galley.size().y / 2.0), galley, t.ink);
+        let to = right + 0.1 * s;
+        match grace.transition {
+            guitario_score::GraceTransition::None => {}
+            guitario_score::GraceTransition::Hammer => g::arc(self.p(), pos2(cx, y - m.tab_gap * 0.45), pos2(to, y - m.tab_gap * 0.5), -0.5 * s, fx),
+            guitario_score::GraceTransition::Slide => {
+                let h = m.tab_gap * 0.25 * if fret >= grace.fret { 1.0 } else { -1.0 };
+                self.p().line_segment([pos2(r.right() + 0.5, y + h), pos2(to - 0.5, y - h)], fx);
+            }
+            guitario_score::GraceTransition::Bend => {
+                let (a, b) = (pos2(r.right(), y), pos2(to, y - m.tab_gap * 0.6));
+                self.p().add(egui::epaint::QuadraticBezierShape::from_points_stroke([a, pos2(b.x, a.y), b], false, Color32::TRANSPARENT, fx));
             }
         }
     }
@@ -1331,6 +1431,35 @@ mod tests {
         let rest = Beat::rest(Duration::new(guitario_theory::NoteValue::Half));
         s.tracks[0].measures[0].voices[0].beats = vec![beat, rest];
         s
+    }
+
+    #[test]
+    fn a_grace_note_is_a_small_fret_in_the_tab_and_a_small_slurred_note_in_notation() {
+        use guitario_score::{Grace, GraceTransition};
+        let plain = one_note(guitario_theory::NoteValue::Quarter, |_| {});
+        let graced = |g: Grace| one_note(guitario_theory::NoteValue::Quarter, |b| b.notes[0].effects.grace = Some(g));
+        // Tab only: the small fret, and a slur for a hammered grace note.
+        let before = graced(Grace::new(3));
+        assert_eq!(texts(&before, false, "3"), texts(&plain, false, "3") + 1);
+        assert_eq!(curves(&before, false), curves(&plain, false));
+        let hammered = graced(Grace { transition: GraceTransition::Hammer, ..Grace::new(3) });
+        assert_eq!(curves(&hammered, false), curves(&plain, false) + 1);
+        let slid = graced(Grace { transition: GraceTransition::Slide, ..Grace::new(3) });
+        assert_eq!(lines(&slid, false), lines(&plain, false) + 1);
+        let dead = graced(Grace { dead: true, ..Grace::new(3) });
+        assert_eq!(texts(&dead, false, "X"), texts(&plain, false, "X") + 1);
+        // Notation: a stem (and a flag, drawn as a line without a music font), slashed before the
+        // beat but not on it, and a slur into the note.
+        let on_beat = lines(&graced(Grace { on_beat: true, ..Grace::new(3) }), true);
+        assert!(on_beat > lines(&plain, true));
+        assert_eq!(lines(&before, true), on_beat + 1, "the slash");
+        assert_eq!(curves(&before, true), curves(&plain, true) + 1);
+        // A tied note never shows one.
+        let tied = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.notes[0].kind = NoteKind::Tie;
+            b.notes[0].effects.grace = Some(Grace::new(3));
+        });
+        assert_eq!(texts(&tied, false, "3"), texts(&plain, false, "3"));
     }
 
     #[test]

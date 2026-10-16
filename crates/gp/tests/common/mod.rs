@@ -66,15 +66,18 @@ pub fn riff() -> Score {
     t.program = 30;
     let mut n = Note::new(5, 0);
     n.effects.palm_mute = true;
+    n.effects.grace = Some(Grace { transition: GraceTransition::Hammer, ..Grace::new(2) });
     let mut bend = Note::new(1, 7);
     bend.effects.bend = Some(4);
     bend.effects.vibrato = true;
+    bend.effects.grace = Some(Grace { fret: 5, duration: GraceDuration::Sixteenth, transition: GraceTransition::Bend, on_beat: true, dead: false });
     let mut tie = Note::new(1, 7);
     tie.kind = NoteKind::Tie;
     let mut slide = Note::new(2, 5);
     slide.effects.slide = Some(Slide::IntoFromBelow);
     slide.effects.harmonic = Some(Harmonic::Pinch);
     slide.effects.accent = true;
+    slide.effects.grace = Some(Grace { transition: GraceTransition::Slide, ..Grace::new(3) });
     let mut dead = Note::new(3, 0);
     dead.kind = NoteKind::Dead;
     dead.effects.ghost = true;
@@ -91,6 +94,7 @@ pub fn riff() -> Score {
     popped.tremolo = Some(TremoloSpeed::ThirtySecond);
     let mut trilled = Note::new(0, 12);
     trilled.effects.trill = Some(Trill { fret: 14, speed: TrillSpeed::SixtyFourth });
+    trilled.effects.grace = Some(Grace { duration: GraceDuration::SixtyFourth, dead: true, ..Grace::new(0) });
     let mut triplet = note(vec![slide], Duration { tuplet: (3, 2), ..e });
     triplet.dynamic = Dynamic::Pp;
     t.measures[0].voices[0].beats = vec![chord, popped, note(vec![bend], e), note(vec![tie], Duration::QUARTER), triplet.clone(), triplet.clone(), triplet];

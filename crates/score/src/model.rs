@@ -545,6 +545,97 @@ impl TrillSpeed {
     }
 }
 
+/// A grace note: a quick note on the same string as the note it ornaments, drawn small. It sounds
+/// just before the beat, or on the beat taking its time from the note. Guitar Pro 3-5 keep one per
+/// note, as here; GPIF files write grace notes as beats of their own before the beat.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Grace {
+    pub fret: u8,
+    #[serde(default)]
+    pub duration: GraceDuration,
+    /// How the grace note moves into the note.
+    #[serde(default)]
+    pub transition: GraceTransition,
+    /// On the beat: the grace note starts with the beat and delays the note. Otherwise it sounds just before.
+    #[serde(default)]
+    pub on_beat: bool,
+    /// A muted (x) grace note.
+    #[serde(default)]
+    pub dead: bool,
+}
+
+impl Grace {
+    pub fn new(fret: u8) -> Grace {
+        Grace { fret, duration: GraceDuration::default(), transition: GraceTransition::default(), on_beat: false, dead: false }
+    }
+}
+
+/// How long a grace note sounds.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GraceDuration {
+    Sixteenth,
+    #[default]
+    ThirtySecond,
+    SixtyFourth,
+}
+
+impl GraceDuration {
+    pub const ALL: [GraceDuration; 3] = [GraceDuration::Sixteenth, GraceDuration::ThirtySecond, GraceDuration::SixtyFourth];
+
+    pub fn ticks(self) -> u32 {
+        guitario_theory::TICKS_PER_QUARTER / self.per_quarter()
+    }
+
+    pub fn per_quarter(self) -> u32 {
+        match self {
+            GraceDuration::Sixteenth => 4,
+            GraceDuration::ThirtySecond => 8,
+            GraceDuration::SixtyFourth => 16,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            GraceDuration::Sixteenth => "sixteenth",
+            GraceDuration::ThirtySecond => "thirty_second",
+            GraceDuration::SixtyFourth => "sixty_fourth",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<GraceDuration> {
+        GraceDuration::ALL.into_iter().find(|d| d.name() == name)
+    }
+}
+
+/// How a grace note moves into its note: struck again, or slid, bent or hammered without a new pluck.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GraceTransition {
+    #[default]
+    None,
+    Slide,
+    Bend,
+    Hammer,
+}
+
+impl GraceTransition {
+    pub const ALL: [GraceTransition; 4] = [GraceTransition::None, GraceTransition::Slide, GraceTransition::Bend, GraceTransition::Hammer];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            GraceTransition::None => "none",
+            GraceTransition::Slide => "slide",
+            GraceTransition::Bend => "bend",
+            GraceTransition::Hammer => "hammer",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<GraceTransition> {
+        GraceTransition::ALL.into_iter().find(|t| t.name() == name)
+    }
+}
+
 /// A chord symbol, with the fingering diagram Guitar Pro draws above the staff when it has one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Chord {
@@ -697,6 +788,9 @@ pub struct NoteEffects {
     /// The note alternates with another fret of its string.
     #[serde(default)]
     pub trill: Option<Trill>,
+    /// A small, quick note on the same string just before this one (or on its beat).
+    #[serde(default)]
+    pub grace: Option<Grace>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

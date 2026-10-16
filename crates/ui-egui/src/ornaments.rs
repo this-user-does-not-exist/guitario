@@ -1,14 +1,16 @@
-//! Note › Trill… and Note › Tremolo Picking…: small dialogs that apply `note.setTrill` and
-//! `beat.setTremolo` to the note or beat under the cursor (or the selection, for tremolo picking).
+//! Note › Trill…, Note › Tremolo Picking… and Note › Grace Note…: small dialogs that apply
+//! `note.setTrill`, `beat.setTremolo` and `note.setGrace` to the note or beat under the cursor (or
+//! the selection, for tremolo picking).
 
 use crate::GuitarioApp;
-use guitario_score::{TremoloSpeed, TrillSpeed};
+use guitario_score::{Grace, GraceDuration, GraceTransition, TremoloSpeed, TrillSpeed};
 use serde_json::{Value, json};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Kind {
     Trill,
     Tremolo,
+    Grace,
 }
 
 pub(crate) struct OrnamentDialog {
@@ -18,13 +20,22 @@ pub(crate) struct OrnamentDialog {
     trill_speed: TrillSpeed,
     /// `None` clears tremolo picking.
     tremolo: Option<TremoloSpeed>,
-    /// The cursor note already has a trill, so it can be removed.
+    /// The cursor note already has a trill (or a grace note, in that dialog), so it can be removed.
     has_trill: bool,
+    /// The grace note being edited; its fret is `fret`.
+    grace: Grace,
 }
 
 impl Default for OrnamentDialog {
     fn default() -> Self {
-        OrnamentDialog { open: None, fret: 2, trill_speed: TrillSpeed::Sixteenth, tremolo: Some(TremoloSpeed::Sixteenth), has_trill: false }
+        OrnamentDialog {
+            open: None,
+            fret: 2,
+            trill_speed: TrillSpeed::Sixteenth,
+            tremolo: Some(TremoloSpeed::Sixteenth),
+            has_trill: false,
+            grace: Grace::new(0),
+        }
     }
 }
 
@@ -38,6 +49,23 @@ impl OrnamentDialog {
             TrillSpeed::Sixteenth => "Sixteenth notes",
             TrillSpeed::ThirtySecond => "Thirty-second notes",
             TrillSpeed::SixtyFourth => "Sixty-fourth notes",
+        }
+    }
+
+    fn grace_duration_label(d: GraceDuration) -> &'static str {
+        match d {
+            GraceDuration::Sixteenth => "Sixteenth note",
+            GraceDuration::ThirtySecond => "Thirty-second note",
+            GraceDuration::SixtyFourth => "Sixty-fourth note",
+        }
+    }
+
+    fn transition_label(t: GraceTransition) -> &'static str {
+        match t {
+            GraceTransition::None => "None",
+            GraceTransition::Slide => "Slide",
+            GraceTransition::Bend => "Bend",
+            GraceTransition::Hammer => "Hammer-on / pull-off",
         }
     }
 
@@ -84,6 +112,28 @@ impl GuitarioApp {
         }
     }
 
+    /// Note › Grace Note…: needs the cursor on a struck note. A new grace note starts two frets
+    /// below (above, near the nut), before the beat.
+    pub fn open_grace(&mut self) {
+        let c = self.session.cursor();
+        let track = self.session.score().tracks.get(c.track);
+        let note = track
+            .and_then(|t| t.measures.get(c.measure))
+            .and_then(|m| m.voices.get(c.voice))
+            .and_then(|v| v.beats.get(c.beat))
+            .and_then(|b| b.notes.iter().find(|n| usize::from(n.string) == c.string))
+            .copied()
+            .filter(|n| n.kind != guitario_score::NoteKind::Tie && !track.is_some_and(guitario_score::Track::is_drums));
+        let Some(note) = note else {
+            self.status = "Put the cursor on a struck note of a string track to add a grace note.".into();
+            self.status_is_error = true;
+            return;
+        };
+        let grace = note.effects.grace.unwrap_or(Grace::new(if note.fret >= 2 { note.fret - 2 } else { note.fret + 2 }));
+        self.ornaments =
+            OrnamentDialog { open: Some(Kind::Grace), fret: grace.fret, grace, has_trill: note.effects.grace.is_some(), ..OrnamentDialog::default() };
+    }
+
     /// Note › Tremolo Picking…: on the beat under the cursor, or every selected beat.
     pub fn open_tremolo(&mut self) {
         let c = self.session.cursor();
@@ -111,7 +161,11 @@ impl GuitarioApp {
         let d = &mut self.ornaments;
         egui::Modal::new(egui::Id::new("ornament-dialog")).show(ctx, |ui| {
             ui.set_width(330.0);
-            ui.heading(if kind == Kind::Trill { "Trill" } else { "Tremolo Picking" });
+            ui.heading(match kind {
+                Kind::Trill => "Trill",
+                Kind::Tremolo => "Tremolo Picking",
+                Kind::Grace => "Grace Note",
+            });
             ui.add_space(6.0);
             match kind {
                 Kind::Trill => {
@@ -134,13 +188,43 @@ impl GuitarioApp {
                         ui.radio_value(&mut d.tremolo, speed, OrnamentDialog::tremolo_label(speed));
                     }
                 }
+                Kind::Grace => {
+                    egui::Grid::new("grace-grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
+                        ui.label("Fret");
+                        ui.add_enabled(!d.grace.dead, egui::DragValue::new(&mut d.fret).range(0..=max));
+                        ui.end_row();
+                        ui.label("Duration");
+                        egui::ComboBox::from_id_salt("grace-duration").selected_text(OrnamentDialog::grace_duration_label(d.grace.duration)).show_ui(
+                            ui,
+                            |ui| {
+                                for dur in GraceDuration::ALL {
+                                    ui.selectable_value(&mut d.grace.duration, dur, OrnamentDialog::grace_duration_label(dur));
+                                }
+                            },
+                        );
+                        ui.end_row();
+                        ui.label("Transition");
+                        egui::ComboBox::from_id_salt("grace-transition").selected_text(OrnamentDialog::transition_label(d.grace.transition)).show_ui(
+                            ui,
+                            |ui| {
+                                for tr in GraceTransition::ALL {
+                                    ui.selectable_value(&mut d.grace.transition, tr, OrnamentDialog::transition_label(tr));
+                                }
+                            },
+                        );
+                        ui.end_row();
+                    });
+                    ui.radio_value(&mut d.grace.on_beat, false, "Before the beat");
+                    ui.radio_value(&mut d.grace.on_beat, true, "On the beat");
+                    ui.checkbox(&mut d.grace.dead, "Dead note");
+                }
             }
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 if ui.button("OK").clicked() {
                     apply = true;
                 }
-                if kind == Kind::Trill && ui.add_enabled(d.has_trill, egui::Button::new("Remove")).clicked() {
+                if kind != Kind::Tremolo && ui.add_enabled(d.has_trill, egui::Button::new("Remove")).clicked() {
                     remove = true;
                 }
                 if ui.button("Cancel").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
@@ -153,6 +237,8 @@ impl GuitarioApp {
             (Kind::Trill, true, _) => Some(("note.setTrill", json!({"fret": d.fret, "speed": d.trill_speed.name()}))),
             (Kind::Trill, _, true) => Some(("note.setTrill", json!({"fret": null}))),
             (Kind::Tremolo, true, _) => Some(("beat.setTremolo", json!({"speed": d.tremolo.map_or("none", TremoloSpeed::name)}))),
+            (Kind::Grace, true, _) => Some(("note.setGrace", grace_params(d.fret, d.grace))),
+            (Kind::Grace, _, true) => Some(("note.setGrace", json!({"fret": null}))),
             _ => None,
         };
         if let Some((id, params)) = request {
@@ -166,10 +252,37 @@ impl GuitarioApp {
     }
 }
 
+/// What the grace note dialog sends: every field, so the note gets exactly what was shown.
+fn grace_params(fret: u8, g: Grace) -> Value {
+    json!({"fret": fret, "duration": g.duration.name(), "transition": g.transition.name(), "onBeat": g.on_beat, "dead": g.dead})
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use guitario_engine::Session;
+
+    #[test]
+    fn the_grace_dialog_starts_two_frets_down_and_applies_what_it_shows() {
+        let mut app = app_with_note(7);
+        app.open_grace();
+        assert!(app.ornaments.is_open() && app.ornaments.fret == 5 && !app.ornaments.has_trill);
+        app.ornaments.fret = 9;
+        app.ornaments.grace = Grace { fret: 9, duration: GraceDuration::Sixteenth, transition: GraceTransition::Slide, on_beat: true, dead: false };
+        assert!(app.run("note.setGrace", grace_params(app.ornaments.fret, app.ornaments.grace)).is_some());
+        assert_eq!(first_beat(&app).notes[0].effects.grace, Some(app.ornaments.grace));
+        // Opened again, it shows the grace note the note has, which can then be removed.
+        app.open_grace();
+        assert!(app.ornaments.has_trill && app.ornaments.fret == 9 && app.ornaments.grace.on_beat);
+        // Near the nut a new grace note goes up.
+        let mut low = app_with_note(1);
+        low.open_grace();
+        assert_eq!(low.ornaments.fret, 3);
+        // Without a struck note nothing opens.
+        let mut empty = GuitarioApp::new(Session::new(), None);
+        empty.open_grace();
+        assert!(!empty.ornaments.is_open() && empty.status.contains("grace"), "{}", empty.status);
+    }
 
     fn app_with_note(fret: u64) -> GuitarioApp {
         let mut s = Session::new();

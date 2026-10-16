@@ -140,6 +140,46 @@ fn ties_mark_both_ends_and_hammer_ons_mark_their_target() {
 }
 
 #[test]
+fn grace_notes_are_written_as_grace_beats_before_their_beat() {
+    let s = riff();
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    assert!(xml.contains("<GraceNotes>BeforeBeat</GraceNotes>") && xml.contains("<GraceNotes>OnBeat</GraceNotes>"), "{xml}");
+    // A chord whose notes have grace notes of two kinds gets one grace beat per kind.
+    let mut s = riff();
+    let mut a = Note::new(0, 5);
+    a.effects.grace = Some(Grace::new(3));
+    let mut b = Note::new(1, 5);
+    b.effects.grace = Some(Grace { on_beat: true, ..Grace::new(7) });
+    let mut c = Note::new(2, 5);
+    c.effects.grace = Some(Grace::new(4));
+    s.tracks[0].measures[1].voices =
+        vec![Voice { beats: vec![Beat { rest: false, notes: vec![a, b, c], ..Beat::rest(Duration { dots: 1, ..Duration::WHOLE }) }] }];
+    s.headers[1].time_signature = guitario_theory::TimeSignature { numerator: 6, denominator: 4 };
+    assert!(s.validate().is_ok());
+    let out = export_gp(&s).unwrap();
+    assert_eq!(score_gpif(&out.bytes).matches("<GraceNotes>").count(), 2 + 5, "two for the chord, five in bar 1");
+    let back = import(&out.bytes).unwrap();
+    assert!(back.warnings.is_empty(), "{:?}", back.warnings);
+    let notes = &back.score.tracks[0].measures[1].voices[0].beats[0].notes;
+    assert_eq!(notes.iter().map(|n| n.effects.grace).collect::<Vec<_>>(), vec![a.effects.grace, b.effects.grace, c.effects.grace]);
+}
+
+#[test]
+fn a_grace_beat_with_nothing_to_ornament_is_reported() {
+    let s = riff();
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    // Turn the first grace beat's target into a rest: the grace note has no note to belong to.
+    let first = xml.find("<GraceNotes>BeforeBeat</GraceNotes>").unwrap();
+    let beat_start = xml[first..].find("</Beat>").unwrap() + first;
+    let next_notes = xml[beat_start..].find("<Notes>").unwrap() + beat_start;
+    let end = xml[next_notes..].find("</Notes>").unwrap() + next_notes + "</Notes>".len();
+    let broken = format!("{}{}", &xml[..next_notes], &xml[end..]);
+    let imp = guitario_gp::parse_gpif(&broken).unwrap();
+    assert!(imp.warnings.iter().any(|w| w.contains("grace notes")), "{:?}", imp.warnings);
+    assert!(imp.score.validate().is_ok());
+}
+
+#[test]
 fn drum_hits_outside_the_kit_keep_their_midi_number() {
     let mut s = Score::new();
     s.tracks = vec![Track::drums("Drums", &s.headers)];

@@ -90,6 +90,11 @@ impl crate::Score {
                         {
                             return Err(bad(format!("trill fret {} is above {}", trill.fret, track.max_fret())));
                         }
+                        if let Some(grace) = note.effects.grace
+                            && (grace.fret > track.max_fret() || track.is_drums())
+                        {
+                            return Err(bad(format!("grace note fret {} is not allowed here", grace.fret)));
+                        }
                         if beat.notes.iter().take(i).any(|n| n.string == note.string) {
                             return Err(bad(format!("has two notes on string {}", note.string)));
                         }
@@ -131,6 +136,14 @@ mod tests {
         let mut s = Score::new();
         s.tracks[0].measures[0].voices = vec![crate::Voice::default(); crate::MAX_VOICES + 1];
         assert!(matches!(s.validate(), Err(ScoreError::Measure { .. })));
+
+        let mut s = Score::new();
+        let b = &mut s.tracks[0].measures[0].voices[0].beats[0];
+        b.rest = false;
+        let mut n = Note::new(0, 3);
+        n.effects.grace = Some(crate::Grace::new(37));
+        b.notes = vec![n];
+        assert!(matches!(s.validate(), Err(ScoreError::Measure { what, .. }) if what.contains("grace")));
 
         let mut s = Score::new();
         s.tempo = 5;

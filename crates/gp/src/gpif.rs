@@ -336,6 +336,7 @@ fn fill_measures(
     t: Tables,
     warnings: &mut Vec<String>,
 ) {
+    let mut lost_graces = 0usize;
     for (mi, master) in masters.iter().enumerate() {
         let bar_id = ids(text(*master, "Bars")).get(staff_index).copied().unwrap_or(-1);
         let Some(bar) = lookup(t.0, bar_id) else { continue };
@@ -346,12 +347,32 @@ fn fill_measures(
             let mut out = Voice::default();
             if let Some(voice) = lookup(t.1, voice_id) {
                 let mut used = 0u32;
+                // Grace beats take no time: their notes become the grace notes of the next beat's
+                // notes on the same strings.
+                let mut graces: Vec<(u8, Grace)> = Vec::new();
                 for beat_id in ids(text(voice, "Beats")) {
                     let Some(bn) = lookup(t.2, beat_id) else { continue };
-                    if child(bn, "GraceNotes").is_some() {
-                        continue; // grace beats take no time; not modelled yet
+                    if let Some(kind) = text(bn, "GraceNotes") {
+                        if let Some(gb) = build_beat(bn, &t, place).filter(|_| matches!(place, Placement::Strings { .. })) {
+                            for (string, grace) in grace_notes(&gb, kind == "OnBeat") {
+                                if let Some(old) = graces.iter_mut().find(|(st, _)| *st == string) {
+                                    // Two grace notes on one string: the one nearer the note is kept.
+                                    old.1 = grace;
+                                    lost_graces += 1;
+                                } else {
+                                    graces.push((string, grace));
+                                }
+                            }
+                        }
+                        continue;
                     }
-                    let Some(beat) = build_beat(bn, &t, place) else { continue };
+                    let Some(mut beat) = build_beat(bn, &t, place) else { continue };
+                    for (string, grace) in graces.drain(..) {
+                        match beat.notes.iter_mut().find(|n| n.string == string && n.kind != NoteKind::Tie) {
+                            Some(n) => n.effects.grace = Some(grace),
+                            None => lost_graces += 1,
+                        }
+                    }
                     let ticks = beat.duration.ticks();
                     if used + ticks > cap {
                         warnings.push(format!("track `{name}` measure {}: beats overflow the bar and were trimmed", mi + 1));
@@ -360,6 +381,7 @@ fn fill_measures(
                     used += ticks;
                     out.beats.push(beat);
                 }
+                lost_graces += graces.len();
             }
             voices.push(out);
         }
@@ -381,6 +403,36 @@ fn fill_measures(
         }
         m.voices = voices;
     }
+    if lost_graces > 0 {
+        warnings.push(format!("track `{name}`: {lost_graces} grace notes without a struck note on their string after them were left out"));
+    }
+}
+
+/// The notes of a grace beat as grace notes, by string. A hammer-on, slide or bend on a grace note
+/// is how it moves into the note.
+fn grace_notes(gb: &Beat, on_beat: bool) -> Vec<(u8, Grace)> {
+    let duration = match gb.duration.value {
+        NoteValue::Sixteenth => GraceDuration::Sixteenth,
+        NoteValue::SixtyFourth => GraceDuration::SixtyFourth,
+        _ => GraceDuration::ThirtySecond,
+    };
+    gb.notes
+        .iter()
+        .filter(|n| n.kind != NoteKind::Tie)
+        .map(|n| {
+            let transition = if n.effects.hammer {
+                GraceTransition::Hammer
+            } else if matches!(n.effects.slide, Some(Slide::Legato | Slide::Shift)) {
+                GraceTransition::Slide
+            } else if n.effects.bend.is_some() {
+                GraceTransition::Bend
+            } else {
+                GraceTransition::None
+            };
+            let dead = n.kind == NoteKind::Dead;
+            (n.string, Grace { fret: if dead { 0 } else { n.fret }, duration, transition, on_beat, dead })
+        })
+        .collect()
 }
 
 fn rhythm_duration(r: Node) -> Option<Duration> {

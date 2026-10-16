@@ -1,8 +1,8 @@
 # Guitario roadmap
 
-**Stage: alpha** · next: beta, ~860–1,455 h away
+**Stage: alpha** · next: beta, ~850–1,440 h away
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (tremolo picking and trills; menus 132/173) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (grace notes; menus 133/173) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [target-app parity](docs/target-app-parity.md) (methodology, weights, evidence), [gaps](docs/gaps.md)
@@ -19,20 +19,20 @@ work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~50%** | partly measured: menus 132/173, [scorecard](docs/scorecard.md) |
+| **Feature breadth** | **~51%** | partly measured: menus 133/173, [scorecard](docs/scorecard.md) |
 | **Ready for real work** | **~27%** (22–32%) | estimated: weighted by dimension below |
 | Mainstream user | ~37% (32–42%) | estimated |
 | Essentials user | ~76% (68–84%) | estimated |
 | Remaining to **alpha** | **reached** | the gate passes; two human checks open |
-| Remaining to **beta** | **~860–1,455 h** | estimated |
-| Remaining to **full parity** | **~1,910–3,405 h** | estimated; sampled playback dominates |
+| Remaining to **beta** | **~850–1,440 h** | estimated |
+| Remaining to **full parity** | **~1,900–3,390 h** | estimated; sampled playback dominates |
 
 ### Readiness by audience
 
 | Audience | Ready % | Opus 5.5 agent-hours to ~95% | Work that dominates |
 |---|---:|---:|---|
-| Full target (ready for real work) | ~27% | 1,860–3,355 | Everything below, plus sampled playback, tools, PowerTab and TablEdit, releases |
-| Mainstream user | ~37% | 860–1,555 | realistic playback, notation depth |
+| Full target (ready for real work) | ~27% | 1,850–3,340 | Everything below, plus sampled playback, tools, PowerTab and TablEdit, releases |
+| Mainstream user | ~37% | 850–1,540 | realistic playback, notation depth |
 | Essentials user | ~76% | 50–120 | editing polish, print depth |
 
 **Why alpha.** Writing, arranging with drums, playing back and practising work end to end and
@@ -46,7 +46,7 @@ Pro 8. Beta needs sampled sound, notation depth, tools and releases on three pla
 | Dimension | % ready | Hours to full | Doc |
 |---|---:|---:|---|
 | Editing | 55% | 110–200 | [scorecard](docs/scorecard.md#editing) |
-| Notation | 47% | 100–205 | [scorecard](docs/scorecard.md#notation-and-engraving) |
+| Notation | 50% | 90–190 | [scorecard](docs/scorecard.md#notation-and-engraving) |
 | Playback | 30% | 380–750 | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 54% | 140–260 | [file-format-parity](docs/file-format-parity.md) |
 | UI/UX fidelity | 45% | 200–350 | [ui-parity](docs/ui-parity.md) |
@@ -63,7 +63,7 @@ English only. Guitar Pro ships in about a dozen languages ([gaps G13](docs/gaps.
 
 | Rank | Milestone | Estimate |
 |---|---|---:|
-| 1 | Notation depth: chord diagrams, lyrics, grace notes, layouts | 80–145 h |
+| 1 | Notation depth: chord diagrams, lyrics, fermatas, layouts | 70–130 h |
 | 2 | Guitar Pro import depth, MIDI and MusicXML import, a human check of `.gp` exports | 40–80 h |
 | 3 | Print depth: headers and footers, layouts, selected bars, a real-printer check | 10–20 h |
 | 4 | Performance budgets and a control channel | 70–140 h |

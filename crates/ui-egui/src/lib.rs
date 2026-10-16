@@ -261,6 +261,7 @@ impl GuitarioApp {
             U::PageSetup => self.open_page_setup(),
             U::Trill => self.open_trill(),
             U::TremoloPicking => self.open_tremolo(),
+            U::GraceNote => self.open_grace(),
             U::ImportGuitarPro => self.open_dialog(),
             U::Quit => ctx_quit(),
             U::SongInfo => {

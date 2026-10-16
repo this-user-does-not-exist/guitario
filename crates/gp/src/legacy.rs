@@ -768,6 +768,37 @@ impl Parser<'_> {
         Ok(fx)
     }
 
+    /// A grace note: fret, dynamic, transition, duration (1 a sixty-fourth, 2 a thirty-second, 3 a
+    /// sixteenth) and, from Guitar Pro 5, flags (dead, on the beat). Guitar Pro 3 and 4 mark a dead
+    /// grace note by fret 255.
+    fn grace(&mut self) -> Result<Option<Grace>, GpError> {
+        let fret = self.r.u8()?;
+        self.r.skip(1)?; // dynamic: the beat's is used
+        let transition = match self.r.u8()? {
+            1 => GraceTransition::Slide,
+            2 => GraceTransition::Bend,
+            3 => GraceTransition::Hammer,
+            _ => GraceTransition::None,
+        };
+        let duration = match self.r.u8()? {
+            1 => GraceDuration::SixtyFourth,
+            3 => GraceDuration::Sixteenth,
+            _ => GraceDuration::ThirtySecond,
+        };
+        let (mut dead, mut on_beat) = (fret == 255, false);
+        if self.v >= Version::V5 {
+            let flags = self.r.u8()?;
+            dead |= flags & 0x01 != 0;
+            on_beat = flags & 0x02 != 0;
+        }
+        let fret = if dead { 0 } else { fret };
+        if fret > 36 {
+            self.drop("grace notes above fret 36");
+            return Ok(None);
+        }
+        Ok(Some(Grace { fret, duration, transition, on_beat, dead }))
+    }
+
     fn mix_table(&mut self) -> Result<Mix, GpError> {
         let v = self.v;
         let instrument = self.r.i8()?;
@@ -862,6 +893,11 @@ impl Parser<'_> {
                 self.drop("frets above 36");
             }
         }
+        // A tied note is not struck again, and a drum hit has no grace note.
+        if note.effects.grace.is_some() && (t.drums || note.kind == NoteKind::Tie) {
+            note.effects.grace = None;
+            self.drop("grace notes on tied notes or drum hits");
+        }
         if t.drums {
             let midi = fret.min(guitario_theory::drums::MAX_DRUM);
             note.string = guitario_theory::drums::lane_for(midi);
@@ -890,8 +926,7 @@ impl Parser<'_> {
             note.effects.bend = self.bend()?;
         }
         if f1 & 0x10 != 0 {
-            self.r.skip(if v >= Version::V5 { 5 } else { 4 })?; // fret, dynamic, transition, duration, flags
-            self.drop("grace notes");
+            note.effects.grace = self.grace()?;
         }
         if v == Version::V3 {
             if f1 & 0x04 != 0 {

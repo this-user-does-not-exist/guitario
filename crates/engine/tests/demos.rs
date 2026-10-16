@@ -161,6 +161,11 @@ fn specific_pieces_have_their_signature_features() {
     for speed in guitario_score::TrillSpeed::ALL {
         assert!(notes.iter().any(|n| n.effects.trill.is_some_and(|t| t.speed == speed)), "{speed:?}");
     }
+    // Grace notes with every way into the note, one of them on the beat.
+    for transition in guitario_score::GraceTransition::ALL {
+        assert!(notes.iter().any(|n| n.effects.grace.is_some_and(|g| g.transition == transition)), "{transition:?}");
+    }
+    assert!(notes.iter().any(|n| n.effects.grace.is_some_and(|g| g.on_beat)));
     assert!(notes.iter().any(|n| n.kind == guitario_score::NoteKind::Dead) && notes.iter().any(|n| n.kind == guitario_score::NoteKind::Tie));
 }
 

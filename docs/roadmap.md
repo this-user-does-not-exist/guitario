@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (tremolo picking and trills; menus 132/173) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (grace notes; menus 133/173) · **Target:** Guitar Pro 8
 
 Forward-looking plan: milestones, the **Current focus** list, and what's next with estimates.
 Where we stand today is in [`target-app-parity.md`](target-app-parity.md) (headline numbers, by
@@ -13,7 +13,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started. Hours are Opus 5
 for one agent working sequentially (uncalibrated, see
 [`target-app-parity.md`](target-app-parity.md#remaining-effort-and-calibration)).
 
-**Stage: alpha** (ready for real work ~27%). The alpha gate below passes; beta is ~860–1,455 h away.
+**Stage: alpha** (ready for real work ~27%). The alpha gate below passes; beta is ~850–1,440 h away.
 
 ## Alpha gate
 
@@ -41,7 +41,7 @@ in Guitar Pro 8.
 | M0 Skeleton | ✅ | workspace, xtask (layers / wasm / ci / stats / parity / scorecard / version), CI workflow, never-crash lints |
 | M1 Model + engine | ✅ | theory, score (validation, timeline), 64 commands with undo, CLI, `.gt` with craft-atomic saves |
 | M2 Tab editor | 🟡 | keyboard entry, Guitar Pro shortcuts, palette, selection and clipboard, four voices; no bend editor |
-| M3 Notation | 🟡 | page view, notation over tab, beams, accidentals, effect lanes, ties, slurs, voices, chord names, drums; no chord diagrams, lyrics, layouts |
+| M3 Notation | 🟡 | page view, notation over tab, beams, accidentals, effect lanes, ties, slurs, voices, chord names, tremolo picking, trills, grace notes, drums; no chord diagrams, lyrics, layouts |
 | M4 Playback | 🟡 | plucked-string synth, transport, loop, speed, metronome, count-in, WAV export; no drums or samples |
 | M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 and GP6 drums remain |
 | M6 Drums | 🟡 | kit tracks, drum pad, notation, GM playback, `.gp` drum import, drum demos, a second voice for the feet; a step editor missing |
@@ -54,7 +54,7 @@ in Guitar Pro 8.
 
 Ranked; each item links to its gap entry. Pick from the top unless an issue is assigned to you.
 
-1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): chord diagrams, lyrics, grace notes, layouts. 80–145 h.
+1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): chord diagrams, lyrics, fermatas, layouts. 70–130 h.
 2. **Guitar Pro import depth** ([G3](gaps.md#g3-guitar-pro-exchange)): Guitar Pro 6 drums, MIDI and MusicXML import, a human check of `.gp` exports. 40–80 h.
 3. **Print depth** ([G2](gaps.md#g2-print-depth)): headers and footers, layouts, selected bars, a real-printer check. 10–20 h.
 
@@ -67,7 +67,7 @@ Ranked; each item links to its gap entry. Pick from the top unless an issue is a
 | 0.4 "ties and voices" | ✅ ties, slurs and up to four voices landed 2026-10-16 | done |
 | 0.5 "print it" | ✅ PDF export and printing landed 2026-10-16 | done |
 | Alpha | ✅ the alpha gate passes (2026-10-16) | done |
-| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~860–1,455 h total |
+| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~850–1,440 h total |
 
 ## Milestone definitions
 
@@ -92,6 +92,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-16 | minor | Grace notes (model, command and dialog, playback, engraving, Guitar Pro 3-8 both ways); G4 left 70–130 h; beta ~850–1,440 h |
 | 2026-10-16 | minor | Tremolo picking and trills (model, commands, playback, drawing, Guitar Pro 3-5 and GPIF); G4 left 80–145 h; beta ~860–1,455 h |
 | 2026-10-16 | minor | Print preview and page setup (Letter, Legal, A5, landscape, margins; kept in `.gt`, `.gp` and `.gp5`); G2 left 10–20 h; beta ~870–1,470 h |
 | 2026-10-16 | minor | PDF export and printing: the share workflow passes, so the alpha gate passes; stage alpha; beta ~880–1,490 h (G2's 60–100 h done, 20–40 h of print depth added) |

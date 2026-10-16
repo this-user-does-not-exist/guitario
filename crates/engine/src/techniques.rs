@@ -1,8 +1,11 @@
-//! Beat techniques and rhythm: tuplets, pick strokes, slap and pop, fades, brush and arpeggio.
+//! Beat techniques and rhythm: tuplets, pick strokes, slap and pop, fades, brush and arpeggio;
+//! tremolo picking, trills and grace notes.
 
 use crate::commands::{CommandSpec, cmd};
 use crate::{EngineError, Session, params as p};
-use guitario_score::{Beat, BeatTechnique, Brush, BrushKind, Fade, NoteKind, StrokeDirection, TremoloSpeed, Trill, TrillSpeed};
+use guitario_score::{
+    Beat, BeatTechnique, Brush, BrushKind, Fade, Grace, GraceDuration, GraceTransition, NoteKind, StrokeDirection, TremoloSpeed, Trill, TrillSpeed,
+};
 use guitario_theory::{Duration, TICKS_PER_QUARTER};
 use serde_json::{Value, json};
 
@@ -46,6 +49,15 @@ pub fn specs() -> Vec<CommandSpec> {
             "fret (the other fret of the cursor note's string; null clears), speed? (sixteenth|thirty_second|sixty_fourth; default what the note has, else sixteenth)",
             true,
             set_trill,
+        ),
+        cmd(
+            "note.setGrace",
+            "Grace Note",
+            "Note",
+            None,
+            "fret (on the cursor note's string; null clears), duration? (sixteenth|thirty_second|sixty_fourth), transition? (none|slide|bend|hammer), onBeat? (bool), dead? (bool); what is left out keeps what the grace note has, else thirty_second, none, before the beat, not dead",
+            true,
+            set_grace,
         ),
     ]
 }
@@ -171,6 +183,54 @@ fn set_trill(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     ok_json()
 }
 
+/// An optional named value: `None` when `key` is absent or null, an error when it names nothing in `from`.
+fn opt_named<T>(params: &Value, key: &str, from: fn(&str) -> Option<T>, want: &str) -> Result<Option<T>, EngineError> {
+    match params.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(name)) => from(name).map(Some).ok_or_else(|| EngineError::BadParam(format!("`{key}` must be {want}, not `{name}`"))),
+        Some(_) => Err(EngineError::BadParam(format!("`{key}` must be {want}"))),
+    }
+}
+
+fn opt_bool(params: &Value, key: &str) -> Result<Option<bool>, EngineError> {
+    if params.get(key).is_none_or(Value::is_null) { Ok(None) } else { p::boolean(params, key).map(Some) }
+}
+
+fn set_grace(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let max = {
+        let track = s.score.tracks.get(s.cursor.track).ok_or_else(|| EngineError::invalid("the cursor is not on a track"))?;
+        if track.is_drums() {
+            return Err(EngineError::invalid("a drum hit has no grace notes"));
+        }
+        track.max_fret()
+    };
+    let fret = match params.get("fret") {
+        None => return Err(EngineError::BadParam("`fret` must be a fret number or null".into())),
+        Some(Value::Null) => None,
+        Some(_) => Some(p::uint(params, "fret", u64::from(max))? as u8),
+    };
+    let duration = opt_named(params, "duration", GraceDuration::from_name, "sixteenth, thirty_second or sixty_fourth")?;
+    let transition = opt_named(params, "transition", GraceTransition::from_name, "none, slide, bend or hammer")?;
+    let on_beat = opt_bool(params, "onBeat")?;
+    let dead = opt_bool(params, "dead")?;
+    let note = s.note_mut()?;
+    note.effects.grace = match fret {
+        None => None,
+        Some(_) if note.kind == NoteKind::Tie => return Err(EngineError::invalid("a tied note is not struck again, so it takes no grace note")),
+        Some(fret) => {
+            let had = note.effects.grace.unwrap_or(Grace::new(fret));
+            Some(Grace {
+                fret,
+                duration: duration.unwrap_or(had.duration),
+                transition: transition.unwrap_or(had.transition),
+                on_beat: on_beat.unwrap_or(had.on_beat),
+                dead: dead.unwrap_or(had.dead),
+            })
+        }
+    };
+    ok_json()
+}
+
 fn ok_json() -> Result<Value, EngineError> {
     Ok(json!({"ok": true}))
 }
@@ -211,6 +271,50 @@ mod tests {
         s.run("beat.setTremolo", &json!({"speed": "eighth"})).unwrap();
         s.run("edit.undo", &Value::Null).unwrap();
         assert_eq!(s.score().tracks[0].measures[0].voices[0].beats[0].tremolo, None);
+    }
+
+    #[test]
+    fn a_grace_note_keeps_what_it_has_unless_told_and_needs_a_struck_note() {
+        let mut s = Session::new();
+        assert!(s.run("note.setGrace", &json!({"fret": 5})).is_err(), "no note yet");
+        s.run("note.setFret", &json!({"fret": 7})).unwrap();
+        s.run("note.setGrace", &json!({"fret": 5})).unwrap();
+        let grace = |s: &Session| s.score().tracks[0].measures[0].voices[0].beats[0].notes[0].effects.grace;
+        assert_eq!(grace(&s), Some(Grace::new(5)));
+        s.run("note.setGrace", &json!({"fret": 9, "duration": "sixteenth", "transition": "hammer", "onBeat": true, "dead": true})).unwrap();
+        s.run("note.setGrace", &json!({"fret": 4, "dead": false})).unwrap();
+        assert_eq!(grace(&s), Some(Grace { fret: 4, duration: GraceDuration::Sixteenth, transition: GraceTransition::Hammer, on_beat: true, dead: false }));
+        // The same fret as the note is allowed: Guitar Pro's default grace note repeats it.
+        s.run("note.setGrace", &json!({"fret": 7})).unwrap();
+        s.run("note.setGrace", &json!({"fret": null})).unwrap();
+        assert_eq!(grace(&s), None);
+        for bad in [
+            json!({}),
+            json!({"fret": 37}),
+            json!({"fret": -1}),
+            json!({"fret": "5"}),
+            json!({"fret": 5, "duration": "eighth"}),
+            json!({"fret": 5, "duration": 8}),
+            json!({"fret": 5, "transition": "pull"}),
+            json!({"fret": 5, "onBeat": "yes"}),
+            json!({"fret": 5, "dead": 1}),
+        ] {
+            assert!(s.run("note.setGrace", &bad).is_err(), "{bad}");
+        }
+        assert_eq!(grace(&s), None, "a failed call changes nothing");
+        // Undo removes it in one step.
+        s.run("note.setGrace", &json!({"fret": 2})).unwrap();
+        s.run("edit.undo", &Value::Null).unwrap();
+        assert_eq!(grace(&s), None);
+        // A tied note and a drum hit take none.
+        s.run("note.toggleTie", &Value::Null).unwrap();
+        assert_eq!(s.score().tracks[0].measures[0].voices[0].beats[0].notes[0].kind, NoteKind::Tie);
+        assert!(s.run("note.setGrace", &json!({"fret": 5})).is_err());
+        let mut drums = Session::new();
+        drums.run("track.addDrums", &json!({"name": "Drums"})).unwrap();
+        drums.run("track.select", &json!({"index": 1})).unwrap();
+        let e = drums.run("note.setGrace", &json!({"fret": 5})).unwrap_err().to_string();
+        assert!(e.contains("drum"), "{e}");
     }
 
     #[test]

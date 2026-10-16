@@ -607,6 +607,7 @@ impl Writer {
             || e.harmonic.is_some()
             || e.vibrato
             || e.trill.is_some()
+            || e.grace.is_some()
             || tremolo.is_some();
         let mut flags = 0x20u8;
         if e.heavy_accent {
@@ -639,11 +640,11 @@ impl Writer {
         self.i8(i8::try_from(n.fret).unwrap_or(i8::MAX));
         self.u8(0); // accidental spelling
         if has_fx {
-            self.note_effects(n, tremolo);
+            self.note_effects(n, dynamic, tremolo);
         }
     }
 
-    fn note_effects(&mut self, n: &Note, tremolo: Option<TremoloSpeed>) {
+    fn note_effects(&mut self, n: &Note, dynamic: Dynamic, tremolo: Option<TremoloSpeed>) {
         let e = &n.effects;
         let mut f1 = 0u8;
         let mut f2 = 0u8;
@@ -661,6 +662,9 @@ impl Writer {
         }
         if e.let_ring {
             f1 |= 0x08;
+        }
+        if e.grace.is_some() {
+            f1 |= 0x10;
         }
         if e.staccato {
             f2 |= 0x01;
@@ -690,6 +694,22 @@ impl Writer {
                 self.i32(value);
                 self.u8(0);
             }
+        }
+        if let Some(g) = e.grace {
+            self.u8(g.fret);
+            self.i8(velocity_of(dynamic));
+            self.u8(match g.transition {
+                GraceTransition::None => 0,
+                GraceTransition::Slide => 1,
+                GraceTransition::Bend => 2,
+                GraceTransition::Hammer => 3,
+            });
+            self.u8(match g.duration {
+                GraceDuration::SixtyFourth => 1,
+                GraceDuration::ThirtySecond => 2,
+                GraceDuration::Sixteenth => 3,
+            });
+            self.u8(u8::from(g.dead) | u8::from(g.on_beat) << 1);
         }
         if let Some(speed) = tremolo {
             self.u8(speed.slashes());

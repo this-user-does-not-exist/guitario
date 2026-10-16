@@ -226,10 +226,15 @@ struct VoiceNat {
     col_of: Vec<usize>,
 }
 
+/// Room left of a beat for its grace notes, in staff spaces.
+pub const GRACE_ROOM: f32 = 3.0;
+
 struct Natural {
     fixed: f32,
     /// Column widths: one per moment a beat starts in any voice.
     cols: Vec<f32>,
+    /// Room kept at the left of each column for grace notes, inside its width.
+    pads: Vec<f32>,
     voices: Vec<VoiceNat>,
     show_time: bool,
     lead: f32,
@@ -267,11 +272,14 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics) -> Natural {
     let mut onsets: Vec<u64> = timed.iter().flat_map(|(_, bs)| bs.iter().map(|(t, _)| *t)).collect();
     onsets.sort_unstable();
     onsets.dedup();
+    let mut pads = Vec::with_capacity(onsets.len());
     let cols: Vec<f32> = onsets
         .iter()
         .enumerate()
         .map(|(ci, &t)| {
             let here: Vec<&Beat> = timed.iter().flat_map(|(_, bs)| bs.iter().filter(move |(s, _)| *s == t).map(|(_, b)| *b)).collect();
+            let pad = if here.iter().any(|b| !b.rest && b.notes.iter().any(|n| n.effects.grace.is_some())) { GRACE_ROOM * s } else { 0.0 };
+            pads.push(pad);
             let gap = match onsets.get(ci + 1) {
                 Some(&next) => u32::try_from(next - t).unwrap_or(u32::MAX),
                 None => here.iter().map(|b| b.duration.ticks()).min().unwrap_or(1),
@@ -280,7 +288,7 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics) -> Natural {
             if onsets.len() == 1 && here.iter().all(|b| b.rest) {
                 w = w.max(8.0 * s);
             }
-            w
+            w + pad
         })
         .collect();
     let voices = timed.iter().map(|(vi, bs)| VoiceNat { voice: *vi, col_of: bs.iter().filter_map(|(t, _)| onsets.binary_search(t).ok()).collect() }).collect();
@@ -295,7 +303,7 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics) -> Natural {
     if header.is_some_and(|h| h.repeat_close > 0) {
         fixed += 1.4 * s;
     }
-    Natural { fixed, cols, voices, show_time, lead }
+    Natural { fixed, cols, pads, voices, show_time, lead }
 }
 
 /// The clef + key signature prefix at the start of every system.
@@ -360,11 +368,13 @@ pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
                 edges.push(bx);
             }
             let edge = |c: usize| edges.get(c).copied().unwrap_or(bx);
+            let pad = |c: usize| n.pads.get(c).copied().unwrap_or(0.0);
             let voices = n
                 .voices
                 .iter()
                 .map(|v| {
-                    let beats = v.col_of.iter().map(|&c| (edge(c) + edge(c + 1)) / 2.0).collect();
+                    // A beat sits in the middle of its column, right of any room kept for grace notes.
+                    let beats = v.col_of.iter().map(|&c| (edge(c) + pad(c) + edge(c + 1)) / 2.0).collect();
                     let spans = v.col_of.iter().enumerate().map(|(i, &c)| (edge(c), edge(v.col_of.get(i + 1).copied().unwrap_or(col_w.len())))).collect();
                     VoiceCols { voice: v.voice, beats, spans }
                 })
@@ -408,6 +418,27 @@ mod tests {
         let order: Vec<usize> = pages.iter().flat_map(|p| &p.systems).flat_map(|s| &s.measures).map(|m| m.index).collect();
         assert_eq!(order, (0..60).collect::<Vec<_>>());
         assert!(pages.len() > 1, "60 empty bars should need more than one page");
+    }
+
+    #[test]
+    fn a_beat_with_a_grace_note_keeps_room_on_its_left() {
+        use guitario_score::{Beat, Grace, Note};
+        use guitario_theory::Duration;
+        let mut s = score(1);
+        let plain = |fret: u8| Beat { rest: false, notes: vec![Note::new(0, fret)], ..Beat::rest(Duration::QUARTER) };
+        s.tracks[0].measures[0].voices[0].beats = vec![plain(1), plain(2), plain(3), plain(4)];
+        let m = Metrics::new(1.0, true, 6);
+        let room = |s: &Score| {
+            let pages = layout(s, 0, &m);
+            let v = &pages[0].systems[0].measures[0].voices[0];
+            // From where each beat's stretch starts to its column.
+            v.beats.iter().zip(&v.spans).map(|(x, (l, _))| x - l).collect::<Vec<f32>>()
+        };
+        let before = room(&s);
+        s.tracks[0].measures[0].voices[0].beats[2].notes[0].effects.grace = Some(Grace::new(5));
+        let after = room(&s);
+        assert!(after[2] >= before[2] + GRACE_ROOM * m.space * 0.99, "{before:?} {after:?}");
+        assert!((after[1] - before[1]).abs() < 0.01, "other beats are not moved off-centre");
     }
 
     #[test]

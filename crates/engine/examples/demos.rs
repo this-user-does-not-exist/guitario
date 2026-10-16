@@ -7,7 +7,9 @@
 //! A bar is a comma-separated list of beats. A beat is a duration (`8`, `4.`, `2..`, `8t` for a
 //! triplet), then notes as `string:fret` (string 1 is the high E, `x` is a dead note) or `r` for a
 //! rest. Modifiers follow the note they belong to: `+pm` palm mute, `+lr` let ring, `+h`
-//! hammer/pull, `+tr7` trill to fret 7 (`+tr7:32` and `+tr7:64` for faster ones), `+v` vibrato, `+g` ghost, `+a` accent, `+st` staccato, `+b`/`+b2`/`+b6`/`+b8` bend
+//! hammer/pull, `+tr7` trill to fret 7 (`+tr7:32` and `+tr7:64` for faster ones), `+gr5` a grace
+//! note from fret 5 (then `h` hammered, `s` slid, `b` bent, `o` on the beat, `x` dead, as in
+//! `+gr5ho`), `+v` vibrato, `+g` ghost, `+a` accent, `+st` staccato, `+b`/`+b2`/`+b6`/`+b8` bend
 //! (quarter tones), `+sl` shift slide, `+sll` legato slide, `+sli`/`+sla` slide in from
 //! below/above, `+slo`/`+slu` slide out, `+nh`/`+ah`/`+ph` harmonics, `~` tie. `*pm` applies a
 //! modifier to every note in the beat so far; `@mf` sets the beat's dynamic; `&tp8`, `&tp16` and
@@ -106,6 +108,22 @@ fn effect(s: &mut Session, fx: &str) -> R {
                 other => return Err(format!("bad trill speed `{other}`")),
             };
             run(s, "note.setTrill", json!({"fret": fret.parse::<u8>().map_err(|_| format!("bad trill fret `{t}`"))?, "speed": speed}))
+        }
+        g if g.starts_with("gr") => {
+            // `gr5`, then letters: h hammer, s slide, b bend, o on the beat, x dead.
+            let digits: String = g[2..].chars().take_while(char::is_ascii_digit).collect();
+            let fret: u8 = digits.parse().map_err(|_| format!("bad grace note `{g}`"))?;
+            let flags = &g[2 + digits.len()..];
+            let transition = match (flags.contains('h'), flags.contains('s'), flags.contains('b')) {
+                (true, _, _) => "hammer",
+                (_, true, _) => "slide",
+                (_, _, true) => "bend",
+                _ => "none",
+            };
+            if let Some(bad) = flags.chars().find(|c| !"hsbox".contains(*c)) {
+                return Err(format!("bad grace note flag `{bad}` in `{g}`"));
+            }
+            run(s, "note.setGrace", json!({"fret": fret, "transition": transition, "onBeat": flags.contains('o'), "dead": flags.contains('x')}))
         }
         b if b.starts_with('b') => {
             let q: u8 = b[1..].parse().map_err(|_| format!("bad bend `{b}`"))?;
@@ -768,11 +786,11 @@ fn solo() -> R<Session> {
     )?;
     let triplets = ["1:15", "1:12", "2:15", "2:12", "3:14", "3:12", "3:14", "2:12", "2:15", "1:12", "1:15", "1:17"].map(|n| format!("8t {n}"));
     let solo_bars = [
-        "4 1:12 +b +v, 8 1:15, 8 1:12, 4 2:15 +b, 4 2:12".to_string(),
+        "4 1:12 +gr10h +b +v, 8 1:15, 8 1:12, 4 2:15 +b, 4 2:12".to_string(),
         "16 1:15 +h, 16 1:12, 16 2:15 +h, 16 2:12, 16 3:14 +h, 16 3:12, 16 4:14 +h, 16 4:12, 8 3:14 +sl, 8 3:17, 4 3:14 +v".to_string(),
         "2 1:12 +nh, 4 1:15 +b +v, 4 1:12".to_string(),
         j(&triplets),
-        "4. 1:17 +b +v, 8 1:15, 4 1:12, 4 2:15".to_string(),
+        "4. 1:17 +gr15s +b +v, 8 1:15, 4 1:12, 4 2:15 +gr14h".to_string(),
         "8 2:15 +h, 8 2:12, 8 3:14 +h, 8 3:12, 4 4:14, 4 4:12".to_string(),
         "2 1:15 +b +v, 2 1:12 +v".to_string(),
         "1 1:12 +v".to_string(),
@@ -820,6 +838,7 @@ fn techniques() -> R<Session> {
             bar("4 6:0 +pm &tp32, 4 6:1 +pm &tp32, 4 6:3 +pm &tp32, 4 6:1 +pm &tp32").mark("Tremolo picking"),
             bar("4 5:0 &tp8, 4 5:0 &tp16, 4 5:0 &tp32, 4 5:0 4:2 *pm &tp16").mark("Tremolo speeds"),
             bar("4 1:12 +tr14, 4 1:12 +tr14:32, 4 1:10 +tr12:64, 4 r").mark("Trills"),
+            bar("4 3:7 +gr5, 4 3:7 +gr5h, 4 3:9 +gr7s, 4 2:8 +gr6bo").mark("Grace notes"),
             bar("8 6:0 +pm, 8 6:x, 8 5:2 +g, 8 6:x, 8 6:0, 8 6:x, 8 5:2 +a, 8 6:x").mark("Dead, ghost, accent"),
             bar("4 1:5 @p, 4 1:5 ~, 2 1:7 @ff").mark("Ties and dynamics"),
             bar("8t 1:0, 8t 1:3, 8t 1:5, 8t 1:0, 8t 1:3, 8t 1:5, 4 1:7, 4 r").mark("Triplets"),
