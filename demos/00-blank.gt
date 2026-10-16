@@ -1,0 +1,305 @@
+{
+  "format": "guitario",
+  "version": 1,
+  "score": {
+    "meta": {
+      "title": "Blank score",
+      "artist": "",
+      "album": "",
+      "author": "Guitario demo",
+      "notes": "Eight empty bars in 4/4. Click a beat and type a fret number to start."
+    },
+    "tempo": 120,
+    "headers": [
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": null
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": null
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": null
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": null
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": null
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": null
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": null
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": null
+      }
+    ],
+    "tracks": [
+      {
+        "name": "Guitar",
+        "kind": "strings",
+        "tuning": {
+          "name": "Standard",
+          "strings": [
+            64,
+            59,
+            55,
+            50,
+            45,
+            40
+          ]
+        },
+        "capo": 0,
+        "program": 30,
+        "volume": 100,
+        "pan": 0,
+        "muted": false,
+        "solo": false,
+        "measures": [
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "whole",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": true,
+                    "notes": [],
+                    "dynamic": "mf",
+                    "text": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "whole",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": true,
+                    "notes": [],
+                    "dynamic": "mf",
+                    "text": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "whole",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": true,
+                    "notes": [],
+                    "dynamic": "mf",
+                    "text": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "whole",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": true,
+                    "notes": [],
+                    "dynamic": "mf",
+                    "text": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "whole",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": true,
+                    "notes": [],
+                    "dynamic": "mf",
+                    "text": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "whole",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": true,
+                    "notes": [],
+                    "dynamic": "mf",
+                    "text": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "whole",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": true,
+                    "notes": [],
+                    "dynamic": "mf",
+                    "text": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "whole",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": true,
+                    "notes": [],
+                    "dynamic": "mf",
+                    "text": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

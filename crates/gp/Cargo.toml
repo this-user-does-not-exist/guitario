@@ -1,0 +1,15 @@
+[package]
+name = "guitario-gp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+guitario-theory = { workspace = true }
+guitario-score = { workspace = true }
+thiserror = { workspace = true }
+roxmltree = "0.21"
+zip = { version = "2", default-features = false, features = ["deflate"] }

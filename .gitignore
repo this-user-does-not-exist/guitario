@@ -1,0 +1,12 @@
+*~
+plan/
+/target
+target/
+/dist
+/log
+/secrets
+/temp
+*.log
+.DS_Store
+/corpus
+/book/output

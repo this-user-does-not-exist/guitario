@@ -1,0 +1,51 @@
+# Scorecard checklist: playback. Verified 2026-10-15 (crates/playback tests; nobody has listened
+# to the output on real speakers yet).
+area = "playback"
+title = "Playback"
+order = 3
+
+[[item]]
+id = "PLAY-1"
+target = "Play from the cursor and stop with Space; cursor follows playback on page, LCD, fretboard, global view"
+status = "done"
+
+[[item]]
+id = "PLAY-2"
+target = "Metronome, count-in, loop (selection or song), relative speed 25-200 %"
+status = "done"
+note = "player.rs tests count_in_and_metronome_click, loops_a_range"
+
+[[item]]
+id = "PLAY-3"
+target = "Guitar and bass sound with palm mute, dead notes, bends, vibrato, legato hammer-ons and slides, let ring"
+status = "partial"
+note = "physical-model synth (Karplus-Strong); not sampled instruments like Guitar Pro's RSE"
+
+[[item]]
+id = "PLAY-4"
+target = "Drum playback (General MIDI kit)"
+status = "done"
+note = "synthesised kit (kick, snare, hats with choke, cymbals, toms), drums_sound_and_hats_choke; MIDI channel 10"
+
+[[item]]
+id = "PLAY-5"
+target = "Amp and effect chains per track, mixer with volume/pan/mute/solo"
+status = "partial"
+note = "volume, pan, mute and solo apply; one fixed amp model per program; no effect chain or mixer panel"
+
+[[item]]
+id = "PLAY-6"
+target = "Automations (tempo ramps, volume, pan) and triplet feel / swing"
+status = "missing"
+
+[[item]]
+id = "PLAY-7"
+target = "Render to audio (WAV); MP3, FLAC and OGG"
+status = "partial"
+note = "WAV only (file.exportWav)"
+
+[[item]]
+id = "PLAY-8"
+target = "Sampled instruments: recorded drums, bass and guitars from open SFZ libraries"
+status = "partial"
+note = "SFZ engine and per-role sound bank (docs/sounds.md), tested on real libraries; no release samples, filters or LFOs; load happens on the UI thread; not yet auditioned on speakers"

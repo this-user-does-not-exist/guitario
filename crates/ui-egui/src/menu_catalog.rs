@@ -1,0 +1,270 @@
+//! Guitar Pro 8's menu bar, item by item: the denominator of menu parity (`cargo xtask parity`,
+//! `docs/parity-checklist.md`).
+//!
+//! Written from Guitar Pro 8's documented menus and observation (clean-room: names and structure
+//! only). Guitar Pro is not installed on the machine this was written on, so the catalog has not
+//! been checked against the app's own menu resources; items it lacks would not show in the parity
+//! number. Each item is live when its action exists:
+//! - [`Action::Cmd`]: an engine command by id, with optional JSON params (the menu item runs it);
+//! - [`Action::Ui`]: shell behaviour (file dialogs, panels, playback);
+//! - [`Action::Missing`]: not implemented yet; shown greyed out and counted against parity.
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UiAction {
+    Open,
+    OpenRecent,
+    Save,
+    SaveAs,
+    ExportMidi,
+    ExportWav,
+    ExportAscii,
+    Quit,
+    SongInfo,
+    TrackProperties,
+    ToggleMute,
+    ToggleSolo,
+    ToggleRepeatOpen,
+    ToggleRepeatClose,
+    TimeSignature,
+    KeySignature,
+    Section,
+    TempoChange,
+    DoubleDotted,
+    Duration(u32),
+    PlayStop,
+    ToggleMetronome,
+    ToggleCountIn,
+    ToggleLoop,
+    ZoomIn,
+    ZoomOut,
+    ZoomReset,
+    ToggleNotation,
+    TogglePalette,
+    ToggleInspector,
+    ToggleGlobalView,
+    ToggleFretboard,
+    About,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Action {
+    Cmd(&'static str, &'static str),
+    Ui(UiAction),
+    Missing,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct MenuItem {
+    /// `Top` or `Top/Submenu`.
+    pub path: &'static str,
+    pub label: &'static str,
+    pub action: Action,
+    /// Shortcut shown in the menu, as Guitar Pro shows it; empty when none.
+    pub shortcut: &'static str,
+}
+
+const fn c(path: &'static str, label: &'static str, id: &'static str, params: &'static str, shortcut: &'static str) -> MenuItem {
+    MenuItem { path, label, action: Action::Cmd(id, params), shortcut }
+}
+const fn u(path: &'static str, label: &'static str, a: UiAction, shortcut: &'static str) -> MenuItem {
+    MenuItem { path, label, action: Action::Ui(a), shortcut }
+}
+const fn m(path: &'static str, label: &'static str) -> MenuItem {
+    MenuItem { path, label, action: Action::Missing, shortcut: "" }
+}
+
+pub const TOP: [&str; 11] = ["File", "Edit", "Track", "Bar", "Note", "Effects", "Sound", "Tools", "View", "Window", "Help"];
+
+use UiAction as U;
+
+pub static CATALOG: &[MenuItem] = &[
+    // File
+    c("File", "New", "file.new", "", "Cmd+N"),
+    m("File", "New from Template…"),
+    u("File", "Open…", U::Open, "Cmd+O"),
+    u("File", "Open Recent", U::OpenRecent, ""),
+    m("File", "Close"),
+    u("File", "Save", U::Save, "Cmd+S"),
+    u("File", "Save As…", U::SaveAs, "Cmd+Shift+S"),
+    m("File/Import", "MusicXML…"),
+    m("File/Import", "MIDI…"),
+    m("File/Import", "ASCII Tab…"),
+    m("File/Import", "PowerTab…"),
+    m("File/Import", "TablEdit…"),
+    m("File/Import", "Guitar Pro 3–6…"),
+    m("File/Export", "PDF…"),
+    m("File/Export", "MusicXML…"),
+    u("File/Export", "MIDI…", U::ExportMidi, ""),
+    u("File/Export", "ASCII Tab…", U::ExportAscii, ""),
+    u("File/Export", "Audio (WAV)…", U::ExportWav, ""),
+    m("File/Export", "Audio (MP3, FLAC, OGG)…"),
+    m("File/Export", "Image (PNG, SVG)…"),
+    m("File/Export", "Guitar Pro 5…"),
+    m("File/Export", "Guitar Pro 8 (.gp)…"),
+    m("File", "Print Preview…"),
+    m("File", "Print…"),
+    u("File", "Score Information…", U::SongInfo, ""),
+    m("File", "Preferences…"),
+    u("File", "Quit", U::Quit, "Cmd+Q"),
+    // Edit
+    c("Edit", "Undo", "edit.undo", "", "Cmd+Z"),
+    c("Edit", "Redo", "edit.redo", "", "Cmd+Shift+Z"),
+    c("Edit", "Cut", "edit.cut", "", "Cmd+X"),
+    c("Edit", "Copy", "edit.copy", "", "Cmd+C"),
+    c("Edit", "Paste", "edit.paste", "", "Cmd+V"),
+    m("Edit", "Paste Special…"),
+    c("Edit", "Select All", "select.all", "", "Cmd+A"),
+    c("Edit", "Deselect", "select.clear", "", "Escape"),
+    c("Edit", "Delete Note", "note.clear", "", "Backspace"),
+    c("Edit", "Insert Beat", "beat.insert", "", "Cmd+I"),
+    c("Edit", "Delete Beat", "beat.delete", "", "Cmd+Backspace"),
+    c("Edit", "Transpose Up a Semitone", "edit.transposeUp", "", "Cmd+Up"),
+    c("Edit", "Transpose Down a Semitone", "edit.transposeDown", "", "Cmd+Down"),
+    m("Edit", "Transpose…"),
+    m("Edit", "Multivoice Editing"),
+    m("Edit/Voice", "Voice 1"),
+    m("Edit/Voice", "Voice 2"),
+    m("Edit/Voice", "Voice 3"),
+    m("Edit/Voice", "Voice 4"),
+    // Track
+    c("Track", "Add Track", "track.add", "{}", ""),
+    m("Track", "Duplicate Track"),
+    c("Track", "Delete Track", "track.remove", "", ""),
+    u("Track", "Track Properties…", U::TrackProperties, ""),
+    m("Track", "Move Track Up"),
+    m("Track", "Move Track Down"),
+    u("Track", "Mute", U::ToggleMute, ""),
+    u("Track", "Solo", U::ToggleSolo, ""),
+    m("Track", "Transpose Track…"),
+    m("Track", "Lyrics…"),
+    // Bar
+    c("Bar", "Add Bar", "measure.append", "", ""),
+    c("Bar", "Insert Bar", "measure.insert", "", "Cmd+Shift+I"),
+    c("Bar", "Delete Bar", "measure.delete", "", ""),
+    m("Bar", "Clear Bar"),
+    u("Bar", "Time Signature…", U::TimeSignature, ""),
+    u("Bar", "Key Signature…", U::KeySignature, ""),
+    u("Bar", "Repeat Open", U::ToggleRepeatOpen, ""),
+    u("Bar", "Repeat Close", U::ToggleRepeatClose, ""),
+    m("Bar", "Alternate Endings…"),
+    m("Bar", "Directions…"),
+    u("Bar", "Section…", U::Section, ""),
+    u("Bar", "Tempo Change…", U::TempoChange, ""),
+    m("Bar", "Double Bar"),
+    m("Bar", "Free Time"),
+    m("Bar", "Triplet Feel…"),
+    // Note
+    u("Note/Duration", "Whole Note", U::Duration(1), "Alt+1"),
+    u("Note/Duration", "Half Note", U::Duration(2), "Alt+2"),
+    u("Note/Duration", "Quarter Note", U::Duration(4), "Alt+3"),
+    u("Note/Duration", "Eighth Note", U::Duration(8), "Alt+4"),
+    u("Note/Duration", "16th Note", U::Duration(16), "Alt+5"),
+    u("Note/Duration", "32nd Note", U::Duration(32), "Alt+6"),
+    u("Note/Duration", "64th Note", U::Duration(64), "Alt+7"),
+    c("Note/Duration", "Increase Duration", "beat.lengthen", "", "Plus"),
+    c("Note/Duration", "Decrease Duration", "beat.shorten", "", "Minus"),
+    c("Note/Duration", "Dotted", "beat.toggleDot", "", "Period"),
+    u("Note/Duration", "Double Dotted", U::DoubleDotted, ""),
+    c("Note/Duration", "Triplet", "beat.toggleTriplet", "", "Slash"),
+    m("Note/Duration", "Tuplet…"),
+    c("Note", "Rest", "beat.toggleRest", "", "R"),
+    c("Note", "Tied Note", "note.toggleTie", "", "L"),
+    c("Note", "Dead Note", "note.toggleDead", "", "X"),
+    c("Note", "Ghost Note", "note.toggleEffect", r#"{"effect":"ghost"}"#, "G"),
+    c("Note", "Accent", "note.toggleEffect", r#"{"effect":"accent"}"#, "A"),
+    m("Note", "Heavy Accent"),
+    c("Note", "Staccato", "note.toggleEffect", r#"{"effect":"staccato"}"#, ""),
+    c("Note", "Let Ring", "note.toggleEffect", r#"{"effect":"letRing"}"#, "I"),
+    c("Note", "Palm Mute", "note.toggleEffect", r#"{"effect":"palmMute"}"#, "P"),
+    m("Note", "Grace Note…"),
+    m("Note", "Fingering…"),
+    m("Note", "Trill…"),
+    m("Note", "Tremolo Picking…"),
+    c("Note/Dynamics", "ppp", "beat.setDynamic", r#"{"dynamic":"ppp"}"#, ""),
+    c("Note/Dynamics", "pp", "beat.setDynamic", r#"{"dynamic":"pp"}"#, ""),
+    c("Note/Dynamics", "p", "beat.setDynamic", r#"{"dynamic":"p"}"#, ""),
+    c("Note/Dynamics", "mp", "beat.setDynamic", r#"{"dynamic":"mp"}"#, ""),
+    c("Note/Dynamics", "mf", "beat.setDynamic", r#"{"dynamic":"mf"}"#, ""),
+    c("Note/Dynamics", "f", "beat.setDynamic", r#"{"dynamic":"f"}"#, ""),
+    c("Note/Dynamics", "ff", "beat.setDynamic", r#"{"dynamic":"ff"}"#, ""),
+    c("Note/Dynamics", "fff", "beat.setDynamic", r#"{"dynamic":"fff"}"#, ""),
+    // Effects
+    c("Effects", "Vibrato", "note.toggleEffect", r#"{"effect":"vibrato"}"#, "V"),
+    m("Effects", "Wide Vibrato"),
+    c("Effects", "Bend (Full)", "note.setBend", r#"{"quarterTones":4}"#, "B"),
+    m("Effects", "Bend…"),
+    m("Effects", "Whammy Bar…"),
+    c("Effects", "Hammer-On / Pull-Off", "note.toggleEffect", r#"{"effect":"hammer"}"#, "H"),
+    c("Effects/Slide", "Shift Slide", "note.setSlide", r#"{"slide":"shift"}"#, "S"),
+    c("Effects/Slide", "Legato Slide", "note.setSlide", r#"{"slide":"legato"}"#, ""),
+    c("Effects/Slide", "Slide In From Below", "note.setSlide", r#"{"slide":"intoFromBelow"}"#, ""),
+    c("Effects/Slide", "Slide In From Above", "note.setSlide", r#"{"slide":"intoFromAbove"}"#, ""),
+    c("Effects/Slide", "Slide Out Downwards", "note.setSlide", r#"{"slide":"outDown"}"#, ""),
+    c("Effects/Slide", "Slide Out Upwards", "note.setSlide", r#"{"slide":"outUp"}"#, ""),
+    c("Effects/Slide", "No Slide", "note.setSlide", r#"{"slide":"none"}"#, ""),
+    c("Effects/Harmonics", "Natural Harmonic", "note.setHarmonic", r#"{"harmonic":"natural"}"#, ""),
+    c("Effects/Harmonics", "Artificial Harmonic", "note.setHarmonic", r#"{"harmonic":"artificial"}"#, ""),
+    c("Effects/Harmonics", "Pinch Harmonic", "note.setHarmonic", r#"{"harmonic":"pinch"}"#, ""),
+    c("Effects/Harmonics", "Tapped Harmonic", "note.setHarmonic", r#"{"harmonic":"tapped"}"#, ""),
+    c("Effects/Harmonics", "Semi Harmonic", "note.setHarmonic", r#"{"harmonic":"semi"}"#, ""),
+    c("Effects/Harmonics", "No Harmonic", "note.setHarmonic", r#"{"harmonic":"none"}"#, ""),
+    m("Effects", "Tapping"),
+    m("Effects", "Left-Hand Tapping"),
+    m("Effects", "Slap"),
+    m("Effects", "Pop"),
+    m("Effects", "Fade In"),
+    m("Effects", "Volume Swell"),
+    m("Effects", "Pick Stroke Up"),
+    m("Effects", "Pick Stroke Down"),
+    m("Effects", "Brush (Strum)…"),
+    m("Effects", "Arpeggio…"),
+    m("Effects", "Rasgueado…"),
+    // Sound
+    u("Sound", "Play / Stop", U::PlayStop, "Space"),
+    u("Sound", "Loop", U::ToggleLoop, ""),
+    u("Sound", "Metronome", U::ToggleMetronome, ""),
+    u("Sound", "Count-In", U::ToggleCountIn, ""),
+    m("Sound", "Mixer…"),
+    m("Sound/Automations", "Tempo Automation…"),
+    m("Sound/Automations", "Volume Automation…"),
+    m("Sound/Automations", "Pan Automation…"),
+    m("Sound", "Sound Settings…"),
+    m("Sound", "Audio Settings…"),
+    // Tools
+    m("Tools", "Tuner"),
+    m("Tools", "Chord Diagrams…"),
+    m("Tools", "Scale Tool…"),
+    m("Tools", "Check Bar Durations"),
+    m("Tools", "Line In…"),
+    // View
+    m("View/Layout", "Page"),
+    m("View/Layout", "Horizontal"),
+    m("View/Layout", "Screen"),
+    u("View", "Zoom In", U::ZoomIn, "Cmd+Plus"),
+    u("View", "Zoom Out", U::ZoomOut, "Cmd+Minus"),
+    u("View", "Zoom 100%", U::ZoomReset, "Cmd+0"),
+    m("View", "Multitrack"),
+    u("View/Notation", "Standard Notation", U::ToggleNotation, ""),
+    m("View/Notation", "Tablature (hide)"),
+    m("View/Notation", "Slash Notation"),
+    u("View", "Edition Palette", U::TogglePalette, ""),
+    u("View", "Inspector", U::ToggleInspector, ""),
+    u("View", "Global View", U::ToggleGlobalView, ""),
+    u("View/Instrument View", "Fretboard", U::ToggleFretboard, ""),
+    m("View/Instrument View", "Keyboard"),
+    // The instrument view shows the drum pad on a drum track.
+    u("View/Instrument View", "Drums", U::ToggleFretboard, ""),
+    m("View", "Full Screen"),
+    // Window
+    m("Window", "Minimize"),
+    m("Window", "Next Document"),
+    // Help
+    m("Help", "Guitario Help"),
+    m("Help", "Keyboard Shortcuts"),
+    u("Help", "About Guitario", U::About, ""),
+];
+
+/// `(live, total)` over the whole catalog.
+pub fn counts(is_live: impl Fn(&MenuItem) -> bool) -> (usize, usize) {
+    (CATALOG.iter().filter(|i| is_live(i)).count(), CATALOG.len())
+}

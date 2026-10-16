@@ -1,0 +1,30 @@
+# Scorecard checklist: distribution. Verified 2026-10-15.
+area = "distribution"
+title = "Distribution"
+order = 8
+
+[[item]]
+id = "DIST-1"
+target = "Builds from source on macOS (primary), Linux and Windows"
+status = "partial"
+note = "built and tested on macOS only; CI workflow covers all three but has not run (no remote yet)"
+
+[[item]]
+id = "DIST-2"
+target = "Engine crates compile for wasm32 (cargo xtask wasm)"
+status = "done"
+
+[[item]]
+id = "DIST-3"
+target = "Browser build of the app"
+status = "missing"
+
+[[item]]
+id = "DIST-4"
+target = "Signed, notarized macOS and signed Windows releases; Linux packages"
+status = "missing"
+
+[[item]]
+id = "DIST-5"
+target = "App icon and file associations for .gt and .gp"
+status = "missing"

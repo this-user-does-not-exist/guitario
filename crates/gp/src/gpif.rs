@@ -1,0 +1,457 @@
+use crate::{GpError, Import};
+use guitario_score::*;
+use guitario_theory::{Duration, NoteValue, TimeSignature, Tuning};
+use roxmltree::{Document, Node};
+use std::collections::HashMap;
+
+const MAX_MEASURES: usize = 20_000;
+const MAX_TRACKS: usize = 15;
+
+type Table<'a> = HashMap<u32, Node<'a, 'a>>;
+
+fn child<'a>(n: Node<'a, 'a>, name: &str) -> Option<Node<'a, 'a>> {
+    n.children().find(|c| c.has_tag_name(name))
+}
+
+fn text<'a>(n: Node<'a, 'a>, name: &str) -> Option<&'a str> {
+    child(n, name).and_then(|c| c.text()).map(str::trim)
+}
+
+fn ids(s: Option<&str>) -> Vec<i64> {
+    s.map(|s| s.split_whitespace().filter_map(|t| t.parse().ok()).collect()).unwrap_or_default()
+}
+
+fn table<'a>(root: Node<'a, 'a>, name: &str, item: &str) -> Table<'a> {
+    let mut map = HashMap::new();
+    if let Some(t) = child(root, name) {
+        for n in t.children().filter(|c| c.has_tag_name(item)) {
+            if let Some(id) = n.attribute("id").and_then(|v| v.parse().ok()) {
+                map.insert(id, n);
+            }
+        }
+    }
+    map
+}
+
+fn lookup<'a>(t: &Table<'a>, id: i64) -> Option<Node<'a, 'a>> {
+    u32::try_from(id).ok().and_then(|i| t.get(&i).copied())
+}
+
+/// The `<Property name=…>` of an element, as the property node.
+fn property<'a>(n: Node<'a, 'a>, name: &str) -> Option<Node<'a, 'a>> {
+    child(n, "Properties")?.children().find(|c| c.has_tag_name("Property") && c.attribute("name") == Some(name))
+}
+
+fn prop_value<'a>(n: Node<'a, 'a>, name: &str) -> Option<&'a str> {
+    property(n, name)?.children().find(|c| c.is_element()).and_then(|c| c.text()).map(str::trim)
+}
+
+fn prop_on(n: Node, name: &str) -> bool {
+    property(n, name).is_some_and(|p| child(p, "Enable").is_some())
+}
+
+fn prop_num<T: std::str::FromStr>(n: Node, name: &str) -> Option<T> {
+    prop_value(n, name)?.parse().ok()
+}
+
+pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
+    let doc = Document::parse(xml).map_err(|e| GpError::Xml(e.to_string()))?;
+    let root = doc.root_element();
+    if !root.has_tag_name("GPIF") {
+        return Err(GpError::Damaged("root element is not GPIF".into()));
+    }
+    let mut warnings = Vec::new();
+    let (bars, voices, beats, notes, rhythms) = (
+        table(root, "Bars", "Bar"),
+        table(root, "Voices", "Voice"),
+        table(root, "Beats", "Beat"),
+        table(root, "Notes", "Note"),
+        table(root, "Rhythms", "Rhythm"),
+    );
+
+    let mut score = Score::new();
+    if let Some(s) = child(root, "Score") {
+        let get = |k: &str| text(s, k).unwrap_or_default().to_string();
+        score.meta = Meta { title: get("Title"), artist: get("Artist"), album: get("Album"), author: get("Tabber"), notes: get("Notices") };
+    }
+
+    // ---- master bars -------------------------------------------------------------------
+    let masters: Vec<Node> = child(root, "MasterBars").map(|m| m.children().filter(|c| c.has_tag_name("MasterBar")).collect()).unwrap_or_default();
+    if masters.is_empty() {
+        return Err(GpError::Damaged("no master bars".into()));
+    }
+    let masters = if masters.len() > MAX_MEASURES {
+        warnings.push(format!("only the first {MAX_MEASURES} measures were imported"));
+        masters.into_iter().take(MAX_MEASURES).collect()
+    } else {
+        masters
+    };
+    score.headers = masters.iter().map(|m| header_of(*m)).collect();
+
+    // Tempo automations live on the master track.
+    if let Some(autos) = child(root, "MasterTrack").and_then(|m| child(m, "Automations")) {
+        for a in autos.children().filter(|c| c.has_tag_name("Automation") && text(*c, "Type") == Some("Tempo")) {
+            let bpm =
+                text(a, "Value").and_then(|v| v.split_whitespace().next()).and_then(|v| v.parse::<f64>().ok()).map(|v| v.round().clamp(20.0, 400.0) as u16);
+            let bar = text(a, "Bar").and_then(|v| v.parse::<usize>().ok()).unwrap_or(0);
+            let Some(bpm) = bpm else { continue };
+            if bar == 0 {
+                score.tempo = bpm;
+            } else if let Some(h) = score.headers.get_mut(bar) {
+                h.tempo = Some(bpm);
+            }
+        }
+    }
+
+    // ---- tracks ------------------------------------------------------------------------
+    score.tracks.clear();
+    let track_nodes: Vec<Node> = child(root, "Tracks").map(|t| t.children().filter(|c| c.has_tag_name("Track")).collect()).unwrap_or_default();
+    let mut staff_offset = 0usize;
+    for (ti, tn) in track_nodes.iter().enumerate() {
+        let staves: Vec<Node> = child(*tn, "Staves").map(|s| s.children().filter(|c| c.has_tag_name("Staff")).collect()).unwrap_or_default();
+        let my_staff = staff_offset;
+        staff_offset += staves.len().max(1);
+        let name = text(*tn, "Name").unwrap_or("Track").to_string();
+        let is_drums = child(*tn, "InstrumentSet").and_then(|i| text(i, "Type")) == Some("drumKit");
+        if score.tracks.len() >= MAX_TRACKS {
+            warnings.push(format!("track `{name}` skipped: at most {MAX_TRACKS} tracks are supported"));
+            continue;
+        }
+        let Some(staff) = staves.first() else {
+            warnings.push(format!("track `{name}` has no staff and was skipped"));
+            continue;
+        };
+        let kit = is_drums.then(|| articulations(*tn));
+        match build_track(*tn, *staff, my_staff, &name, kit.as_deref(), &masters, &score.headers, (&bars, &voices, &beats, &notes, &rhythms), &mut warnings) {
+            Some(t) => score.tracks.push(t),
+            None => warnings.push(format!("track {} (`{name}`) could not be read and was skipped", ti + 1)),
+        }
+    }
+    if score.tracks.is_empty() {
+        return Err(GpError::Damaged("no readable tracks".into()));
+    }
+    score.validate()?;
+    Ok(Import { score, warnings })
+}
+
+fn header_of(m: Node) -> MeasureHeader {
+    let ts = text(m, "Time")
+        .and_then(|t| t.split_once('/'))
+        .and_then(|(n, d)| TimeSignature::new(n.trim().parse().ok()?, d.trim().parse().ok()?))
+        .unwrap_or(TimeSignature::COMMON);
+    let mut h = MeasureHeader::new(ts);
+    h.key = child(m, "Key").and_then(|k| text(k, "AccidentalCount")).and_then(|v| v.parse::<i8>().ok()).map_or(0, |k| k.clamp(-7, 7));
+    if let Some(r) = child(m, "Repeat") {
+        h.repeat_open = r.attribute("start") == Some("true");
+        if r.attribute("end") == Some("true") {
+            // `count` is the total number of plays; we store extra passes.
+            let plays: u8 = r.attribute("count").and_then(|c| c.parse().ok()).unwrap_or(2);
+            h.repeat_close = plays.saturating_sub(1).max(1);
+        }
+    }
+    if let Some(s) = child(m, "Section") {
+        let joined = [text(s, "Letter"), text(s, "Text")].into_iter().flatten().filter(|t| !t.is_empty()).collect::<Vec<_>>().join(" ");
+        h.marker = (!joined.is_empty()).then_some(joined);
+    }
+    h
+}
+
+type Tables<'a, 'b> = (&'b Table<'a>, &'b Table<'a>, &'b Table<'a>, &'b Table<'a>, &'b Table<'a>);
+
+/// The output MIDI number of every articulation of a drum kit, flattened across elements in
+/// document order: a note's `InstrumentArticulation` indexes this list.
+fn articulations(tn: Node) -> Vec<u8> {
+    let Some(elements) = child(tn, "InstrumentSet").and_then(|i| child(i, "Elements")) else { return Vec::new() };
+    elements
+        .children()
+        .filter(|e| e.has_tag_name("Element"))
+        .filter_map(|e| child(e, "Articulations"))
+        .flat_map(|a| a.children().filter(|c| c.has_tag_name("Articulation")))
+        .map(|a| text(a, "OutputMidiNumber").and_then(|v| v.parse::<u8>().ok()).unwrap_or(0))
+        .take(1024)
+        .collect()
+}
+
+/// Where a note goes: strings are flipped (GP counts from the lowest), drum hits go to the lane
+/// of their General MIDI number.
+#[derive(Clone, Copy)]
+enum Placement<'a> {
+    Strings(usize),
+    Drums(&'a [u8]),
+}
+
+impl Placement<'_> {
+    fn place(self, nn: Node) -> Option<(u8, u8)> {
+        match self {
+            Placement::Strings(strings) => {
+                let gp_string = prop_num::<usize>(nn, "String")?;
+                let fret = prop_num::<u8>(nn, "Fret")?;
+                (gp_string < strings).then(|| ((strings - 1 - gp_string) as u8, fret.min(36)))
+            }
+            Placement::Drums(kit) => {
+                let midi = prop_num::<u8>(nn, "Midi").or_else(|| {
+                    let i = text(nn, "InstrumentArticulation")?.parse::<usize>().ok()?;
+                    kit.get(i).copied().filter(|m| *m > 0)
+                })?;
+                let midi = midi.min(guitario_theory::drums::MAX_DRUM);
+                Some((guitario_theory::drums::lane_for(midi), midi))
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_track(
+    tn: Node,
+    staff: Node,
+    staff_index: usize,
+    name: &str,
+    kit: Option<&[u8]>,
+    masters: &[Node],
+    headers: &[MeasureHeader],
+    t: Tables,
+    warnings: &mut Vec<String>,
+) -> Option<Track> {
+    if let Some(kit) = kit {
+        let mut track = Track::drums(name, headers);
+        fill_measures(&mut track, staff_index, name, Placement::Drums(kit), masters, headers, t, warnings);
+        track.muted = text(tn, "PlaybackState") == Some("Mute");
+        track.solo = text(tn, "PlaybackState") == Some("Solo");
+        return Some(track);
+    }
+    // GP lists tuning lowest string first; we store highest first.
+    let mut pitches: Vec<u8> = property(staff, "Tuning")
+        .and_then(|p| text(p, "Pitches"))
+        .map(|s| s.split_whitespace().filter_map(|v| v.parse::<u8>().ok()).collect())
+        .unwrap_or_default();
+    pitches.reverse();
+    let tuning_name = text(child(staff, "Properties")?, "Name").unwrap_or("Custom").to_string();
+    let tuning = Tuning::new(tuning_name, pitches).ok()?;
+    let mut track = Track::new(name, tuning, headers);
+    track.capo = prop_num::<u8>(staff, "CapoFret").unwrap_or(0).min(24);
+    if let Some(p) =
+        child(tn, "Sounds").and_then(|s| child(s, "Sound")).and_then(|s| child(s, "MIDI")).and_then(|m| text(m, "Program")).and_then(|v| v.parse::<u8>().ok())
+    {
+        track.program = p.min(127);
+    }
+    match text(tn, "PlaybackState") {
+        Some("Mute") => track.muted = true,
+        Some("Solo") => track.solo = true,
+        _ => {}
+    }
+    let strings = track.string_count();
+    fill_measures(&mut track, staff_index, name, Placement::Strings(strings), masters, headers, t, warnings);
+    Some(track)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn fill_measures(
+    track: &mut Track,
+    staff_index: usize,
+    name: &str,
+    place: Placement,
+    masters: &[Node],
+    headers: &[MeasureHeader],
+    t: Tables,
+    warnings: &mut Vec<String>,
+) {
+    for (mi, master) in masters.iter().enumerate() {
+        let bar_id = ids(text(*master, "Bars")).get(staff_index).copied().unwrap_or(-1);
+        let Some(bar) = lookup(t.0, bar_id) else { continue };
+        let voice_id = ids(text(bar, "Voices")).first().copied().unwrap_or(-1);
+        let Some(voice) = lookup(t.1, voice_id) else { continue };
+        let cap = headers.get(mi).map_or(0, MeasureHeader::capacity);
+        let mut out = Voice::default();
+        let mut used = 0u32;
+        for beat_id in ids(text(voice, "Beats")) {
+            let Some(bn) = lookup(t.2, beat_id) else { continue };
+            if child(bn, "GraceNotes").is_some() {
+                continue; // grace beats take no time; not modelled yet
+            }
+            let Some(beat) = build_beat(bn, &t, place) else { continue };
+            let ticks = beat.duration.ticks();
+            if used + ticks > cap {
+                warnings.push(format!("track `{name}` measure {}: beats overflow the bar and were trimmed", mi + 1));
+                break;
+            }
+            used += ticks;
+            out.beats.push(beat);
+        }
+        if let Some(m) = track.measures.get_mut(mi)
+            && !out.beats.is_empty()
+        {
+            m.voices = vec![out];
+        }
+    }
+}
+
+fn rhythm_duration(r: Node) -> Option<Duration> {
+    let value = match text(r, "NoteValue")? {
+        "Whole" => NoteValue::Whole,
+        "Half" => NoteValue::Half,
+        "Quarter" => NoteValue::Quarter,
+        "Eighth" => NoteValue::Eighth,
+        "16th" => NoteValue::Sixteenth,
+        "32nd" => NoteValue::ThirtySecond,
+        "64th" => NoteValue::SixtyFourth,
+        _ => return None,
+    };
+    let dots = child(r, "AugmentationDot").and_then(|d| d.attribute("count")).and_then(|c| c.parse::<u8>().ok()).unwrap_or(0).min(2);
+    let tuplet = child(r, "PrimaryTuplet")
+        .and_then(|t| Some((t.attribute("num")?.parse::<u8>().ok()?, t.attribute("den")?.parse::<u8>().ok()?)))
+        .filter(|(n, d)| (1..=16).contains(n) && (1..=16).contains(d))
+        .unwrap_or((1, 1));
+    Some(Duration { value, dots, tuplet })
+}
+
+fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
+    let rid = child(bn, "Rhythm")?.attribute("ref")?.parse::<i64>().ok()?;
+    let duration = rhythm_duration(lookup(t.4, rid)?)?;
+    let mut beat = Beat::rest(duration);
+    beat.dynamic = match text(bn, "Dynamic") {
+        Some("PPP") => Dynamic::Ppp,
+        Some("PP") => Dynamic::Pp,
+        Some("P") => Dynamic::P,
+        Some("MP") => Dynamic::Mp,
+        Some("F") => Dynamic::F,
+        Some("FF") => Dynamic::Ff,
+        Some("FFF") => Dynamic::Fff,
+        _ => Dynamic::Mf,
+    };
+    beat.text = text(bn, "FreeText").filter(|s| !s.is_empty()).map(str::to_string);
+    for nid in ids(text(bn, "Notes")) {
+        let Some(nn) = lookup(t.3, nid) else { continue };
+        let Some((string, fret)) = place.place(nn) else { continue };
+        if beat.notes.iter().any(|n| n.string == string) {
+            continue;
+        }
+        let mut note = Note::new(string, fret);
+        note.kind = if prop_on(nn, "Muted") {
+            NoteKind::Dead
+        } else if child(nn, "Tie").and_then(|t| t.attribute("destination")) == Some("true") {
+            NoteKind::Tie
+        } else {
+            NoteKind::Normal
+        };
+        let e = &mut note.effects;
+        e.hammer = prop_on(nn, "HopoOrigin");
+        e.vibrato = child(nn, "Vibrato").is_some();
+        e.let_ring = child(nn, "LetRing").is_some();
+        e.ghost = child(nn, "AntiAccent").is_some();
+        e.palm_mute = prop_on(nn, "PalmMuted");
+        let accent = text(nn, "Accent").and_then(|v| v.parse::<u8>().ok()).unwrap_or(0);
+        e.accent = accent & (4 | 8) != 0;
+        e.staccato = accent & 1 != 0;
+        e.slide = match prop_num::<u32>(nn, "Slide").unwrap_or(0) {
+            f if f & 1 != 0 => Some(Slide::Shift),
+            f if f & 2 != 0 => Some(Slide::Legato),
+            f if f & 4 != 0 => Some(Slide::OutDown),
+            f if f & 8 != 0 => Some(Slide::OutUp),
+            f if f & 16 != 0 => Some(Slide::IntoFromBelow),
+            f if f & 32 != 0 => Some(Slide::IntoFromAbove),
+            _ => None,
+        };
+        if prop_on(nn, "Harmonic") {
+            e.harmonic = match prop_value(nn, "HarmonicType") {
+                Some("Natural") => Some(Harmonic::Natural),
+                Some("Artificial") => Some(Harmonic::Artificial),
+                Some("Pinch") => Some(Harmonic::Pinch),
+                Some("Tap") => Some(Harmonic::Tapped),
+                Some("Semi") => Some(Harmonic::Semi),
+                _ => Some(Harmonic::Natural),
+            };
+        }
+        if prop_on(nn, "Bended") {
+            // Curve values are hundredths of a whole tone; a quarter tone is 25.
+            let peak = ["BendOriginValue", "BendMiddleValue", "BendDestinationValue"].iter().filter_map(|k| prop_num::<f32>(nn, k)).fold(0.0f32, f32::max);
+            let q = (peak / 25.0).round().clamp(0.0, 12.0) as u8;
+            e.bend = (q > 0).then_some(q);
+        }
+        beat.notes.push(note);
+    }
+    beat.notes.sort_by_key(|n| n.string);
+    beat.rest = beat.notes.is_empty();
+    Some(beat)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GPIF: &str = r#"<?xml version="1.0"?>
+<GPIF><GPVersion>7</GPVersion>
+<Score><Title><![CDATA[Demo]]></Title><Artist><![CDATA[Me]]></Artist></Score>
+<MasterTrack><Tracks>0</Tracks><Automations><Automation><Type>Tempo</Type><Bar>0</Bar><Position>0</Position><Value>96 2</Value></Automation>
+<Automation><Type>Tempo</Type><Bar>1</Bar><Position>0</Position><Value>140 2</Value></Automation></Automations></MasterTrack>
+<Tracks><Track id="0"><Name><![CDATA[Gtr]]></Name><PlaybackState>Default</PlaybackState>
+<Sounds><Sound><MIDI><Program>29</Program></MIDI></Sound></Sounds>
+<Staves><Staff><Properties>
+<Property name="CapoFret"><Fret>2</Fret></Property>
+<Property name="Tuning"><Pitches>40 45 50 55 59 64</Pitches></Property>
+<Name><![CDATA[Standard]]></Name></Properties></Staff></Staves></Track></Tracks>
+<MasterBars>
+<MasterBar><Key><AccidentalCount>1</AccidentalCount></Key><Time>4/4</Time><Bars>0</Bars><Repeat start="true" end="false" count="0"/><Section><Letter>A</Letter><Text>Verse</Text></Section></MasterBar>
+<MasterBar><Time>3/4</Time><Bars>1</Bars><Repeat start="false" end="true" count="3"/></MasterBar>
+</MasterBars>
+<Bars><Bar id="0"><Voices>0 -1 -1 -1</Voices></Bar><Bar id="1"><Voices>-1</Voices></Bar></Bars>
+<Voices><Voice id="0"><Beats>0 1</Beats></Voice></Voices>
+<Beats>
+<Beat id="0"><Dynamic>F</Dynamic><Rhythm ref="0"/><Notes>0 1</Notes></Beat>
+<Beat id="1"><Rhythm ref="1"/></Beat>
+</Beats>
+<Notes>
+<Note id="0"><Properties><Property name="String"><String>0</String></Property><Property name="Fret"><Fret>3</Fret></Property><Property name="Slide"><Flags>2</Flags></Property></Properties><LetRing/></Note>
+<Note id="1"><Properties><Property name="String"><String>5</String></Property><Property name="Fret"><Fret>0</Fret></Property><Property name="PalmMuted"><Enable/></Property></Properties></Note>
+</Notes>
+<Rhythms><Rhythm id="0"><NoteValue>Quarter</NoteValue></Rhythm><Rhythm id="1"><NoteValue>Half</NoteValue><AugmentationDot count="1"/></Rhythm></Rhythms>
+</GPIF>"#;
+
+    #[test]
+    fn parses_a_minimal_file() {
+        let imp = parse_gpif(GPIF).unwrap();
+        let s = &imp.score;
+        assert_eq!(s.meta.title, "Demo");
+        assert_eq!(s.tempo, 96);
+        assert_eq!(s.headers[1].tempo, Some(140));
+        assert_eq!(s.headers[0].key, 1);
+        assert!(s.headers[0].repeat_open);
+        assert_eq!(s.headers[1].repeat_close, 2);
+        assert_eq!(s.headers[0].marker.as_deref(), Some("A Verse"));
+        assert_eq!(s.headers[1].time_signature, TimeSignature { numerator: 3, denominator: 4 });
+        let t = &s.tracks[0];
+        assert_eq!((t.capo, t.program), (2, 29));
+        // GP string 0 is the lowest; ours 0 is the highest.
+        assert_eq!(t.tuning.strings, vec![64, 59, 55, 50, 45, 40]);
+        let beats = &t.measures[0].voices[0].beats;
+        assert_eq!(beats.len(), 2);
+        assert_eq!(beats[0].notes.iter().map(|n| (n.string, n.fret)).collect::<Vec<_>>(), vec![(0, 0), (5, 3)]);
+        assert!(beats[0].notes[0].effects.palm_mute);
+        assert_eq!(beats[0].notes[1].effects.slide, Some(Slide::Legato));
+        assert!(beats[0].notes[1].effects.let_ring);
+        assert!(beats[1].rest);
+        assert_eq!(beats[1].duration.ticks(), 2880);
+        assert_eq!(beats[0].dynamic, Dynamic::F);
+        // Empty bar falls back to a rest.
+        assert!(t.measures[1].voices[0].beats[0].rest);
+    }
+
+    #[test]
+    fn rejects_garbage() {
+        assert!(parse_gpif("").is_err());
+        assert!(parse_gpif("<x/>").is_err());
+        assert!(parse_gpif("<GPIF/>").is_err());
+    }
+
+    #[test]
+    fn overflowing_bar_is_trimmed_with_warning() {
+        let xml = GPIF.replace("<Beats>0 1</Beats>", "<Beats>0 1 1 1</Beats>");
+        let imp = parse_gpif(&xml).unwrap();
+        assert!(imp.score.validate().is_ok());
+        assert!(!imp.warnings.is_empty());
+    }
+
+    #[test]
+    fn bad_container() {
+        assert!(matches!(crate::import(b"nope"), Err(GpError::NotZip)));
+    }
+}

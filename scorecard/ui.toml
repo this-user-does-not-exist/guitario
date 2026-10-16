@@ -1,0 +1,59 @@
+# Scorecard checklist: workspace and UI against Guitar Pro 8's layout. Verified 2026-10-15 by
+# offscreen renders.
+area = "ui"
+title = "Workspace and UI"
+order = 5
+
+[[item]]
+id = "UI-1"
+target = "Top bar with transport buttons and LCD (track, bar, beat, signature, time, tempo)"
+status = "done"
+
+[[item]]
+id = "UI-2"
+target = "Edition palette: note values, rhythm, dynamics, articulations, techniques, bar tools, live state"
+status = "done"
+
+[[item]]
+id = "UI-3"
+target = "Inspector: Song and Track tabs"
+status = "partial"
+note = "no Bar or Note tab, no bend editor"
+
+[[item]]
+id = "UI-4"
+target = "Global view: track rows with mute/solo/volume, bar grid with markers, selection and playback"
+status = "done"
+
+[[item]]
+id = "UI-5"
+target = "Instrument views: fretboard (click to enter), keyboard, drum pad"
+status = "partial"
+note = "fretboard and drum pad; no keyboard"
+
+[[item]]
+id = "UI-6"
+target = "Menu bar with Guitar Pro's menus; items not built yet shown greyed out"
+status = "partial"
+note = "docs/parity-checklist.md"
+
+[[item]]
+id = "UI-7"
+target = "Preferences persist across restarts (view, panels, transport toggles, recent files)"
+status = "done"
+note = "prefs.rs on craft-settings"
+
+[[item]]
+id = "UI-8"
+target = "Preferences dialog, themes (light and dark), UI scale"
+status = "missing"
+
+[[item]]
+id = "UI-9"
+target = "Mixer panel, tuner, chord and scale tools"
+status = "missing"
+
+[[item]]
+id = "UI-10"
+target = "Localization beyond English"
+status = "missing"

@@ -1,0 +1,70 @@
+# Scorecard checklist: notation and engraving. Verified 2026-10-15 by offscreen renders
+# (cargo run -p guitario-ui-egui --example snapshot).
+area = "notation"
+title = "Notation and engraving"
+order = 2
+
+[[item]]
+id = "NOTE-1"
+target = "Page view: A4 pages, title, artist, tuning legend, tempo marking, bar numbers"
+status = "done"
+note = "page.rs, layout.rs (layout tests); GP stylesheet defaults"
+
+[[item]]
+id = "NOTE-2"
+target = "Standard notation over tablature, joined by a bracket, with TAB clef"
+status = "done"
+
+[[item]]
+id = "NOTE-3"
+target = "Pitch spelling, key signatures, accidentals with bar memory, ledger lines"
+status = "partial"
+note = "notation.rs tests; key changes after the first bar of a system are not drawn"
+
+[[item]]
+id = "NOTE-4"
+target = "Stems, flags, beams with secondary beams, rests, dots, tuplet numbers"
+status = "partial"
+note = "beams are flat; beaming groups by beat, not by the signature's grouping (7/8 as 3+2+2)"
+
+[[item]]
+id = "NOTE-5"
+target = "Ties and slurs drawn between notes in standard notation"
+status = "missing"
+
+[[item]]
+id = "NOTE-6"
+target = "Tab effects: P.M., let ring and vibrato lanes, bends with labels, slides, H/P arcs, harmonics"
+status = "done"
+
+[[item]]
+id = "NOTE-7"
+target = "Tab-only view with rhythm (stems and beams) under the tab"
+status = "done"
+
+[[item]]
+id = "NOTE-8"
+target = "Music font: SMuFL (Bravura or Leland) found at runtime, drawn fallbacks without it"
+status = "done"
+note = "fonts.rs, glyphs.rs"
+
+[[item]]
+id = "NOTE-9"
+target = "Tremolo picking slashes, grace notes, trills, fermatas, alternate ending brackets"
+status = "missing"
+
+[[item]]
+id = "NOTE-10"
+target = "Multitrack view and page/screen/horizontal layouts"
+status = "missing"
+
+[[item]]
+id = "NOTE-11"
+target = "Drum notation (percussion clef, noteheads per articulation)"
+status = "done"
+note = "percussion clef, kit-map staff positions, cross noteheads for cymbals (theory::drums, page.rs)"
+
+[[item]]
+id = "NOTE-12"
+target = "Chord diagrams and chord names above the staff"
+status = "missing"

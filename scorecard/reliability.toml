@@ -1,0 +1,35 @@
+# Scorecard checklist: reliability (the never-crash standard). Verified 2026-10-15.
+area = "reliability"
+title = "Reliability"
+order = 7
+
+[[item]]
+id = "REL-1"
+target = "No unwrap/expect/panic/indexing in non-test code (workspace clippy lints, deny)"
+status = "done"
+
+[[item]]
+id = "REL-2"
+target = "Every command survives adversarial params (panic_hunt fuzz test)"
+status = "done"
+
+[[item]]
+id = "REL-3"
+target = "Files from disk are validated before use; hostile sizes and counts are capped"
+status = "done"
+note = "Score::validate, gp import caps, ZIP size limits"
+
+[[item]]
+id = "REL-4"
+target = "Last-resort panic guard around command dispatch and file import in the shell"
+status = "missing"
+
+[[item]]
+id = "REL-5"
+target = "Fuzz targets for the .gp and .gt readers"
+status = "missing"
+
+[[item]]
+id = "REL-6"
+target = "Autosave and crash recovery"
+status = "missing"

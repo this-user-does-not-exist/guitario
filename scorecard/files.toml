@@ -1,0 +1,54 @@
+# Scorecard checklist: files and exchange. Verified 2026-10-15.
+area = "files"
+title = "Files and exchange"
+order = 4
+
+[[item]]
+id = "FILE-1"
+target = "Native .gt: versioned, validated on load, atomic saves (craft-atomic)"
+status = "done"
+note = "crates/format tests"
+
+[[item]]
+id = "FILE-2"
+target = "Guitar Pro 7/8 (.gp) import"
+status = "partial"
+note = "notes, rhythms, effects, repeats, tempo, tunings, drum kits (articulation index or Midi number), shared objects; voices 2-4, grace notes, alternate endings, directions and lyrics are dropped; tested on demos/guitar-pro/import-test.gp"
+
+[[item]]
+id = "FILE-3"
+target = "Guitar Pro 6 (.gpx) and 3-5 (.gp3/.gp4/.gp5) import"
+status = "missing"
+
+[[item]]
+id = "FILE-4"
+target = "Guitar Pro (.gp) export"
+status = "missing"
+
+[[item]]
+id = "FILE-5"
+target = "MIDI export (format 1, repeats unrolled, ties merged); MIDI import"
+status = "partial"
+note = "export only"
+
+[[item]]
+id = "FILE-6"
+target = "MusicXML import and export"
+status = "missing"
+
+[[item]]
+id = "FILE-7"
+target = "PDF export and printing"
+status = "missing"
+note = "gap G2"
+
+[[item]]
+id = "FILE-8"
+target = "ASCII tab export"
+status = "done"
+
+[[item]]
+id = "FILE-9"
+target = "Recent files, open from the command line, unsaved-changes prompt on close, New and Open"
+status = "done"
+note = "craft-settings recent list; craft-quit close handling"

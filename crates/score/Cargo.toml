@@ -1,0 +1,13 @@
+[package]
+name = "guitario-score"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+guitario-theory = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

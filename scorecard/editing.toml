@@ -1,0 +1,97 @@
+# Scorecard checklist: editing. An item is done when it has a command, a UI and tests.
+# Statuses must be true on main. Verified 2026-10-15.
+area = "editing"
+title = "Editing"
+order = 1
+
+[[item]]
+id = "EDIT-1"
+target = "Enter notes by typing fret numbers (two digits make 10-36) at a beat and string cursor"
+status = "done"
+note = "note.setFret; keys::digit_pressed; tests/engine.rs enter_a_riff"
+
+[[item]]
+id = "EDIT-2"
+target = "Durations whole to 64th, dotted, double dotted, triplets; +/- to lengthen and shorten"
+status = "done"
+note = "beat.setDuration/lengthen/shorten/toggleDot/toggleTriplet; palette and Note menu; guitar_pro_style_toggles test"
+
+[[item]]
+id = "EDIT-3"
+target = "Other tuplets (5, 6, 7, 9 …) and nested tuplets"
+status = "missing"
+note = "the model holds any n:m tuplet, but there is no command or UI beyond triplets"
+
+[[item]]
+id = "EDIT-4"
+target = "Rests, ties, dead and ghost notes, accents, staccato, let ring, palm mute, dynamics"
+status = "done"
+note = "toggle commands and Guitar Pro single-key shortcuts (R L X G A I P)"
+
+[[item]]
+id = "EDIT-5"
+target = "Bends, slides (6 kinds), hammer-ons and pull-offs, vibrato, harmonics (5 kinds)"
+status = "partial"
+note = "on/off with one bend height (full); no bend-curve editor (pre-bend, release, multi-point), no wide vibrato"
+
+[[item]]
+id = "EDIT-6"
+target = "Selection by Shift+arrows, drag and Shift+click; select all"
+status = "done"
+note = "selection.rs; shift_arrows_select_and_copy_paste_overwrites test"
+
+[[item]]
+id = "EDIT-7"
+target = "Copy, cut, paste (overwrite, flowing into new bars); transpose by semitone"
+status = "done"
+note = "edit.copy/cut/paste/transposeUp/Down; paste_flows_into_new_measures test"
+
+[[item]]
+id = "EDIT-8"
+target = "Paste Special (insert, repeat count, selected tracks)"
+status = "missing"
+
+[[item]]
+id = "EDIT-9"
+target = "Multiple voices per bar (up to 4)"
+status = "missing"
+note = "the model stores voices but every command edits voice 1"
+
+[[item]]
+id = "EDIT-10"
+target = "Bars: insert, append, delete, time and key signatures, repeats, sections, tempo changes"
+status = "done"
+note = "measure.* commands; Bar menu and palette"
+
+[[item]]
+id = "EDIT-11"
+target = "Alternate endings, directions (segno, coda, fine), double bars, free time, triplet feel"
+status = "missing"
+
+[[item]]
+id = "EDIT-12"
+target = "Tracks: add, delete, rename, tuning presets including 7-string and drop tunings, capo"
+status = "done"
+note = "track.* commands; inspector; theory tuning presets (12)"
+
+[[item]]
+id = "EDIT-13"
+target = "Duplicate, reorder and transpose tracks"
+status = "missing"
+
+[[item]]
+id = "EDIT-14"
+target = "Undo and redo of every edit, one step per command"
+status = "done"
+note = "Session::run snapshots; failed_command_changes_nothing test"
+
+[[item]]
+id = "EDIT-15"
+target = "Drum tracks and a percussion editor"
+status = "partial"
+note = "track.addDrums, note.setDrum, drum pad and two-digit GM entry (crates/engine/src/drums.rs, drum_tracks_take_kit_pieces_on_their_lanes); no step grid, one voice for hands and feet"
+
+[[item]]
+id = "EDIT-16"
+target = "Grace notes, trills, tremolo picking marks, fingering, lyrics, chord names"
+status = "missing"

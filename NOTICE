@@ -1,0 +1,19 @@
+Guitario
+Copyright (c) 2026 the Guitario contributors.
+Licensed under the MIT License or the Apache License, Version 2.0, at your option
+(LICENSE-MIT, LICENSE-APACHE).
+
+The Guitario name, wordmark and logos in docs/brand/ are trademarks of the Guitario Team. They are
+not open source and are not covered by the license above; their terms are in
+docs/brand/LICENSE-brand.txt.
+
+Third-party material
+
+Guitario bundles no fonts, sounds or images. At run time it uses a SMuFL music font (Bravura or
+Leland, SIL Open Font License 1.1) and Times New Roman/Arial-equivalent text fonts when they are
+installed on the computer; they are not distributed with Guitario. Rust dependencies keep their
+own licenses (see Cargo.lock and each crate's metadata). The per-file list of bundled assets is in
+ATTRIBUTION.md.
+
+Guitar Pro is a trademark of Arobas Music. Guitario is an independent project and is not
+affiliated with, sponsored by or endorsed by Arobas Music.

@@ -1,0 +1,30 @@
+# Scorecard checklist: automation (agents, CLI). Verified 2026-10-15.
+area = "automation"
+title = "Automation"
+order = 6
+
+[[item]]
+id = "AUTO-1"
+target = "Every edit is an engine command dispatched by id (UI, CLI and tests share one entry point)"
+status = "done"
+
+[[item]]
+id = "AUTO-2"
+target = "Headless CLI: commands, info, convert (.gp/.gt to .gt/.mid/.wav/.txt), run scripts"
+status = "done"
+
+[[item]]
+id = "AUTO-3"
+target = "JSON control channel to drive and screenshot the running app"
+status = "missing"
+
+[[item]]
+id = "AUTO-4"
+target = "MCP server"
+status = "missing"
+
+[[item]]
+id = "AUTO-5"
+target = "Offscreen UI snapshots (no window) for visual checks"
+status = "done"
+note = "examples/snapshot.rs"

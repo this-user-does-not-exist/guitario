@@ -1,0 +1,13 @@
+[package]
+name = "guitario-midi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+guitario-theory = { workspace = true }
+guitario-score = { workspace = true }
+thiserror = { workspace = true }

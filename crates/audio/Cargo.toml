@@ -1,0 +1,13 @@
+[package]
+name = "guitario-audio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+guitario-playback = { workspace = true }
+thiserror = { workspace = true }
+cpal = "0.18"

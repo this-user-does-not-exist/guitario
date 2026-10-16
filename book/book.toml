@@ -1,0 +1,8 @@
+[book]
+title = "Guitario User Guide"
+authors = ["the Guitario contributors"]
+language = "en"
+src = "src"
+
+[build]
+build-dir = "output"
