@@ -531,6 +531,13 @@ fn power_metal() -> R<Session> {
     l1[0] = bar(lead1[0]).mark("Verse");
     l1[4] = bar(&arps[0]).mark("Chorus");
     play_track(&mut s, 0, &l1)?;
+    // Original words for the verse melody, one syllable per note.
+    run(&mut s, "track.select", json!({"index": 0}))?;
+    run(
+        &mut s,
+        "track.setLyrics",
+        json!({"lines": [{"text": "[Verse] Steel ho-ri-zon, burn-ing in the dy-ing light, ban-ners raised, we ride in-to night"}]}),
+    )?;
     add_track(&mut s, "Harmony Guitar", "standard", 29)?;
     let mut l2: Vec<Bar> = lead2.iter().map(bar).collect();
     l2.extend(["1 1:7 +v", "1 1:8 +v", "1 1:10 +v", "1 1:7 +v"].map(bar));

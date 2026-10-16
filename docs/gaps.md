@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: chord diagrams landed; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: lyrics landed; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -21,7 +21,7 @@ agent can't finish alone.
 | G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
 | G2 | Print depth: headers and footers, layouts, selected bars | file format | low-medium | 10–20 h | [file-format-parity](file-format-parity.md) |
 | G3 | Guitar Pro exchange (import depth, MusicXML, MIDI import) | file format | medium-high | 40–80 h | [file-format-parity](file-format-parity.md) |
-| G4 | Notation depth (lyrics, fermatas, layouts) | features | high | 60–115 h | [scorecard](scorecard.md#notation-and-engraving) |
+| G4 | Notation depth (fermatas, layouts, beaming, multivoice editing) | features | high | 50–95 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
 | G6 | Editing depth (bend editor, tuplets, paste special, track tools) | features | medium-high | 80–140 h | [scorecard](scorecard.md#editing) |
 | G7 | Tools: tuner, chord dictionary, scales, line in | features | medium | 110–185 h | [target-app-parity](target-app-parity.md#feature-breadth-33-weighted) |
@@ -98,8 +98,12 @@ agent can't finish alone.
   the staff, frets counted from the diagram's `baseFret`; a beat's `<Chord>` names an item). The
   same chord file in GP5, GP6 and GP7 (alphaTab's public test data, used locally) reads the same
   eight chords.
+- **Landed 2026-10-16:** lyrics both ways: Guitar Pro 4-5 (one track's five lines, 1-based bars;
+  a second track's lyrics are left out of a `.gp5` with a warning) and GPIF (the lines as typed with
+  their bar `Offset`, and the syllable on each beat; a file whose lines are empty is read from the
+  beats' syllables).
 - **Missing:** Guitar Pro 6 drum hits (kit element and variation, no MIDI number in the file);
-  whammy, fingering and lyrics on import (the model lacks them, G4);
+  whammy and fingering on import (the model lacks them, G4);
   MusicXML and MIDI import.
 - **Evidence:** FILE-3 partial, FILE-4 and FILE-10 done, FILE-6 missing.
 - **Estimate:** 40–80 h (+ a human to check `.gp` exports in Guitar Pro).
@@ -127,11 +131,16 @@ agent can't finish alone.
 - **Landed 2026-10-16:** chord diagrams drawn under the chord names in a taller lane (nut or first
   fret, dots, open and muted marks, a barre when the lowest fret is held across three or more
   strings and nothing is open); a column holding one is wide enough. The ballad demo has four.
-- **Missing:** lyrics, fermatas, a chord list at the top of the score, a Multivoice Editing
+- **Landed 2026-10-16:** lyrics: five lines per track, each from a bar (`track.setLyrics`, Track ›
+  Lyrics…), laid one syllable per beat of the first voice skipping rests, with Guitar Pro's
+  conventions (spaces and hyphens split, `+` joins words on one note, a lone `-` skips a note,
+  trailing `_` dropped, `[comments]` not sung). Drawn in a lane under the tab, a row per line, with
+  hyphens between the syllables of a word; columns widen for long syllables. Demo 04's verse is sung.
+- **Missing:** fermatas, a chord list at the top of the score, a Multivoice Editing
   mode, user-placed slurs, mid-system key changes, beaming by the time signature's grouping,
   sloped beams, and offsetting heads where two voices share a pitch.
 - **Evidence:** NOTE-5 and EDIT-9 done; NOTE-3/4/9/12 and EDIT-16 partial.
-- **Estimate:** 60–115 h.
+- **Estimate:** 50–95 h.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with
@@ -209,5 +218,6 @@ agent can't finish alone.
 | 2026-10-16 | minor | G4: tremolo picking and trills landed (90–160 h to 80–145 h) |
 | 2026-10-16 | minor | G4: grace notes landed (80–145 h to 70–130 h); G3: grace notes no longer dropped on import |
 | 2026-10-16 | minor | G4: chord diagrams drawn (70–130 h to 60–115 h); G3: chords in GPIF; G7: chord diagram editor and namer (120–200 h to 110–185 h) |
+| 2026-10-16 | minor | G4: lyrics landed (60–115 h to 50–95 h); G3: lyrics no longer dropped on import |
 | 2026-10-16 | minor | G4: ties, slurs and up to four voices landed (150–250 h to 90–160 h); G1: drums' second voice (40–80 h to 30–60 h) |
 | 2026-10-16 | minor | G3: `.gp` (Guitar Pro 7/8) export landed, unverified in Guitar Pro itself (60–110 h to 40–80 h) |

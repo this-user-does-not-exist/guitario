@@ -128,6 +128,7 @@ pub fn paint_print_page(painter: &Painter, score: &Score, track_index: usize, pl
         play_rect: None,
         selection: None,
         clef: Clef::for_tuning(track.tuning.strings.iter().copied().max().unwrap_or(64)),
+        lyrics: sung(track),
     };
     let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(m.page_w, m.page_h));
     if page == 0 {
@@ -167,6 +168,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
         play_rect: None,
         selection: view.selection,
         clef: Clef::for_tuning(track.tuning.strings.iter().copied().max().unwrap_or(64)),
+        lyrics: sung(track),
     };
 
     for (pi, page) in pages.iter().enumerate() {
@@ -240,6 +242,13 @@ struct Ctx<'a> {
     play_rect: Option<Rect>,
     selection: Option<Range>,
     clef: Clef,
+    /// Each line of lyrics laid on its beats, `(measure, beat, syllable)`, worked out once per paint.
+    lyrics: Vec<Vec<(usize, usize, guitario_score::Syllable)>>,
+}
+
+/// The track's lyrics laid on its beats, line by line.
+fn sung(track: &Track) -> Vec<Vec<(usize, usize, guitario_score::Syllable)>> {
+    track.lyrics.iter().map(|l| guitario_score::dispatch_lyrics(track, l)).collect()
 }
 
 impl<'a> Ctx<'a> {
@@ -372,6 +381,8 @@ impl<'a> Ctx<'a> {
         // Measures.
         // Placed beats per voice, in order along the system.
         let mut placed: Vec<(usize, Vec<Placed>)> = Vec::new();
+        // Where each beat of the first voice sits, for the lyrics.
+        let mut voice1_x: Vec<((usize, usize), f32)> = Vec::new();
         let last_measure = self.score.headers.len().saturating_sub(1);
         for (si, mb) in sys.measures.iter().enumerate() {
             let mx = x0 + sys.prefix + mb.x;
@@ -528,6 +539,9 @@ impl<'a> Ctx<'a> {
                 for (bi, beat) in beats.iter().enumerate() {
                     let (Some(cx), Some(&(l, r))) = (vc.beats.get(bi), vc.spans.get(bi)) else { continue };
                     let x = mx + cx;
+                    if vc.voice == 0 {
+                        voice1_x.push(((mb.index, bi), x));
+                    }
                     let (col, w) = (band(l, r), r - l);
                     if vc.voice == edit_voice {
                         if self.cursor.measure == mb.index && self.cursor.beat == bi {
@@ -572,6 +586,39 @@ impl<'a> Ctx<'a> {
         }
         if !m.notation {
             self.tab_rhythm(sys, x0, tb);
+        }
+        self.lyrics_lane(top, &voice1_x, x1);
+    }
+
+    /// The lines of lyrics under the system: each syllable centred under its beat, a hyphen midway
+    /// to the next syllable of its word (or after it at the end of the system).
+    fn lyrics_lane(&self, top: f32, xs: &[((usize, usize), f32)], x_end: f32) {
+        let m = self.m;
+        if m.lyric_lines == 0 || xs.is_empty() {
+            return;
+        }
+        let font = serif(9.5 * m.zoom);
+        let (first, last) = (xs.first().map_or(0, |e| e.0.0), xs.last().map_or(0, |e| e.0.0));
+        let x_of = |key: (usize, usize)| xs.iter().find(|(k, _)| *k == key).map(|(_, x)| *x);
+        for (k, line) in self.lyrics.iter().enumerate().take(m.lyric_lines) {
+            let y = top + m.lyrics_top() + (k as f32 + 1.0) * m.lyric_line_h();
+            let here: Vec<&(usize, usize, guitario_score::Syllable)> = line.iter().filter(|(mi, _, _)| (first..=last).contains(mi)).collect();
+            for (i, (mi, bi, syl)) in here.iter().enumerate() {
+                let Some(x) = x_of((*mi, *bi)) else { continue };
+                let r = self.p().text(pos2(x, y), egui::Align2::CENTER_BOTTOM, &syl.text, font.clone(), self.t.ink);
+                if syl.hyphen {
+                    // Midway to where the next syllable starts, when it is in this system.
+                    let next_left = here.get(i + 1).and_then(|(m2, b2, s2)| {
+                        let nx = x_of((*m2, *b2))?;
+                        Some(nx - self.p().layout_no_wrap(s2.text.clone(), font.clone(), self.t.ink).size().x / 2.0)
+                    });
+                    let hx = match next_left {
+                        Some(l) if l > r.right() + 0.8 * m.space => (r.right() + l) / 2.0,
+                        _ => (r.right() + 0.6 * m.space).min(x_end),
+                    };
+                    self.p().text(pos2(hx, y), egui::Align2::CENTER_BOTTOM, "-", font.clone(), self.t.ink);
+                }
+            }
         }
     }
 
@@ -1504,6 +1551,22 @@ mod tests {
         let rest = Beat::rest(Duration::new(guitario_theory::NoteValue::Half));
         s.tracks[0].measures[0].voices[0].beats = vec![beat, rest];
         s
+    }
+
+    #[test]
+    fn lyrics_are_drawn_one_syllable_per_beat_with_hyphens() {
+        use guitario_score::LyricLine;
+        let mut s = Score::new();
+        let note = |fret: u8| Beat { rest: false, notes: vec![Note::new(0, fret)], ..Beat::rest(Duration::QUARTER) };
+        s.tracks[0].measures[0].voices[0].beats = vec![note(1), note(2), Beat::rest(Duration::QUARTER), note(3)];
+        s.tracks[0].lyrics = vec![LyricLine { measure: 0, text: "[Verse] Steel ho-rizon".into() }];
+        for notation in [true, false] {
+            assert_eq!(texts(&s, notation, "Steel"), 1);
+            assert_eq!(texts(&s, notation, "ho"), 1);
+            assert_eq!(texts(&s, notation, "rizon"), 1, "the rest is skipped and the last note sings");
+            assert_eq!(texts(&s, notation, "-"), 1);
+            assert_eq!(texts(&s, notation, "Verse"), 0, "a comment is not sung");
+        }
     }
 
     #[test]

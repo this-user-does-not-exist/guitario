@@ -29,8 +29,8 @@ pub fn assert_same(name: &str, expected: &Score, got: &Score) {
     assert_eq!(expected.tracks.len(), got.tracks.len(), "{name}: track count");
     for (ti, (a, b)) in expected.tracks.iter().zip(&got.tracks).enumerate() {
         assert_eq!(
-            (&a.name, a.kind, &a.tuning.strings, a.capo, a.program, a.volume, a.pan, a.muted, a.solo),
-            (&b.name, b.kind, &b.tuning.strings, b.capo, b.program, b.volume, b.pan, b.muted, b.solo),
+            (&a.name, a.kind, &a.tuning.strings, a.capo, a.program, a.volume, a.pan, a.muted, a.solo, &a.lyrics),
+            (&b.name, b.kind, &b.tuning.strings, b.capo, b.program, b.volume, b.pan, b.muted, b.solo, &b.lyrics),
             "{name}: track {ti}"
         );
         for (mi, (ma, mb)) in a.measures.iter().zip(&b.measures).enumerate() {
@@ -102,6 +102,7 @@ pub fn riff() -> Score {
         Voice { beats: vec![note(vec![dead], Duration { dots: 1, ..Duration::QUARTER }), Beat::rest(Duration { dots: 1, ..Duration::QUARTER })] },
         Voice { beats: vec![Beat::rest(Duration::QUARTER), note(vec![trilled], Duration::new(NoteValue::Half))] },
     ];
+    t.lyrics = vec![LyricLine { measure: 0, text: "[Intro] Ün-ï-code riff+again - yeah__".into() }, LyricLine { measure: 1, text: "se-cond line".into() }];
     let mut drums = guitario_score::Track::drums("Drums", &s.headers);
     drums.muted = true;
     let hit = |midi: u8| Note::new(guitario_theory::drums::lane_for(midi), midi);

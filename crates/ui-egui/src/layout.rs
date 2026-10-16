@@ -3,6 +3,7 @@
 //! a 1.5875 mm staff space.
 
 use guitario_score::{Beat, Measure, PageSetup, Score, Track};
+use std::collections::HashMap;
 
 const MM: f32 = 96.0 / 25.4;
 
@@ -25,6 +26,8 @@ pub struct Metrics {
     pub annotations: bool,
     /// The track has chord diagrams: the lane is taller still, with the diagrams under the names.
     pub diagrams: bool,
+    /// Lines of lyrics under every system.
+    pub lyric_lines: usize,
     /// The voice being edited, 0-based. A voice with only rests is drawn when it is this one.
     pub voice: usize,
 }
@@ -48,6 +51,7 @@ impl Metrics {
             drums: false,
             annotations: false,
             diagrams: false,
+            lyric_lines: 0,
             voice: 0,
         }
     }
@@ -82,7 +86,26 @@ impl Metrics {
         let beats = || track.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats);
         let annotations = beats().any(|b| b.chord.is_some() || b.text.is_some());
         let diagrams = !track.is_drums() && beats().any(|b| b.chord.as_ref().is_some_and(|c| !c.frets.is_empty()));
-        Metrics { annotations, diagrams, ..self }
+        let lyric_lines = track.lyrics.iter().rposition(|l| !l.text.trim().is_empty()).map_or(0, |i| i + 1);
+        Metrics { annotations, diagrams, lyric_lines, ..self }
+    }
+
+    /// Height of one line of lyrics.
+    pub fn lyric_line_h(&self) -> f32 {
+        2.4 * self.space
+    }
+
+    /// Where the lyrics lane starts, from the system top: under the tab (or the drum staff), clear
+    /// of what is drawn below it.
+    pub fn lyrics_top(&self) -> f32 {
+        let below = if self.drums {
+            4.0
+        } else if self.notation {
+            2.6
+        } else {
+            6.6
+        } * self.space;
+        self.tab_top() + self.tab_h() + below
     }
 
     /// Where chord names sit (their baseline) above the top staff line.
@@ -154,7 +177,8 @@ impl Metrics {
         } else {
             7.0
         } * self.space;
-        self.tab_top() + self.tab_h() + below + 4.0 * self.space
+        let lyrics = if self.lyric_lines > 0 { self.lyric_lines as f32 * self.lyric_line_h() + 0.6 * self.space } else { 0.0 };
+        self.tab_top() + self.tab_h() + below + lyrics + 4.0 * self.space
     }
 
     pub fn header_h(&self, score: &Score) -> f32 {
@@ -261,7 +285,20 @@ struct Natural {
     lead: f32,
 }
 
-fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics) -> Natural {
+/// The longest syllable sung on each beat of the first voice, in characters, by (measure, beat).
+pub fn sung_lengths(track: &Track) -> HashMap<(usize, usize), usize> {
+    let mut out = HashMap::new();
+    for line in &track.lyrics {
+        for (mi, bi, syl) in guitario_score::dispatch_lyrics(track, line) {
+            let n = syl.text.chars().count() + usize::from(syl.hyphen);
+            let slot = out.entry((mi, bi)).or_insert(0);
+            *slot = (*slot).max(n);
+        }
+    }
+    out
+}
+
+fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics, sung: &HashMap<(usize, usize), usize>) -> Natural {
     let s = m.space;
     let header = score.headers.get(mi);
     let prev = mi.checked_sub(1).and_then(|i| score.headers.get(i));
@@ -306,6 +343,11 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics) -> Natural {
                 None => here.iter().map(|b| b.duration.ticks()).min().unwrap_or(1),
             };
             let mut w = column_natural(gap, &here, s);
+            // A long syllable needs a wider column than its note.
+            let voice1 = timed.iter().find(|(vi, _)| *vi == 0).and_then(|(_, bs)| bs.iter().position(|(start, _)| *start == t));
+            if let Some(chars) = voice1.and_then(|bi| sung.get(&(mi, bi))) {
+                w = w.max(*chars as f32 * 0.9 * s + 1.0 * s);
+            }
             // A chord diagram is wider than a short note's column.
             if let Some(strings) = here.iter().filter_map(|b| b.chord.as_ref()).map(|c| c.frets.len()).filter(|n| *n > 0 && !m.drums).max() {
                 w = w.max(diagram_width(strings, s) + 2.6 * s);
@@ -345,7 +387,8 @@ pub fn system_prefix(score: &Score, first_measure: usize, m: &Metrics) -> f32 {
 
 pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
     let Some(track) = score.tracks.get(track_index) else { return vec![] };
-    let naturals: Vec<Natural> = (0..score.headers.len()).map(|mi| natural(score, track, mi, m)).collect();
+    let sung = sung_lengths(track);
+    let naturals: Vec<Natural> = (0..score.headers.len()).map(|mi| natural(score, track, mi, m, &sung)).collect();
     let total = |n: &Natural| n.fixed + n.cols.iter().sum::<f32>();
 
     // Break into systems.
@@ -489,6 +532,26 @@ mod tests {
         // A drum track never draws diagrams.
         let drums = guitario_score::Track::drums("d", &s.headers);
         assert!(!Metrics::for_drums(1.0).with_annotations(&drums).diagrams);
+    }
+
+    #[test]
+    fn lyrics_add_a_line_under_every_system_and_widen_long_syllables() {
+        use guitario_score::{Beat, LyricLine, Note};
+        use guitario_theory::Duration;
+        let mut s = score(1);
+        let sixteenth = Duration::new(guitario_theory::NoteValue::Sixteenth);
+        s.tracks[0].measures[0].voices[0].beats = (0..16).map(|i| Beat { rest: false, notes: vec![Note::new(0, i)], ..Beat::rest(sixteenth) }).collect();
+        let base = Metrics::new(1.0, true, 6);
+        let plain = base.with_annotations(&s.tracks[0]);
+        s.tracks[0].lyrics = vec![LyricLine { measure: 0, text: "a Extraordinarily".into() }, LyricLine::default(), LyricLine { measure: 0, text: "b".into() }];
+        let m = base.with_annotations(&s.tracks[0]);
+        assert_eq!(m.lyric_lines, 3, "an empty line between others still takes its row");
+        assert!(m.system_h() >= plain.system_h() + 3.0 * m.lyric_line_h());
+        assert!(m.lyrics_top() > m.tab_top() + m.tab_h());
+        let pages = layout(&s, 0, &m);
+        let spans = &pages[0].systems[0].measures[0].voices[0].spans;
+        let w = |i: usize| spans[i].1 - spans[i].0;
+        assert!(w(1) > 2.0 * w(2), "the long word's column is wider: {} vs {}", w(1), w(2));
     }
 
     #[test]

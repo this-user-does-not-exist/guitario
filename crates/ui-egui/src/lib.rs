@@ -12,6 +12,7 @@ mod icons;
 mod inspector;
 mod keys;
 mod layout;
+mod lyrics_dialog;
 mod menu_catalog;
 mod menus;
 mod notation;
@@ -89,6 +90,7 @@ pub struct GuitarioApp {
     preview: preview::Preview,
     ornaments: ornaments::OrnamentDialog,
     chord: chord_dialog::ChordDialog,
+    lyrics: lyrics_dialog::LyricsDialog,
 }
 
 /// What the unsaved-changes prompt will do once the user answers.
@@ -132,6 +134,7 @@ impl GuitarioApp {
             preview: preview::Preview::default(),
             ornaments: ornaments::OrnamentDialog::default(),
             chord: chord_dialog::ChordDialog::default(),
+            lyrics: lyrics_dialog::LyricsDialog::default(),
         }
     }
 
@@ -266,6 +269,7 @@ impl GuitarioApp {
             U::TremoloPicking => self.open_tremolo(),
             U::GraceNote => self.open_grace(),
             U::ChordDiagrams => self.open_chord(),
+            U::Lyrics => self.open_lyrics(),
             U::ImportGuitarPro => self.open_dialog(),
             U::Quit => ctx_quit(),
             U::SongInfo => {
@@ -585,7 +589,13 @@ impl GuitarioApp {
 
     /// A dialog has the window: keys must not reach the score behind it.
     fn modal_open(&self) -> bool {
-        self.pending.is_some() || self.print.open || self.preview.open || self.page_setup.open || self.ornaments.is_open() || self.chord.open
+        self.pending.is_some()
+            || self.print.open
+            || self.preview.open
+            || self.page_setup.open
+            || self.ornaments.is_open()
+            || self.chord.open
+            || self.lyrics.open
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
@@ -673,6 +683,7 @@ impl GuitarioApp {
         self.page_setup_dialog(&ctx);
         self.ornament_dialog(&ctx);
         self.chord_dialog(&ctx);
+        self.lyrics_dialog(&ctx);
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));

@@ -310,6 +310,23 @@ pub struct Track {
     #[serde(default)]
     pub solo: bool,
     pub measures: Vec<Measure>,
+    /// Up to [`MAX_LYRIC_LINES`] lines of lyrics, sung on the track's first voice.
+    #[serde(default)]
+    pub lyrics: Vec<LyricLine>,
+}
+
+/// Lines of lyrics a track may hold, as in Guitar Pro.
+pub const MAX_LYRIC_LINES: usize = 5;
+
+/// One line of lyrics as it is typed: the text and the bar its first syllable falls in. The text is
+/// split into syllables by [`crate::syllables`] and laid one per beat by [`crate::dispatch_lyrics`].
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LyricLine {
+    /// 0-based bar of the first syllable.
+    #[serde(default)]
+    pub measure: usize,
+    #[serde(default)]
+    pub text: String,
 }
 
 impl Track {
@@ -326,6 +343,7 @@ impl Track {
             muted: false,
             solo: false,
             measures: headers.iter().map(Measure::empty_for).collect(),
+            lyrics: Vec::new(),
         }
     }
 

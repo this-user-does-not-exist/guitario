@@ -204,6 +204,27 @@ fn chords_are_listed_once_per_track_with_frets_from_their_base_fret() {
 }
 
 #[test]
+fn lyrics_are_written_as_typed_and_on_their_beats_and_read_from_either() {
+    let s = riff();
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    assert!(xml.contains("<Lyrics dispatched=\"true\">") && xml.contains("<Offset>1</Offset>"), "the lines as typed");
+    assert!(xml.contains("<Line><![CDATA[Ün-]]></Line>") && xml.contains("<Line><![CDATA[riff again]]></Line>"), "syllables on beats");
+    // Without the typed lines, the beats' syllables give the same lyrics back.
+    let start = xml.find("<Lyrics dispatched=\"true\">").unwrap();
+    let end = xml[start..].find("</Lyrics>").unwrap() + start + "</Lyrics>".len();
+    let beats_only = format!("{}{}", &xml[..start], &xml[end..]);
+    let back = guitario_gp::parse_gpif(&beats_only).unwrap().score;
+    let sung = |s: &Score, k: usize| {
+        let t = &s.tracks[0];
+        t.lyrics.get(k).map(|l| dispatch_lyrics(t, l).into_iter().map(|(m, b, x)| (m, b, x.text, x.hyphen)).collect::<Vec<_>>()).unwrap_or_default()
+    };
+    for k in 0..2 {
+        assert!(!sung(&s, k).is_empty());
+        assert_eq!(sung(&back, k), sung(&s, k), "line {}", k + 1);
+    }
+}
+
+#[test]
 fn drum_hits_outside_the_kit_keep_their_midi_number() {
     let mut s = Score::new();
     s.tracks = vec![Track::drums("Drums", &s.headers)];

@@ -149,6 +149,9 @@ struct Gpif {
     last_on_string: BTreeMap<StringKey, (usize, bool)>,
     /// Every distinct chord of each track, in first-use order: a beat's `<Chord>` is its index.
     chords: Vec<Vec<Chord>>,
+    /// The syllables each beat of a track's first voice is sung to, per lyrics line, by
+    /// (track, measure, beat): Guitar Pro reads them from the beats when lyrics are "dispatched".
+    sung: BTreeMap<(usize, usize, usize), Vec<String>>,
     dropped: BTreeMap<&'static str, usize>,
 }
 
@@ -251,6 +254,7 @@ impl Gpif {
             cdata(if t.is_drums() { "Drums/Drums" } else { "Stringed/Guitars/Guitar" }),
             t.program.min(127)
         ));
+        xml.push_str(&self.lyrics_xml(ti, t));
         if t.is_drums() {
             xml.push_str("<InstrumentSet><Name>Drums</Name><Type>drumKit</Type><LineCount>5</LineCount><Elements>\n");
             for p in &drums::KIT {
@@ -326,6 +330,32 @@ impl Gpif {
         if items.is_empty() { String::new() } else { format!("<Property name=\"DiagramCollection\"><Items>{items}</Items></Property>") }
     }
 
+    /// The track's lyrics: the lines as typed, and the syllable each beat is sung to.
+    fn lyrics_xml(&mut self, ti: usize, t: &Track) -> String {
+        if t.lyrics.is_empty() {
+            return String::new();
+        }
+        let mut xml = String::from("<Lyrics dispatched=\"true\">");
+        for k in 0..MAX_LYRIC_LINES {
+            let line = t.lyrics.get(k);
+            xml.push_str(&format!(
+                "<Line><Text>{}</Text><Offset>{}</Offset></Line>",
+                cdata(line.map_or("", |l| l.text.as_str())),
+                line.map_or(0, |l| l.measure)
+            ));
+            if let Some(line) = line {
+                for (mi, bi, syllable) in dispatch_lyrics(t, line) {
+                    let slots = self.sung.entry((ti, mi, bi)).or_insert_with(|| vec![String::new(); MAX_LYRIC_LINES]);
+                    if let Some(slot) = slots.get_mut(k) {
+                        *slot = if syllable.hyphen { format!("{}-", syllable.text) } else { syllable.text };
+                    }
+                }
+            }
+        }
+        xml.push_str("</Lyrics>\n");
+        xml
+    }
+
     fn bar(&mut self, id: usize, ti: usize, t: &Track, mi: usize) {
         let clef = if t.is_drums() {
             "Neutral"
@@ -345,18 +375,19 @@ impl Gpif {
             self.next_voice += 1;
             ids.push(vid.to_string());
             let mut beat_ids = Vec::new();
-            for beat in &voice.beats {
+            for (bi, beat) in voice.beats.iter().enumerate() {
                 for id in self.grace_beats(ti, vi, t, beat) {
                     beat_ids.push(id.to_string());
                 }
-                beat_ids.push(self.beat(ti, vi, t, beat).to_string());
+                let sung = if vi == 0 { self.sung.remove(&(ti, mi, bi)) } else { None };
+                beat_ids.push(self.beat(ti, vi, t, beat, sung).to_string());
             }
             self.voices.push_str(&format!("<Voice id=\"{vid}\"><Beats>{}</Beats></Voice>\n", beat_ids.join(" ")));
         }
         self.bars.push_str(&format!("<Bar id=\"{id}\"><Clef>{clef}</Clef><Voices>{}</Voices></Bar>\n", ids.join(" ")));
     }
 
-    fn beat(&mut self, ti: usize, vi: usize, t: &Track, b: &Beat) -> usize {
+    fn beat(&mut self, ti: usize, vi: usize, t: &Track, b: &Beat, sung: Option<Vec<String>>) -> usize {
         let id = self.next_beat;
         self.next_beat += 1;
         let rhythm = self.rhythm(b.duration);
@@ -421,6 +452,13 @@ impl Gpif {
         }
         if !xprops.is_empty() {
             xml.push_str(&format!("<XProperties>{xprops}</XProperties>"));
+        }
+        if let Some(lines) = sung {
+            xml.push_str("<Lyrics>");
+            for l in &lines {
+                xml.push_str(&format!("<Line>{}</Line>", cdata(l)));
+            }
+            xml.push_str("</Lyrics>");
         }
         xml.push_str("</Beat>\n");
         self.beats.push_str(&xml);

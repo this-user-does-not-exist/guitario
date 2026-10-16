@@ -143,6 +143,14 @@ fn specific_pieces_have_their_signature_features() {
     // repeat plays twice.
     let picks = guitario_score::timeline(bm.score()).iter().filter(|p| p.track == 0 && p.measure == 0).count();
     assert_eq!(picks, 2 * 4 * 8);
+    // The power-metal verse is sung: one syllable on every note of its four bars, none left over.
+    let pm = load("steel-horizon");
+    let lead = &pm.score().tracks[0];
+    let sung = guitario_score::dispatch_lyrics(lead, &lead.lyrics[0]);
+    let notes: usize = lead.measures.iter().take(4).map(|m| m.voices[0].beats.iter().filter(|b| !b.rest).count()).sum();
+    assert_eq!(sung.len(), notes);
+    assert_eq!(guitario_score::syllables(&lead.lyrics[0].text).len(), notes);
+    assert!(sung.iter().all(|(m, _, _)| *m < 4));
     // Djent is on a seven-string.
     assert_eq!(load("seven-strings").score().tracks[0].string_count(), 7);
     // The power-metal demo has twin leads, rhythm, bass and drums.

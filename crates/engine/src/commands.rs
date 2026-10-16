@@ -50,6 +50,7 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .chain(crate::tools::specs())
         .chain(crate::exchange::specs())
         .chain(crate::chords::specs())
+        .chain(crate::lyrics::specs())
         .chain(crate::voices::specs())
         .chain(crate::pagesetup::specs())
         .chain(crate::render::specs())
@@ -177,7 +178,7 @@ impl Session {
         Ok(self.cursor_json())
     }
 
-    fn track_mut(&mut self) -> Result<&mut Track, EngineError> {
+    pub(crate) fn track_mut(&mut self) -> Result<&mut Track, EngineError> {
         let i = self.cursor.track;
         Arc::make_mut(&mut self.score).tracks.get_mut(i).ok_or_else(|| EngineError::invalid("no such track"))
     }

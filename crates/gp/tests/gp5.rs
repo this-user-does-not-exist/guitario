@@ -24,6 +24,13 @@ fn as_gp5(s: &Score) -> Score {
             None => {}
         }
     }
+    // One track's lyrics: the first that has any.
+    let sung = s.tracks.iter().position(|t| !t.lyrics.is_empty());
+    for (ti, t) in s.tracks.iter_mut().enumerate() {
+        if Some(ti) != sung {
+            t.lyrics.clear();
+        }
+    }
     for t in &mut s.tracks {
         t.tuning.name.clear();
         t.volume = ((t.volume.saturating_add(4) / 8).min(16) * 8).min(127);
@@ -117,6 +124,25 @@ fn a_riff_with_every_effect_round_trips() {
     assert_eq!(back.headers[0].triplet_feel, TripletFeel::Triplet16th);
     assert_eq!(back.headers[1].jump, Some(Jump::DalSegno(JumpEnd::Fine)));
     assert_eq!(back.headers[1].tempo, Some(170));
+}
+
+#[test]
+fn lyrics_belong_to_one_track_in_guitar_pro_5() {
+    let mut s = riff();
+    let (back, _, _) = round_trip(&s);
+    assert_eq!(back.tracks[0].lyrics, s.tracks[0].lyrics);
+    // A second track's lyrics are left out, and said to be.
+    s.tracks[1].lyrics = vec![LyricLine { measure: 0, text: "drums sing".into() }];
+    let out = export_gp5(&s);
+    assert!(out.warnings.iter().any(|w| w.contains("lyrics")), "{:?}", out.warnings);
+    let back = import(&out.bytes).unwrap().score;
+    assert!(back.tracks[1].lyrics.is_empty());
+    // Lyrics on the second track alone go out with that track.
+    let mut s = riff();
+    s.tracks[0].lyrics.clear();
+    s.tracks[1].lyrics = vec![LyricLine { measure: 1, text: "only here".into() }];
+    let back = import(&export_gp5(&s).bytes).unwrap().score;
+    assert_eq!((back.tracks[0].lyrics.len(), back.tracks[1].lyrics.clone()), (0, s.tracks[1].lyrics.clone()));
 }
 
 #[test]

@@ -160,11 +160,18 @@ impl Writer {
         for l in notice {
             self.int_byte_string(l);
         }
-        // Lyrics: the track, then five lines of (first measure, text).
-        self.i32(1);
-        for _ in 0..5 {
-            self.i32(1);
-            self.int_string("");
+        // Lyrics: the track, then five lines of (first measure, text), all 1-based. Guitar Pro 5
+        // keeps one track's lyrics: the first track that has any.
+        let mut with_lyrics = score.tracks.iter().enumerate().filter(|(_, t)| !t.lyrics.is_empty());
+        let first = with_lyrics.next();
+        if with_lyrics.next().is_some() {
+            self.drop("lyrics on a second track");
+        }
+        self.i32(first.map_or(1, |(i, _)| i32::try_from(i + 1).unwrap_or(1)));
+        for k in 0..MAX_LYRIC_LINES {
+            let line = first.and_then(|(_, t)| t.lyrics.get(k));
+            self.i32(line.map_or(1, |l| i32::try_from(l.measure + 1).unwrap_or(1)));
+            self.int_string(line.map_or("", |l| l.text.as_str()));
         }
         // RSE master effect: volume, a reserved int, an 11-band equalizer.
         self.i32(100);

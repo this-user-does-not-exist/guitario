@@ -3886,6 +3886,12 @@
               }
             ]
           }
+        ],
+        "lyrics": [
+          {
+            "measure": 0,
+            "text": "[Verse] Steel ho-ri-zon, burn-ing in the dy-ing light, ban-ners raised, we ride in-to night"
+          }
         ]
       },
       {
@@ -4985,7 +4991,8 @@
               }
             ]
           }
-        ]
+        ],
+        "lyrics": []
       },
       {
         "name": "Rhythm Guitar",
@@ -8624,7 +8631,8 @@
               }
             ]
           }
-        ]
+        ],
+        "lyrics": []
       },
       {
         "name": "Bass",
@@ -11525,7 +11533,8 @@
               }
             ]
           }
-        ]
+        ],
+        "lyrics": []
       },
       {
         "name": "Drums",
@@ -19086,7 +19095,8 @@
               }
             ]
           }
-        ]
+        ],
+        "lyrics": []
       }
     ],
     "page": {

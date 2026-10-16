@@ -20,6 +20,9 @@ pub enum ScoreError {
     Page(String),
 }
 
+/// Longest line of lyrics accepted, in bytes.
+pub const MAX_LYRICS_TEXT: usize = 100_000;
+
 impl crate::Score {
     /// Checks every invariant the engine and the exporters rely on. Files from disk are
     /// validated with this before they are accepted.
@@ -54,6 +57,12 @@ impl crate::Score {
         }
         if track.program > 127 || track.volume > 127 {
             return Err(ScoreError::Track { track: ti, what: "program and volume must be 0..=127".into() });
+        }
+        if track.lyrics.len() > crate::MAX_LYRIC_LINES {
+            return Err(ScoreError::Track { track: ti, what: format!("has {} lines of lyrics; at most {}", track.lyrics.len(), crate::MAX_LYRIC_LINES) });
+        }
+        if track.lyrics.iter().any(|l| l.text.len() > MAX_LYRICS_TEXT) {
+            return Err(ScoreError::Track { track: ti, what: format!("a line of lyrics is longer than {MAX_LYRICS_TEXT} bytes") });
         }
         if track.measures.len() != self.headers.len() {
             return Err(ScoreError::MeasureCount { track: ti, found: track.measures.len(), expected: self.headers.len() });
@@ -144,6 +153,10 @@ mod tests {
         n.effects.grace = Some(crate::Grace::new(37));
         b.notes = vec![n];
         assert!(matches!(s.validate(), Err(ScoreError::Measure { what, .. }) if what.contains("grace")));
+
+        let mut s = Score::new();
+        s.tracks[0].lyrics = vec![crate::LyricLine::default(); crate::MAX_LYRIC_LINES + 1];
+        assert!(matches!(s.validate(), Err(ScoreError::Track { what, .. }) if what.contains("lyrics")));
 
         let mut s = Score::new();
         s.tempo = 5;

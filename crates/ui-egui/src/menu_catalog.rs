@@ -28,6 +28,7 @@ pub enum UiAction {
     TremoloPicking,
     GraceNote,
     ChordDiagrams,
+    Lyrics,
     ImportGuitarPro,
     Quit,
     SongInfo,
@@ -155,7 +156,7 @@ pub static CATALOG: &[MenuItem] = &[
     u("Track", "Mute", U::ToggleMute, ""),
     u("Track", "Solo", U::ToggleSolo, ""),
     m("Track", "Transpose Track…"),
-    m("Track", "Lyrics…"),
+    u("Track", "Lyrics…", U::Lyrics, ""),
     // Bar
     c("Bar", "Add Bar", "measure.append", "", ""),
     c("Bar", "Insert Bar", "measure.insert", "", "Cmd+Shift+I"),

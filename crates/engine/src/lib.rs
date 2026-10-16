@@ -11,6 +11,7 @@ mod commands;
 mod drums;
 mod error;
 mod exchange;
+mod lyrics;
 mod pagesetup;
 mod params;
 mod print;

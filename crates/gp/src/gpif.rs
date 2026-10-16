@@ -290,7 +290,8 @@ fn build_track(
 ) -> Option<Track> {
     if let Some(kit) = kit {
         let mut track = Track::drums(name, headers);
-        fill_measures(&mut track, staff_index, name, Placement::Drums(kit), &HashMap::new(), masters, headers, t, warnings);
+        let sung = fill_measures(&mut track, staff_index, name, Placement::Drums(kit), &HashMap::new(), masters, headers, t, warnings);
+        track.lyrics = lyrics_of(tn, &track, &sung);
         track.muted = text(tn, "PlaybackState") == Some("Mute");
         track.solo = text(tn, "PlaybackState") == Some("Solo");
         return Some(track);
@@ -322,8 +323,51 @@ fn build_track(
     let open = track.tuning.strings.clone();
     let capo = track.capo;
     let chords = diagrams(tn, open.len());
-    fill_measures(&mut track, staff_index, name, Placement::Strings { open: &open, capo }, &chords, masters, headers, t, warnings);
+    let sung = fill_measures(&mut track, staff_index, name, Placement::Strings { open: &open, capo }, &chords, masters, headers, t, warnings);
+    track.lyrics = lyrics_of(tn, &track, &sung);
     Some(track)
+}
+
+/// The syllables a beat of the first voice carries, per lyrics line: `(measure, beat, lines)`.
+type Sung = Vec<(usize, usize, Vec<String>)>;
+
+/// A track's lyrics: the lines as typed (`Lyrics/Line/Text`, from bar `Offset`), or, when those are
+/// empty, lines rebuilt from the syllables Guitar Pro dispatched onto the beats (`-` for a beat
+/// without one, `+` joining words on one beat).
+fn lyrics_of(tn: Node, track: &Track, sung: &Sung) -> Vec<LyricLine> {
+    let bars = track.measures.len();
+    let mut lines: Vec<LyricLine> = child(tn, "Lyrics")
+        .map(|l| {
+            l.children()
+                .filter(|c| c.has_tag_name("Line"))
+                .take(MAX_LYRIC_LINES)
+                .map(|line| LyricLine {
+                    measure: text(line, "Offset").and_then(|o| o.parse::<usize>().ok()).filter(|o| *o < bars).unwrap_or(0),
+                    text: text(line, "Text").unwrap_or("").chars().take(MAX_LYRICS_TEXT / 4).collect(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if lines.iter().all(|l| l.text.trim().is_empty()) {
+        lines = (0..MAX_LYRIC_LINES)
+            .map(|k| {
+                let on = |e: &(usize, usize, Vec<String>)| e.2.get(k).filter(|t| !t.trim().is_empty()).cloned();
+                let Some(first) = sung.iter().position(|e| on(e).is_some()) else { return LyricLine::default() };
+                let measure = sung.get(first).map_or(0, |e| e.0);
+                // Every sung beat from the start of that bar: a syllable, or `-` for none.
+                let mut words: Vec<String> =
+                    sung.iter().skip_while(|e| e.0 < measure).map(|e| on(e).map_or_else(|| "-".to_string(), |t| t.trim().replace(' ', "+"))).collect();
+                while words.last().is_some_and(|w| w == "-") {
+                    words.pop();
+                }
+                LyricLine { measure, text: words.join(" ") }
+            })
+            .collect();
+    }
+    while lines.last().is_some_and(|l| l.text.trim().is_empty()) {
+        lines.pop();
+    }
+    lines
 }
 
 /// The chord diagrams a track lists (`DiagramCollection` on the staff in Guitar Pro 7/8, on the
@@ -378,7 +422,8 @@ fn fill_measures(
     headers: &[MeasureHeader],
     t: Tables,
     warnings: &mut Vec<String>,
-) {
+) -> Sung {
+    let mut sung: Sung = Vec::new();
     let mut lost_graces = 0usize;
     for (mi, master) in masters.iter().enumerate() {
         let bar_id = ids(text(*master, "Bars")).get(staff_index).copied().unwrap_or(-1);
@@ -386,7 +431,7 @@ fn fill_measures(
         let cap = headers.get(mi).map_or(0, MeasureHeader::capacity);
         // A bar lists up to four voices; -1 is a voice it does not have.
         let mut voices: Vec<Voice> = Vec::new();
-        for voice_id in ids(text(bar, "Voices")).into_iter().take(MAX_VOICES) {
+        for (vi, voice_id) in ids(text(bar, "Voices")).into_iter().take(MAX_VOICES).enumerate() {
             let mut out = Voice::default();
             if let Some(voice) = lookup(t.1, voice_id) {
                 let mut used = 0u32;
@@ -422,6 +467,15 @@ fn fill_measures(
                         break;
                     }
                     used += ticks;
+                    // The first voice's beats carry the lyrics Guitar Pro dispatched, if any.
+                    if vi == 0 && !beat.rest && sung.len() < 100_000 {
+                        let lines: Vec<String> = child(bn, "Lyrics")
+                            .map(|l| {
+                                l.children().filter(|c| c.has_tag_name("Line")).take(MAX_LYRIC_LINES).map(|c| c.text().unwrap_or("").to_string()).collect()
+                            })
+                            .unwrap_or_default();
+                        sung.push((mi, out.beats.len(), lines));
+                    }
                     out.beats.push(beat);
                 }
                 lost_graces += graces.len();
@@ -449,6 +503,7 @@ fn fill_measures(
     if lost_graces > 0 {
         warnings.push(format!("track `{name}`: {lost_graces} grace notes without a struck note on their string after them were left out"));
     }
+    sung
 }
 
 /// The notes of a grace beat as grace notes, by string. A hammer-on, slide or bend on a grace note

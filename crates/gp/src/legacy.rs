@@ -267,9 +267,7 @@ impl Parser<'_> {
         let meta = Meta { title, artist, album, author, notes: notes.join("\n").trim().to_string() };
 
         let feel = if v < Version::V5 && self.r.bool()? { TripletFeel::Triplet8th } else { TripletFeel::None };
-        if v >= Version::V4 {
-            self.lyrics()?;
-        }
+        let lyrics = if v >= Version::V4 { self.lyrics()? } else { None };
         if v >= Version::V5_1 {
             self.r.skip(4 + 4 + 11)?; // master volume, a reserved int, 11-band equalizer
         }
@@ -365,6 +363,13 @@ impl Parser<'_> {
                 track.program = p;
             }
         }
+        // Guitar Pro 4 and 5 keep one track's lyrics.
+        if let Some((ti, lines)) = lyrics {
+            match tracks.get_mut(ti) {
+                Some(t) => t.lyrics = lines.into_iter().filter(|l| l.measure < headers.len()).collect(),
+                None => self.warnings.push(format!("lyrics for track {} were dropped: there is no such track", ti + 1)),
+            }
+        }
         let mut score = Score { meta, tempo: clamp_tempo(tempo).unwrap_or(DEFAULT_TEMPO), headers, tracks, page };
         self.apply_tempo_changes(&mut score, &tempo_changes);
         if score.tracks.len() > MAX_TRACKS {
@@ -375,15 +380,24 @@ impl Parser<'_> {
         Ok(score)
     }
 
-    fn lyrics(&mut self) -> Result<(), GpError> {
-        self.r.i32()?; // the track the lyrics belong to
-        for _ in 0..5 {
-            self.r.i32()?; // first measure
-            if !self.r.int_string()?.trim().is_empty() {
-                self.drop("lyrics lines");
+    /// The track the lyrics belong to (1-based), then five lines of (first bar, 1-based; text).
+    /// `None` when every line is empty.
+    fn lyrics(&mut self) -> Result<Option<(usize, Vec<LyricLine>)>, GpError> {
+        let track = usize::try_from(self.r.i32()?.max(1) - 1).unwrap_or(0);
+        let mut lines = Vec::new();
+        for _ in 0..MAX_LYRIC_LINES {
+            let measure = usize::try_from(self.r.i32()?.max(1) - 1).unwrap_or(0);
+            let mut text = self.r.int_string()?;
+            if text.len() > MAX_LYRICS_TEXT {
+                text = text.chars().take(MAX_LYRICS_TEXT / 4).collect();
+                self.warnings.push("a line of lyrics was too long and was cut".into());
             }
+            lines.push(LyricLine { measure, text });
         }
-        Ok(())
+        while lines.last().is_some_and(|l| l.text.trim().is_empty()) {
+            lines.pop();
+        }
+        Ok((!lines.is_empty()).then_some((track, lines)))
     }
 
     fn channels(&mut self) -> Result<[Channel; 64], GpError> {

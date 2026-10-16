@@ -184,3 +184,22 @@ nothing open or muted between them, and none at all when any string is open, so 
 barred. The chord namer (`guitario_theory::chord_name`) matches the pitch-class set against shapes
 in order of how common they are, trying the bass note as the root first, so C E G A over C is C6
 and over A is Am7; another root gets a slash bass (D/F#).
+
+## 2026-10-16: Lyrics are typed text, laid on the beats when drawn
+
+Guitar Pro 4-5 keep lyrics as text: five lines for one track, each from a bar. GPIF keeps the same
+lines per track and, when "dispatched", the syllable each beat carries. The model keeps the typed
+lines (`Track::lyrics`, up to five, each a 0-based bar and text) and lays them on the beats when
+they are drawn or written (`guitario_score::dispatch_lyrics`), so inserting a note moves the words
+along as it does in Guitar Pro. The syllable rules follow Guitar Pro's lyrics editor as other
+readers document it: whitespace and hyphens split, `+` joins words on one note, a lone `-` skips a
+note, trailing `_` is dropped and `[...]` is a comment; syllables go to the first voice's beats from
+the line's bar, skipping rests (ties are sung on, as alphaTab reads Guitar Pro files). The GPIF
+reader prefers the typed lines and rebuilds lines from the beats' syllables only when every line is
+empty (joining words on one beat with `+` and marking a skipped beat with `-`); the writer writes
+both. A `.gp5` holds one track's lyrics, so the first track with lyrics goes out and any other is
+reported.
+
+Lyrics are drawn in a lane under the tab (under the drum staff on a drum track), one row per line,
+rather than between the notation and the tab where Guitar Pro puts a vocal staff's words: that gap
+holds the effect lanes, and under the tab the words stay in the same place with notation hidden.
