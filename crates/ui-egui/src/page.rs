@@ -543,8 +543,13 @@ impl<'a> Ctx<'a> {
                     }
                     // Chord names, then beat text, above the system as Guitar Pro stacks them.
                     if vc.voice == 0 {
-                        if let Some(chord) = beat.chord.as_ref().filter(|c| !c.name.is_empty()) {
-                            self.p().text(pos2(x, sys_top - 6.4 * s), egui::Align2::CENTER_BOTTOM, &chord.name, serif(10.5 * m.zoom), t.ink);
+                        if let Some(chord) = beat.chord.as_ref() {
+                            if !chord.name.is_empty() {
+                                self.p().text(pos2(x, sys_top - m.chord_name_above()), egui::Align2::CENTER_BOTTOM, &chord.name, serif(10.5 * m.zoom), t.ink);
+                            }
+                            if m.diagrams && !chord.frets.is_empty() {
+                                self.chord_diagram(x, sys_top - m.chord_name_above() + 0.4 * s, chord);
+                            }
                         }
                         if let Some(text) = &beat.text {
                             self.p().text(pos2(x, sys_top - 5.1 * s), egui::Align2::CENTER_BOTTOM, text, serif_italic(8.5 * m.zoom), t.ink);
@@ -567,6 +572,74 @@ impl<'a> Ctx<'a> {
         }
         if !m.notation {
             self.tab_rhythm(sys, x0, tb);
+        }
+    }
+
+    /// A chord diagram centred on `cx` with its top at `top`: the lowest string on the left, a nut
+    /// (or the first fret's number) at the top, a dot per fretted string, `o` for an open string and
+    /// `x` for one not played, and a barre where the lowest fret is held across three or more strings.
+    fn chord_diagram(&self, cx: f32, top: f32, chord: &guitario_score::Chord) {
+        let s = self.m.space;
+        let ink = self.t.ink;
+        let n = chord.frets.len();
+        if n == 0 {
+            return;
+        }
+        let gap = 0.8 * s;
+        let row = 0.9 * s;
+        let first = chord.first_fret.max(1);
+        let highest = chord.frets.iter().flatten().copied().max().unwrap_or(0);
+        let rows = usize::from(highest.saturating_sub(first)).saturating_add(1).clamp(4, 7);
+        let left = cx - crate::layout::diagram_width(n, s) / 2.0;
+        let right = left + crate::layout::diagram_width(n, s);
+        let y0 = top + 1.0 * s;
+        let thin = Stroke::new((0.08 * s).max(0.7), ink);
+        // Our strings run highest first; the diagram puts the lowest on the left.
+        let column = |i: usize| left + (n - 1 - i) as f32 * gap;
+        for k in 0..=rows {
+            let y = y0 + k as f32 * row;
+            self.p().line_segment([pos2(left, y), pos2(right, y)], thin);
+        }
+        for i in 0..n {
+            self.p().line_segment([pos2(column(i), y0), pos2(column(i), y0 + rows as f32 * row)], thin);
+        }
+        if first == 1 {
+            self.p().line_segment([pos2(left - 0.05 * s, y0), pos2(right + 0.05 * s, y0)], Stroke::new(0.3 * s, ink));
+        } else {
+            self.p().text(pos2(left - 0.3 * s, y0 + row / 2.0), egui::Align2::RIGHT_CENTER, format!("{first}fr"), serif(7.0 * self.m.zoom), ink);
+        }
+        let mark = 0.22 * s;
+        for (i, fret) in chord.frets.iter().enumerate() {
+            let x = column(i);
+            match fret {
+                None => {
+                    let c = pos2(x, y0 - 0.5 * s);
+                    self.p().line_segment([c - vec2(mark, mark), c + vec2(mark, mark)], thin);
+                    self.p().line_segment([c - vec2(mark, -mark), c + vec2(mark, -mark)], thin);
+                }
+                Some(0) => {
+                    self.p().circle_stroke(pos2(x, y0 - 0.5 * s), mark, thin);
+                }
+                Some(f) if *f >= first && usize::from(f - first) < rows => {
+                    self.p().circle_filled(pos2(x, y0 + (f32::from(f - first) + 0.5) * row), 0.3 * s, ink);
+                }
+                Some(_) => {}
+            }
+        }
+        // A barre: the lowest fret held across three or more strings, none open or muted between; a
+        // chord with an open string (an open D) is fingered, not barred.
+        if let Some(low) = chord.frets.iter().flatten().copied().filter(|f| *f > 0).min()
+            && low >= first
+            && !chord.frets.contains(&Some(0))
+        {
+            let held: Vec<usize> = chord.frets.iter().enumerate().filter(|(_, f)| **f == Some(low)).map(|(i, _)| i).collect();
+            if let (Some(&a), Some(&b)) = (held.first(), held.last())
+                && b >= a + 2
+                && chord.frets.get(a..=b).is_some_and(|span| span.iter().all(|f| f.is_some_and(|f| f >= low)))
+            {
+                let y = y0 + (f32::from(low - first) + 0.5) * row;
+                self.p().line_segment([pos2(column(b), y), pos2(column(a), y)], Stroke::new(0.5 * s, ink));
+            }
         }
     }
 
@@ -1431,6 +1504,33 @@ mod tests {
         let rest = Beat::rest(Duration::new(guitario_theory::NoteValue::Half));
         s.tracks[0].measures[0].voices[0].beats = vec![beat, rest];
         s
+    }
+
+    #[test]
+    fn a_chord_diagram_draws_its_grid_dots_and_marks() {
+        use guitario_score::Chord;
+        let circles = |s: &Score| painted(s, true, |sh| matches!(sh, egui::Shape::Circle(_)));
+        let named = one_note(guitario_theory::NoteValue::Quarter, |b| b.chord = Some(Chord::named("A5")));
+        // A5: x 0 2 2 x x from the low string; three dots would be a barre, two are not.
+        let a5 = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.chord = Some(Chord { name: "A5".into(), frets: vec![None, None, Some(2), Some(2), Some(0), None], first_fret: 1 })
+        });
+        assert_eq!(texts(&a5, true, "A5"), 1);
+        // Six strings and five fret lines plus a nut, three x marks of two strokes each.
+        assert_eq!(lines(&a5, true), lines(&named, true) + 6 + 5 + 1 + 3 * 2);
+        // Two dots and one open-string ring.
+        assert_eq!(circles(&a5), circles(&named) + 3);
+        // Up the neck: the first fret is written and there is no nut; a barre joins its strings.
+        let barre = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.chord = Some(Chord { name: "D".into(), frets: vec![Some(5), Some(7), Some(7), Some(7), Some(5), None], first_fret: 5 })
+        });
+        assert_eq!(texts(&barre, true, "5fr"), 1);
+        assert_eq!(lines(&barre, true), lines(&named, true) + 6 + 5 + 2 + 1, "grid, one x mark, the barre");
+        // An open D is fingered: no barre although fret 2 is held on both sides of the third fret.
+        let open_d = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.chord = Some(Chord { name: "D".into(), frets: vec![Some(2), Some(3), Some(2), Some(0), None, None], first_fret: 1 })
+        });
+        assert_eq!(lines(&open_d, true), lines(&named, true) + 6 + 5 + 1 + 2 * 2, "grid, nut, two x marks");
     }
 
     #[test]

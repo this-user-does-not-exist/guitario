@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: grace notes landed; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: chord diagrams landed; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -21,10 +21,10 @@ agent can't finish alone.
 | G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
 | G2 | Print depth: headers and footers, layouts, selected bars | file format | low-medium | 10–20 h | [file-format-parity](file-format-parity.md) |
 | G3 | Guitar Pro exchange (import depth, MusicXML, MIDI import) | file format | medium-high | 40–80 h | [file-format-parity](file-format-parity.md) |
-| G4 | Notation depth (diagrams, lyrics, fermatas, layouts) | features | high | 70–130 h | [scorecard](scorecard.md#notation-and-engraving) |
+| G4 | Notation depth (lyrics, fermatas, layouts) | features | high | 60–115 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
 | G6 | Editing depth (bend editor, tuplets, paste special, track tools) | features | medium-high | 80–140 h | [scorecard](scorecard.md#editing) |
-| G7 | Tools: tuner, chord engine, scales, line in | features | medium | 120–200 h | [target-app-parity](target-app-parity.md#feature-breadth-33-weighted) |
+| G7 | Tools: tuner, chord dictionary, scales, line in | features | medium | 110–185 h | [target-app-parity](target-app-parity.md#feature-breadth-33-weighted) |
 | G8 | UI depth: layouts, multitrack, keyboard and drum views, preferences, themes | UI | medium | 120–200 h | [ui-parity](ui-parity.md) |
 | G9 | Performance budgets | performance | medium | 30–60 h | [scorecard](scorecard.md) |
 | G10 | Automation: control channel and MCP | ecosystem | medium | 40–80 h | [scorecard](scorecard.md#automation) |
@@ -87,13 +87,17 @@ agent can't finish alone.
   endings, directions, drum kits. Every demo and all 76 corpus files read back unchanged.
   **Not yet opened in Guitar Pro itself** (no copy here): it follows the structure of the
   importer's fixture and of real GP6 `score.gpif` files, so a human should open a few exports in
-  Guitar Pro 8 before this is called done. Chord names and track volume/pan are not written (the
-  importer does not read them either).
+  Guitar Pro 8 before this is called done. Track volume/pan are not written (the importer does not
+  read them either).
 - **Landed 2026-10-16:** grace notes read and written in Guitar Pro 3-5 (fret, transition, length,
   dead and on-beat flags) and GPIF (grace beats before the beat, folded into the next beat's notes
   on the same string; one grace beat per kind on export). The byte order was checked on public
   GP3, GP4, GP5, GP6 and GP7 test files (alphaTab's test data, used locally and not committed):
   all five read the same grace notes.
+- **Landed 2026-10-16:** chord names and diagrams in GPIF both ways (`DiagramCollection` items on
+  the staff, frets counted from the diagram's `baseFret`; a beat's `<Chord>` names an item). The
+  same chord file in GP5, GP6 and GP7 (alphaTab's public test data, used locally) reads the same
+  eight chords.
 - **Missing:** Guitar Pro 6 drum hits (kit element and variation, no MIDI number in the file);
   whammy, fingering and lyrics on import (the model lacks them, G4);
   MusicXML and MIDI import.
@@ -120,11 +124,14 @@ agent can't finish alone.
   `5b7`, `(5)7`), and are drawn small: a slashed eighth before the beat (unslashed on it) slurred
   into its note, and a small fret in the tab with its slur, slide or bend; the layout keeps room
   for them. Demos 11 and 12 use them.
-- **Missing:** chord diagrams, lyrics, fermatas, a Multivoice Editing
+- **Landed 2026-10-16:** chord diagrams drawn under the chord names in a taller lane (nut or first
+  fret, dots, open and muted marks, a barre when the lowest fret is held across three or more
+  strings and nothing is open); a column holding one is wide enough. The ballad demo has four.
+- **Missing:** lyrics, fermatas, a chord list at the top of the score, a Multivoice Editing
   mode, user-placed slurs, mid-system key changes, beaming by the time signature's grouping,
   sloped beams, and offsetting heads where two voices share a pitch.
 - **Evidence:** NOTE-5 and EDIT-9 done; NOTE-3/4/9/12 and EDIT-16 partial.
-- **Estimate:** 70–130 h.
+- **Estimate:** 60–115 h.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with
@@ -150,9 +157,14 @@ agent can't finish alone.
 - **Estimate:** 80–140 h.
 
 ### G7. Tools
-- **Missing:** tuner (needs microphone input), chord engine and diagrams, scale tool, line in,
-  bar-duration checker.
-- **Estimate:** 120–200 h.
+- **Landed 2026-10-16:** Tools › Chord Diagrams…: a clickable diagram for the beat under the
+  cursor (fingers, open and muted strings, first fret), filled from the beat's notes and named by a
+  chord namer (`guitario_theory::chord_name`: triads, power chords, sixths, sevenths, ninths,
+  elevenths, suspensions, altered sevenths and voicings without the fifth, the bass note as root
+  first, else a slash chord). `beat.chordFromNotes` does the same headless.
+- **Missing:** tuner (needs microphone input), a chord dictionary (every voicing of a named chord),
+  scale tool, line in, bar-duration checker.
+- **Estimate:** 110–185 h.
 
 ### G8. UI depth
 - **Missing:** page/screen/horizontal layouts, multitrack view, keyboard and drum-pad instrument
@@ -196,5 +208,6 @@ agent can't finish alone.
 | 2026-10-16 | minor | G3: GP3-6 import and `.gp5` export landed, no longer blocks alpha (150–250 h to 60–110 h); G4: chord names |
 | 2026-10-16 | minor | G4: tremolo picking and trills landed (90–160 h to 80–145 h) |
 | 2026-10-16 | minor | G4: grace notes landed (80–145 h to 70–130 h); G3: grace notes no longer dropped on import |
+| 2026-10-16 | minor | G4: chord diagrams drawn (70–130 h to 60–115 h); G3: chords in GPIF; G7: chord diagram editor and namer (120–200 h to 110–185 h) |
 | 2026-10-16 | minor | G4: ties, slurs and up to four voices landed (150–250 h to 90–160 h); G1: drums' second voice (40–80 h to 30–60 h) |
 | 2026-10-16 | minor | G3: `.gp` (Guitar Pro 7/8) export landed, unverified in Guitar Pro itself (60–110 h to 40–80 h) |

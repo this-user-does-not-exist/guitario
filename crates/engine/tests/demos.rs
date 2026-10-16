@@ -206,11 +206,16 @@ fn every_guitar_pro_5_copy_opens_as_its_score() {
             assert_eq!(notes(ta), notes(tb), "{name}: track `{}`", ta.name);
         }
     }
-    // The ballad's chord names travel too.
+    // The ballad's chord names and diagrams travel too, and each name is what its diagram sounds.
     let (_, path) = scores().into_iter().find(|(n, _)| n.contains("ashes")).unwrap();
-    let chords: Vec<String> =
-        open(&path).score().tracks[0].measures.iter().filter_map(|m| m.voices[0].beats[0].chord.as_ref()).map(|c| c.name.clone()).collect();
-    assert_eq!(chords.get(..4), Some(&["Am", "F", "C", "G"].map(String::from)[..]));
+    let ballad = open(&path);
+    let track = &ballad.score().tracks[0];
+    let chords: Vec<guitario_score::Chord> = track.measures.iter().filter_map(|m| m.voices[0].beats[0].chord.clone()).collect();
+    assert_eq!(chords.iter().take(4).map(|c| c.name.as_str()).collect::<Vec<_>>(), ["Am", "Fmaj7", "C", "G"]);
+    for c in &chords {
+        let pitches: Vec<u8> = c.frets.iter().enumerate().filter_map(|(i, f)| track.tuning.pitch(i, (*f)?, track.capo)).map(|p| p.0).collect();
+        assert_eq!(guitario_theory::chord_name(&pitches, false).as_deref(), Some(c.name.as_str()), "{c:?}");
+    }
 }
 
 #[test]

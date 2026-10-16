@@ -113,7 +113,7 @@ pub fn riff() -> Score {
 }
 
 /// What a score looks like after a trip through a Guitar Pro 7/8 file: what that file does not
-/// carry here (chord names, track volume and pan) is gone, the first bar's tempo is the song's
+/// carry here (chord names on drum tracks, track volume and pan) is gone, the first bar's tempo is the song's
 /// tempo, brush lengths are whole thousandths of a quarter, and voices that only rest are dropped.
 pub fn as_gp(s: &Score) -> Score {
     let mut s = s.clone();
@@ -124,12 +124,15 @@ pub fn as_gp(s: &Score) -> Score {
     for t in &mut s.tracks {
         t.volume = 100;
         t.pan = 0;
+        let drums = t.is_drums();
         for m in &mut t.measures {
             while m.voices.len() > 1 && m.voices.last().is_none_or(|v| v.beats.iter().all(|b| b.rest)) {
                 m.voices.pop();
             }
             for b in m.voices.iter_mut().flat_map(|v| &mut v.beats) {
-                b.chord = None;
+                if drums {
+                    b.chord = None;
+                }
                 // One vibrato element: wide wins over plain.
                 for n in &mut b.notes {
                     if n.effects.wide_vibrato {

@@ -217,7 +217,14 @@
                     "brush": null,
                     "chord": {
                       "name": "Am",
-                      "frets": [],
+                      "frets": [
+                        0,
+                        1,
+                        2,
+                        2,
+                        0,
+                        null
+                      ],
                       "first_fret": 1
                     },
                     "tremolo": null
@@ -580,8 +587,15 @@
                     "fade": null,
                     "brush": null,
                     "chord": {
-                      "name": "F",
-                      "frets": [],
+                      "name": "Fmaj7",
+                      "frets": [
+                        0,
+                        1,
+                        2,
+                        3,
+                        null,
+                        null
+                      ],
                       "first_fret": 1
                     },
                     "tremolo": null
@@ -945,7 +959,14 @@
                     "brush": null,
                     "chord": {
                       "name": "C",
-                      "frets": [],
+                      "frets": [
+                        0,
+                        1,
+                        0,
+                        2,
+                        3,
+                        null
+                      ],
                       "first_fret": 1
                     },
                     "tremolo": null
@@ -1309,7 +1330,14 @@
                     "brush": null,
                     "chord": {
                       "name": "G",
-                      "frets": [],
+                      "frets": [
+                        3,
+                        0,
+                        0,
+                        0,
+                        2,
+                        3
+                      ],
                       "first_fret": 1
                     },
                     "tremolo": null
@@ -1673,7 +1701,14 @@
                     "brush": null,
                     "chord": {
                       "name": "Am",
-                      "frets": [],
+                      "frets": [
+                        0,
+                        1,
+                        2,
+                        2,
+                        0,
+                        null
+                      ],
                       "first_fret": 1
                     },
                     "tremolo": null
@@ -2036,8 +2071,15 @@
                     "fade": null,
                     "brush": null,
                     "chord": {
-                      "name": "F",
-                      "frets": [],
+                      "name": "Fmaj7",
+                      "frets": [
+                        0,
+                        1,
+                        2,
+                        3,
+                        null,
+                        null
+                      ],
                       "first_fret": 1
                     },
                     "tremolo": null
@@ -2401,7 +2443,14 @@
                     "brush": null,
                     "chord": {
                       "name": "C",
-                      "frets": [],
+                      "frets": [
+                        0,
+                        1,
+                        0,
+                        2,
+                        3,
+                        null
+                      ],
                       "first_fret": 1
                     },
                     "tremolo": null
@@ -2765,7 +2814,14 @@
                     "brush": null,
                     "chord": {
                       "name": "G",
-                      "frets": [],
+                      "frets": [
+                        3,
+                        0,
+                        0,
+                        0,
+                        2,
+                        3
+                      ],
                       "first_fret": 1
                     },
                     "tremolo": null

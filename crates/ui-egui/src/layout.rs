@@ -23,6 +23,8 @@ pub struct Metrics {
     pub drums: bool,
     /// The track has chord names or beat text: a taller lane above each system holds them.
     pub annotations: bool,
+    /// The track has chord diagrams: the lane is taller still, with the diagrams under the names.
+    pub diagrams: bool,
     /// The voice being edited, 0-based. A voice with only rests is drawn when it is this one.
     pub voice: usize,
 }
@@ -45,6 +47,7 @@ impl Metrics {
             strings: strings.max(1),
             drums: false,
             annotations: false,
+            diagrams: false,
             voice: 0,
         }
     }
@@ -74,10 +77,17 @@ impl Metrics {
         Metrics { voice, ..self }
     }
 
-    /// Room for chord names and beat text above every system when `track` has any.
+    /// Room for chord names, diagrams and beat text above every system when `track` has any.
     pub fn with_annotations(self, track: &Track) -> Metrics {
-        let annotations = track.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).any(|b| b.chord.is_some() || b.text.is_some());
-        Metrics { annotations, ..self }
+        let beats = || track.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats);
+        let annotations = beats().any(|b| b.chord.is_some() || b.text.is_some());
+        let diagrams = !track.is_drums() && beats().any(|b| b.chord.as_ref().is_some_and(|c| !c.frets.is_empty()));
+        Metrics { annotations, diagrams, ..self }
+    }
+
+    /// Where chord names sit (their baseline) above the top staff line.
+    pub fn chord_name_above(&self) -> f32 {
+        if self.diagrams { 14.0 * self.space } else { 6.4 * self.space }
     }
 
     /// Metrics for a drum track: a five-line percussion staff only.
@@ -98,7 +108,13 @@ impl Metrics {
     /// Space above the first staff: section markers, chord names and text, directions, tempo,
     /// bar numbers.
     pub fn lane_above(&self) -> f32 {
-        if self.annotations { 11.0 * self.space } else { 9.0 * self.space }
+        if self.diagrams {
+            18.5 * self.space
+        } else if self.annotations {
+            11.0 * self.space
+        } else {
+            9.0 * self.space
+        }
     }
 
     pub fn staff_h(&self) -> f32 {
@@ -206,6 +222,11 @@ pub fn drawn_voices(measure: &Measure, active: usize) -> Vec<usize> {
         .collect()
 }
 
+/// Width of a chord diagram's grid for `strings` strings.
+pub fn diagram_width(strings: usize, space: f32) -> f32 {
+    strings.saturating_sub(1) as f32 * 0.8 * space
+}
+
 /// Width of a column whose next onset is `gap` ticks away, plus room for wide frets and chords.
 fn column_natural(gap: u32, beats: &[&Beat], space: f32) -> f32 {
     // Width grows with the log of the length, from 2.7 spaces for a sixteenth.
@@ -285,6 +306,10 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics) -> Natural {
                 None => here.iter().map(|b| b.duration.ticks()).min().unwrap_or(1),
             };
             let mut w = column_natural(gap, &here, s);
+            // A chord diagram is wider than a short note's column.
+            if let Some(strings) = here.iter().filter_map(|b| b.chord.as_ref()).map(|c| c.frets.len()).filter(|n| *n > 0 && !m.drums).max() {
+                w = w.max(diagram_width(strings, s) + 2.6 * s);
+            }
             if onsets.len() == 1 && here.iter().all(|b| b.rest) {
                 w = w.max(8.0 * s);
             }
@@ -439,6 +464,31 @@ mod tests {
         let after = room(&s);
         assert!(after[2] >= before[2] + GRACE_ROOM * m.space * 0.99, "{before:?} {after:?}");
         assert!((after[1] - before[1]).abs() < 0.01, "other beats are not moved off-centre");
+    }
+
+    #[test]
+    fn chord_diagrams_make_the_lane_taller_and_their_column_wide_enough() {
+        use guitario_score::{Beat, Chord, Note};
+        use guitario_theory::Duration;
+        let mut s = score(1);
+        let sixteenth = Duration::new(guitario_theory::NoteValue::Sixteenth);
+        s.tracks[0].measures[0].voices[0].beats = (0..16).map(|i| Beat { rest: false, notes: vec![Note::new(0, i)], ..Beat::rest(sixteenth) }).collect();
+        let named = |s: &Score| Metrics::new(1.0, true, 6).with_annotations(&s.tracks[0]);
+        let plain = named(&s);
+        s.tracks[0].measures[0].voices[0].beats[0].chord = Some(Chord::named("E5"));
+        let names = named(&s);
+        assert!(names.annotations && !names.diagrams && names.lane_above() > plain.lane_above());
+        s.tracks[0].measures[0].voices[0].beats[0].chord =
+            Some(Chord { name: "E5".into(), frets: vec![None, None, None, Some(2), Some(2), Some(0)], first_fret: 1 });
+        let m = named(&s);
+        assert!(m.diagrams && m.lane_above() > names.lane_above() && m.chord_name_above() > names.chord_name_above());
+        let pages = layout(&s, 0, &m);
+        let v = &pages[0].systems[0].measures[0].voices[0];
+        let (l, r) = v.spans[0];
+        assert!(r - l >= diagram_width(6, m.space) + 2.0 * m.space, "a sixteenth's column holds the diagram: {}", r - l);
+        // A drum track never draws diagrams.
+        let drums = guitario_score::Track::drums("d", &s.headers);
+        assert!(!Metrics::for_drums(1.0).with_annotations(&drums).diagrams);
     }
 
     #[test]

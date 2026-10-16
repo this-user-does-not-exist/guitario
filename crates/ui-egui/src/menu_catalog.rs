@@ -27,6 +27,7 @@ pub enum UiAction {
     Trill,
     TremoloPicking,
     GraceNote,
+    ChordDiagrams,
     ImportGuitarPro,
     Quit,
     SongInfo,
@@ -250,7 +251,7 @@ pub static CATALOG: &[MenuItem] = &[
     m("Sound", "Audio Settings…"),
     // Tools
     m("Tools", "Tuner"),
-    m("Tools", "Chord Diagrams…"),
+    u("Tools", "Chord Diagrams…", U::ChordDiagrams, ""),
     m("Tools", "Scale Tool…"),
     u("Tools", "Check Bar Durations", U::CheckBarDurations, ""),
     m("Tools", "Line In…"),

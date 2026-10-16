@@ -12,7 +12,8 @@
 //! `+gr5ho`), `+v` vibrato, `+g` ghost, `+a` accent, `+st` staccato, `+b`/`+b2`/`+b6`/`+b8` bend
 //! (quarter tones), `+sl` shift slide, `+sll` legato slide, `+sli`/`+sla` slide in from
 //! below/above, `+slo`/`+slu` slide out, `+nh`/`+ah`/`+ph` harmonics, `~` tie. `*pm` applies a
-//! modifier to every note in the beat so far; `@mf` sets the beat's dynamic; `&tp8`, `&tp16` and
+//! modifier to every note in the beat so far; `@mf` sets the beat's dynamic; `%Am` names the
+//! beat's chord and `%Am=x02210` adds its diagram (frets from the low string, `x` not played); `&tp8`, `&tp16` and
 //! `&tp32` make the beat tremolo-picked at that note value. On a drum track a beat
 //! lists kit pieces by their short names: `bd` kick, `sd` snare, `hh`/`oh`/`ph` hi-hat closed, open
 //! and pedal, `cr` crash, `ch` china, `sp` splash, `rd`/`rb` ride and bell, `t1`-`t4` and `ft` toms.
@@ -149,8 +150,15 @@ fn enter_beat(s: &mut Session, spec: &str, advance: bool) -> R {
             run(s, "beat.toggleRest", Value::Null)?;
         } else if tok == "~" {
             run(s, "note.toggleTie", Value::Null)?;
-        } else if let Some(name) = tok.strip_prefix('%') {
-            run(s, "beat.setChord", json!({"name": name}))?;
+        } else if let Some(chord) = tok.strip_prefix('%') {
+            // `%Am`, or `%Am=x02210` with a diagram: frets from the low string, `x` not played.
+            match chord.split_once('=') {
+                None => run(s, "beat.setChord", json!({"name": chord}))?,
+                Some((name, shape)) => {
+                    let frets: Vec<Value> = shape.chars().rev().map(|c| c.to_digit(10).map_or(Value::Null, |f| json!(f))).collect();
+                    run(s, "beat.setChord", json!({"name": name, "frets": frets}))?;
+                }
+            }
         } else if let Some(speed) = tok.strip_prefix("&tp") {
             let speed = match speed {
                 "8" => "eighth",
@@ -754,10 +762,10 @@ fn ballad() -> R<Session> {
     )?;
     let arp = |bass: &str, mid: &str, top: &str| format!("8 {bass} +lr @mp, 8 {mid}, 8 {top}, 8 1:0, 8 {top}, 8 {mid}, 8 {top}, 8 1:0");
     let _ = &arp;
-    let am = "8 5:0 +lr @mp %Am, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
-    let f = "8 4:3 +lr %F, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
-    let c = "8 5:3 +lr %C, 8 3:0, 8 2:1, 8 1:0, 8 2:1, 8 3:0, 8 2:1, 8 1:0";
-    let g = "8 6:3 +lr %G, 8 4:0, 8 3:0, 8 2:0, 8 3:0, 8 4:0, 8 3:0, 8 2:0";
+    let am = "8 5:0 +lr @mp %Am=x02210, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
+    let f = "8 4:3 +lr %Fmaj7=xx3210, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
+    let c = "8 5:3 +lr %C=x32010, 8 3:0, 8 2:1, 8 1:0, 8 2:1, 8 3:0, 8 2:1, 8 1:0";
+    let g = "8 6:3 +lr %G=320003, 8 4:0, 8 3:0, 8 2:0, 8 3:0, 8 4:0, 8 3:0, 8 2:0";
     play_track(&mut s, 0, &[bar(am).mark("Acoustic intro"), bar(f), bar(c), bar(g), bar(am).mark("Heavy").tempo(112), bar(f), bar(c), bar(g)])?;
     add_track(&mut s, "Distortion Guitar", "standard", 30)?;
     let chug = |chord: String| format!("8 {chord} *pm @f, 8 {chord} *pm, 8 {chord} *pm, 8 r, 8 {chord} *pm, 8 {chord} *pm, 4 {chord} *a");

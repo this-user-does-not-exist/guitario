@@ -3,6 +3,7 @@
 //! along the bottom. Thin by design: every edit goes through `Session::run`, and the menus and
 //! shortcuts are generated from the engine's command registry.
 
+mod chord_dialog;
 mod fonts;
 mod fretboard;
 mod global_view;
@@ -87,6 +88,7 @@ pub struct GuitarioApp {
     page_setup: page_setup::PageSetupDialog,
     preview: preview::Preview,
     ornaments: ornaments::OrnamentDialog,
+    chord: chord_dialog::ChordDialog,
 }
 
 /// What the unsaved-changes prompt will do once the user answers.
@@ -129,6 +131,7 @@ impl GuitarioApp {
             page_setup: page_setup::PageSetupDialog::default(),
             preview: preview::Preview::default(),
             ornaments: ornaments::OrnamentDialog::default(),
+            chord: chord_dialog::ChordDialog::default(),
         }
     }
 
@@ -262,6 +265,7 @@ impl GuitarioApp {
             U::Trill => self.open_trill(),
             U::TremoloPicking => self.open_tremolo(),
             U::GraceNote => self.open_grace(),
+            U::ChordDiagrams => self.open_chord(),
             U::ImportGuitarPro => self.open_dialog(),
             U::Quit => ctx_quit(),
             U::SongInfo => {
@@ -581,7 +585,7 @@ impl GuitarioApp {
 
     /// A dialog has the window: keys must not reach the score behind it.
     fn modal_open(&self) -> bool {
-        self.pending.is_some() || self.print.open || self.preview.open || self.page_setup.open || self.ornaments.is_open()
+        self.pending.is_some() || self.print.open || self.preview.open || self.page_setup.open || self.ornaments.is_open() || self.chord.open
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
@@ -668,6 +672,7 @@ impl GuitarioApp {
         self.preview_dialog(&ctx);
         self.page_setup_dialog(&ctx);
         self.ornament_dialog(&ctx);
+        self.chord_dialog(&ctx);
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));

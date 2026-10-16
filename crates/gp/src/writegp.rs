@@ -2,7 +2,7 @@
 //! [`crate::gpif`] reads it.
 //!
 //! Every bar, voice, beat and note gets its own id (nothing is shared, which is valid and keeps the
-//! writer simple); rhythms are shared. Strings count from the lowest, as in Guitar Pro. What the
+//! writer simple); rhythms are shared, and chords are listed once per track. Strings count from the lowest, as in Guitar Pro. What the
 //! file format can hold but the importer or model does not carry yet is left out and counted in
 //! [`Export::warnings`].
 
@@ -36,6 +36,20 @@ pub fn export_gp(score: &Score) -> Result<Export, GpError> {
     zip.write_all(xml.as_bytes()).map_err(|e| io(&e))?;
     let bytes = zip.finish().map_err(|e| io(&e))?.into_inner();
     Ok(Export { bytes, warnings })
+}
+
+/// Text safe inside an attribute value: no control characters, and markup escaped.
+fn attr(s: &str) -> String {
+    s.chars()
+        .filter(|c| !c.is_control())
+        .map(|c| match c {
+            '&' => "&amp;".to_string(),
+            '<' => "&lt;".to_string(),
+            '>' => "&gt;".to_string(),
+            '"' => "&quot;".to_string(),
+            c => c.to_string(),
+        })
+        .collect()
 }
 
 /// Text safe inside CDATA: no control characters, and `]]>` split so it cannot end the section.
@@ -133,6 +147,8 @@ struct Gpif {
     next_beat: usize,
     next_voice: usize,
     last_on_string: BTreeMap<StringKey, (usize, bool)>,
+    /// Every distinct chord of each track, in first-use order: a beat's `<Chord>` is its index.
+    chords: Vec<Vec<Chord>>,
     dropped: BTreeMap<&'static str, usize>,
 }
 
@@ -258,10 +274,11 @@ impl Gpif {
             // Guitar Pro lists the tuning from the lowest string.
             let lowest_first: Vec<String> = t.tuning.strings.iter().rev().map(u8::to_string).collect();
             xml.push_str(&format!(
-                "<Staves><Staff><Properties><Property name=\"CapoFret\"><Fret>{}</Fret></Property><Property name=\"Tuning\"><Pitches>{}</Pitches><Instrument>Guitar</Instrument><Label>{}</Label><LabelVisible>true</LabelVisible></Property><Name>{}</Name></Properties></Staff></Staves>\n",
+                "<Staves><Staff><Properties><Property name=\"CapoFret\"><Fret>{}</Fret></Property><Property name=\"Tuning\"><Pitches>{}</Pitches><Instrument>Guitar</Instrument><Label>{}</Label><LabelVisible>true</LabelVisible></Property>{}<Name>{}</Name></Properties></Staff></Staves>\n",
                 t.capo,
                 lowest_first.join(" "),
                 cdata(&t.tuning.name),
+                self.diagram_collection(ti, t),
                 cdata(&t.tuning.name)
             ));
         }
@@ -269,6 +286,44 @@ impl Gpif {
         if t.volume != 100 || t.pan != 0 {
             self.drop("track volume and pan settings");
         }
+    }
+
+    /// The track's chords as Guitar Pro's `DiagramCollection`: one item per distinct chord, its frets
+    /// relative to the diagram's `baseFret` and counted from the lowest string. A chord without a
+    /// diagram is an item with a name only.
+    fn diagram_collection(&mut self, ti: usize, t: &Track) -> String {
+        let mut list: Vec<Chord> = Vec::new();
+        for c in t.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).filter_map(|b| b.chord.as_ref()) {
+            if !list.contains(c) {
+                list.push(c.clone());
+            }
+        }
+        if self.chords.len() <= ti {
+            self.chords.resize_with(ti + 1, Vec::new);
+        }
+        let strings = t.string_count();
+        let mut items = String::new();
+        for (id, c) in list.iter().enumerate() {
+            // The diagram starts at the chord's first fret, or lower when a fretted note sits below it.
+            let lowest = c.frets.iter().flatten().copied().filter(|f| *f > 0).min().unwrap_or(1);
+            let base = c.first_fret.max(1).min(lowest) - 1;
+            let mut frets = String::new();
+            for (i, f) in c.frets.iter().enumerate().take(strings) {
+                if let Some(f) = f {
+                    let relative = if *f == 0 { 0 } else { f - base };
+                    frets.push_str(&format!("<Fret string=\"{}\" fret=\"{relative}\"/>", strings - 1 - i));
+                }
+            }
+            let shown = !c.frets.is_empty();
+            items.push_str(&format!(
+                "<Item id=\"{id}\" name=\"{}\"><Diagram stringCount=\"{strings}\" fretCount=\"5\" baseFret=\"{base}\">{frets}<Property name=\"ShowDiagram\" type=\"bool\" value=\"{shown}\"/><Property name=\"ShowName\" type=\"bool\" value=\"true\"/><Property name=\"ShowFingering\" type=\"bool\" value=\"false\"/></Diagram></Item>",
+                attr(&c.name)
+            ));
+        }
+        if let Some(slot) = self.chords.get_mut(ti) {
+            *slot = list;
+        }
+        if items.is_empty() { String::new() } else { format!("<Property name=\"DiagramCollection\"><Items>{items}</Items></Property>") }
     }
 
     fn bar(&mut self, id: usize, ti: usize, t: &Track, mi: usize) {
@@ -325,6 +380,12 @@ impl Gpif {
             Some(TremoloSpeed::ThirtySecond) => xml.push_str("<Tremolo>1/2</Tremolo>"),
             None => {}
         }
+        if let Some(c) = &b.chord {
+            match self.chords.get(ti).and_then(|list| list.iter().position(|x| x == c)) {
+                Some(id) => xml.push_str(&format!("<Chord>{id}</Chord>")),
+                None => self.drop("chord names on drum tracks"),
+            }
+        }
         if !note_ids.is_empty() {
             xml.push_str(&format!("<Notes>{}</Notes>", note_ids.join(" ")));
         }
@@ -360,9 +421,6 @@ impl Gpif {
         }
         if !xprops.is_empty() {
             xml.push_str(&format!("<XProperties>{xprops}</XProperties>"));
-        }
-        if b.chord.is_some() {
-            self.drop("chord names and diagrams");
         }
         xml.push_str("</Beat>\n");
         self.beats.push_str(&xml);

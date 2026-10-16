@@ -36,15 +36,14 @@ fn every_demo_survives_guitar_pro_8() {
 }
 
 #[test]
-fn a_riff_with_every_effect_round_trips_and_what_is_left_out_is_said() {
+fn a_riff_with_every_effect_round_trips_and_nothing_is_left_out() {
     let s = riff();
     let (back, warnings, import_warnings) = round_trip(&s);
     assert!(import_warnings.is_empty(), "{import_warnings:?}");
     assert_same("riff", &as_gp(&s), &back);
-    // The riff has a chord diagram and a track with a non-default mix.
-    let all = warnings.join("\n");
-    assert!(all.contains("chord names and diagrams"), "{all}");
-    assert!(back.tracks[0].measures[0].voices[0].beats[0].chord.is_none());
+    // Nothing the riff carries is left out; its chord diagram comes back.
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert_eq!(back.tracks[0].measures[0].voices[0].beats[0].chord, s.tracks[0].measures[0].voices[0].beats[0].chord);
     // Everything else the riff carries came back: effects, ties, voices, repeats, endings, jumps.
     let h = &back.headers[1];
     assert_eq!((h.repeat_close, h.endings, h.jump, h.double_bar), (3, 0b101, Some(Jump::DalSegno(JumpEnd::Fine)), true));
@@ -177,6 +176,31 @@ fn a_grace_beat_with_nothing_to_ornament_is_reported() {
     let imp = guitario_gp::parse_gpif(&broken).unwrap();
     assert!(imp.warnings.iter().any(|w| w.contains("grace notes")), "{:?}", imp.warnings);
     assert!(imp.score.validate().is_ok());
+}
+
+#[test]
+fn chords_are_listed_once_per_track_with_frets_from_their_base_fret() {
+    let mut s = riff();
+    let barre = Chord { name: "D <5> & \"x\"".into(), frets: vec![Some(5), Some(7), Some(7), Some(7), Some(5), None], first_fret: 5 };
+    let named = Chord::named("N.C.");
+    let beats = &mut s.tracks[0].measures[0].voices[0].beats;
+    beats[1].chord = Some(barre.clone());
+    beats[2].chord = Some(barre.clone());
+    beats[3].chord = Some(named.clone());
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    // Three distinct chords on the guitar: D5, the barre and the name; the barre is listed once.
+    assert_eq!(xml.matches("<Item id=").count(), 3, "{xml}");
+    assert!(xml.contains("baseFret=\"4\"") && xml.contains("<Fret string=\"1\" fret=\"1\"/>"), "relative to the base fret");
+    assert!(xml.contains("name=\"D &lt;5&gt; &amp; &quot;x&quot;\""), "names are escaped");
+    let (back, _, warnings) = round_trip(&s);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let got: Vec<_> = back.tracks[0].measures[0].voices[0].beats.iter().map(|b| b.chord.clone()).collect();
+    assert_eq!(got[..4], [s.tracks[0].measures[0].voices[0].beats[0].chord.clone(), Some(barre.clone()), Some(barre), Some(named)]);
+    // A chord on a drum track is said to be left out.
+    let mut d = riff();
+    d.tracks[1].measures[0].voices[0].beats[0].chord = Some(Chord::named("X"));
+    let out = export_gp(&d).unwrap();
+    assert!(out.warnings.iter().any(|w| w.contains("drum tracks")), "{:?}", out.warnings);
 }
 
 #[test]

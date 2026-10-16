@@ -11,6 +11,9 @@
 - **Note › Grace Note…** adds a small quick note before the one under the cursor: pick its fret and
   length, whether it comes before the beat or on it, and whether it slides, bends or hammers into
   the note. **Note › Trill…** and **Note › Tremolo Picking…** work the same way.
+- **Tools › Chord Diagrams…** puts a chord name and diagram over the beat under the cursor. It
+  starts from the notes you entered and names them (E5, Am7, D/F#); click the frets to change the
+  shape, above the nut to switch a string between open and not played, and **Name it** to rename.
 
 ## Drums
 

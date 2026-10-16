@@ -290,7 +290,7 @@ fn build_track(
 ) -> Option<Track> {
     if let Some(kit) = kit {
         let mut track = Track::drums(name, headers);
-        fill_measures(&mut track, staff_index, name, Placement::Drums(kit), masters, headers, t, warnings);
+        fill_measures(&mut track, staff_index, name, Placement::Drums(kit), &HashMap::new(), masters, headers, t, warnings);
         track.muted = text(tn, "PlaybackState") == Some("Mute");
         track.solo = text(tn, "PlaybackState") == Some("Solo");
         return Some(track);
@@ -321,8 +321,50 @@ fn build_track(
     }
     let open = track.tuning.strings.clone();
     let capo = track.capo;
-    fill_measures(&mut track, staff_index, name, Placement::Strings { open: &open, capo }, masters, headers, t, warnings);
+    let chords = diagrams(tn, open.len());
+    fill_measures(&mut track, staff_index, name, Placement::Strings { open: &open, capo }, &chords, masters, headers, t, warnings);
     Some(track)
+}
+
+/// The chord diagrams a track lists (`DiagramCollection` on the staff in Guitar Pro 7/8, on the
+/// track in Guitar Pro 6), by id: the name, and frets made absolute and turned highest string
+/// first. A diagram's frets count from its `baseFret`; 0 is an open string.
+fn diagrams(tn: Node, strings: usize) -> HashMap<i64, Chord> {
+    let mut out = HashMap::new();
+    let collections = tn.descendants().filter(|c| c.has_tag_name("Property") && matches!(c.attribute("name"), Some("DiagramCollection" | "ChordCollection")));
+    for items in collections.filter_map(|c| child(c, "Items")) {
+        for item in items.children().filter(|c| c.has_tag_name("Item")).take(4096) {
+            let Some(id) = item.attribute("id").and_then(|v| v.parse::<i64>().ok()) else { continue };
+            let name: String = item.attribute("name").unwrap_or("").trim().chars().take(64).collect();
+            let mut chord = Chord::named(name);
+            if let Some(d) = child(item, "Diagram") {
+                let base = d.attribute("baseFret").and_then(|v| v.parse::<u8>().ok()).unwrap_or(0).min(35);
+                let mut frets: Vec<Option<u8>> = vec![None; strings];
+                for f in d.children().filter(|c| c.has_tag_name("Fret")) {
+                    let (Some(gs), Some(fret)) =
+                        (f.attribute("string").and_then(|v| v.parse::<usize>().ok()), f.attribute("fret").and_then(|v| v.parse::<u8>().ok()))
+                    else {
+                        continue;
+                    };
+                    let absolute = if fret == 0 { 0 } else { base.saturating_add(fret) };
+                    if gs < strings
+                        && absolute <= 36
+                        && let Some(slot) = frets.get_mut(strings - 1 - gs)
+                    {
+                        *slot = Some(absolute);
+                    }
+                }
+                if frets.iter().any(Option::is_some) {
+                    chord.frets = frets;
+                    chord.first_fret = base + 1;
+                }
+            }
+            if !chord.name.is_empty() || !chord.frets.is_empty() {
+                out.entry(id).or_insert(chord);
+            }
+        }
+    }
+    out
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -331,6 +373,7 @@ fn fill_measures(
     staff_index: usize,
     name: &str,
     place: Placement,
+    chords: &HashMap<i64, Chord>,
     masters: &[Node],
     headers: &[MeasureHeader],
     t: Tables,
@@ -353,7 +396,7 @@ fn fill_measures(
                 for beat_id in ids(text(voice, "Beats")) {
                     let Some(bn) = lookup(t.2, beat_id) else { continue };
                     if let Some(kind) = text(bn, "GraceNotes") {
-                        if let Some(gb) = build_beat(bn, &t, place).filter(|_| matches!(place, Placement::Strings { .. })) {
+                        if let Some(gb) = build_beat(bn, &t, place, chords).filter(|_| matches!(place, Placement::Strings { .. })) {
                             for (string, grace) in grace_notes(&gb, kind == "OnBeat") {
                                 if let Some(old) = graces.iter_mut().find(|(st, _)| *st == string) {
                                     // Two grace notes on one string: the one nearer the note is kept.
@@ -366,7 +409,7 @@ fn fill_measures(
                         }
                         continue;
                     }
-                    let Some(mut beat) = build_beat(bn, &t, place) else { continue };
+                    let Some(mut beat) = build_beat(bn, &t, place, chords) else { continue };
                     for (string, grace) in graces.drain(..) {
                         match beat.notes.iter_mut().find(|n| n.string == string && n.kind != NoteKind::Tie) {
                             Some(n) => n.effects.grace = Some(grace),
@@ -505,7 +548,7 @@ fn beat_effects(bn: Node, beat: &mut Beat) {
     };
 }
 
-fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
+fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chord>) -> Option<Beat> {
     let rid = child(bn, "Rhythm")?.attribute("ref")?.parse::<i64>().ok()?;
     let duration = rhythm_duration(lookup(t.4, rid)?)?;
     let mut beat = Beat::rest(duration);
@@ -520,6 +563,7 @@ fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
         _ => Dynamic::Mf,
     };
     beat.text = text(bn, "FreeText").filter(|s| !s.is_empty()).map(str::to_string);
+    beat.chord = text(bn, "Chord").and_then(|id| id.parse::<i64>().ok()).and_then(|id| chords.get(&id)).cloned();
     beat_effects(bn, &mut beat);
     // The fraction is the slash count's note value as Guitar Pro writes it: 1/8 one slash, 1/4 two, 1/2 three.
     let tremolo = match text(bn, "Tremolo") {

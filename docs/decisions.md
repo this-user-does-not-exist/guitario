@@ -166,3 +166,21 @@ goes on the beat. A slid or hammered grace note leads legato into the note; a be
 the note's pitch, which then carries on without a new pluck. A tied note takes no grace note.
 The GP3-5 byte order (fret, dynamic, transition, duration, then GP5 flags) was confirmed on public
 GP3, GP4 and GP5 test files, which read the same grace notes as the GP6 and GP7 copies.
+
+## 2026-10-16: Chord diagrams come from Guitar Pro's diagram collection; names from the notes
+
+GPIF keeps a track's chords once, as `DiagramCollection` items on the staff (on the track in
+Guitar Pro 6), and a beat names one by id. A diagram's frets count from its `baseFret` (0 is an
+open string whatever the base), and its strings from the lowest; the model keeps absolute frets,
+highest string first, with `first_fret = baseFret + 1`, which is what Guitar Pro 5 calls the base
+fret: the GP5, GP6 and GP7 copies of one public chord file read the same. The writer lists each
+distinct chord of a track once and starts its diagram at the chord's first fret, or lower when a
+fret sits below it; a chord without a diagram is an item with a name only.
+
+Diagrams are drawn under the names, so a track with any gets a taller lane above every system,
+and a column holding one is at least as wide as the diagram. A barre is a drawing guess (Guitar
+Pro stores fingering, the model does not): the lowest fret held across three or more strings with
+nothing open or muted between them, and none at all when any string is open, so an open D is not
+barred. The chord namer (`guitario_theory::chord_name`) matches the pitch-class set against shapes
+in order of how common they are, trying the bass note as the root first, so C E G A over C is C6
+and over A is Am7; another root gets a slash bass (D/F#).

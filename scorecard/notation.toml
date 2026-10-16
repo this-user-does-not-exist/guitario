@@ -69,5 +69,5 @@ note = "percussion clef, kit-map staff positions, cross noteheads for cymbals (t
 [[item]]
 id = "NOTE-12"
 target = "Chord diagrams and chord names above the staff"
-status = "partial"
-note = "chord names and beat text drawn above the system in a lane that grows when a track has them (page.rs, layout.rs); diagrams not drawn yet"
+status = "done"
+note = "chord names and beat text drawn above the system in a lane that grows when a track has them; diagrams drawn under the names (nut or first fret, dots, open and muted marks, barres; page.rs chord_diagram, layout.rs), edited in Tools › Chord Diagrams… (a clickable diagram, named from its notes by guitario_theory::chord_name) and read and written in Guitar Pro 3-5 and GPIF; no chord list at the top of the score"
