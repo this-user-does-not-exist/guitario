@@ -77,8 +77,9 @@ fn read_capped(p: &Path) -> Option<Vec<u8>> {
     (meta.is_file() && meta.len() <= MAX_FONT_BYTES).then(|| std::fs::read(p).ok()).flatten()
 }
 
-/// Registers the page font families (always) and the music font (when found).
-pub fn install(ctx: &egui::Context) -> FontSet {
+/// The page font families (always) and the music font (when found), as egui definitions. The PDF
+/// export embeds the very same fonts.
+pub fn definitions() -> (egui::FontDefinitions, FontSet) {
     let mut defs = egui::FontDefinitions::default();
     let fallback = defs.families.get(&egui::FontFamily::Proportional).cloned().unwrap_or_default();
     let mut set = FontSet::default();
@@ -101,6 +102,12 @@ pub fn install(ctx: &egui::Context) -> FontSet {
         defs.families.insert(egui::FontFamily::Name(SMUFL.into()), vec![SMUFL.to_string()]);
         set.smufl = true;
     }
+    (defs, set)
+}
+
+/// Registers the page font families (always) and the music font (when found).
+pub fn install(ctx: &egui::Context) -> FontSet {
+    let (defs, set) = definitions();
     ctx.set_fonts(defs);
     set
 }

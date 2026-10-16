@@ -9,10 +9,11 @@ const USAGE: &str = "guitario-cli <command>
 
   commands                       list every command id with its parameters (JSON)
   info <file>                    summarise a .gt or Guitar Pro (.gp, .gpx, .gp5, .gp4, .gp3) file
-  convert <in> <out> [--sounds <dir>]
-                                 .gt or Guitar Pro in; .gt, .gp, .gp5, .mid, .wav or .txt (ASCII tab)
-                                 out. For .wav, --sounds renders drums, bass and guitars from the SFZ
-                                 bank in <dir>
+  convert <in> <out> [--sounds <dir>] [--tracks 0,2] [--tab-only]
+                                 .gt or Guitar Pro in; .gt, .gp, .gp5, .pdf, .mid, .wav or .txt (ASCII
+                                 tab) out. For .wav, --sounds renders drums, bass and guitars from the
+                                 SFZ bank in <dir>. For .pdf, --tracks picks tracks by index (default
+                                 every track) and --tab-only leaves out the standard notation
   run <file|-> <script.json>     run [[\"command.id\", {params}], ...] on a score; `-` starts a new one;
                                  prints each result as JSON. Add --save <path> to write the result.
 ";
@@ -34,6 +35,11 @@ fn real_main(args: &[String]) -> Result<(), String> {
     let e = |e: EngineError| e.to_string();
     let a = |i: usize| args.get(i).map(String::as_str).ok_or_else(|| USAGE.to_string());
     let mut s = Session::new();
+    #[cfg(feature = "pdf")]
+    {
+        s.set_renderer(std::sync::Arc::new(guitario_ui_egui::PdfRenderer));
+        s.set_spooler(std::sync::Arc::new(guitario_ui_egui::SystemSpooler));
+    }
     match a(1)? {
         "commands" => {
             let list: Vec<Value> = registry()
@@ -56,6 +62,8 @@ fn real_main(args: &[String]) -> Result<(), String> {
                 "file.exportWav"
             } else if lower.ends_with(".txt") {
                 "file.exportAscii"
+            } else if lower.ends_with(".pdf") {
+                "file.exportPdf"
             } else if lower.ends_with(".gp5") {
                 "file.exportGp5"
             } else if lower.ends_with(".gp") {
@@ -63,12 +71,23 @@ fn real_main(args: &[String]) -> Result<(), String> {
             } else if lower.ends_with(".gt") {
                 "file.save"
             } else {
-                return Err("output must end in .gt, .gp, .gp5, .mid, .wav or .txt".into());
+                return Err("output must end in .gt, .gp, .gp5, .pdf, .mid, .wav or .txt".into());
             };
-            let params = match args.iter().position(|x| x == "--sounds") {
-                Some(pos) => json!({"path": out, "sounds": a(pos + 1)?}),
-                None => json!({"path": out}),
-            };
+            let mut params = serde_json::Map::new();
+            params.insert("path".into(), json!(out));
+            if let Some(pos) = args.iter().position(|x| x == "--sounds") {
+                params.insert("sounds".into(), json!(a(pos + 1)?));
+            }
+            if id == "file.exportPdf" {
+                if let Some(pos) = args.iter().position(|x| x == "--tracks") {
+                    let list: Result<Vec<u64>, _> = a(pos + 1)?.split(',').map(|t| t.trim().parse::<u64>()).collect();
+                    params.insert("tracks".into(), json!(list.map_err(|_| "--tracks takes track indexes such as 0,2".to_string())?));
+                }
+                if args.iter().any(|x| x == "--tab-only") {
+                    params.insert("notation".into(), json!(false));
+                }
+            }
+            let params = Value::Object(params);
             let r = s.run(id, &params).map_err(e)?;
             if let Some(w) = r.get("warnings").and_then(Value::as_array) {
                 for w in w {

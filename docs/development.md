@@ -39,7 +39,7 @@ equivalents found in the system font folders, `CRAFT_FONTS_DIR` or `GUITARIO_FON
 
 ## Headless CLI
 
-`guitario-cli commands | info <file> | convert <in> <out> [--sounds <dir>] | run <file|-> <script.json> [--save <path>]`.
+`guitario-cli commands | info <file> | convert <in> <out> [--sounds <dir>] [--tracks 0,2] [--tab-only] | run <file|-> <script.json> [--save <path>]`. `convert` writes `.gt`, `.gp`, `.gp5`, `.pdf`, `.mid`, `.wav` or `.txt`. PDF and printing come from the `pdf` feature (on by default; `--no-default-features` builds a CLI without the UI crate and its audio libraries).
 Inputs are `.gt` or any Guitar Pro file (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`); outputs are `.gt`, `.gp5`, `.mid`, `.wav` or `.txt`.
 A script is a JSON array of `["command.id", {params}]` steps.
 

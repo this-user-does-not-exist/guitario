@@ -41,8 +41,8 @@ status = "missing"
 [[item]]
 id = "FILE-7"
 target = "PDF export and printing"
-status = "missing"
-note = "gap G2"
+status = "partial"
+note = "File › Export › PDF… and `guitario-cli convert in out.pdf` write A4 vector pages with embedded font subsets and selectable text, for one track or all, with or without notation (crates/ui-egui/src/pdf.rs); File › Print… (Cmd+P) sends the same pages through craft-print with printer, copies, collate, sides and black and white, on a worker thread (file.print, file.printers); every demo exports without warnings and its pages were looked at as rasters; not yet sent to a real printer (human check); A4 only (FILE-11)"
 
 [[item]]
 id = "FILE-8"
@@ -60,3 +60,9 @@ id = "FILE-10"
 target = "Guitar Pro 5 (.gp5) export (File › Export › Guitar Pro 5…)"
 status = "done"
 note = "crates/gp/src/write5.rs, file.exportGp5: every demo round-trips (crates/gp/tests/gp5.rs) and real GP3-5 files come back unchanged; double dots, more than two voices or seven strings, fades out and free time are reported as dropped; demos/gp5/"
+
+[[item]]
+id = "FILE-11"
+target = "Print preview, page setup (paper size, margins), headers and footers, print selected bars"
+status = "missing"
+note = "gap G2"

@@ -42,11 +42,64 @@ pub struct Output {
     pub play_rect: Option<Rect>,
 }
 
+/// The layout metrics for `track`: a drum staff or notation over tab, with room for chord names.
+fn metrics_for(track: &Track, zoom: f32, notation: bool, voice: usize) -> Metrics {
+    let m = if track.is_drums() { Metrics::for_drums(zoom) } else { Metrics::new(zoom, notation, track.string_count()) };
+    m.with_annotations(track).with_voice(voice)
+}
+
+/// One track laid out for paper: A4 pages at 100 %.
+pub struct PrintLayout {
+    pub metrics: Metrics,
+    pub pages: Vec<PageBox>,
+}
+
+pub fn print_layout(score: &Score, track_index: usize, notation: bool) -> Option<PrintLayout> {
+    let track = score.tracks.get(track_index)?;
+    let metrics = metrics_for(track, 1.0, notation, 0);
+    Some(PrintLayout { pages: layout(score, track_index, &metrics), metrics })
+}
+
+/// Paints page `page` of a track's print layout with its top-left corner at the origin: the same
+/// engraving the page view draws, without the cursor, selection or playback marks. `number` is
+/// `(this page, pages in the document)` for the page number.
+pub fn paint_print_page(painter: &Painter, score: &Score, track_index: usize, pl: &PrintLayout, page: usize, number: (usize, usize), fonts: FontSet) {
+    let (Some(track), Some(boxed)) = (score.tracks.get(track_index), pl.pages.get(page)) else { return };
+    let m = pl.metrics;
+    let pen = Pen { painter, fonts, space: m.space };
+    // A cursor on a bar that does not exist is never drawn.
+    let cursor = Cursor { track: track_index, measure: usize::MAX, ..Cursor::default() };
+    let mut cx = Ctx {
+        pen,
+        m,
+        score,
+        track,
+        cursor,
+        t: tokens(),
+        hits: Vec::new(),
+        cursor_rect: None,
+        play: None,
+        play_rect: None,
+        selection: None,
+        clef: Clef::for_tuning(track.tuning.strings.iter().copied().max().unwrap_or(64)),
+    };
+    let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(m.page_w, m.page_h));
+    if page == 0 {
+        cx.header(rect);
+    }
+    painter.text(
+        rect.right_bottom() - vec2(m.margin_x, m.margin_bottom * 0.5),
+        egui::Align2::RIGHT_CENTER,
+        format!("{}/{}", number.0, number.1),
+        serif(9.0 * m.zoom),
+        Color32::from_gray(110),
+    );
+    cx.page(boxed, rect, page == 0);
+}
+
 pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Output {
     let Some(track) = score.tracks.get(cursor.track) else { return Output { click: None, drag: None, cursor_rect: None, play_rect: None } };
-    let m = if track.is_drums() { Metrics::for_drums(view.zoom) } else { Metrics::new(view.zoom, view.notation, track.string_count()) }
-        .with_annotations(track)
-        .with_voice(cursor.voice);
+    let m = metrics_for(track, view.zoom, view.notation, cursor.voice);
     let pages = layout(score, cursor.track, &m);
     let width = (m.page_w + 2.0 * PAGE_GAP).max(ui.available_width());
     let height = pages.len() as f32 * (m.page_h + PAGE_GAP) + PAGE_GAP;

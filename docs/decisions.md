@@ -80,3 +80,32 @@ it is exactly as good as the reader and the notes they share. What that cannot s
 Pro 8 opens the result: no copy is available here, so the exports are marked unverified until a person
 opens a few. Chord names and track volume/pan are not written (the reader does not read them), and
 the export says so in its warnings rather than losing them silently.
+
+## 2026-10-16: The PDF is the page view's engraving, recorded and replayed
+
+There is one engraving code path. `page::paint_print_page` paints a page into an egui `Painter`;
+on screen that is the window, for PDF it is a headless context whose recorded `Shape`s
+(`pdf.rs`) become Krilla paths and glyph runs. The alternative, a second drawing routine written
+against Krilla, would have drifted from the screen within a month. What it costs: text is placed
+glyph by glyph from egui's layout (no shaping beyond what egui does, which is enough for Latin
+text and symbols), and a shape egui can draw but the PDF cannot (images, gradients, callbacks) is
+dropped with a warning; none exist on pages today. A missing character is reported, never drawn as
+a box: this found that the natural sign had no glyph in any bundled font, so it is drawn as strokes
+now (on screen too).
+
+## 2026-10-16: The engine owns the commands, the shell owns the hardware
+
+`file.exportPdf`, `file.print` and `file.printers` live in the engine so agents and the CLI drive
+them like every other action, and the engine keeps building for wasm. The engine knows two traits,
+`PageRenderer` and `Spooler`, and the shell registers the real ones; a session without them says
+"this build cannot print" instead of failing mysteriously. `GuitarioApp::new` registers them
+itself, so no caller can forget. The CLI gets them behind a default-on `pdf` feature, because they
+pull in the UI crate (and its audio libraries); a lean headless build is `--no-default-features`.
+
+## 2026-10-16: A4 pages, shrunk to fit
+
+Pages are A4 (Guitar Pro's default stylesheet is built for it), and the print job asks craft-print
+to shrink them to the printer's paper rather than refuse a mismatch, so a Letter printer works.
+Paper choice, margins and headers belong to a page setup dialog, which does not exist yet
+(gap G2). Printing is synchronous in craft-print, so the dialog runs the job on a worker thread;
+the job holds an `Arc` of the score as it was, so edits made meanwhile do not change what prints.

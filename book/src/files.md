@@ -4,5 +4,10 @@
   (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`), drum tracks and up to four voices included. Some notation
   (grace notes, trills, tremolo picking, lyrics) is skipped for now, and Guitario tells you what.
 - **Save** as `.gt`. Saves are atomic: a crash or full disk never damages the previous save.
-- **Export** Guitar Pro 8 (`.gp`), Guitar Pro 5, MIDI, WAV audio and ASCII tab from File › Export.
+- **Export** Guitar Pro 8 (`.gp`), Guitar Pro 5, PDF, MIDI, WAV audio and ASCII tab from File › Export.
+- **PDF and print.** File › Export › PDF… writes the track on screen as A4 pages (vector, with the
+  fonts embedded and the text selectable). File › Print… (Cmd+P) sends the same pages to a printer:
+  choose the printer, copies, collate, sides and black and white, and one track or all. Pages are
+  shrunk to fit other paper. From a script: `guitario-cli convert song.gt song.pdf [--tracks 0,2] [--tab-only]`,
+  or the `file.exportPdf`, `file.print` and `file.printers` commands.
 - **Recent files** are under File › Open Recent.
