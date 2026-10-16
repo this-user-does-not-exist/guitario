@@ -1,0 +1,195 @@
+//! Guitar Pro 7/8 export read back by the importer: every demo survives the trip, the file is a
+//! well-formed GPIF archive, and damaged archives are refused without a panic.
+#![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used, clippy::panic)]
+
+mod common;
+
+use common::{as_gp, assert_same, demos, riff};
+use guitario_gp::{export_gp, import};
+use guitario_score::*;
+use guitario_theory::Duration;
+use std::io::Read;
+
+fn round_trip(s: &Score) -> (Score, Vec<String>, Vec<String>) {
+    let out = export_gp(s).expect("export");
+    let back = import(&out.bytes).unwrap_or_else(|e| panic!("exported file does not import: {e}"));
+    (back.score, out.warnings, back.warnings)
+}
+
+fn score_gpif(bytes: &[u8]) -> String {
+    let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).expect("a ZIP archive");
+    let mut xml = String::new();
+    zip.by_name("Content/score.gpif").expect("Content/score.gpif").read_to_string(&mut xml).unwrap();
+    xml
+}
+
+#[test]
+fn every_demo_survives_guitar_pro_8() {
+    for (name, score) in demos() {
+        let (back, _, import_warnings) = round_trip(&score);
+        assert!(import_warnings.is_empty(), "{name}: {import_warnings:?}");
+        assert_same(&name, &as_gp(&score), &back);
+        // A second trip changes nothing more.
+        let (again, _, _) = round_trip(&back);
+        assert_same(&name, &back, &again);
+    }
+}
+
+#[test]
+fn a_riff_with_every_effect_round_trips_and_what_is_left_out_is_said() {
+    let s = riff();
+    let (back, warnings, import_warnings) = round_trip(&s);
+    assert!(import_warnings.is_empty(), "{import_warnings:?}");
+    assert_same("riff", &as_gp(&s), &back);
+    // The riff has a chord diagram and a track with a non-default mix.
+    let all = warnings.join("\n");
+    assert!(all.contains("chord names and diagrams"), "{all}");
+    assert!(back.tracks[0].measures[0].voices[0].beats[0].chord.is_none());
+    // Everything else the riff carries came back: effects, ties, voices, repeats, endings, jumps.
+    let h = &back.headers[1];
+    assert_eq!((h.repeat_close, h.endings, h.jump, h.double_bar), (3, 0b101, Some(Jump::DalSegno(JumpEnd::Fine)), true));
+    assert_eq!(back.headers[0].targets, vec![DirectionTarget::Segno]);
+    assert_eq!(back.tracks[0].measures[1].voices.len(), 2);
+}
+
+#[test]
+fn four_voices_and_the_whole_model_of_a_bar_come_back() {
+    let mut s = riff();
+    let note = |string: u8, fret: u8| Beat { rest: false, notes: vec![Note::new(string, fret)], ..Beat::rest(Duration::WHOLE) };
+    s.tracks[0].measures[0].voices.truncate(1);
+    s.tracks[0].measures[0].voices.push(Voice { beats: vec![note(2, 4)] });
+    s.tracks[0].measures[0].voices.push(Voice { beats: vec![note(3, 5)] });
+    s.tracks[0].measures[0].voices.push(Voice { beats: vec![note(4, 6)] });
+    assert!(s.validate().is_ok());
+    let (back, _, _) = round_trip(&s);
+    assert_eq!(back.tracks[0].measures[0].voices.len(), 4);
+    assert_same("four voices", &as_gp(&s), &back);
+}
+
+#[test]
+fn the_archive_is_well_formed_and_hostile_text_is_made_safe() {
+    let mut s = riff();
+    s.meta.title = "A ]]> B \u{1}\u{7} <&> \"quoted\" ünï".into();
+    s.tracks[0].name = "]]>]]><x/>".into();
+    s.tracks[0].measures[0].voices[0].beats[0].text = Some("x]]>y\u{0}".into());
+    let out = export_gp(&s).expect("export");
+    let xml = score_gpif(&out.bytes);
+    roxmltree::Document::parse(&xml).expect("score.gpif is well-formed XML");
+    assert!(xml.starts_with("<?xml"));
+    let back = import(&out.bytes).expect("imports").score;
+    assert_eq!(back.meta.title, "A ]]> B  <&> \"quoted\" ünï", "the two control characters are removed, everything else is kept");
+    assert_eq!(back.tracks[0].name, "]]>]]><x/>");
+    assert_eq!(back.tracks[0].measures[0].voices[0].beats[0].text.as_deref(), Some("x]]>y"));
+    // The container carries the version marker the fixture has, and the music under Content/.
+    let zip = zip::ZipArchive::new(std::io::Cursor::new(&out.bytes)).unwrap();
+    assert!(zip.file_names().any(|n| n == "VERSION") && zip.file_names().any(|n| n == "Content/score.gpif"));
+}
+
+#[test]
+fn every_note_and_beat_has_its_own_id_and_every_reference_resolves() {
+    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("two-voices")).unwrap();
+    let xml = score_gpif(&export_gp(&score).unwrap().bytes);
+    let doc = roxmltree::Document::parse(&xml).unwrap();
+    let ids = |tag: &str| -> Vec<String> {
+        doc.descendants().filter(|n| n.has_tag_name(tag) && n.attribute("id").is_some()).map(|n| n.attribute("id").unwrap().to_string()).collect()
+    };
+    for tag in ["Bar", "Voice", "Beat", "Note", "Rhythm"] {
+        let all = ids(tag);
+        let unique: std::collections::BTreeSet<_> = all.iter().collect();
+        assert_eq!(all.len(), unique.len(), "duplicate {tag} ids");
+    }
+    let (notes, beats, rhythms, voices) = (ids("Note"), ids("Beat"), ids("Rhythm"), ids("Voice"));
+    for beat in doc.descendants().filter(|n| n.has_tag_name("Beat") && n.attribute("id").is_some()) {
+        let r = beat.children().find(|c| c.has_tag_name("Rhythm")).and_then(|c| c.attribute("ref")).unwrap();
+        assert!(rhythms.iter().any(|x| x == r), "beat points at a missing rhythm {r}");
+        if let Some(ns) = beat.children().find(|c| c.has_tag_name("Notes")).and_then(|c| c.text()) {
+            assert!(ns.split_whitespace().all(|n| notes.iter().any(|x| x == n)), "beat points at a missing note");
+        }
+    }
+    for voice in doc.descendants().filter(|n| n.has_tag_name("Voice") && n.attribute("id").is_some()) {
+        let bs = voice.children().find(|c| c.has_tag_name("Beats")).and_then(|c| c.text()).unwrap();
+        assert!(bs.split_whitespace().all(|b| beats.iter().any(|x| x == b)));
+    }
+    for bar in doc.descendants().filter(|n| n.has_tag_name("Bar") && n.attribute("id").is_some()) {
+        let vs = bar.children().find(|c| c.has_tag_name("Voices")).and_then(|c| c.text()).unwrap();
+        assert!(vs.split_whitespace().all(|v| v == "-1" || voices.iter().any(|x| x == v)));
+        assert_eq!(vs.split_whitespace().count(), 4, "a bar lists four voice slots");
+    }
+    // Rhythms are shared; the two-voice study needs only a handful.
+    assert!(rhythms.len() < 10, "{} rhythms", rhythms.len());
+}
+
+#[test]
+fn ties_mark_both_ends_and_hammer_ons_mark_their_target() {
+    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("two-voices")).unwrap();
+    let xml = score_gpif(&export_gp(&score).unwrap().bytes);
+    let doc = roxmltree::Document::parse(&xml).unwrap();
+    let tie = |origin: &str, destination: &str| {
+        doc.descendants().filter(|n| n.has_tag_name("Tie") && n.attribute("origin") == Some(origin) && n.attribute("destination") == Some(destination)).count()
+    };
+    assert_eq!((tie("true", "false"), tie("false", "true")), (1, 1), "the G tied over the bar line");
+
+    let mut s = Score::new();
+    let mut a = Note::new(0, 3);
+    a.effects.hammer = true;
+    let beat = |n: Note| Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::QUARTER) };
+    s.tracks[0].measures[0].voices[0].beats = vec![beat(a), beat(Note::new(0, 5)), Beat::rest(Duration::new(guitario_theory::NoteValue::Half))];
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    assert_eq!(xml.matches("name=\"HopoOrigin\"").count(), 1);
+    assert_eq!(xml.matches("name=\"HopoDestination\"").count(), 1);
+}
+
+#[test]
+fn drum_hits_outside_the_kit_keep_their_midi_number() {
+    let mut s = Score::new();
+    s.tracks = vec![Track::drums("Drums", &s.headers)];
+    let hit = |midi: u8| Note::new(guitario_theory::drums::lane_for(midi), midi);
+    // 56 is a cowbell: not in the kit map, so it travels as a General MIDI number.
+    s.tracks[0].measures[0].voices[0].beats = vec![
+        Beat { rest: false, notes: vec![hit(42), hit(38), hit(36)], ..Beat::rest(Duration::QUARTER) },
+        Beat { rest: false, notes: vec![hit(56)], ..Beat::rest(Duration::QUARTER) },
+        Beat::rest(Duration::new(guitario_theory::NoteValue::Half)),
+    ];
+    let (back, _, _) = round_trip(&s);
+    let b = &back.tracks[0].measures[0].voices[0].beats;
+    assert_eq!(b[0].notes.iter().map(|n| n.fret).collect::<Vec<_>>(), vec![42, 38, 36]);
+    assert_eq!(b[1].notes[0].fret, 56);
+    assert_same("drums", &as_gp(&s), &back);
+}
+
+#[test]
+fn a_long_score_exports_and_comes_back_whole() {
+    let mut s = Score::new();
+    for _ in 0..2_999 {
+        let h = s.headers[0].clone();
+        s.headers.push(h.clone());
+        for t in &mut s.tracks {
+            t.measures.push(Measure::empty_for(&h));
+        }
+    }
+    let beat = |f: u8| Beat { rest: false, notes: vec![Note::new(1, f)], ..Beat::rest(Duration::QUARTER) };
+    for (i, m) in s.tracks[0].measures.iter_mut().enumerate() {
+        m.voices[0].beats = vec![beat((i % 20) as u8), beat(3), beat(5), beat(7)];
+    }
+    let (back, warnings, _) = round_trip(&s);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert_eq!(back.headers.len(), 3_000);
+    assert_eq!(back.tracks[0].measures[2_999].voices[0].beats[0].notes[0].fret, (2_999 % 20) as u8);
+}
+
+#[test]
+fn every_truncation_is_refused_and_corruption_never_panics() {
+    let bytes = export_gp(&riff()).unwrap().bytes;
+    for len in 0..bytes.len() {
+        assert!(import(&bytes[..len]).is_err(), "a file cut at {len} of {} bytes imported", bytes.len());
+    }
+    for i in 0..bytes.len() {
+        for v in [0x00, 0x7f, 0xff] {
+            let mut b = bytes.clone();
+            b[i] = v;
+            if let Ok(imp) = import(&b) {
+                assert!(imp.score.validate().is_ok());
+            }
+        }
+    }
+}

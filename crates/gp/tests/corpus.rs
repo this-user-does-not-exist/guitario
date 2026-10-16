@@ -4,6 +4,8 @@
 //! Set `GUITARIO_GP_DUMP=1` to print what each file imported as.
 #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used, clippy::panic)]
 
+mod common;
+
 #[test]
 fn every_corpus_file_imports() {
     let Ok(dir) = std::env::var("GUITARIO_GP_CORPUS") else { return };
@@ -18,6 +20,21 @@ fn every_corpus_file_imports() {
                 println!("ok   {} ({} bars, {} tracks) {:?}", path.display(), imp.score.headers.len(), imp.score.tracks.len(), imp.warnings);
                 if dump {
                     print!("{}", describe(&imp.score));
+                }
+                // Anything that imports survives a trip through a Guitar Pro 7/8 file unchanged.
+                match guitario_gp::export_gp(&imp.score).and_then(|out| guitario_gp::import(&out.bytes)) {
+                    Ok(back) if back.score == common::as_gp(&imp.score) => {}
+                    Ok(back) => {
+                        println!("DIFF {}: the Guitar Pro 8 round trip changed the score", path.display());
+                        if dump {
+                            print!("{}", describe(&back.score));
+                        }
+                        failed.push(path.clone());
+                    }
+                    Err(e) => {
+                        println!("FAIL {}: its Guitar Pro 8 export does not import: {e}", path.display());
+                        failed.push(path.clone());
+                    }
                 }
                 // What was read from Guitar Pro 3-5 survives a trip through the Guitar Pro 5 writer unchanged.
                 let legacy = path.extension().and_then(|e| e.to_str()).is_some_and(|e| ["gp3", "gp4", "gp5"].contains(&e.to_ascii_lowercase().as_str()));

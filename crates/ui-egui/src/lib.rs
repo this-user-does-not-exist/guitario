@@ -234,6 +234,7 @@ impl GuitarioApp {
             U::ExportWav => self.export_dialog("WAV audio", "wav", "file.exportWav"),
             U::ExportAscii => self.export_dialog("Text", "txt", "file.exportAscii"),
             U::ExportGp5 => self.export_dialog("Guitar Pro 5", "gp5", "file.exportGp5"),
+            U::ExportGp => self.export_dialog("Guitar Pro 8", "gp", "file.exportGp"),
             U::ImportGuitarPro => self.open_dialog(),
             U::Quit => ctx_quit(),
             U::SongInfo => {

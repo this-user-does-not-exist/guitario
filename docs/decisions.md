@@ -70,3 +70,13 @@ and Voice 2 stems down (drums: hands up, feet down) and their rests move apart. 
 only rests is drawn only while it is the one being edited, as Guitar Pro hides an empty second voice.
 Everything that edits a beat (durations, notes, the clipboard, selection) follows `Cursor::voice`;
 `edit.setVoice` adds a voice to the bar (a bar-long rest) when it is missing, as one undo step.
+
+## 2026-10-16: The `.gp` writer mirrors the reader, and is checked against it
+
+`crates/gp/src/writegp.rs` writes the GPIF the importer reads (and the shape of real GP6 `score.gpif`
+files): every bar, voice, beat and note has its own id, rhythms are shared, strings count from the
+lowest, a tie marks both of its notes. Its tests round-trip every demo and, locally, 76 real files, so
+it is exactly as good as the reader and the notes they share. What that cannot show is whether Guitar
+Pro 8 opens the result: no copy is available here, so the exports are marked unverified until a person
+opens a few. Chord names and track volume/pan are not written (the reader does not read them), and
+the export says so in its warnings rather than losing them silently.
