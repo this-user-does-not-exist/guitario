@@ -97,7 +97,12 @@ impl Accidentals {
 /// shorter that start in the same beat unit (a dotted quarter in compound time, else one
 /// denominator beat). Returns beat indices.
 pub fn beam_groups(beats: &[guitario_score::Beat], ts: guitario_theory::TimeSignature) -> Vec<Vec<usize>> {
-    let unit = if ts.denominator == 8 && ts.numerator.is_multiple_of(3) { 1440 } else { 3840 / u32::from(ts.denominator.max(1)) }.max(1);
+    let unit = if ts.denominator == 8 && ts.numerator.is_multiple_of(3) {
+        guitario_theory::TICKS_PER_QUARTER * 3 / 2
+    } else {
+        4 * guitario_theory::TICKS_PER_QUARTER / u32::from(ts.denominator.max(1))
+    }
+    .max(1);
     let mut groups: Vec<Vec<usize>> = Vec::new();
     let mut tick = 0u32;
     let mut prev_unit = None;

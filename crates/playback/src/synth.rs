@@ -39,6 +39,11 @@ pub struct StringVoice {
     log_freq: f32,
     pub bend_semis: f32,
     pub vibrato: bool,
+    /// Vibrato depth in octaves (wide vibrato is deeper).
+    pub vibrato_depth: f32,
+    /// Output gain for fades and swells, 0..=1.
+    pub gain: f32,
+    pub fade: Option<guitario_score::Fade>,
     vib_phase: f32,
     loss: f32,
     pub released: bool,
@@ -86,6 +91,9 @@ impl StringVoice {
             log_freq: lf,
             bend_semis: 0.0,
             vibrato: false,
+            vibrato_depth: 0.012,
+            gain: 1.0,
+            fade: None,
             vib_phase: 0.0,
             loss: p.sustain,
             released: false,
@@ -136,7 +144,7 @@ impl StringVoice {
             if self.vib_phase >= 1.0 {
                 self.vib_phase -= 1.0;
             }
-            lf += 0.012 * (self.vib_phase * std::f32::consts::TAU).sin();
+            lf += self.vibrato_depth * (self.vib_phase * std::f32::consts::TAU).sin();
         }
         let len = self.buf.len();
         // The two-point average delays half a sample; compensate.
@@ -155,7 +163,7 @@ impl StringVoice {
         self.w = (self.w + 1) % len;
         self.level = self.level * 0.999 + y.abs() * 0.001;
         self.age = self.age.saturating_add(1);
-        y
+        y * self.gain
     }
 }
 

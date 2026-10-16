@@ -42,7 +42,7 @@ fn shared_beats_notes_and_effects() {
     let t = &s.tracks[0];
     let bar1 = &t.measures[0].voices[0].beats;
     assert_eq!(bar1.len(), 8, "shared gallop beats are each used where referenced");
-    assert_eq!(bar1.iter().map(|b| b.duration.ticks()).sum::<u32>(), 3840);
+    assert_eq!(bar1.iter().map(|b| b.duration.ticks()).sum::<u32>(), 4 * guitario_theory::TICKS_PER_QUARTER);
     assert_eq!(bar1[1].duration, Duration::new(guitario_theory::NoteValue::Sixteenth));
     // GP string 0 (lowest) becomes our string 5.
     let low = &bar1[0].notes[0];
@@ -74,7 +74,7 @@ fn imported_score_plays() {
     let s = load().score;
     let notes = guitario_score::timeline(&s);
     // The tie merges two half notes into one whole-note attack per pass.
-    assert!(notes.iter().any(|n| n.string == 5 && n.ticks == 3840));
+    assert!(notes.iter().any(|n| n.string == 5 && n.ticks == 4 * guitario_theory::TICKS_PER_QUARTER));
     assert!(s.validate().is_ok());
 }
 

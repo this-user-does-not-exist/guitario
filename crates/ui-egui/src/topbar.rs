@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 /// Seconds from the start to `measure` (first pass) and the whole song, following repeats.
 fn song_times(score: &Score, measure: usize, beat_ticks: u32) -> (f64, f64) {
-    let secs = |mi: usize, ticks: u32| f64::from(ticks) / 960.0 * 60.0 / f64::from(score.tempo_at(mi).max(1));
+    let secs = |mi: usize, ticks: u32| f64::from(ticks) / f64::from(guitario_theory::TICKS_PER_QUARTER) * 60.0 / f64::from(score.tempo_at(mi).max(1));
     let mut total = 0.0;
     let mut at = None;
     for mi in playback_order(score) {
@@ -155,7 +155,7 @@ fn lcd(ui: &mut egui::Ui, score: &Score, c: guitario_engine::Cursor, w: f32, pla
         .map_or(0, |v| v.beats.iter().take(c.beat).map(|b| b.duration.ticks()).sum());
     let (now, total) = song_times(score, c.measure, beat_ticks);
     let now = play.map_or(now, |p| p.0.max(0.0));
-    let beat_no = beat_ticks / (3840 / u32::from(header.map_or(4, |h| h.time_signature.denominator).max(1))).max(1) + 1;
+    let beat_no = beat_ticks / (4 * guitario_theory::TICKS_PER_QUARTER / u32::from(header.map_or(4, |h| h.time_signature.denominator).max(1))).max(1) + 1;
     let cells: [(&str, String, f32); 5] = [
         ("TRACK", track.map_or_else(String::new, |tr| format!("{}. {}", c.track + 1, tr.name)), 0.36),
         ("BAR", format!("{} / {}", c.measure + 1, score.headers.len()), 0.15),

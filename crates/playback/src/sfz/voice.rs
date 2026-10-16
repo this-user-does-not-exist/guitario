@@ -28,6 +28,11 @@ pub struct SampleVoice {
     pub note_end: f64,
     pub bend_to: f32,
     pub bend_semis: f32,
+    /// Vibrato depth in semitones (wide vibrato is deeper).
+    pub vibrato_depth: f32,
+    /// Output gain for fades and swells, 0..=1.
+    pub gain: f32,
+    pub fade: Option<guitario_score::Fade>,
     sample: Arc<Sample>,
     pos: f64,
     /// Source frames per output frame before bend.
@@ -90,6 +95,9 @@ impl SampleVoice {
             note_end: f64::MAX,
             bend_to: 0.0,
             bend_semis: 0.0,
+            vibrato_depth: 0.12,
+            gain: 1.0,
+            fade: None,
             sample: Arc::clone(sample),
             pos: (region.offset as f64).min(frames),
             step,
@@ -199,7 +207,7 @@ impl SampleVoice {
             if self.vib_phase >= 1.0 {
                 self.vib_phase -= 1.0;
             }
-            bend += 0.12 * (self.vib_phase * std::f32::consts::TAU).sin();
+            bend += self.vibrato_depth * (self.vib_phase * std::f32::consts::TAU).sin();
         }
         let i = self.pos.floor();
         let t = (self.pos - i) as f32;
@@ -220,7 +228,7 @@ impl SampleVoice {
         } else if self.pos >= self.end {
             self.done = true;
         }
-        (l * self.level * self.gain_l, r * self.level * self.gain_r)
+        (l * self.level * self.gain_l * self.gain, r * self.level * self.gain_r * self.gain)
     }
 }
 

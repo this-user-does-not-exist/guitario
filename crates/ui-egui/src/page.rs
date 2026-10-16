@@ -9,7 +9,7 @@ use crate::notation::{Accidentals, Clef, beam_groups, spell, staff_pos};
 use crate::theme::{Tokens, tokens};
 use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
 use guitario_engine::Cursor;
-use guitario_score::{Beat, MeasureHeader, Note, NoteKind, Score, Slide, Track};
+use guitario_score::{Beat, BeatTechnique, BrushKind, Fade, MeasureHeader, Note, NoteKind, Score, Slide, StrokeDirection, Track, TripletFeel};
 
 const PAGE_GAP: f32 = 24.0;
 
@@ -273,7 +273,7 @@ impl<'a> Ctx<'a> {
             let header = self.score.headers.get(mb.index);
             let Some(h) = header else { continue };
             let end = mx + mb.width;
-            if mb.show_time {
+            if mb.show_time && !h.free_time {
                 self.time_signature(h, mx + 0.9 * s, nt, tt, tb);
             }
             if h.repeat_open {
@@ -296,6 +296,23 @@ impl<'a> Ctx<'a> {
                     self.p().line_segment([pos2(end, nt), pos2(end, nt + 4.0 * s)], bar);
                 }
                 self.p().line_segment([pos2(end, tt), pos2(end, tb)], bar);
+                if h.double_bar {
+                    self.staves_lines(end - 0.6 * s, nt, tt, tb, bar);
+                }
+            }
+            // Triplet feel where it changes.
+            let prev_feel = mb.index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(TripletFeel::None, |p| p.triplet_feel);
+            if h.triplet_feel != prev_feel {
+                let label = match h.triplet_feel {
+                    TripletFeel::None => "straight",
+                    TripletFeel::Triplet8th => "swing 8ths (♪♪ = ♩♪³)",
+                    TripletFeel::Triplet16th => "swing 16ths",
+                    TripletFeel::Dotted8th => "dotted 8ths (♪♪ = ♪.♬)",
+                    TripletFeel::Dotted16th => "dotted 16ths",
+                    TripletFeel::Scottish8th => "Scottish 8ths",
+                    TripletFeel::Scottish16th => "Scottish 16ths",
+                };
+                self.p().text(pos2(mx + 0.5 * s, sys_top - 5.6 * s), egui::Align2::LEFT_BOTTOM, label, serif(8.5 * m.zoom), t.ink);
             }
             if let Some(text) = &h.marker {
                 let galley = self.p().layout_no_wrap(text.clone(), serif(10.0 * m.zoom), t.ink);
@@ -570,6 +587,10 @@ impl<'a> Ctx<'a> {
                 }
                 if b.notes.iter().any(|n| n.effects.accent) {
                     self.pen.glyph_centered(if above { g::ACCENT_ABOVE } else { '\u{E4A1}' }, pos2(info.x, y + dy), ink);
+                    dy += if above { -s } else { s };
+                }
+                if b.notes.iter().any(|n| n.effects.heavy_accent) {
+                    self.pen.glyph_centered(if above { g::MARCATO_ABOVE } else { g::MARCATO_BELOW }, pos2(info.x, y + dy), ink);
                 }
             }
         }
@@ -656,6 +677,37 @@ impl<'a> Ctx<'a> {
         }
         let font = sans(m.tab_gap * 1.02);
         let fx = Stroke::new((0.13 * s).max(1.0), t.effect_ink);
+        // Brush, arpeggio and rasgueado: a line beside the chord, pointing the way the strum goes.
+        if let Some(brush) = pb.beat.brush
+            && pb.beat.notes.len() > 1
+        {
+            let (lo, hi) = (pb.beat.notes.iter().map(|n| n.string).min().unwrap_or(0), pb.beat.notes.iter().map(|n| n.string).max().unwrap_or(0));
+            let (top, bottom) = (self.tab_y(tt, usize::from(lo)) - 0.4 * m.tab_gap, self.tab_y(tt, usize::from(hi)) + 0.4 * m.tab_gap);
+            let x = pb.x - 1.6 * s;
+            if brush.kind == BrushKind::Arpeggio {
+                let mut pts = Vec::new();
+                let mut y = top;
+                let mut k = 0;
+                while y <= bottom {
+                    pts.push(pos2(x + if k % 2 == 0 { -0.25 * s } else { 0.25 * s }, y));
+                    y += 0.35 * s;
+                    k += 1;
+                }
+                self.p().add(egui::Shape::line(pts, fx));
+            } else {
+                self.p().line_segment([pos2(x, top), pos2(x, bottom)], fx);
+            }
+            // A downstroke runs from the low strings (bottom) to the high strings (top).
+            let (tip, dir) = if brush.down { (top, -1.0) } else { (bottom, 1.0) };
+            self.p().add(egui::Shape::convex_polygon(
+                vec![pos2(x, tip + dir * 0.5 * s), pos2(x - 0.35 * s, tip - dir * 0.2 * s), pos2(x + 0.35 * s, tip - dir * 0.2 * s)],
+                t.effect_ink,
+                Stroke::NONE,
+            ));
+            if brush.kind == BrushKind::Rasgueado {
+                self.p().text(pos2(x, top - 0.5 * s), egui::Align2::CENTER_BOTTOM, "rasg.", serif(7.5 * m.zoom), t.effect_ink);
+            }
+        }
         for n in &pb.beat.notes {
             let y = self.tab_y(tt, usize::from(n.string));
             let galley = self.p().layout_no_wrap(Self::fret_text(n), font.clone(), t.ink);
@@ -750,8 +802,58 @@ impl<'a> Ctx<'a> {
             }
         }
         for pb in placed {
-            if !pb.beat.rest && pb.beat.notes.iter().any(|n| n.effects.vibrato) {
+            if pb.beat.rest {
+                continue;
+            }
+            if pb.beat.notes.iter().any(|n| n.effects.wide_vibrato) {
+                g::wavy(self.p(), pb.x - 0.4 * s, pb.x + pb.w / 2.0, tt - 1.6 * s, 0.5 * s, Stroke::new(2.0, t.effect_ink));
+            } else if pb.beat.notes.iter().any(|n| n.effects.vibrato) {
                 g::wavy(self.p(), pb.x - 0.4 * s, pb.x + pb.w / 2.0, tt - 1.6 * s, 0.25 * s, Stroke::new(1.2, t.effect_ink));
+            }
+            // Beat techniques on their own lane: tapping, slap/pop, pick strokes, fades.
+            let mut marks: Vec<String> = Vec::new();
+            if pb.beat.notes.iter().any(|n| n.effects.tapped) {
+                marks.push("T".into());
+            }
+            if pb.beat.notes.iter().any(|n| n.effects.left_hand_tapped) {
+                marks.push("LH T".into());
+            }
+            match pb.beat.technique {
+                Some(BeatTechnique::Slap) => marks.push("S".into()),
+                Some(BeatTechnique::Pop) => marks.push("P".into()),
+                None => {}
+            }
+            let lane = tt - 5.9 * s;
+            let mut x = pb.x;
+            for mark in marks {
+                let galley = self.p().layout_no_wrap(mark, font.clone(), t.effect_ink);
+                let w = galley.size().x;
+                self.p().galley(pos2(x - w / 2.0, lane - galley.size().y / 2.0), galley, t.effect_ink);
+                x += w + 0.4 * s;
+            }
+            if let Some(dir) = pb.beat.stroke {
+                // Above the notation staff (or the tab when notation is hidden), as Guitar Pro does.
+                let y = if m.notation { tt - (m.tab_top() - m.notation_top()) - 1.4 * s } else { lane - 1.2 * s };
+                self.pen.glyph_centered(if dir == StrokeDirection::Down { g::STROKE_DOWN } else { g::STROKE_UP }, pos2(pb.x, y), t.effect_ink);
+            }
+            if let Some(fade) = pb.beat.fade {
+                let (x0, x1, y) = (pb.x - 0.5 * s, pb.x + (pb.w / 2.0).max(1.5 * s), lane + 1.2 * s);
+                let h = 0.45 * s;
+                let st = Stroke::new(1.0, t.effect_ink);
+                let wedge = |a: f32, b: f32, opening: bool| {
+                    let (tip, mouth) = if opening { (a, b) } else { (b, a) };
+                    self.p().line_segment([pos2(tip, y), pos2(mouth, y - h)], st);
+                    self.p().line_segment([pos2(tip, y), pos2(mouth, y + h)], st);
+                };
+                match fade {
+                    Fade::In => wedge(x0, x1, true),
+                    Fade::Out => wedge(x0, x1, false),
+                    Fade::Swell => {
+                        let mid = (x0 + x1) / 2.0;
+                        wedge(x0, mid, true);
+                        wedge(mid, x1, false);
+                    }
+                }
             }
         }
     }

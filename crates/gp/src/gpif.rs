@@ -429,7 +429,7 @@ mod tests {
         assert_eq!(beats[0].notes[1].effects.slide, Some(Slide::Legato));
         assert!(beats[0].notes[1].effects.let_ring);
         assert!(beats[1].rest);
-        assert_eq!(beats[1].duration.ticks(), 2880);
+        assert_eq!(beats[1].duration.ticks(), 3 * guitario_theory::TICKS_PER_QUARTER);
         assert_eq!(beats[0].dynamic, Dynamic::F);
         // Empty bar falls back to a rest.
         assert!(t.measures[1].voices[0].beats[0].rest);

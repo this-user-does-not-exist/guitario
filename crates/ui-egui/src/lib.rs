@@ -217,7 +217,9 @@ impl GuitarioApp {
         let track = self.session.score().tracks.get(c.track).cloned();
         match a {
             U::Open => self.open_dialog(),
-            U::OpenRecent | U::TimeSignature | U::KeySignature | U::Section | U::TempoChange => {}
+            U::OpenRecent | U::TimeSignature | U::KeySignature | U::Section | U::TempoChange | U::TripletFeel | U::Tuplet | U::Brush(_) => {}
+            U::CloseDocument => self.new_document(),
+            U::CheckBarDurations => self.check_bar_durations(),
             U::Save => self.save_dialog(false),
             U::SaveAs => self.save_dialog(true),
             U::ExportMidi => self.export_dialog("MIDI", "mid", "file.exportMidi"),
@@ -266,6 +268,22 @@ impl GuitarioApp {
             U::ToggleGlobalView => self.panels.global = !self.panels.global,
             U::ToggleFretboard => self.panels.fretboard = !self.panels.fretboard,
             U::About => self.about_open = true,
+        }
+    }
+
+    /// Tools › Check Bar Durations: reports incomplete bars and moves to the first one.
+    fn check_bar_durations(&mut self) {
+        let Some(r) = self.run("tools.checkBarDurations", Value::Null) else { return };
+        let bars = r.get("bars").and_then(Value::as_array).cloned().unwrap_or_default();
+        match bars.first() {
+            None => self.status = "Every bar is complete.".into(),
+            Some(first) => {
+                let track = first.get("track").and_then(Value::as_u64).unwrap_or(0);
+                let measure = first.get("measure").and_then(Value::as_u64).unwrap_or(0);
+                self.run("cursor.set", json!({"track": track, "measure": measure, "beat": 0}));
+                self.status = format!("{} incomplete bar(s); the first is bar {} of track {}.", bars.len(), measure + 1, track + 1);
+                self.status_is_error = true;
+            }
         }
     }
 

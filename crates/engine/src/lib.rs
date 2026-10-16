@@ -5,12 +5,16 @@
 //! GUI.
 
 mod ascii;
+mod bars;
 mod commands;
 mod drums;
 mod error;
 mod params;
 mod selection;
 mod session;
+mod techniques;
+mod tools;
+mod tracks;
 
 pub use commands::{CommandSpec, registry};
 pub use error::EngineError;

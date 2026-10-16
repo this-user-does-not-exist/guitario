@@ -1,7 +1,7 @@
 use crate::sfz::{Instrument, SampleVoice};
 use crate::synth::{Click, DrumVoice, Noise, Pluck, StringVoice};
 use crate::tempo::{BeatTime, TempoMap, locate};
-use guitario_score::{Score, Slide, timeline};
+use guitario_score::{Fade, Score, Slide, timeline};
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -38,6 +38,19 @@ struct NoteEvent {
     /// This note continues the previous one on its string without a pluck.
     legato_from_prev: bool,
     slide_glide: bool,
+    wide_vibrato: bool,
+    fade: Option<Fade>,
+}
+
+/// Gain of a fade at `x`, the fraction of the note played (0..=1).
+fn fade_gain(fade: Option<Fade>, x: f64) -> f32 {
+    let x = if x.is_nan() { 1.0 } else { x.clamp(0.0, 1.0) as f32 };
+    match fade {
+        None => 1.0,
+        Some(Fade::In) => x,
+        Some(Fade::Out) => 1.0 - x,
+        Some(Fade::Swell) => (x * std::f32::consts::PI).sin().max(if x > 0.5 { 0.0 } else { x }),
+    }
 }
 
 struct TrackBus {
@@ -86,6 +99,8 @@ pub struct Player {
     playing: bool,
     pub opts: Options,
     beats: Vec<Vec<BeatTime>>,
+    /// Beats per bar of each tempo-map segment, for the count-in.
+    meter: Vec<u32>,
 }
 
 /// The sorted, distinct MIDI keys `track` plays, so a sampled instrument can load only the
@@ -151,7 +166,9 @@ impl Player {
                 dead: p.dead,
                 palm_mute: p.effects.palm_mute,
                 let_ring: p.effects.let_ring,
-                vibrato: p.effects.vibrato,
+                vibrato: p.effects.vibrato || p.effects.wide_vibrato,
+                wide_vibrato: p.effects.wide_vibrato,
+                fade: p.fade,
                 bend: p.effects.bend.map_or(0.0, |q| f32::from(q) / 2.0),
                 legato_from_prev: legato,
                 slide_glide,
@@ -159,10 +176,15 @@ impl Player {
         }
         notes.sort_by(|a, b| a.start.total_cmp(&b.start));
 
-        // Metronome: one click per denominator beat, accent on the downbeat.
+        // Metronome: one click per denominator beat, accent on the downbeat; silent in free time.
         let mut clicks = Vec::new();
+        let meter: Vec<u32> =
+            map.segments.iter().map(|seg| score.headers.get(seg.measure).map_or(4, |h| u32::from(h.time_signature.numerator.max(1)))).collect();
         for seg in &map.segments {
             let Some(h) = score.headers.get(seg.measure) else { continue };
+            if h.free_time {
+                continue;
+            }
             let n = u32::from(h.time_signature.numerator.max(1));
             let step = seg.ticks / n;
             for k in 0..n {
@@ -216,6 +238,7 @@ impl Player {
             playing: false,
             opts,
             beats,
+            meter,
         }
     }
 
@@ -279,20 +302,19 @@ impl Player {
         self.count_in_end = sec;
         self.t = sec;
         if self.opts.count_in {
-            // One bar of clicks at the tempo where playback starts.
-            let tick = self
+            // One bar of the time signature where playback starts, at its tempo.
+            let idx = self
                 .map
                 .segments
                 .iter()
-                .find(|s| s.start_sec + f64::from(s.ticks) * s.sec_per_tick > sec)
-                .or(self.map.segments.last())
-                .map_or(0, |s| s.start_tick);
-            let rate = self.map.rate_at(tick);
-            let beat = 960.0 * rate;
-            for k in 0..4 {
-                self.count_in_clicks.push((sec - (4 - k) as f64 * beat, k == 0));
+                .position(|s| s.start_sec + f64::from(s.ticks) * s.sec_per_tick > sec)
+                .unwrap_or(self.map.segments.len().saturating_sub(1));
+            let n = self.meter.get(idx).copied().unwrap_or(4).max(1);
+            let beat = self.map.segments.get(idx).map_or(0.5, |s| f64::from(s.ticks) / f64::from(n) * s.sec_per_tick);
+            for k in 0..n {
+                self.count_in_clicks.push((sec - f64::from(n - k) * beat, k == 0));
             }
-            self.t = sec - 4.0 * beat;
+            self.t = sec - f64::from(n) * beat;
         }
         self.next_note = self.notes.partition_point(|n| n.start < sec);
         self.next_click = self.clicks.partition_point(|c| c.0 < sec);
@@ -372,6 +394,11 @@ impl Player {
         for h in hits {
             let mut v = SampleVoice::new(n.track, n.string, h.region, h.sample, key, velocity, self.sr);
             v.vibrato = n.vibrato;
+            if n.wide_vibrato {
+                v.vibrato_depth = 0.45;
+            }
+            v.fade = n.fade;
+            v.gain = fade_gain(n.fade, 0.0);
             v.let_ring = n.let_ring && !damped;
             let end = if damped { n.end.min(n.start + if n.dead { 0.08 } else { 0.22 }) } else { n.end };
             (v.note_start, v.note_end, v.bend_to) = (n.start, end, n.bend);
@@ -415,6 +442,11 @@ impl Player {
         let pluck = Pluck { freq: n.freq, velocity: n.velocity * if n.dead { 0.6 } else { 1.0 }, brightness, sustain };
         let mut v = StringVoice::new(n.track, n.string, self.sr, &pluck, &mut self.noise);
         v.vibrato = n.vibrato;
+        if n.wide_vibrato {
+            v.vibrato_depth = 0.04;
+        }
+        v.fade = n.fade;
+        v.gain = fade_gain(n.fade, 0.0);
         v.let_ring = n.let_ring;
         (v.note_start, v.note_end, v.bend_to) = (n.start, n.end, n.bend);
         if self.voices.len() >= MAX_VOICES {
@@ -459,6 +491,9 @@ impl Player {
                     if !v.let_ring && !v.released && t >= v.note_end {
                         v.release();
                     }
+                    if v.fade.is_some() {
+                        v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3));
+                    }
                     if v.bend_to > 0.0 {
                         let half = ((v.note_end - v.note_start) * 0.5).max(1e-3);
                         v.bend_semis = v.bend_to * ((t - v.note_start) / half).clamp(0.0, 1.0) as f32;
@@ -467,6 +502,9 @@ impl Player {
                 for v in &mut self.sampled {
                     if !v.let_ring && !v.released && t >= v.note_end {
                         v.release();
+                    }
+                    if v.fade.is_some() {
+                        v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3));
                     }
                     if v.bend_to > 0.0 {
                         let half = ((v.note_end - v.note_start) * 0.5).max(1e-3);
@@ -724,6 +762,30 @@ mod tests {
         p.render(&mut more, 2);
         assert_eq!(p.sampled.len(), 1);
         assert_eq!(used_keys(&s, 0), vec![42, 46]);
+    }
+
+    #[test]
+    fn count_in_follows_the_time_signature() {
+        for (num, den, clicks) in [(3u8, 4u8, 3usize), (6, 8, 6), (7, 8, 7), (4, 4, 4)] {
+            let mut s = Score::new();
+            s.headers[0].time_signature = guitario_theory::TimeSignature::new(num, den).unwrap();
+            s.tracks[0].measures[0] = guitario_score::Measure::empty_for(&s.headers[0]);
+            let mut p = Player::new(&s, 8_000, Options { count_in: true, ..Options::default() });
+            p.play_from(0.0);
+            assert_eq!(p.count_in_clicks.len(), clicks, "{num}/{den}");
+            // One bar of the signature at 120 bpm.
+            let bar = f64::from(num) * 4.0 / f64::from(den) * 0.5;
+            assert!((p.position() + bar).abs() < 1e-6, "{num}/{den}: {}", p.position());
+        }
+    }
+
+    #[test]
+    fn fades_shape_the_gain() {
+        assert_eq!(fade_gain(None, 0.3), 1.0);
+        assert!(fade_gain(Some(Fade::In), 0.0) < 1e-6 && (fade_gain(Some(Fade::In), 1.0) - 1.0).abs() < 1e-6);
+        assert!(fade_gain(Some(Fade::Out), 1.0) < 1e-6);
+        assert!(fade_gain(Some(Fade::Swell), 0.5) > 0.99 && fade_gain(Some(Fade::Swell), 1.0) < 1e-3);
+        assert!(fade_gain(Some(Fade::In), f64::NAN).is_finite());
     }
 
     #[test]
