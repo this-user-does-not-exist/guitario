@@ -867,6 +867,78 @@ pub struct NoteEffects {
     /// A small, quick note on the same string just before this one (or on its beat).
     #[serde(default)]
     pub grace: Option<Grace>,
+    /// The left-hand finger that frets the note (drawn T, 1-4).
+    #[serde(default)]
+    pub left_finger: Option<Finger>,
+    /// The right-hand finger that plucks it (drawn p, i, m, a, c).
+    #[serde(default)]
+    pub right_finger: Option<Finger>,
+}
+
+/// A finger, as Guitar Pro names them for both hands: thumb, index, middle, ring (annular) and little.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Finger {
+    Thumb,
+    Index,
+    Middle,
+    Ring,
+    Little,
+}
+
+impl Finger {
+    pub const ALL: [Finger; 5] = [Finger::Thumb, Finger::Index, Finger::Middle, Finger::Ring, Finger::Little];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Finger::Thumb => "thumb",
+            Finger::Index => "index",
+            Finger::Middle => "middle",
+            Finger::Ring => "ring",
+            Finger::Little => "little",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Finger> {
+        Finger::ALL.into_iter().find(|f| f.name() == name)
+    }
+
+    /// The left-hand mark: T for the thumb, 1 to 4 for the fingers.
+    pub fn left_mark(self) -> &'static str {
+        match self {
+            Finger::Thumb => "T",
+            Finger::Index => "1",
+            Finger::Middle => "2",
+            Finger::Ring => "3",
+            Finger::Little => "4",
+        }
+    }
+
+    /// The right-hand mark: p, i, m, a, c.
+    pub fn right_mark(self) -> &'static str {
+        match self {
+            Finger::Thumb => "p",
+            Finger::Index => "i",
+            Finger::Middle => "m",
+            Finger::Ring => "a",
+            Finger::Little => "c",
+        }
+    }
+
+    /// Guitar Pro's number: 0 for the thumb to 4 for the little finger.
+    pub fn index(self) -> u8 {
+        match self {
+            Finger::Thumb => 0,
+            Finger::Index => 1,
+            Finger::Middle => 2,
+            Finger::Ring => 3,
+            Finger::Little => 4,
+        }
+    }
+
+    pub fn from_index(i: i64) -> Option<Finger> {
+        Finger::ALL.into_iter().find(|f| i64::from(f.index()) == i)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

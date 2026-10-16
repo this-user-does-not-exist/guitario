@@ -635,6 +635,9 @@ impl Writer {
         if e.accent {
             flags |= 0x40;
         }
+        if e.left_finger.is_some() || e.right_finger.is_some() {
+            flags |= 0x80;
+        }
         if e.left_hand_tapped {
             self.drop("left-hand tapping marks");
         }
@@ -648,6 +651,11 @@ impl Writer {
             self.i8(velocity_of(dynamic));
         }
         self.i8(i8::try_from(n.fret).unwrap_or(i8::MAX));
+        if flags & 0x80 != 0 {
+            let finger = |f: Option<Finger>| f.map_or(-1, |f| i8::try_from(f.index()).unwrap_or(-1));
+            self.i8(finger(e.left_finger));
+            self.i8(finger(e.right_finger));
+        }
         self.u8(0); // accidental spelling
         if has_fx {
             self.note_effects(n, dynamic, tremolo);

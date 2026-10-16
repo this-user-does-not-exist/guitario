@@ -1,9 +1,9 @@
-//! Note › Trill…, Note › Tremolo Picking… and Note › Grace Note…: small dialogs that apply
-//! `note.setTrill`, `beat.setTremolo` and `note.setGrace` to the note or beat under the cursor (or
-//! the selection, for tremolo picking).
+//! Note › Trill…, Note › Tremolo Picking…, Note › Grace Note… and Note › Fingering…: small dialogs
+//! that apply `note.setTrill`, `beat.setTremolo`, `note.setGrace` and `note.setFingering` to the
+//! note or beat under the cursor (or the selection, for tremolo picking).
 
 use crate::GuitarioApp;
-use guitario_score::{Grace, GraceDuration, GraceTransition, TremoloSpeed, TrillSpeed};
+use guitario_score::{Finger, Grace, GraceDuration, GraceTransition, TremoloSpeed, TrillSpeed};
 use serde_json::{Value, json};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -11,6 +11,7 @@ enum Kind {
     Trill,
     Tremolo,
     Grace,
+    Fingering,
 }
 
 pub(crate) struct OrnamentDialog {
@@ -24,6 +25,8 @@ pub(crate) struct OrnamentDialog {
     has_trill: bool,
     /// The grace note being edited; its fret is `fret`.
     grace: Grace,
+    /// The fingering being edited: left hand, right hand.
+    fingers: (Option<Finger>, Option<Finger>),
 }
 
 impl Default for OrnamentDialog {
@@ -35,6 +38,7 @@ impl Default for OrnamentDialog {
             tremolo: Some(TremoloSpeed::Sixteenth),
             has_trill: false,
             grace: Grace::new(0),
+            fingers: (None, None),
         }
     }
 }
@@ -134,6 +138,26 @@ impl GuitarioApp {
             OrnamentDialog { open: Some(Kind::Grace), fret: grace.fret, grace, has_trill: note.effects.grace.is_some(), ..OrnamentDialog::default() };
     }
 
+    /// Note › Fingering…: the fingers that fret and pluck the note under the cursor.
+    pub fn open_fingering(&mut self) {
+        let c = self.session.cursor();
+        let track = self.session.score().tracks.get(c.track);
+        let note = track
+            .filter(|t| !t.is_drums())
+            .and_then(|t| t.measures.get(c.measure))
+            .and_then(|m| m.voices.get(c.voice))
+            .and_then(|v| v.beats.get(c.beat))
+            .and_then(|b| b.notes.iter().find(|n| usize::from(n.string) == c.string))
+            .copied();
+        let Some(note) = note else {
+            self.status = "Put the cursor on a note of a string track to set its fingering.".into();
+            self.status_is_error = true;
+            return;
+        };
+        self.ornaments =
+            OrnamentDialog { open: Some(Kind::Fingering), fingers: (note.effects.left_finger, note.effects.right_finger), ..OrnamentDialog::default() };
+    }
+
     /// Note › Tremolo Picking…: on the beat under the cursor, or every selected beat.
     pub fn open_tremolo(&mut self) {
         let c = self.session.cursor();
@@ -165,6 +189,7 @@ impl GuitarioApp {
                 Kind::Trill => "Trill",
                 Kind::Tremolo => "Tremolo Picking",
                 Kind::Grace => "Grace Note",
+                Kind::Fingering => "Fingering",
             });
             ui.add_space(6.0);
             match kind {
@@ -218,13 +243,30 @@ impl GuitarioApp {
                     ui.radio_value(&mut d.grace.on_beat, true, "On the beat");
                     ui.checkbox(&mut d.grace.dead, "Dead note");
                 }
+                Kind::Fingering => {
+                    egui::Grid::new("fingering-grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
+                        for (label, slot, mark) in [
+                            ("Left hand", &mut d.fingers.0, Finger::left_mark as fn(Finger) -> &'static str),
+                            ("Right hand", &mut d.fingers.1, Finger::right_mark as fn(Finger) -> &'static str),
+                        ] {
+                            ui.label(label);
+                            ui.horizontal(|ui| {
+                                ui.radio_value(slot, None, "–");
+                                for f in Finger::ALL {
+                                    ui.radio_value(slot, Some(f), mark(f)).on_hover_text(f.name());
+                                }
+                            });
+                            ui.end_row();
+                        }
+                    });
+                }
             }
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 if ui.button("OK").clicked() {
                     apply = true;
                 }
-                if kind != Kind::Tremolo && ui.add_enabled(d.has_trill, egui::Button::new("Remove")).clicked() {
+                if matches!(kind, Kind::Trill | Kind::Grace) && ui.add_enabled(d.has_trill, egui::Button::new("Remove")).clicked() {
                     remove = true;
                 }
                 if ui.button("Cancel").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
@@ -239,6 +281,7 @@ impl GuitarioApp {
             (Kind::Tremolo, true, _) => Some(("beat.setTremolo", json!({"speed": d.tremolo.map_or("none", TremoloSpeed::name)}))),
             (Kind::Grace, true, _) => Some(("note.setGrace", grace_params(d.fret, d.grace))),
             (Kind::Grace, _, true) => Some(("note.setGrace", json!({"fret": null}))),
+            (Kind::Fingering, true, _) => Some(("note.setFingering", fingering_params(d.fingers))),
             _ => None,
         };
         if let Some((id, params)) = request {
@@ -252,6 +295,11 @@ impl GuitarioApp {
     }
 }
 
+/// What the fingering dialog sends: both hands, `none` where no finger is chosen.
+fn fingering_params((left, right): (Option<Finger>, Option<Finger>)) -> Value {
+    json!({"left": left.map_or("none", Finger::name), "right": right.map_or("none", Finger::name)})
+}
+
 /// What the grace note dialog sends: every field, so the note gets exactly what was shown.
 fn grace_params(fret: u8, g: Grace) -> Value {
     json!({"fret": fret, "duration": g.duration.name(), "transition": g.transition.name(), "onBeat": g.on_beat, "dead": g.dead})
@@ -261,6 +309,22 @@ fn grace_params(fret: u8, g: Grace) -> Value {
 mod tests {
     use super::*;
     use guitario_engine::Session;
+
+    #[test]
+    fn the_fingering_dialog_shows_and_applies_both_hands() {
+        let mut app = app_with_note(5);
+        app.open_fingering();
+        assert!(app.ornaments.is_open() && app.ornaments.fingers == (None, None));
+        app.ornaments.fingers = (Some(Finger::Middle), Some(Finger::Thumb));
+        assert!(app.run("note.setFingering", fingering_params(app.ornaments.fingers)).is_some());
+        let e = first_beat(&app).notes[0].effects;
+        assert_eq!((e.left_finger, e.right_finger), (Some(Finger::Middle), Some(Finger::Thumb)));
+        app.open_fingering();
+        assert_eq!(app.ornaments.fingers, (Some(Finger::Middle), Some(Finger::Thumb)), "it shows what the note has");
+        let mut empty = GuitarioApp::new(Session::new(), None);
+        empty.open_fingering();
+        assert!(!empty.ornaments.is_open() && empty.status.contains("fingering"));
+    }
 
     #[test]
     fn the_grace_dialog_starts_two_frets_down_and_applies_what_it_shows() {

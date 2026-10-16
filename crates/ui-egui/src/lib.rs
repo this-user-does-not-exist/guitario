@@ -268,6 +268,7 @@ impl GuitarioApp {
             U::Trill => self.open_trill(),
             U::TremoloPicking => self.open_tremolo(),
             U::GraceNote => self.open_grace(),
+            U::Fingering => self.open_fingering(),
             U::ChordDiagrams => self.open_chord(),
             U::Lyrics => self.open_lyrics(),
             U::ImportGuitarPro => self.open_dialog(),

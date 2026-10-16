@@ -72,6 +72,8 @@ pub fn riff() -> Score {
     let mut bend = Note::new(1, 7);
     bend.effects.bend = Some(4);
     bend.effects.vibrato = true;
+    bend.effects.left_finger = Some(Finger::Ring);
+    bend.effects.right_finger = Some(Finger::Index);
     bend.effects.grace = Some(Grace { fret: 5, duration: GraceDuration::Sixteenth, transition: GraceTransition::Bend, on_beat: true, dead: false });
     let mut tie = Note::new(1, 7);
     tie.kind = NoteKind::Tie;
@@ -96,6 +98,8 @@ pub fn riff() -> Score {
     popped.tremolo = Some(TremoloSpeed::ThirtySecond);
     let mut trilled = Note::new(0, 12);
     trilled.effects.trill = Some(Trill { fret: 14, speed: TrillSpeed::SixtyFourth });
+    trilled.effects.left_finger = Some(Finger::Thumb);
+    trilled.effects.right_finger = Some(Finger::Little);
     trilled.effects.grace = Some(Grace { duration: GraceDuration::SixtyFourth, dead: true, ..Grace::new(0) });
     let mut triplet = note(vec![slide], Duration { tuplet: (3, 2), ..e });
     triplet.dynamic = Dynamic::Pp;

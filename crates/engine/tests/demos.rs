@@ -179,6 +179,7 @@ fn specific_pieces_have_their_signature_features() {
         assert!(notes.iter().any(|n| n.effects.grace.is_some_and(|g| g.transition == transition)), "{transition:?}");
     }
     assert!(notes.iter().any(|n| n.effects.grace.is_some_and(|g| g.on_beat)));
+    assert!(notes.iter().any(|n| n.effects.left_finger.is_some()) && notes.iter().any(|n| n.effects.right_finger.is_some()));
     assert!(notes.iter().any(|n| n.kind == guitario_score::NoteKind::Dead) && notes.iter().any(|n| n.kind == guitario_score::NoteKind::Tie));
 }
 

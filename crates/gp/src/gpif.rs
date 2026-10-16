@@ -672,6 +672,18 @@ fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chor
         e.let_ring = child(nn, "LetRing").is_some();
         e.ghost = child(nn, "AntiAccent").is_some();
         e.palm_mute = prop_on(nn, "PalmMuted");
+        let finger = |name: &str| match text(nn, name) {
+            Some("P") => Some(Finger::Thumb),
+            Some("I") => Some(Finger::Index),
+            Some("M") => Some(Finger::Middle),
+            Some("A") => Some(Finger::Ring),
+            Some("C") => Some(Finger::Little),
+            _ => None,
+        };
+        if matches!(place, Placement::Strings { .. }) {
+            e.left_finger = finger("LeftFingering");
+            e.right_finger = finger("RightFingering");
+        }
         let accent = text(nn, "Accent").and_then(|v| v.parse::<u8>().ok()).unwrap_or(0);
         e.accent = accent & 8 != 0;
         e.heavy_accent = accent & 4 != 0;

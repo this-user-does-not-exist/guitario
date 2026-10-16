@@ -4,7 +4,7 @@
 use crate::commands::{CommandSpec, cmd};
 use crate::{EngineError, Session, params as p};
 use guitario_score::{
-    Beat, BeatTechnique, Brush, BrushKind, Fade, Grace, GraceDuration, GraceTransition, NoteKind, StrokeDirection, TremoloSpeed, Trill, TrillSpeed,
+    Beat, BeatTechnique, Brush, BrushKind, Fade, Finger, Grace, GraceDuration, GraceTransition, NoteKind, StrokeDirection, TremoloSpeed, Trill, TrillSpeed,
 };
 use guitario_theory::{Duration, TICKS_PER_QUARTER};
 use serde_json::{Value, json};
@@ -59,7 +59,44 @@ pub fn specs() -> Vec<CommandSpec> {
             true,
             set_grace,
         ),
+        cmd(
+            "note.setFingering",
+            "Fingering",
+            "Note",
+            None,
+            "left? and right?: thumb|index|middle|ring|little|none (the hand left out keeps what it has)",
+            true,
+            set_fingering,
+        ),
     ]
+}
+
+fn set_fingering(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let finger = |key: &str| -> Result<Option<Option<Finger>>, EngineError> {
+        match params.get(key) {
+            None | Some(Value::Null) => Ok(None),
+            Some(Value::String(n)) if n == "none" => Ok(Some(None)),
+            Some(Value::String(n)) => Finger::from_name(n)
+                .map(|f| Some(Some(f)))
+                .ok_or_else(|| EngineError::BadParam(format!("`{key}` must be thumb, index, middle, ring, little or none, not `{n}`"))),
+            Some(_) => Err(EngineError::BadParam(format!("`{key}` must be a finger name"))),
+        }
+    };
+    let (left, right) = (finger("left")?, finger("right")?);
+    if left.is_none() && right.is_none() {
+        return Err(EngineError::BadParam("give `left`, `right` or both".into()));
+    }
+    if s.score.tracks.get(s.cursor.track).is_some_and(|t| t.is_drums()) {
+        return Err(EngineError::invalid("a drum hit has no fingering"));
+    }
+    let note = s.note_mut()?;
+    if let Some(l) = left {
+        note.effects.left_finger = l;
+    }
+    if let Some(r) = right {
+        note.effects.right_finger = r;
+    }
+    ok_json()
 }
 
 /// Applies `f` to every selected beat, or to the cursor beat.
@@ -315,6 +352,23 @@ mod tests {
         drums.run("track.select", &json!({"index": 1})).unwrap();
         let e = drums.run("note.setGrace", &json!({"fret": 5})).unwrap_err().to_string();
         assert!(e.contains("drum"), "{e}");
+    }
+
+    #[test]
+    fn fingering_is_set_per_hand_and_cleared() {
+        let mut s = Session::new();
+        assert!(s.run("note.setFingering", &json!({"left": "index"})).is_err(), "no note yet");
+        s.run("note.setFret", &json!({"fret": 5})).unwrap();
+        let e = |s: &Session| s.score().tracks[0].measures[0].voices[0].beats[0].notes[0].effects;
+        s.run("note.setFingering", &json!({"left": "ring", "right": "index"})).unwrap();
+        assert_eq!((e(&s).left_finger, e(&s).right_finger), (Some(Finger::Ring), Some(Finger::Index)));
+        s.run("note.setFingering", &json!({"right": "none"})).unwrap();
+        assert_eq!((e(&s).left_finger, e(&s).right_finger), (Some(Finger::Ring), None), "the left hand is kept");
+        for bad in [json!({}), json!({"left": "toe"}), json!({"right": 3})] {
+            assert!(s.run("note.setFingering", &bad).is_err(), "{bad}");
+        }
+        s.run("edit.undo", &Value::Null).unwrap();
+        assert_eq!(e(&s).right_finger, Some(Finger::Index));
     }
 
     #[test]

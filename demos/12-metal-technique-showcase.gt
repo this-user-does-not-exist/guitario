@@ -236,6 +236,24 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
+        "marker": "Fingering",
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null,
+        "fermatas": []
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
         "marker": "Dead, ghost, accent",
         "double_bar": false,
         "free_time": false,
@@ -357,7 +375,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -401,7 +421,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -445,7 +467,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -489,7 +513,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -533,7 +559,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -577,7 +605,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -621,7 +651,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -665,7 +697,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -717,7 +751,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -761,7 +797,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -805,7 +843,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -849,7 +889,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -901,7 +943,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -945,7 +989,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -989,7 +1035,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1033,7 +1081,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1085,7 +1135,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1129,7 +1181,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1173,7 +1227,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1217,7 +1273,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1269,7 +1327,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1313,7 +1373,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1357,7 +1419,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1401,7 +1465,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1453,7 +1519,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1497,7 +1565,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1541,7 +1611,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1613,7 +1685,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1657,7 +1731,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1701,7 +1777,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1745,7 +1823,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1789,7 +1869,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -1812,7 +1894,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -1835,7 +1919,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -1858,7 +1944,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -1881,7 +1969,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1933,7 +2023,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1977,7 +2069,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2021,7 +2115,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2065,7 +2161,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2109,7 +2207,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2153,7 +2253,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2197,7 +2299,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2241,7 +2345,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2285,7 +2391,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2329,7 +2437,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2373,7 +2483,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2417,7 +2529,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2469,7 +2583,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2513,7 +2629,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2557,7 +2675,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2601,7 +2721,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2653,7 +2775,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2697,7 +2821,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2741,7 +2867,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2785,7 +2913,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -2808,7 +2938,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2863,7 +2995,9 @@
                             "fret": 14,
                             "speed": "sixteenth"
                           },
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2910,7 +3044,9 @@
                             "fret": 14,
                             "speed": "thirty_second"
                           },
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2957,7 +3093,9 @@
                             "fret": 12,
                             "speed": "sixty_fourth"
                           },
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3035,7 +3173,9 @@
                             "transition": "none",
                             "on_beat": false,
                             "dead": false
-                          }
+                          },
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3085,7 +3225,9 @@
                             "transition": "hammer",
                             "on_beat": false,
                             "dead": false
-                          }
+                          },
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3135,7 +3277,9 @@
                             "transition": "slide",
                             "on_beat": false,
                             "dead": false
-                          }
+                          },
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3185,7 +3329,201 @@
                             "transition": "bend",
                             "on_beat": true,
                             "dead": false
-                          }
+                          },
+                          "left_finger": null,
+                          "right_finger": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 5,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": "index",
+                          "right_finger": "thumb"
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": null
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 7,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": "ring",
+                          "right_finger": "index"
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": null
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "fret": 5,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": "index",
+                          "right_finger": "middle"
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": null
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "fret": 6,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": "middle",
+                          "right_finger": "ring"
                         }
                       }
                     ],
@@ -3237,7 +3575,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3281,7 +3621,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3325,7 +3667,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3369,7 +3713,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3413,7 +3759,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3457,7 +3805,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3501,7 +3851,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3545,7 +3897,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3597,7 +3951,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3641,7 +3997,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3685,7 +4043,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3737,7 +4097,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3781,7 +4143,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3825,7 +4189,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3869,7 +4235,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3913,7 +4281,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3957,7 +4327,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4001,7 +4373,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4073,7 +4447,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -4096,7 +4472,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -4119,7 +4497,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -4142,7 +4522,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -4165,7 +4547,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -4188,7 +4572,9 @@
                           "tapped": false,
                           "left_hand_tapped": false,
                           "trill": null,
-                          "grace": null
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],

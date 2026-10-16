@@ -856,10 +856,8 @@ impl Parser<'_> {
         }
         let velocity = if flags & 0x10 != 0 { Some(self.r.i8()?) } else { None };
         let fret = if flags & 0x20 != 0 { self.r.i8()? } else { 0 };
-        if flags & 0x80 != 0 {
-            self.r.skip(2)?;
-            self.drop("fingerings");
-        }
+        // Left- and right-hand fingers: -1 none, 0 the thumb to 4 the little finger.
+        let fingers = if flags & 0x80 != 0 { (Finger::from_index(i64::from(self.r.i8()?)), Finger::from_index(i64::from(self.r.i8()?))) } else { (None, None) };
         if v >= Version::V5 {
             if flags & 0x01 != 0 {
                 self.r.skip(8)?; // duration percent
@@ -868,6 +866,7 @@ impl Parser<'_> {
         }
         let mut note = Note::new(0, 0);
         let e = &mut note.effects;
+        (e.left_finger, e.right_finger) = fingers;
         e.ghost = flags & 0x04 != 0;
         e.accent = v >= Version::V4 && flags & 0x40 != 0;
         e.heavy_accent = v >= Version::V5 && flags & 0x02 != 0;
@@ -913,6 +912,8 @@ impl Parser<'_> {
             self.drop("grace notes on tied notes or drum hits");
         }
         if t.drums {
+            note.effects.left_finger = None;
+            note.effects.right_finger = None;
             let midi = fret.min(guitario_theory::drums::MAX_DRUM);
             note.string = guitario_theory::drums::lane_for(midi);
             note.fret = midi;

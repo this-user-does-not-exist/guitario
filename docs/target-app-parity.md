@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (fermatas: notation 56% → 58%; breadth 53.8% → 54.1%, ~54%) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (fingering: notation 58% → 59%, menus 136/173; breadth 54.1% → 54.4%, ~54%) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); the ranked work list is [`gaps.md`](gaps.md);
@@ -12,7 +12,7 @@ the measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scoreca
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Guitar Pro feature exist?) | **~54%** | partly measured (menus 135/173), weights below |
+| **Feature breadth** (does each Guitar Pro feature exist?) | **~54%** | partly measured (menus 136/173), weights below |
 | **Ready for real work** (could a guitarist replace Guitar Pro with it?) | **~27%** (range 22–32%) | estimated, evidence below |
 | **Mainstream user** (writes and learns tab every week) | **~37%** (32–42%) | estimated, [method](#readiness-by-audience) |
 | **Essentials user** (enter a riff, hear it, save it) | **~76%** (68–84%) | estimated |
@@ -50,8 +50,8 @@ plays back with drums, loops and slows passages, opens files from others (mostly
 
 | Component | Weight | Ours / Guitar Pro | % | Kind |
 |---|---:|---|---:|---|
-| Menu commands | 30% | 135 / 173 catalog items live | 78% | measured (`cargo xtask parity`) |
-| Notation and engraving | 15% | page view, notation + tab, drum staff, effects lanes, alternate endings, directions, chord names and text, ties, slurs, up to four voices, tremolo picking slashes, trill marks, grace notes, chord diagrams, lyrics and fermatas; no layouts | ~65% | estimated ([scorecard](scorecard.md#notation-and-engraving)) |
+| Menu commands | 30% | 136 / 173 catalog items live | 79% | measured (`cargo xtask parity`) |
+| Notation and engraving | 15% | page view, notation + tab, drum staff, effects lanes, alternate endings, directions, chord names and text, ties, slurs, up to four voices, tremolo picking slashes, trill marks, grace notes, chord diagrams, lyrics, fermatas and fingering; no layouts | ~66% | estimated ([scorecard](scorecard.md#notation-and-engraving)) |
 | Instruments and track types | 10% | fretted strings in any tuning (4–12 strings, 12 presets) and a GM drum kit; no keys or other instruments | ~50% | estimated |
 | Playback | 15% | physical-model guitar/bass, synthesised drums, transport, loop, speed, metronome, count-in; no samples, effects, mixer, automations | ~35% | estimated ([scorecard](scorecard.md#playback)) |
 | File formats (usage-weighted) | 15% | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` import (checked on 76 real files), `.gp`/`.gp5`/MIDI/WAV/ASCII export (`.gp` not yet opened in Guitar Pro itself), PDF export, print preview, page setup and printing (not yet tried on a real printer); chords and lyrics both ways in every Guitar Pro format that has them; no MusicXML export, no MIDI/MusicXML/PowerTab import | ~56% | estimated ([file-format-parity](file-format-parity.md)) |
@@ -64,7 +64,7 @@ plays back with drums, loops and slows passages, opens files from others (mostly
 | Dimension | % ready | Hours to full | Evidence |
 |---|---:|---:|---|
 | Editing | 55% | 110–200 | [scorecard › Editing](scorecard.md#editing) |
-| Notation | 58% | 65–145 | layouts, multivoice editing, sloped beams missing |
+| Notation | 59% | 60–140 | layouts, multivoice editing, sloped beams missing |
 | Playback | 30% | 380–750 | no samples, effects or mixer; synth checked by tests only, not by ear |
 | Files and exchange | 56% | 130–250 | [file-format-parity](file-format-parity.md) |
 | UI/UX fidelity | 45% | 200–350 | [ui-parity](ui-parity.md); layout matches GP, depth does not |
@@ -85,6 +85,7 @@ merged PRs). Re-calibrate after the first 100 PRs here. About 70% of the work pa
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-16 | minor | Fingering for both hands (Note › Fingering…, notation, Guitar Pro 3-8 both ways): menus 136/173, breadth ~54% (54.1% → 54.4%), notation 58% → 59% |
 | 2026-10-16 | minor | Fermatas (drawn, held in playback and MIDI, GPIF both ways): breadth ~54% (53.8% → 54.1%), notation 56% → 58%; beta ~810–1,375 h |
 | 2026-10-16 | minor | Lyrics (five lines per track, Track › Lyrics…, drawn under the tab, Guitar Pro 4-8 both ways): menus 135/173, breadth ~54% (52.9% → 53.8%), notation 53% → 56%, files 55% → 56%; beta ~815–1,385 h |
 | 2026-10-16 | minor | Chord diagrams drawn, edited (Tools › Chord Diagrams…) and named from their notes, and kept in `.gp`: menus 134/173, breadth ~53% (51.1% → 52.9%), notation 50% → 53%, tools 0% → 5%; beta ~830–1,410 h |

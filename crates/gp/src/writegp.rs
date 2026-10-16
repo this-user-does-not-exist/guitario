@@ -572,6 +572,19 @@ impl Gpif {
         if e.ghost {
             out.head.push_str("<AntiAccent>Normal</AntiAccent>");
         }
+        let letter = |f: Finger| match f {
+            Finger::Thumb => "P",
+            Finger::Index => "I",
+            Finger::Middle => "M",
+            Finger::Ring => "A",
+            Finger::Little => "C",
+        };
+        if let Some(f) = e.left_finger.filter(|_| !t.is_drums()) {
+            out.head.push_str(&format!("<LeftFingering>{}</LeftFingering>", letter(f)));
+        }
+        if let Some(f) = e.right_finger.filter(|_| !t.is_drums()) {
+            out.head.push_str(&format!("<RightFingering>{}</RightFingering>", letter(f)));
+        }
         if e.let_ring {
             out.head.push_str("<LetRing/>");
         }

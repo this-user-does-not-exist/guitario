@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~810–1,375 h away
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (fermatas; menus 135/173) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (fingering; menus 136/173) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [target-app parity](docs/target-app-parity.md) (methodology, weights, evidence), [gaps](docs/gaps.md)
@@ -19,7 +19,7 @@ work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~54%** | partly measured: menus 135/173, [scorecard](docs/scorecard.md) |
+| **Feature breadth** | **~54%** | partly measured: menus 136/173, [scorecard](docs/scorecard.md) |
 | **Ready for real work** | **~27%** (22–32%) | estimated: weighted by dimension below |
 | Mainstream user | ~37% (32–42%) | estimated |
 | Essentials user | ~76% (68–84%) | estimated |
@@ -46,7 +46,7 @@ Pro 8. Beta needs sampled sound, notation depth, tools and releases on three pla
 | Dimension | % ready | Hours to full | Doc |
 |---|---:|---:|---|
 | Editing | 55% | 110–200 | [scorecard](docs/scorecard.md#editing) |
-| Notation | 58% | 65–145 | [scorecard](docs/scorecard.md#notation-and-engraving) |
+| Notation | 59% | 60–140 | [scorecard](docs/scorecard.md#notation-and-engraving) |
 | Playback | 30% | 380–750 | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 56% | 130–250 | [file-format-parity](docs/file-format-parity.md) |
 | UI/UX fidelity | 45% | 200–350 | [ui-parity](docs/ui-parity.md) |
@@ -63,7 +63,7 @@ English only. Guitar Pro ships in about a dozen languages ([gaps G13](docs/gaps.
 
 | Rank | Milestone | Estimate |
 |---|---|---:|
-| 1 | Notation depth: layouts, multivoice editing, beaming, fingering | 45–85 h |
+| 1 | Notation depth: layouts, multivoice editing, beaming, sloped beams | 40–80 h |
 | 2 | Guitar Pro import depth, MIDI and MusicXML import, a human check of `.gp` exports | 40–80 h |
 | 3 | Print depth: headers and footers, layouts, selected bars, a real-printer check | 10–20 h |
 | 4 | Performance budgets and a control channel | 70–140 h |

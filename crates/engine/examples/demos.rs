@@ -9,7 +9,7 @@
 //! rest. Modifiers follow the note they belong to: `+pm` palm mute, `+lr` let ring, `+h`
 //! hammer/pull, `+tr7` trill to fret 7 (`+tr7:32` and `+tr7:64` for faster ones), `+gr5` a grace
 //! note from fret 5 (then `h` hammered, `s` slid, `b` bent, `o` on the beat, `x` dead, as in
-//! `+gr5ho`), `+v` vibrato, `+g` ghost, `+a` accent, `+st` staccato, `+b`/`+b2`/`+b6`/`+b8` bend
+//! `+gr5ho`), `+lf3`/`+rfi` left- and right-hand fingers, `+v` vibrato, `+g` ghost, `+a` accent, `+st` staccato, `+b`/`+b2`/`+b6`/`+b8` bend
 //! (quarter tones), `+sl` shift slide, `+sll` legato slide, `+sli`/`+sla` slide in from
 //! below/above, `+slo`/`+slu` slide out, `+nh`/`+ah`/`+ph` harmonics, `~` tie. `*pm` applies a
 //! modifier to every note in the beat so far; `@mf` sets the beat's dynamic; `%Am` names the
@@ -110,6 +110,19 @@ fn effect(s: &mut Session, fx: &str) -> R {
                 other => return Err(format!("bad trill speed `{other}`")),
             };
             run(s, "note.setTrill", json!({"fret": fret.parse::<u8>().map_err(|_| format!("bad trill fret `{t}`"))?, "speed": speed}))
+        }
+        f if f.starts_with("lf") || f.starts_with("rf") => {
+            // `lf3` the left-hand finger (t or 1-4), `rfi` the right-hand finger (p i m a c).
+            let finger = match &f[2..] {
+                "t" | "p" => "thumb",
+                "1" | "i" => "index",
+                "2" | "m" => "middle",
+                "3" | "a" => "ring",
+                "4" | "c" => "little",
+                other => return Err(format!("bad finger `{other}`")),
+            };
+            let hand = if f.starts_with('l') { "left" } else { "right" };
+            run(s, "note.setFingering", json!({ hand: finger }))
         }
         g if g.starts_with("gr") => {
             // `gr5`, then letters: h hammer, s slide, b bend, o on the beat, x dead.
@@ -863,6 +876,7 @@ fn techniques() -> R<Session> {
             bar("4 5:0 &tp8, 4 5:0 &tp16, 4 5:0 &tp32, 4 5:0 4:2 *pm &tp16").mark("Tremolo speeds"),
             bar("4 1:12 +tr14, 4 1:12 +tr14:32, 4 1:10 +tr12:64, 4 r").mark("Trills"),
             bar("4 3:7 +gr5, 4 3:7 +gr5h, 4 3:9 +gr7s, 4 2:8 +gr6bo").mark("Grace notes"),
+            bar("4 3:5 +lf1 +rfp, 4 3:7 +lf3 +rfi, 4 2:5 +lf1 +rfm, 4 2:6 +lf2 +rfa").mark("Fingering"),
             bar("8 6:0 +pm, 8 6:x, 8 5:2 +g, 8 6:x, 8 6:0, 8 6:x, 8 5:2 +a, 8 6:x").mark("Dead, ghost, accent"),
             bar("4 1:5 @p, 4 1:5 ~, 2 1:7 @ff").mark("Ties and dynamics"),
             bar("8t 1:0, 8t 1:3, 8t 1:5, 8t 1:0, 8t 1:3, 8t 1:5, 4 1:7, 4 r").mark("Triplets"),

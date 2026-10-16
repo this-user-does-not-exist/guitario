@@ -834,6 +834,8 @@ impl<'a> Ctx<'a> {
             /// Grace notes before the beat, and whether they are slashed (before the beat, not on it).
             graces: Vec<Head>,
             slashed: bool,
+            /// Fingering by staff position: the left- and right-hand fingers.
+            fingers: Vec<(i32, Option<guitario_score::Finger>, Option<guitario_score::Finger>)>,
         }
         let mut infos: Vec<Option<Info>> = Vec::new();
         for (bi, beat) in beats.iter().enumerate() {
@@ -888,12 +890,19 @@ impl<'a> Ctx<'a> {
                     Some((n.string, (staff_pos(sp, self.clef), acc.next(sp, h.key), head)))
                 })
                 .collect();
+            let fingers = keyed
+                .iter()
+                .filter_map(|(st, p)| {
+                    let e = beat.note_on(*st)?.effects;
+                    (e.left_finger.is_some() || e.right_finger.is_some()).then_some((p.0, e.left_finger, e.right_finger))
+                })
+                .collect();
             let by_string = keyed.iter().map(|(st, p)| (*st, p.0)).collect();
             let mut pos: Vec<Head> = keyed.into_iter().map(|(_, p)| p).collect();
             pos.sort_by_key(|p| p.0);
             let avg = pos.iter().map(|p| p.0).sum::<i32>() as f32 / pos.len().max(1) as f32;
             // Drum parts are written stems up (one voice, hands and feet together).
-            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed }));
+            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed, fingers }));
         }
 
         let groups = beam_groups(beats, h.time_signature);
@@ -951,6 +960,29 @@ impl<'a> Ctx<'a> {
                 if let Some(b) = beat {
                     let dot_pos = if pos % 2 == 0 { pos + 1 } else { *pos };
                     self.dots(b, left + hw + 0.4 * s, nt, dot_pos);
+                }
+            }
+            // Fingering: left-hand digits beside the heads, right-hand letters stacked above the beat.
+            if !info.fingers.is_empty() {
+                let room = if acc_col > 0 { 1.4 * s } else { 0.0 };
+                for (pos, left_finger, _) in &info.fingers {
+                    if let Some(f) = left_finger {
+                        self.p().text(
+                            pos2(left - 0.35 * s - room, self.nota_y(nt, *pos)),
+                            egui::Align2::RIGHT_CENTER,
+                            f.left_mark(),
+                            serif(7.5 * self.m.zoom),
+                            ink,
+                        );
+                    }
+                }
+                let hi = info.pos.last().map_or(4, |p| p.0);
+                let base = if info.up { hi + 8 } else { hi + 3 }.max(10);
+                let mut rights: Vec<(i32, guitario_score::Finger)> = info.fingers.iter().filter_map(|(p, _, r)| r.map(|r| (*p, r))).collect();
+                rights.sort_by_key(|(p, _)| *p);
+                for (k, (_, f)) in rights.iter().enumerate() {
+                    let y = self.nota_y(nt, base) - k as f32 * 1.3 * s;
+                    self.p().text(pos2(info.x, y), egui::Align2::CENTER_BOTTOM, f.right_mark(), serif_italic(8.0 * self.m.zoom), ink);
                 }
             }
             // Grace notes: small, left of the heads and their accidentals, slurred into the lowest head.
@@ -1578,6 +1610,21 @@ mod tests {
         let rest = Beat::rest(Duration::new(guitario_theory::NoteValue::Half));
         s.tracks[0].measures[0].voices[0].beats = vec![beat, rest];
         s
+    }
+
+    #[test]
+    fn fingering_is_drawn_in_notation_only() {
+        use guitario_score::Finger;
+        let fingered = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.notes[0].effects.left_finger = Some(Finger::Ring);
+            b.notes[0].effects.right_finger = Some(Finger::Index);
+        });
+        let plain = one_note(guitario_theory::NoteValue::Quarter, |_| {});
+        assert_eq!(texts(&fingered, true, "3"), texts(&plain, true, "3") + 1);
+        assert_eq!(texts(&fingered, true, "i"), texts(&plain, true, "i") + 1);
+        assert_eq!(texts(&fingered, false, "i"), texts(&plain, false, "i"), "not in the tab");
+        let thumb = one_note(guitario_theory::NoteValue::Quarter, |b| b.notes[0].effects.left_finger = Some(Finger::Thumb));
+        assert_eq!(texts(&thumb, true, "T"), texts(&plain, true, "T") + 1);
     }
 
     #[test]
