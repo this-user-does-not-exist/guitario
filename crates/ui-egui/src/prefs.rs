@@ -79,6 +79,22 @@ impl Prefs {
 
 pub type Store = SettingsStore<Prefs>;
 
+/// Preferences saved before the app was renamed from Guitario: read once, when Guitario has no
+/// `config.toml` of its own yet. The old file is left in place.
+pub fn legacy_files() -> Vec<craft_settings::LegacyFile<Prefs>> {
+    craft_settings::Probe::default()
+        .platform_config_dir
+        .map(|d| vec![craft_settings::LegacyFile { path: d.join("guitario").join("config.toml"), parse: parse_config }])
+        .unwrap_or_default()
+}
+
+/// A `config.toml` written by this app under another name; unreadable sections fall back to defaults.
+fn parse_config(bytes: &[u8]) -> Result<Prefs, String> {
+    let text = std::str::from_utf8(bytes).map_err(|e| e.to_string())?;
+    let doc = craft_settings::document::parse(text).map_err(|e| e.to_string())?;
+    Ok(craft_settings::document::deserialize_sections::<Prefs>(&doc).0.sanitized())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,6 +118,19 @@ mod tests {
         p.push_recent("b");
         p.push_recent("a");
         assert_eq!(p.files.recent, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn guitario_preferences_carry_over() {
+        let mut old = Prefs::default();
+        old.view.zoom = 2.0;
+        old.push_recent("/songs/riff.gt");
+        let mut doc = craft_settings::document::new_document(1);
+        craft_settings::document::merge_into(&mut doc, &old).unwrap();
+        let read = parse_config(craft_settings::document::render(&doc).as_bytes()).unwrap();
+        assert_eq!(read, old);
+        assert!(parse_config(b"\xff\xfe").is_err());
+        assert!(legacy_files().iter().all(|f| f.path.ends_with("guitario/config.toml")));
     }
 
     #[test]

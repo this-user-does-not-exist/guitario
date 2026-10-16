@@ -136,8 +136,7 @@ fn measure(root: &Path) -> Measured {
     let engine = root.join("crates/engine/src");
     let commands = count_cmds_in(&engine);
     let panic_hunt = std::fs::read_to_string(root.join("crates/engine/tests/engine.rs")).is_ok_and(|s| s.contains("fn panic_hunt"));
-    let demos =
-        std::fs::read_dir(root.join("demos")).map(|rd| rd.flatten().filter(|e| e.path().extension().is_some_and(|x| x == "gt")).count()).unwrap_or(0);
+    let demos = std::fs::read_dir(root.join("demos")).map(|rd| rd.flatten().filter(|e| e.path().extension().is_some_and(|x| x == "gt")).count()).unwrap_or(0);
     let parity = std::fs::read_to_string(root.join("docs/parity-checklist.md"))
         .ok()
         .and_then(|s| s.lines().find(|l| l.starts_with("**Live:**")).map(|l| l.trim_start_matches("**Live:**").trim().to_string()));

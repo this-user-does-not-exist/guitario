@@ -40,3 +40,21 @@ Atomic saves (`craft-atomic`), settings (`craft-settings`) and the platform quit
 from craft-libs at a pinned revision instead of app-local code. `craft-ui` is not used yet: its
 docking and tab widgets fit apps with dockable panels; adopt it with the multitrack and floating
 panel work (G8).
+
+## 2026-10-16: Guitar Pro files are told by content, and a real-file corpus stays local
+
+`file.open` imports any Guitar Pro file by its extension, and `crates/gp` picks the reader from the
+first bytes (ZIP, BCFZ/BCFS or a `FICHIER GUITAR PRO` banner), so a misnamed file still reads. An
+import is an unsaved document, so Save never writes native JSON over a Guitar Pro file. The readers
+were checked against public test files from other projects, used only as data in a local folder
+(`GUITARIO_GP_CORPUS`, `crates/gp/tests/corpus.rs`); they are not committed, and no code of those
+projects was read. Committed tests round-trip our own demos through the `.gp5` writer instead.
+
+## 2026-10-16: Renamed from Guitario to Guitario
+
+The product is **Guitario**; crates, binaries, ids and environment variables are `guitario`
+(`GUITARIO_*`), and the native file extension is `.gt`. Nothing a user made is lost: `.gt`
+files and the old `"guitario"` format tag still open, the first run imports Guitario's
+`config.toml` through craft-settings' legacy-file hook, and a sound bank installed in Guitario's
+data folder is used until Guitario has its own. Guitario keeps using the shared craft-libs crates
+and shared-rules standards.
