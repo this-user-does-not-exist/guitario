@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: beaming by the signature and sloped beams landed; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -21,11 +21,11 @@ agent can't finish alone.
 | G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
 | G2 | Print depth: headers and footers, layouts, selected bars | file format | low-medium | 10–20 h | [file-format-parity](file-format-parity.md) |
 | G3 | Guitar Pro exchange (import depth, MusicXML, MIDI import) | file format | medium-high | 40–80 h | [file-format-parity](file-format-parity.md) |
-| G4 | Notation depth (layouts, multitrack, multivoice editing) | features | high | 35–70 h | [scorecard](scorecard.md#notation-and-engraving) |
+| G4 | Notation depth (multivoice editing, chord list, multitrack print) | features | high | 25–55 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
 | G6 | Editing depth (bend editor, tuplets, paste special, track tools) | features | medium-high | 80–140 h | [scorecard](scorecard.md#editing) |
 | G7 | Tools: tuner, chord dictionary, scales, line in | features | medium | 110–185 h | [target-app-parity](target-app-parity.md#feature-breadth-33-weighted) |
-| G8 | UI depth: layouts, multitrack, keyboard and drum views, preferences, themes | UI | medium | 120–200 h | [ui-parity](ui-parity.md) |
+| G8 | UI depth: keyboard view, preferences, themes, inspector tabs | UI | medium | 100–170 h | [ui-parity](ui-parity.md) |
 | G9 | Performance budgets | performance | medium | 30–60 h | [scorecard](scorecard.md) |
 | G10 | Automation: control channel and MCP | ecosystem | medium | 40–80 h | [scorecard](scorecard.md#automation) |
 | G11 | Reliability depth: panic guard, reader fuzzers, autosave | stability | medium | 40–80 h | [scorecard](scorecard.md#reliability) |
@@ -155,7 +155,7 @@ agent can't finish alone.
   mid-system key changes, Guitar Pro's per-beat beam breaks, and offsetting heads where two voices
   share a pitch.
 - **Evidence:** NOTE-5 and EDIT-9 done; NOTE-3/4/9/12 and EDIT-16 partial.
-- **Estimate:** 35–70 h.
+- **Estimate:** 25–55 h.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with
@@ -191,11 +191,14 @@ agent can't finish alone.
 - **Estimate:** 110–185 h.
 
 ### G8. UI depth
-- **Missing:** page/screen/horizontal layouts, multitrack view, keyboard and drum-pad instrument
-  views, a Preferences dialog, light theme and UI scale, Bar and Note tabs in the inspector,
-  floating panels.
+- **Landed 2026-10-16:** View › Layout › Page, Screen and Horizontal, and View › Multitrack: every
+  track stacked in each system with its beats lined up in time across tracks, the bar's markers and
+  directions over the top track, a system line joining the tracks, and clicks on any track moving
+  the cursor there. Both are saved in the preferences. Printing and PDF stay one track at a time.
+- **Missing:** a keyboard instrument view, a Preferences dialog, light theme and UI scale, Bar and
+  Note tabs in the inspector, floating panels, several documents at once.
 - **Evidence:** [ui-parity](ui-parity.md); UI-3/5/8/9 in the scorecard.
-- **Estimate:** 120–200 h.
+- **Estimate:** 100–170 h.
 
 ### G9. Performance budgets
 - **Missing:** any measurement. Layout and painting run every frame over the visible pages;
@@ -237,5 +240,6 @@ agent can't finish alone.
 | 2026-10-16 | minor | G4: fermatas landed (50–95 h to 45–85 h) |
 | 2026-10-16 | minor | G4: fingering landed (45–85 h to 40–80 h); G3: fingering no longer dropped |
 | 2026-10-16 | minor | G4: beaming by the signature and sloped beams (40–80 h to 35–70 h) |
+| 2026-10-16 | minor | G4/G8: layouts and the multitrack view (G4 35–70 h to 25–55 h, G8 120–200 h to 100–170 h) |
 | 2026-10-16 | minor | G4: ties, slurs and up to four voices landed (150–250 h to 90–160 h); G1: drums' second voice (40–80 h to 30–60 h) |
 | 2026-10-16 | minor | G3: `.gp` (Guitar Pro 7/8) export landed, unverified in Guitar Pro itself (60–110 h to 40–80 h) |

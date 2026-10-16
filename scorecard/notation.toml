@@ -58,7 +58,8 @@ note = "alternate ending brackets and direction marks (segno, coda, Fine, D.C./D
 [[item]]
 id = "NOTE-10"
 target = "Multitrack view and page/screen/horizontal layouts"
-status = "missing"
+status = "done"
+note = "View › Layout › Page, Screen (one sheet as wide as the window) and Horizontal (one line of bars, no title); View › Multitrack stacks every track in each system with beats lined up in time across tracks (layout.rs layout_parts, page.rs paint_systems), markers and directions over the top track, clicks on any track move the cursor there; saved in the preferences; printing and PDF stay one track at a time"
 
 [[item]]
 id = "NOTE-11"

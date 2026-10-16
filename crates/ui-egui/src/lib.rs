@@ -29,6 +29,7 @@ mod spool;
 mod theme;
 mod topbar;
 
+pub use layout::LayoutMode;
 pub use pdf::PdfRenderer;
 pub use spool::SystemSpooler;
 
@@ -47,6 +48,10 @@ pub struct Panels {
 pub struct ViewState {
     pub zoom: f32,
     pub notation: bool,
+    /// View › Layout: pages, one screen-wide sheet, or one line of bars.
+    pub layout: layout::LayoutMode,
+    /// View › Multitrack: every track in each system.
+    pub multitrack: bool,
 }
 
 /// Transport state. The player itself lives in the audio slot; this mirrors what the UI shows.
@@ -117,7 +122,7 @@ impl GuitarioApp {
             fonts: fonts::FontSet::default(),
             fonts_ready: false,
             panels: Panels { palette: true, inspector: true, global: true, fretboard: true },
-            view: ViewState { zoom: 1.25, notation: true },
+            view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false },
             inspector_tab: inspector::Tab::Song,
             edit_buffers: HashMap::new(),
             transport: Transport { playing: false, metronome: false, count_in: false, looping: false, speed: 1.0, position: 0.0, beat: None },
@@ -154,7 +159,7 @@ impl GuitarioApp {
     pub fn with_settings(mut self, store: prefs::Store, report: &craft_settings::LoadReport) -> Self {
         self.settings = store;
         let p = self.settings.get().clone().sanitized();
-        self.view = ViewState { zoom: p.view.zoom, notation: p.view.notation };
+        self.view = ViewState { zoom: p.view.zoom, notation: p.view.notation, layout: p.view.layout, multitrack: p.view.multitrack };
         self.panels = Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard };
         let t = &mut self.transport;
         (t.metronome, t.count_in, t.looping, t.speed) = (p.playback.metronome, p.playback.count_in, p.playback.looping, p.playback.speed);
@@ -176,6 +181,8 @@ impl GuitarioApp {
         let view = prefs::ViewPrefs {
             zoom: v.zoom,
             notation: v.notation,
+            layout: v.layout,
+            multitrack: v.multitrack,
             palette: pn.palette,
             inspector: pn.inspector,
             global_view: pn.global,
@@ -310,6 +317,14 @@ impl GuitarioApp {
             U::ZoomOut => self.view.zoom = (self.view.zoom / 1.25).max(0.25),
             U::ZoomReset => self.view.zoom = 1.0,
             U::ToggleNotation => self.view.notation = !self.view.notation,
+            U::Layout(mode) => {
+                self.view.layout = mode;
+                self.follow_cursor = true;
+            }
+            U::ToggleMultitrack => {
+                self.view.multitrack = !self.view.multitrack;
+                self.follow_cursor = true;
+            }
             U::TogglePalette => self.panels.palette = !self.panels.palette,
             U::ToggleInspector => self.panels.inspector = !self.panels.inspector,
             U::ToggleGlobalView => self.panels.global = !self.panels.global,
@@ -762,7 +777,15 @@ impl GuitarioApp {
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.workspace)).show(ui, |ui| {
             let play = self.transport.beat.filter(|_| self.transport.playing);
             let selection = self.session.selection().filter(|s| s.track == self.session.cursor().track).map(|s| s.ordered());
-            let view = page::View { zoom: self.view.zoom, notation: self.view.notation, fonts: self.fonts, play, selection };
+            let view = page::View {
+                zoom: self.view.zoom,
+                notation: self.view.notation,
+                fonts: self.fonts,
+                play,
+                selection,
+                layout: self.view.layout,
+                multitrack: self.view.multitrack,
+            };
             let score = self.session.score().clone();
             let cursor = self.session.cursor();
             let follow = self.follow_cursor;
@@ -776,14 +799,14 @@ impl GuitarioApp {
                 out
             });
             self.follow_cursor = false;
-            if let Some(page::Click::Beat { measure, beat, string, shift }) = out.inner.click {
-                if shift {
+            if let Some(page::Click::Beat { track, measure, beat, string, shift }) = out.inner.click {
+                if shift && track == self.session.cursor().track {
                     // Shift+click extends from the selection's anchor (or the cursor).
                     let c = self.session.cursor();
                     let anchor = self.session.selection().map_or((c.measure, c.beat), |s| s.anchor);
                     self.run("select.set", json!({"fromMeasure": anchor.0, "fromBeat": anchor.1, "toMeasure": measure, "toBeat": beat}));
                 } else {
-                    self.run("cursor.set", json!({"measure": measure, "beat": beat, "string": string}));
+                    self.run("cursor.set", json!({"track": track, "measure": measure, "beat": beat, "string": string}));
                 }
                 self.follow_cursor = false;
             }

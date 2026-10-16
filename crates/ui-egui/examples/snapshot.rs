@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -150,6 +150,14 @@ fn main() {
     }
     if args.iter().any(|a| a == "--tab-only") {
         app.view.notation = false;
+    }
+    match value("--layout").as_deref() {
+        Some("screen") => app.view.layout = guitario_ui_egui::LayoutMode::Screen,
+        Some("horizontal") => app.view.layout = guitario_ui_egui::LayoutMode::Horizontal,
+        _ => {}
+    }
+    if args.iter().any(|a| a == "--multitrack") {
+        app.view.multitrack = true;
     }
     if args.iter().any(|a| a == "--selection") {
         let mut s = demo();

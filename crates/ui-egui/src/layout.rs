@@ -7,6 +7,20 @@ use std::collections::HashMap;
 
 const MM: f32 = 96.0 / 25.4;
 
+/// How the score is laid out on screen, as Guitar Pro's View › Layout offers: pages, one long
+/// sheet as wide as the window, or one line of bars.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LayoutMode {
+    #[default]
+    Page,
+    Screen,
+    Horizontal,
+}
+
+/// Height of a page that never ends (screen and horizontal layouts).
+const ENDLESS: f32 = 1.0e9;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Metrics {
     pub zoom: f32,
@@ -30,6 +44,10 @@ pub struct Metrics {
     pub lyric_lines: usize,
     /// The voice being edited, 0-based. A voice with only rests is drawn when it is this one.
     pub voice: usize,
+    pub mode: LayoutMode,
+    /// The top track of a system: it carries the bar's markers, tempo and directions. A track
+    /// below it in the multitrack view has less room above.
+    pub top: bool,
 }
 
 impl Metrics {
@@ -53,6 +71,52 @@ impl Metrics {
             diagrams: false,
             lyric_lines: 0,
             voice: 0,
+            mode: LayoutMode::Page,
+            top: true,
+        }
+    }
+
+    /// The screen layout: one sheet `width` pixels wide that never breaks into pages.
+    pub fn with_screen(self, width: f32) -> Metrics {
+        let side = 6.0 * MM * self.zoom;
+        Metrics {
+            mode: LayoutMode::Screen,
+            page_w: width.max(110.0 * MM * self.zoom),
+            page_h: ENDLESS,
+            margin_left: side,
+            margin_right: side,
+            margin_top: 8.0 * MM * self.zoom,
+            margin_bottom: 8.0 * MM * self.zoom,
+            ..self
+        }
+    }
+
+    /// The horizontal layout: every bar on one line, as wide as it needs.
+    pub fn with_horizontal(self) -> Metrics {
+        let side = 6.0 * MM * self.zoom;
+        Metrics {
+            mode: LayoutMode::Horizontal,
+            page_w: ENDLESS,
+            page_h: ENDLESS,
+            margin_left: side,
+            margin_right: side,
+            margin_top: 6.0 * MM * self.zoom,
+            margin_bottom: 6.0 * MM * self.zoom,
+            ..self
+        }
+    }
+
+    /// A track below the top one of a multitrack system.
+    pub fn below(self) -> Metrics {
+        Metrics { top: false, ..self }
+    }
+
+    /// The layout mode's page shape for `mode`, `width` being the window's for the screen layout.
+    pub fn with_mode(self, mode: LayoutMode, width: f32) -> Metrics {
+        match mode {
+            LayoutMode::Page => self,
+            LayoutMode::Screen => self.with_screen(width),
+            LayoutMode::Horizontal => self.with_horizontal(),
         }
     }
 
@@ -131,13 +195,15 @@ impl Metrics {
     /// Space above the first staff: section markers, chord names and text, directions, tempo,
     /// bar numbers.
     pub fn lane_above(&self) -> f32 {
-        if self.diagrams {
-            18.5 * self.space
-        } else if self.annotations {
-            11.0 * self.space
-        } else {
-            9.0 * self.space
-        }
+        let spaces = match (self.top, self.diagrams, self.annotations) {
+            (true, true, _) => 18.5,
+            (true, false, true) => 11.0,
+            (true, false, false) => 9.0,
+            (false, true, _) => 15.0,
+            (false, false, true) => 7.5,
+            (false, false, false) => 4.0,
+        };
+        spaces * self.space
     }
 
     pub fn staff_h(&self) -> f32 {
@@ -182,6 +248,9 @@ impl Metrics {
     }
 
     pub fn header_h(&self, score: &Score) -> f32 {
+        if self.mode == LayoutMode::Horizontal {
+            return 0.0;
+        }
         let mut h = 14.0 * self.space;
         if !score.meta.artist.is_empty() {
             h += 4.0 * self.space;
@@ -193,6 +262,8 @@ impl Metrics {
 /// Where one voice's beats sit in a bar, relative to the bar's left edge.
 #[derive(Clone, Debug, PartialEq)]
 pub struct VoiceCols {
+    /// The track the voice belongs to.
+    pub track: usize,
     /// The voice's index in the bar (0 is Voice 1).
     pub voice: usize,
     /// Where each beat's notehead or fret goes.
@@ -218,6 +289,11 @@ impl MeasureBox {
     pub fn cols(&self, voice: usize) -> Option<&VoiceCols> {
         self.voices.iter().find(|v| v.voice == voice).or_else(|| self.voices.first())
     }
+
+    /// This bar with only the voices of `track`, for drawing that track's staves.
+    pub fn of_track(&self, track: usize) -> MeasureBox {
+        MeasureBox { voices: self.voices.iter().filter(|v| v.track == track).cloned().collect(), ..self.clone() }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -227,6 +303,18 @@ pub struct SystemBox {
     pub y: f32,
     /// Width of the clef + key signature prefix.
     pub prefix: f32,
+}
+
+impl SystemBox {
+    /// This system with only the voices of `track`.
+    pub fn of_track(&self, track: usize) -> SystemBox {
+        SystemBox { measures: self.measures.iter().map(|m| m.of_track(track)).collect(), ..self.clone() }
+    }
+
+    /// How wide the system is, prefix included.
+    pub fn width(&self) -> f32 {
+        self.prefix + self.measures.iter().map(|m| m.width).sum::<f32>()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -266,6 +354,7 @@ fn column_natural(gap: u32, beats: &[&Beat], space: f32) -> f32 {
 }
 
 struct VoiceNat {
+    track: usize,
     voice: usize,
     /// The column each beat starts in.
     col_of: Vec<usize>,
@@ -298,8 +387,14 @@ pub fn sung_lengths(track: &Track) -> HashMap<(usize, usize), usize> {
     out
 }
 
-fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics, sung: &HashMap<(usize, usize), usize>) -> Natural {
-    let s = m.space;
+/// One track of a layout: its index, the track and its metrics.
+pub struct Part<'a> {
+    pub index: usize,
+    pub track: &'a Track,
+    pub metrics: Metrics,
+}
+
+fn natural(score: &Score, parts: &[Part], mi: usize, s: f32, sung: &[HashMap<(usize, usize), usize>]) -> Natural {
     let header = score.headers.get(mi);
     let prev = mi.checked_sub(1).and_then(|i| score.headers.get(i));
     let show_time = match (header, prev) {
@@ -307,13 +402,18 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics, sung: &HashMap<
         (Some(_), None) => true,
         _ => false,
     };
-    let measure = track.measures.get(mi);
-    let drawn = measure.map(|x| drawn_voices(x, m.voice)).unwrap_or_default();
-    // Every beat with the tick it starts at, per drawn voice.
-    let timed: Vec<(usize, Vec<(u64, &Beat)>)> = drawn
-        .iter()
-        .filter_map(|&vi| {
-            let voice = measure?.voices.get(vi)?;
+    // Every beat with the tick it starts at, per drawn voice of every track: beats that start
+    // together in any track share a column, so the tracks of a multitrack system line up in time.
+    struct Timed<'b> {
+        part: usize,
+        voice: usize,
+        beats: Vec<(u64, &'b Beat)>,
+    }
+    let mut timed: Vec<Timed> = Vec::new();
+    for (pi, part) in parts.iter().enumerate() {
+        let Some(measure) = part.track.measures.get(mi) else { continue };
+        for vi in drawn_voices(measure, part.metrics.voice) {
+            let Some(voice) = measure.voices.get(vi) else { continue };
             let mut at = 0u64;
             let beats = voice
                 .beats
@@ -324,10 +424,10 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics, sung: &HashMap<
                     (start, b)
                 })
                 .collect();
-            Some((vi, beats))
-        })
-        .collect();
-    let mut onsets: Vec<u64> = timed.iter().flat_map(|(_, bs)| bs.iter().map(|(t, _)| *t)).collect();
+            timed.push(Timed { part: pi, voice: vi, beats });
+        }
+    }
+    let mut onsets: Vec<u64> = timed.iter().flat_map(|t| t.beats.iter().map(|(t, _)| *t)).collect();
     onsets.sort_unstable();
     onsets.dedup();
     let mut pads = Vec::with_capacity(onsets.len());
@@ -335,30 +435,49 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics, sung: &HashMap<
         .iter()
         .enumerate()
         .map(|(ci, &t)| {
-            let here: Vec<&Beat> = timed.iter().flat_map(|(_, bs)| bs.iter().filter(move |(s, _)| *s == t).map(|(_, b)| *b)).collect();
-            let pad = if here.iter().any(|b| !b.rest && b.notes.iter().any(|n| n.effects.grace.is_some())) { GRACE_ROOM * s } else { 0.0 };
+            // The beats starting here, with the part each belongs to.
+            let here: Vec<(usize, &Beat)> =
+                timed.iter().flat_map(|tv| tv.beats.iter().filter(move |(st, _)| *st == t).map(move |(_, b)| (tv.part, *b))).collect();
+            let beats: Vec<&Beat> = here.iter().map(|(_, b)| *b).collect();
+            let pad = if beats.iter().any(|b| !b.rest && b.notes.iter().any(|n| n.effects.grace.is_some())) { GRACE_ROOM * s } else { 0.0 };
             pads.push(pad);
             let gap = match onsets.get(ci + 1) {
                 Some(&next) => u32::try_from(next - t).unwrap_or(u32::MAX),
-                None => here.iter().map(|b| b.duration.ticks()).min().unwrap_or(1),
+                None => beats.iter().map(|b| b.duration.ticks()).min().unwrap_or(1),
             };
-            let mut w = column_natural(gap, &here, s);
-            // A long syllable needs a wider column than its note.
-            let voice1 = timed.iter().find(|(vi, _)| *vi == 0).and_then(|(_, bs)| bs.iter().position(|(start, _)| *start == t));
-            if let Some(chars) = voice1.and_then(|bi| sung.get(&(mi, bi))) {
-                w = w.max(*chars as f32 * 0.9 * s + 1.0 * s);
-            }
+            let mut w = column_natural(gap, &beats, s);
             // A chord diagram is wider than a short note's column.
-            if let Some(strings) = here.iter().filter_map(|b| b.chord.as_ref()).map(|c| c.frets.len()).filter(|n| *n > 0 && !m.drums).max() {
+            let diagram = here
+                .iter()
+                .filter(|(p, _)| parts.get(*p).is_some_and(|p| !p.metrics.drums))
+                .filter_map(|(_, b)| b.chord.as_ref())
+                .map(|c| c.frets.len())
+                .filter(|n| *n > 0)
+                .max();
+            if let Some(strings) = diagram {
                 w = w.max(diagram_width(strings, s) + 2.6 * s);
             }
-            if onsets.len() == 1 && here.iter().all(|b| b.rest) {
+            // A long syllable needs a wider column than its note.
+            for (pi, lengths) in sung.iter().enumerate() {
+                let voice1 = timed.iter().find(|tv| tv.part == pi && tv.voice == 0).and_then(|tv| tv.beats.iter().position(|(st, _)| *st == t));
+                if let Some(chars) = voice1.and_then(|bi| lengths.get(&(mi, bi))) {
+                    w = w.max(*chars as f32 * 0.9 * s + 1.0 * s);
+                }
+            }
+            if onsets.len() == 1 && beats.iter().all(|b| b.rest) {
                 w = w.max(8.0 * s);
             }
             w + pad
         })
         .collect();
-    let voices = timed.iter().map(|(vi, bs)| VoiceNat { voice: *vi, col_of: bs.iter().filter_map(|(t, _)| onsets.binary_search(t).ok()).collect() }).collect();
+    let voices = timed
+        .iter()
+        .map(|tv| VoiceNat {
+            track: parts.get(tv.part).map_or(0, |p| p.index),
+            voice: tv.voice,
+            col_of: tv.beats.iter().filter_map(|(t, _)| onsets.binary_search(t).ok()).collect(),
+        })
+        .collect();
     let mut lead = 1.8 * s;
     if show_time {
         lead += 3.0 * s;
@@ -387,16 +506,29 @@ pub fn system_prefix(score: &Score, first_measure: usize, m: &Metrics) -> f32 {
 
 pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
     let Some(track) = score.tracks.get(track_index) else { return vec![] };
-    let sung = sung_lengths(track);
-    let naturals: Vec<Natural> = (0..score.headers.len()).map(|mi| natural(score, track, mi, m, &sung)).collect();
-    let total = |n: &Natural| n.fixed + n.cols.iter().sum::<f32>();
+    layout_parts(score, &[Part { index: track_index, track, metrics: *m }], m)
+}
 
-    // Break into systems.
+/// Lays out `parts` (one track, or every track of the multitrack view) as systems of stacked
+/// staves on pages shaped by `page`: its paper, margins, zoom and layout mode.
+pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBox> {
+    if parts.is_empty() {
+        return vec![];
+    }
+    let s = page.space;
+    let sung: Vec<HashMap<(usize, usize), usize>> = parts.iter().map(|p| sung_lengths(p.track)).collect();
+    let naturals: Vec<Natural> = (0..score.headers.len()).map(|mi| natural(score, parts, mi, s, &sung)).collect();
+    let total = |n: &Natural| n.fixed + n.cols.iter().sum::<f32>();
+    let prefix_at = |mi: usize| parts.iter().map(|p| system_prefix(score, mi, &p.metrics)).fold(0.0f32, f32::max);
+    let system_h: f32 = parts.iter().map(|p| p.metrics.system_h()).sum();
+    let horizontal = page.mode == LayoutMode::Horizontal;
+
+    // Break into systems; the horizontal layout keeps every bar on one line.
     let mut systems: Vec<(Vec<usize>, f32)> = Vec::new();
     let mut i = 0;
     while i < naturals.len() {
-        let prefix = system_prefix(score, i, m);
-        let avail = m.content_w() - prefix;
+        let prefix = prefix_at(i);
+        let avail = if horizontal { f32::INFINITY } else { page.content_w() - prefix };
         let mut used = 0.0;
         let mut row = Vec::new();
         while let Some(n) = naturals.get(i) {
@@ -413,14 +545,14 @@ pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
 
     // Justify and paginate.
     let mut pages = vec![PageBox::default()];
-    let mut y = m.margin_top + m.header_h(score);
+    let mut y = page.margin_top + page.header_h(score);
     let count = systems.len();
     for (si, (row, prefix)) in systems.into_iter().enumerate() {
-        let avail = m.content_w() - prefix;
+        let avail = page.content_w() - prefix;
         let used: f32 = row.iter().filter_map(|i| naturals.get(*i)).map(total).sum();
         let beats_sum: f32 = row.iter().filter_map(|i| naturals.get(*i)).map(|n| n.cols.iter().sum::<f32>()).sum();
         let last_and_short = si + 1 == count && used < avail * 0.7;
-        let extra = if last_and_short || beats_sum <= 0.0 { 0.0 } else { (avail - used).max(0.0) };
+        let extra = if horizontal || last_and_short || beats_sum <= 0.0 { 0.0 } else { (avail - used).max(0.0) };
         let stretch = if beats_sum > 0.0 { 1.0 + extra / beats_sum } else { 1.0 };
         let mut x = 0.0;
         let mut measures = Vec::new();
@@ -444,21 +576,21 @@ pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
                     // A beat sits in the middle of its column, right of any room kept for grace notes.
                     let beats = v.col_of.iter().map(|&c| (edge(c) + pad(c) + edge(c + 1)) / 2.0).collect();
                     let spans = v.col_of.iter().enumerate().map(|(i, &c)| (edge(c), edge(v.col_of.get(i + 1).copied().unwrap_or(col_w.len())))).collect();
-                    VoiceCols { voice: v.voice, beats, spans }
+                    VoiceCols { track: v.track, voice: v.voice, beats, spans }
                 })
                 .collect();
             let width = n.fixed + col_w.iter().sum::<f32>();
             measures.push(MeasureBox { index: mi, x, width, voices, show_time: n.show_time });
             x += width;
         }
-        if y + m.system_h() > m.page_h - m.margin_bottom && pages.last().is_some_and(|p| !p.systems.is_empty()) {
+        if y + system_h > page.page_h - page.margin_bottom && pages.last().is_some_and(|p| !p.systems.is_empty()) {
             pages.push(PageBox::default());
-            y = m.margin_top;
+            y = page.margin_top;
         }
-        if let Some(page) = pages.last_mut() {
-            page.systems.push(SystemBox { measures, y, prefix });
+        if let Some(pg) = pages.last_mut() {
+            pg.systems.push(SystemBox { measures, y, prefix });
         }
-        y += m.system_h();
+        y += system_h;
     }
     pages
 }
@@ -552,6 +684,63 @@ mod tests {
         let spans = &pages[0].systems[0].measures[0].voices[0].spans;
         let w = |i: usize| spans[i].1 - spans[i].0;
         assert!(w(1) > 2.0 * w(2), "the long word's column is wider: {} vs {}", w(1), w(2));
+    }
+
+    #[test]
+    fn the_screen_layout_wraps_to_the_window_and_never_breaks_into_pages() {
+        let s = score(40);
+        let base = Metrics::new(1.0, true, 6);
+        let narrow = base.with_screen(500.0);
+        let wide = base.with_screen(1600.0);
+        let (pn, pw) = (layout(&s, 0, &narrow), layout(&s, 0, &wide));
+        assert_eq!((pn.len(), pw.len()), (1, 1), "one sheet");
+        let systems = |p: &[PageBox]| p.iter().map(|p| p.systems.len()).sum::<usize>();
+        assert!(systems(&pn) > systems(&pw), "a narrow window needs more systems");
+        for sys in &pw[0].systems {
+            assert!(sys.width() <= wide.content_w() + 0.5);
+        }
+        // The page view of the same score has several pages.
+        assert!(layout(&s, 0, &base).len() > 1);
+    }
+
+    #[test]
+    fn the_horizontal_layout_puts_every_bar_on_one_unstretched_line() {
+        let s = score(40);
+        let m = Metrics::new(1.0, true, 6).with_horizontal();
+        let pages = layout(&s, 0, &m);
+        assert_eq!(pages.len(), 1);
+        assert_eq!(pages[0].systems.len(), 1);
+        let sys = &pages[0].systems[0];
+        assert_eq!(sys.measures.iter().map(|m| m.index).collect::<Vec<_>>(), (0..40).collect::<Vec<_>>());
+        // Natural widths: every empty bar is as wide as the others after the first.
+        let w: Vec<f32> = sys.measures.iter().skip(1).map(|m| m.width).collect();
+        assert!(w.windows(2).all(|p| (p[0] - p[1]).abs() < 0.01), "{w:?}");
+        assert_eq!(m.header_h(&s), 0.0, "no title in the horizontal layout");
+    }
+
+    #[test]
+    fn a_multitrack_layout_lines_up_beats_that_sound_together() {
+        use guitario_score::{Beat, Note};
+        use guitario_theory::{Duration, NoteValue};
+        let mut s = score(1);
+        let note = |d: Duration| Beat { rest: false, notes: vec![Note::new(0, 1)], ..Beat::rest(d) };
+        s.tracks[0].measures[0].voices[0].beats = vec![note(Duration::new(NoteValue::Half)), note(Duration::new(NoteValue::Half))];
+        let mut bass = guitario_score::Track::new("Bass", guitario_theory::Tuning::bass(), &s.headers);
+        bass.measures[0].voices[0].beats = (0..4).map(|_| note(Duration::QUARTER)).collect();
+        s.tracks.push(bass);
+        let m = Metrics::new(1.0, true, 6);
+        let parts = [Part { index: 0, track: &s.tracks[0], metrics: m }, Part { index: 1, track: &s.tracks[1], metrics: Metrics::new(1.0, true, 4).below() }];
+        let pages = layout_parts(&s, &parts, &m);
+        let mb = &pages[0].systems[0].measures[0];
+        let guitar = mb.voices.iter().find(|v| v.track == 0).unwrap();
+        let bass = mb.voices.iter().find(|v| v.track == 1).unwrap();
+        assert_eq!(guitar.beats.len(), 2);
+        assert_eq!(bass.beats.len(), 4);
+        // The guitar's second half note starts with the bass's third quarter.
+        assert!((guitar.beats[1] - bass.beats[2]).abs() < 0.01);
+        assert_eq!(mb.of_track(1).voices.len(), 1);
+        // A system is as tall as both tracks.
+        assert!(m.lane_above() > parts[1].metrics.lane_above(), "a lower track needs less room above");
     }
 
     #[test]

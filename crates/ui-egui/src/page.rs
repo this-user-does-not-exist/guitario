@@ -4,7 +4,7 @@
 
 use crate::fonts::{FontSet, sans, serif, serif_italic};
 use crate::glyphs::{self as g, Pen};
-use crate::layout::{Metrics, PageBox, SystemBox, layout};
+use crate::layout::{LayoutMode, Metrics, PageBox, Part, SystemBox, layout, layout_parts};
 use crate::notation::{Accidentals, Clef, beam_groups, spell, staff_pos};
 use crate::theme::{Tokens, tokens};
 use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
@@ -19,7 +19,7 @@ type BeatTest = fn(&Beat) -> bool;
 
 /// What a click on the page asks for.
 pub enum Click {
-    Beat { measure: usize, beat: usize, string: Option<usize>, shift: bool },
+    Beat { track: usize, measure: usize, beat: usize, string: Option<usize>, shift: bool },
 }
 
 /// An inclusive range of beats, `(measure, beat)` in score order.
@@ -32,6 +32,9 @@ pub struct View {
     /// The beat being played, shown as Guitar Pro's moving playback cursor.
     pub play: Option<(usize, usize)>,
     pub selection: Option<Range>,
+    pub layout: LayoutMode,
+    /// Every track, stacked in each system, instead of the cursor's track alone.
+    pub multitrack: bool,
 }
 
 pub struct Output {
@@ -145,64 +148,108 @@ pub fn paint_print_page(painter: &Painter, score: &Score, track_index: usize, pl
 }
 
 pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Output {
-    let Some(track) = score.tracks.get(cursor.track) else { return Output { click: None, drag: None, cursor_rect: None, play_rect: None } };
-    let m = metrics_for(track, &score.page, view.zoom, view.notation, cursor.voice);
-    let pages = layout(score, cursor.track, &m);
-    let width = (m.page_w + 2.0 * PAGE_GAP).max(ui.available_width());
-    let height = pages.len() as f32 * (m.page_h + PAGE_GAP) + PAGE_GAP;
+    let none = Output { click: None, drag: None, cursor_rect: None, play_rect: None };
+    if score.tracks.get(cursor.track).is_none() {
+        return none;
+    }
+    // The tracks drawn: the cursor's, or every track in the multitrack view (the top one carries
+    // the bar's markers and directions).
+    let indices: Vec<usize> = if view.multitrack { (0..score.tracks.len()).collect() } else { vec![cursor.track] };
+    let window = (ui.available_width() - 2.0 * PAGE_GAP).max(1.0);
+    let parts: Vec<Part> = indices
+        .iter()
+        .enumerate()
+        .filter_map(|(k, &ti)| {
+            let track = score.tracks.get(ti)?;
+            let voice = if ti == cursor.track { cursor.voice } else { 0 };
+            let m = metrics_for(track, &score.page, view.zoom, view.notation, voice).with_mode(view.layout, window);
+            Some(Part { index: ti, track, metrics: if k == 0 { m } else { m.below() } })
+        })
+        .collect();
+    let Some(page_m) = parts.first().map(|p| p.metrics) else { return none };
+    let pages = layout_parts(score, &parts, &page_m);
+    let system_h: f32 = parts.iter().map(|p| p.metrics.system_h()).sum();
+    // Pages, or one sheet as wide as the window (screen) or as the line of bars (horizontal).
+    let bottom = pages.last().and_then(|p| p.systems.last()).map_or(page_m.margin_top, |sys| sys.y + system_h);
+    let (sheet_w, sheet_h) = match view.layout {
+        LayoutMode::Page => (page_m.page_w, page_m.page_h),
+        LayoutMode::Screen => (page_m.page_w, bottom + page_m.margin_bottom),
+        LayoutMode::Horizontal => {
+            let widest = pages.iter().flat_map(|p| &p.systems).map(SystemBox::width).fold(0.0f32, f32::max);
+            (page_m.margin_left + page_m.indent() + widest + page_m.margin_right, bottom + page_m.margin_bottom)
+        }
+    };
+    let width = (sheet_w + 2.0 * PAGE_GAP).max(ui.available_width());
+    let height = pages.len() as f32 * (sheet_h + PAGE_GAP) + PAGE_GAP;
     let (response, painter) = ui.allocate_painter(vec2(width, height), egui::Sense::click_and_drag());
     let t = tokens();
     painter.rect_filled(response.rect, 0.0, t.workspace);
-    let left = response.rect.left() + (width - m.page_w) / 2.0;
-    let pen = Pen { painter: &painter, fonts: view.fonts, space: m.space };
-    let mut cx = Ctx {
-        pen,
-        m,
-        score,
-        track,
-        cursor,
-        t,
-        hits: Vec::new(),
-        cursor_rect: None,
-        play: view.play,
-        play_rect: None,
-        selection: view.selection,
-        clef: Clef::for_tuning(track.tuning.strings.iter().copied().max().unwrap_or(64)),
-        lyrics: sung(track),
-    };
+    let left = response.rect.left() + (width - sheet_w) / 2.0;
+    let mut ctxs: Vec<Ctx> = parts
+        .iter()
+        .map(|p| {
+            let mine = p.index == cursor.track;
+            Ctx {
+                pen: Pen { painter: &painter, fonts: view.fonts, space: p.metrics.space },
+                m: p.metrics,
+                score,
+                track: p.track,
+                // Only the cursor's track shows the cursor, the selection and the playback mark.
+                cursor: if mine { cursor } else { Cursor { track: p.index, measure: usize::MAX, ..Cursor::default() } },
+                t,
+                hits: Vec::new(),
+                cursor_rect: None,
+                play: view.play.filter(|_| mine),
+                play_rect: None,
+                selection: view.selection.filter(|_| mine),
+                clef: Clef::for_tuning(p.track.tuning.strings.iter().copied().max().unwrap_or(64)),
+                lyrics: sung(p.track),
+            }
+        })
+        .collect();
 
     for (pi, page) in pages.iter().enumerate() {
-        let top = response.rect.top() + PAGE_GAP + pi as f32 * (m.page_h + PAGE_GAP);
-        let rect = Rect::from_min_size(pos2(left, top), vec2(m.page_w, m.page_h));
+        let top = response.rect.top() + PAGE_GAP + pi as f32 * (sheet_h + PAGE_GAP);
+        let rect = Rect::from_min_size(pos2(left, top), vec2(sheet_w, sheet_h));
         if !painter.clip_rect().intersects(rect) {
             continue;
         }
-        painter.rect_filled(rect.translate(vec2(3.0, 4.0)), 0.0, Color32::from_black_alpha(70));
+        if view.layout == LayoutMode::Page {
+            painter.rect_filled(rect.translate(vec2(3.0, 4.0)), 0.0, Color32::from_black_alpha(70));
+        }
         painter.rect_filled(rect, 0.0, t.page);
-        if pi == 0 {
+        if pi == 0
+            && view.layout != LayoutMode::Horizontal
+            && let Some(cx) = ctxs.iter().find(|c| c.cursor.track == cursor.track && c.cursor.measure != usize::MAX).or(ctxs.first())
+        {
             cx.header(rect);
         }
-        painter.text(
-            rect.right_bottom() - vec2(m.margin_right, m.margin_bottom * 0.5),
-            egui::Align2::RIGHT_CENTER,
-            format!("{}/{}", pi + 1, pages.len()),
-            serif(9.0 * m.zoom),
-            Color32::from_gray(110),
-        );
-        cx.page(page, rect, pi == 0);
+        if view.layout == LayoutMode::Page {
+            painter.text(
+                rect.right_bottom() - vec2(page_m.margin_right, page_m.margin_bottom * 0.5),
+                egui::Align2::RIGHT_CENTER,
+                format!("{}/{}", pi + 1, pages.len()),
+                serif(9.0 * page_m.zoom),
+                Color32::from_gray(110),
+            );
+        }
+        paint_systems(&mut ctxs, page, rect, pi == 0);
     }
 
+    // Clicks may land on any track's staves; a drag stays in the cursor's track.
     let mut click = None;
     if response.clicked()
         && let Some(pos) = response.interact_pointer_pos()
-        && let Some(h) = cx.hits.iter().find(|h| h.rect.contains(pos))
+        && let Some((cx, h)) = ctxs.iter().find_map(|cx| cx.hits.iter().find(|h| h.rect.contains(pos)).map(|h| (cx, h)))
     {
+        let m = cx.m;
         let string = (!m.drums && pos.y >= h.tab_top - m.tab_gap / 2.0 && pos.y <= h.tab_top + m.tab_h() + m.tab_gap / 2.0)
-            .then(|| (((pos.y - h.tab_top) / m.tab_gap).round().max(0.0) as usize).min(track.string_count().saturating_sub(1)));
+            .then(|| (((pos.y - h.tab_top) / m.tab_gap).round().max(0.0) as usize).min(cx.track.string_count().saturating_sub(1)));
         let shift = ui.input(|i| i.modifiers.shift);
-        click = Some(Click::Beat { measure: h.measure, beat: h.beat, string, shift });
+        click = Some(Click::Beat { track: cx.cursor.track, measure: h.measure, beat: h.beat, string, shift });
     }
-    let hit_at = |p: egui::Pos2| cx.hits.iter().find(|h| h.rect.contains(p)).map(|h| (h.measure, h.beat));
+    let mine = ctxs.iter().find(|c| c.cursor.track == cursor.track);
+    let hit_at = |p: egui::Pos2| mine.and_then(|cx| cx.hits.iter().find(|h| h.rect.contains(p)).map(|h| (h.measure, h.beat)));
     let drag = if response.dragged() {
         let origin = ui.input(|i| i.pointer.press_origin());
         match (origin.and_then(hit_at), response.interact_pointer_pos().and_then(hit_at)) {
@@ -212,7 +259,37 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
     } else {
         None
     };
-    Output { click, drag, cursor_rect: cx.cursor_rect, play_rect: cx.play_rect }
+    Output { click, drag, cursor_rect: mine.and_then(|c| c.cursor_rect), play_rect: mine.and_then(|c| c.play_rect) }
+}
+
+/// Paints a page's systems with every part stacked in each: one track's staves under another's,
+/// joined at the left by the system line when there are several.
+fn paint_systems(ctxs: &mut [Ctx], page: &PageBox, rect: Rect, first_page: bool) {
+    let Some(first) = ctxs.first() else { return };
+    let (m, t, painter) = (first.m, first.t, first.pen.painter);
+    let height: f32 = ctxs.iter().map(|c| c.m.system_h()).sum();
+    for (si, sys) in page.systems.iter().enumerate() {
+        let top = rect.top() + sys.y;
+        let sys_rect = Rect::from_min_size(pos2(rect.left(), top), vec2(rect.width(), height));
+        if !painter.clip_rect().intersects(sys_rect) {
+            continue;
+        }
+        let x0 = rect.left() + m.margin_left + m.indent();
+        let mut y = top;
+        let mut span: Option<(f32, f32)> = None;
+        for cx in ctxs.iter_mut() {
+            let own = sys.of_track(cx.cursor.track);
+            cx.system(&own, x0, y, first_page && si == 0);
+            let (a, b) = cx.staff_span(y);
+            span = Some(span.map_or((a, b), |(s0, _)| (s0, b)));
+            y += cx.m.system_h();
+        }
+        if ctxs.len() > 1
+            && let Some((a, b)) = span
+        {
+            painter.line_segment([pos2(x0, a), pos2(x0, b)], Stroke::new((0.16 * m.space).max(1.0), t.bar_line));
+        }
+    }
 }
 
 struct Hit {
@@ -299,6 +376,14 @@ impl<'a> Ctx<'a> {
         for (i, l) in legend.iter().enumerate() {
             self.p().text(pos2(page.left() + m.margin_left, y + i as f32 * 2.6 * m.space), egui::Align2::LEFT_TOP, l, serif(10.0 * m.zoom), self.t.ink);
         }
+    }
+
+    /// The top of the first staff and the bottom of the last of a system whose top is at `top`.
+    fn staff_span(&self, top: f32) -> (f32, f32) {
+        let m = &self.m;
+        let first = if m.notation { top + m.notation_top() } else { top + m.tab_top() };
+        let last = if m.drums { top + m.notation_top() + m.staff_h() } else { top + m.tab_top() + m.tab_h() };
+        (first, last)
     }
 
     fn page(&mut self, page: &PageBox, rect: Rect, first_page: bool) {
@@ -388,9 +473,11 @@ impl<'a> Ctx<'a> {
             self.pen.glyph_scaled(tab_clef, pos2(x0 + 0.8 * s, (tt + tb) / 2.0), (m.tab_h() / (4.0 * s)).clamp(0.8, 1.8), t.ink);
         }
 
-        // Bar number and the opening tempo mark.
-        self.p().text(pos2(x0 + 0.2 * s, sys_top - 1.0 * s), egui::Align2::LEFT_BOTTOM, (first_mi + 1).to_string(), serif(8.0 * m.zoom), t.bar_number);
-        if first {
+        // Bar number and the opening tempo mark, over the top track.
+        if m.top {
+            self.p().text(pos2(x0 + 0.2 * s, sys_top - 1.0 * s), egui::Align2::LEFT_BOTTOM, (first_mi + 1).to_string(), serif(8.0 * m.zoom), t.bar_number);
+        }
+        if first && m.top {
             self.tempo_mark(x0 + sys.prefix, sys_top - 3.6 * s, self.score.tempo);
         }
 
@@ -416,6 +503,8 @@ impl<'a> Ctx<'a> {
             }
             if h.repeat_close > 0 {
                 self.repeat_sign(end, nt, tt, tb, false);
+            }
+            if h.repeat_close > 0 && m.top {
                 self.p().text(
                     pos2(end, sys_top - 0.6 * s),
                     egui::Align2::RIGHT_BOTTOM,
@@ -423,9 +512,11 @@ impl<'a> Ctx<'a> {
                     serif(9.0 * m.zoom),
                     t.ink,
                 );
-            } else if mb.index == last_measure {
+            }
+            // A repeat sign is the bar line; otherwise the final bar or a plain one.
+            if h.repeat_close == 0 && mb.index == last_measure {
                 self.final_bar(end, nt, tt, tb);
-            } else {
+            } else if h.repeat_close == 0 {
                 if m.notation {
                     self.p().line_segment([pos2(end, nt), pos2(end, nt + 4.0 * s)], bar);
                 }
@@ -434,79 +525,8 @@ impl<'a> Ctx<'a> {
                     self.staves_lines(end - 0.6 * s, nt, tt, tb, bar);
                 }
             }
-            // Alternate endings: a bracket over the bar, numbered where the ending starts and
-            // closed where a repeat ends it.
-            if h.endings != 0 {
-                let y = sys_top - 3.2 * s;
-                let st = Stroke::new(1.0, t.ink);
-                let prev = mb.index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(0, |p| p.endings);
-                let starts = prev != h.endings;
-                let x_start = mx + 0.3 * s;
-                let x_end = end - 0.5 * s;
-                self.p().line_segment([pos2(x_start, y), pos2(x_end, y)], st);
-                if starts {
-                    self.p().line_segment([pos2(x_start, y), pos2(x_start, y + 1.6 * s)], st);
-                    let label: Vec<String> = (0..8).filter(|b| h.endings & (1 << b) != 0).map(|b| format!("{}.", b + 1)).collect();
-                    self.p().text(pos2(x_start + 0.4 * s, y + 0.2 * s), egui::Align2::LEFT_TOP, label.join(" "), serif(8.5 * m.zoom), t.ink);
-                }
-                if h.repeat_close > 0 {
-                    // Short, so the repeat count under it stays clear.
-                    self.p().line_segment([pos2(x_end, y), pos2(x_end, y + 0.8 * s)], st);
-                }
-            }
-            // Directions: segno and coda marks at the start of the bar, Fine and jumps at its end.
-            let dir_y = sys_top - 4.8 * s;
-            let mut dx = mx + 0.6 * s;
-            for target in &h.targets {
-                match target {
-                    DirectionTarget::Segno => dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s,
-                    DirectionTarget::SegnoSegno => {
-                        dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink);
-                        dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s;
-                    }
-                    DirectionTarget::Coda => dx += self.pen.glyph(g::CODA, pos2(dx, dir_y), t.ink) + 0.3 * s,
-                    DirectionTarget::DoubleCoda => dx += self.pen.glyph(g::CODA_SQUARE, pos2(dx, dir_y), t.ink) + 0.3 * s,
-                    DirectionTarget::Fine => {
-                        self.p().text(pos2(end - 0.4 * s, dir_y), egui::Align2::RIGHT_BOTTOM, "Fine", serif_italic(9.5 * m.zoom), t.ink);
-                    }
-                }
-            }
-            if let Some(jump) = h.jump {
-                let y = if h.targets.contains(&DirectionTarget::Fine) { dir_y - 1.8 * s } else { dir_y };
-                let mut x = end - 0.4 * s;
-                if matches!(jump, Jump::ToCoda | Jump::ToDoubleCoda) {
-                    let glyph = if jump == Jump::ToCoda { g::CODA } else { g::CODA_SQUARE };
-                    x -= self.pen.width(glyph);
-                    self.pen.glyph(glyph, pos2(x, y), t.ink);
-                    x -= 0.4 * s;
-                }
-                self.p().text(pos2(x, y), egui::Align2::RIGHT_BOTTOM, jump.label(), serif_italic(9.5 * m.zoom), t.ink);
-            }
-            // Triplet feel where it changes.
-            let prev_feel = mb.index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(TripletFeel::None, |p| p.triplet_feel);
-            if h.triplet_feel != prev_feel {
-                let label = match h.triplet_feel {
-                    TripletFeel::None => "straight",
-                    TripletFeel::Triplet8th => "swing 8ths (♪♪ = ♩♪³)",
-                    TripletFeel::Triplet16th => "swing 16ths",
-                    TripletFeel::Dotted8th => "dotted 8ths (♪♪ = ♪.♬)",
-                    TripletFeel::Dotted16th => "dotted 16ths",
-                    TripletFeel::Scottish8th => "Scottish 8ths",
-                    TripletFeel::Scottish16th => "Scottish 16ths",
-                };
-                self.p().text(pos2(mx + 0.5 * s, sys_top - 5.6 * s), egui::Align2::LEFT_BOTTOM, label, serif(8.5 * m.zoom), t.ink);
-            }
-            if let Some(text) = &h.marker {
-                let galley = self.p().layout_no_wrap(text.clone(), serif(10.0 * m.zoom), t.ink);
-                // At the top of the lane, above chord names and text.
-                let r = Rect::from_min_size(pos2(mx + 0.4 * s, sys_top - m.lane_above() + 0.4 * s), galley.size() + vec2(0.8 * s, 0.4 * s));
-                self.p().rect_stroke(r, 0.0, Stroke::new(1.0, t.ink), egui::StrokeKind::Inside);
-                self.p().galley(r.min + vec2(0.4 * s, 0.2 * s), galley, t.ink);
-            }
-            if let Some(tempo) = h.tempo
-                && mb.index > 0
-            {
-                self.tempo_mark(mx + 0.5 * s, sys_top - 3.6 * s, tempo);
+            if m.top {
+                self.bar_marks(h, mb.index, mx, end, sys_top);
             }
             let measure = self.track.measures.get(mb.index);
             // Fermatas over the beats they hold, above the top staff.
@@ -714,6 +734,87 @@ impl<'a> Ctx<'a> {
                 let y = y0 + (f32::from(low - first) + 0.5) * row;
                 self.p().line_segment([pos2(column(b), y), pos2(column(a), y)], Stroke::new(0.5 * s, ink));
             }
+        }
+    }
+
+    /// What a bar shows above its system once, over the top track: alternate endings, directions,
+    /// a change of triplet feel, the section marker and a tempo change.
+    fn bar_marks(&self, h: &MeasureHeader, index: usize, mx: f32, end: f32, sys_top: f32) {
+        let (m, t) = (self.m, self.t);
+        let s = m.space;
+        // Alternate endings: a bracket over the bar, numbered where the ending starts and
+        // closed where a repeat ends it.
+        if h.endings != 0 {
+            let y = sys_top - 3.2 * s;
+            let st = Stroke::new(1.0, t.ink);
+            let prev = index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(0, |p| p.endings);
+            let starts = prev != h.endings;
+            let x_start = mx + 0.3 * s;
+            let x_end = end - 0.5 * s;
+            self.p().line_segment([pos2(x_start, y), pos2(x_end, y)], st);
+            if starts {
+                self.p().line_segment([pos2(x_start, y), pos2(x_start, y + 1.6 * s)], st);
+                let label: Vec<String> = (0..8).filter(|b| h.endings & (1 << b) != 0).map(|b| format!("{}.", b + 1)).collect();
+                self.p().text(pos2(x_start + 0.4 * s, y + 0.2 * s), egui::Align2::LEFT_TOP, label.join(" "), serif(8.5 * m.zoom), t.ink);
+            }
+            if h.repeat_close > 0 {
+                // Short, so the repeat count under it stays clear.
+                self.p().line_segment([pos2(x_end, y), pos2(x_end, y + 0.8 * s)], st);
+            }
+        }
+        // Directions: segno and coda marks at the start of the bar, Fine and jumps at its end.
+        let dir_y = sys_top - 4.8 * s;
+        let mut dx = mx + 0.6 * s;
+        for target in &h.targets {
+            match target {
+                DirectionTarget::Segno => dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                DirectionTarget::SegnoSegno => {
+                    dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink);
+                    dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s;
+                }
+                DirectionTarget::Coda => dx += self.pen.glyph(g::CODA, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                DirectionTarget::DoubleCoda => dx += self.pen.glyph(g::CODA_SQUARE, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                DirectionTarget::Fine => {
+                    self.p().text(pos2(end - 0.4 * s, dir_y), egui::Align2::RIGHT_BOTTOM, "Fine", serif_italic(9.5 * m.zoom), t.ink);
+                }
+            }
+        }
+        if let Some(jump) = h.jump {
+            let y = if h.targets.contains(&DirectionTarget::Fine) { dir_y - 1.8 * s } else { dir_y };
+            let mut x = end - 0.4 * s;
+            if matches!(jump, Jump::ToCoda | Jump::ToDoubleCoda) {
+                let glyph = if jump == Jump::ToCoda { g::CODA } else { g::CODA_SQUARE };
+                x -= self.pen.width(glyph);
+                self.pen.glyph(glyph, pos2(x, y), t.ink);
+                x -= 0.4 * s;
+            }
+            self.p().text(pos2(x, y), egui::Align2::RIGHT_BOTTOM, jump.label(), serif_italic(9.5 * m.zoom), t.ink);
+        }
+        // Triplet feel where it changes.
+        let prev_feel = index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(TripletFeel::None, |p| p.triplet_feel);
+        if h.triplet_feel != prev_feel {
+            let label = match h.triplet_feel {
+                TripletFeel::None => "straight",
+                TripletFeel::Triplet8th => "swing 8ths (♪♪ = ♩♪³)",
+                TripletFeel::Triplet16th => "swing 16ths",
+                TripletFeel::Dotted8th => "dotted 8ths (♪♪ = ♪.♬)",
+                TripletFeel::Dotted16th => "dotted 16ths",
+                TripletFeel::Scottish8th => "Scottish 8ths",
+                TripletFeel::Scottish16th => "Scottish 16ths",
+            };
+            self.p().text(pos2(mx + 0.5 * s, sys_top - 5.6 * s), egui::Align2::LEFT_BOTTOM, label, serif(8.5 * m.zoom), t.ink);
+        }
+        if let Some(text) = &h.marker {
+            let galley = self.p().layout_no_wrap(text.clone(), serif(10.0 * m.zoom), t.ink);
+            // At the top of the lane, above chord names and text.
+            let r = Rect::from_min_size(pos2(mx + 0.4 * s, sys_top - m.lane_above() + 0.4 * s), galley.size() + vec2(0.8 * s, 0.4 * s));
+            self.p().rect_stroke(r, 0.0, Stroke::new(1.0, t.ink), egui::StrokeKind::Inside);
+            self.p().galley(r.min + vec2(0.4 * s, 0.2 * s), galley, t.ink);
+        }
+        if let Some(tempo) = h.tempo
+            && index > 0
+        {
+            self.tempo_mark(mx + 0.5 * s, sys_top - 3.6 * s, tempo);
         }
     }
 
@@ -1586,6 +1687,11 @@ mod tests {
 
     /// How many painted shapes `is` accepts when `score` is drawn at 100 %.
     fn painted(score: &Score, notation: bool, is: impl Fn(&egui::Shape) -> bool) -> usize {
+        painted_in(score, notation, LayoutMode::Page, false, is)
+    }
+
+    /// The same in a layout mode, with every track or the cursor's alone.
+    fn painted_in(score: &Score, notation: bool, layout: LayoutMode, multitrack: bool, is: impl Fn(&egui::Shape) -> bool) -> usize {
         fn count(shape: &egui::Shape, is: &dyn Fn(&egui::Shape) -> bool) -> usize {
             match shape {
                 egui::Shape::Vec(inner) => inner.iter().map(|s| count(s, is)).sum(),
@@ -1600,7 +1706,7 @@ mod tests {
                 fonts = Some(crate::fonts::install(ui.ctx()));
                 return;
             };
-            show(ui, &score, Cursor::default(), &View { zoom: 1.0, notation, fonts, play: None, selection: None });
+            show(ui, &score, Cursor::default(), &View { zoom: 1.0, notation, fonts, play: None, selection: None, layout, multitrack });
         });
         harness.run_steps(3);
         harness.output().shapes.iter().map(|s| count(&s.shape, &is)).sum()
@@ -1625,6 +1731,27 @@ mod tests {
     }
 
     #[test]
+    fn the_multitrack_view_draws_every_track_and_the_layouts_draw_every_bar() {
+        let mut s = Score::new();
+        let note = |string: u8, fret: u8| Beat { rest: false, notes: vec![Note::new(string, fret)], ..Beat::rest(Duration::WHOLE) };
+        s.tracks[0].measures[0].voices[0].beats = vec![note(0, 17)];
+        s.tracks.push(guitario_score::Track::new("Bass", guitario_theory::Tuning::bass(), &s.headers));
+        s.tracks[1].measures[0].voices[0].beats = vec![note(1, 19)];
+        let frets = |multi: bool, layout: LayoutMode| {
+            let count = |what: &'static str| painted_in(&s, true, layout, multi, move |sh| matches!(sh, egui::Shape::Text(t) if t.galley.text() == what));
+            (count("17"), count("19"))
+        };
+        assert_eq!(frets(false, LayoutMode::Page), (1, 0), "the cursor's track alone");
+        for layout in [LayoutMode::Page, LayoutMode::Screen, LayoutMode::Horizontal] {
+            assert_eq!(frets(true, layout), (1, 1), "{layout:?}");
+        }
+        // The track names stand left of each part.
+        let names =
+            painted_in(&s, true, LayoutMode::Page, true, |sh| matches!(sh, egui::Shape::Text(t) if t.galley.text() == "bass" || t.galley.text() == "s-guit."));
+        assert_eq!(names, 2);
+    }
+
+    #[test]
     fn beams_slope_with_the_melody_but_lie_flat_over_a_peak() {
         use guitario_theory::NoteValue;
         // The beam's corners: each beam is a four-point polygon.
@@ -1637,7 +1764,12 @@ mod tests {
                     fonts = Some(crate::fonts::install(ui.ctx()));
                     return;
                 };
-                show(ui, &score, Cursor::default(), &View { zoom: 1.0, notation: true, fonts, play: None, selection: None });
+                show(
+                    ui,
+                    &score,
+                    Cursor::default(),
+                    &View { zoom: 1.0, notation: true, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false },
+                );
             });
             harness.run_steps(3);
             fn walk(shape: &egui::Shape, out: &mut Vec<Vec<egui::Pos2>>) {

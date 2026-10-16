@@ -8,4 +8,8 @@ beat, time signature, time and tempo); the edition palette runs down the left; p
 middle; the inspector is on the right; the fretboard and the global view (tracks and bars) are at the
 bottom. Toggle panels from the top bar or the View menu; Guitario remembers your layout.
 
+**View › Layout** switches between pages, one long sheet as wide as the window (**Screen**) and one
+line of bars (**Horizontal**). **View › Multitrack** shows every track of the song stacked in each
+system, lined up in time; click any track's notes to edit that track.
+
 The `demos/` folder has original metal pieces to try: open one, click a bar and press **Space**.

@@ -210,6 +210,16 @@ fn entry(app: &mut GuitarioApp, ui: &mut egui::Ui, item: &MenuItem) {
             if !item.shortcut.is_empty() {
                 b = b.shortcut_text(shortcut_text(item.shortcut));
             }
+            // View choices show which one is on.
+            let on = match action {
+                Action::Ui(UiAction::Layout(mode)) => Some(app.view.layout == mode),
+                Action::Ui(UiAction::ToggleMultitrack) => Some(app.view.multitrack),
+                Action::Ui(UiAction::ToggleNotation) => Some(app.view.notation),
+                _ => None,
+            };
+            if let Some(on) = on {
+                b = b.selected(on);
+            }
             if ui.add(b).clicked() {
                 ui.close();
                 match action {

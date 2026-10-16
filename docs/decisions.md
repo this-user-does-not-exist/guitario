@@ -231,3 +231,15 @@ Beams slope with the outer notes of their group, by at most a staff space, and l
 inner note reaches past both ends; the beam then moves away from the heads until no stem is
 shorter than the note alone would want. The rhythm under a tab-only staff keeps flat beams, as
 Guitar Pro draws it.
+
+## 2026-10-16: Layouts and the multitrack view share one layout pass
+
+The layout takes parts (one track, or every track in the multitrack view) and lays their bars out
+together: the columns of a bar are the moments a beat starts in any voice of any track, so tracks
+line up in time, and a system is as tall as its parts stacked. The cursor's track draws the cursor,
+selection and playback mark; the top part alone draws the bar number, tempo, section marker,
+endings, directions and triplet feel, and the parts below it have less room above. The screen
+layout is a page as wide as the window and endless in height (no page breaks, no page number, the
+title kept); the horizontal layout is endless both ways with one unjustified system and no title.
+Layout mode and multitrack are view state in the shell, saved in the preferences, not in the
+score. Printing and PDF still lay out one track at a time in pages.

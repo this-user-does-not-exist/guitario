@@ -20,6 +20,8 @@ pub struct Prefs {
 pub struct ViewPrefs {
     pub zoom: f32,
     pub notation: bool,
+    pub layout: crate::layout::LayoutMode,
+    pub multitrack: bool,
     pub palette: bool,
     pub inspector: bool,
     pub global_view: bool,
@@ -28,7 +30,16 @@ pub struct ViewPrefs {
 
 impl Default for ViewPrefs {
     fn default() -> Self {
-        ViewPrefs { zoom: 1.25, notation: true, palette: true, inspector: true, global_view: true, fretboard: true }
+        ViewPrefs {
+            zoom: 1.25,
+            notation: true,
+            layout: crate::layout::LayoutMode::Page,
+            multitrack: false,
+            palette: true,
+            inspector: true,
+            global_view: true,
+            fretboard: true,
+        }
     }
 }
 
