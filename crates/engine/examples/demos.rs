@@ -14,7 +14,8 @@
 //! below/above, `+slo`/`+slu` slide out, `+nh`/`+ah`/`+ph` harmonics, `~` tie. `*pm` applies a
 //! modifier to every note in the beat so far; `@mf` sets the beat's dynamic; `%Am` names the
 //! beat's chord and `%Am=x02210` adds its diagram (frets from the low string, `x` not played); `&tp8`, `&tp16` and
-//! `&tp32` make the beat tremolo-picked at that note value. On a drum track a beat
+//! `&tp32` make the beat tremolo-picked at that note value; `&fs`, `&fm` and `&fl` put a short,
+//! medium or long fermata over the beat. On a drum track a beat
 //! lists kit pieces by their short names: `bd` kick, `sd` snare, `hh`/`oh`/`ph` hi-hat closed, open
 //! and pedal, `cr` crash, `ch` china, `sp` splash, `rd`/`rb` ride and bell, `t1`-`t4` and `ft` toms.
 
@@ -159,6 +160,14 @@ fn enter_beat(s: &mut Session, spec: &str, advance: bool) -> R {
                     run(s, "beat.setChord", json!({"name": name, "frets": frets}))?;
                 }
             }
+        } else if let Some(kind) = tok.strip_prefix("&f") {
+            let kind = match kind {
+                "s" => "short",
+                "m" => "medium",
+                "l" => "long",
+                other => return Err(format!("bad fermata `{other}`")),
+            };
+            run(s, "beat.setFermata", json!({"kind": kind}))?;
         } else if let Some(speed) = tok.strip_prefix("&tp") {
             let speed = match speed {
                 "8" => "eighth",
@@ -808,7 +817,7 @@ fn solo() -> R<Session> {
         "4. 1:17 +gr15s +b +v, 8 1:15, 4 1:12, 4 2:15 +gr14h".to_string(),
         "8 2:15 +h, 8 2:12, 8 3:14 +h, 8 3:12, 4 4:14, 4 4:12".to_string(),
         "2 1:15 +b +v, 2 1:12 +v".to_string(),
-        "1 1:12 +v".to_string(),
+        "1 1:12 +v &fl".to_string(),
     ];
     let mut b: Vec<Bar> = solo_bars.iter().map(bar).collect();
     b[0] = bar(&solo_bars[0]).mark("Solo");

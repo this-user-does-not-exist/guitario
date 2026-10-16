@@ -246,6 +246,22 @@ struct Ctx<'a> {
     lyrics: Vec<Vec<(usize, usize, guitario_score::Syllable)>>,
 }
 
+/// Where in a bar (from its left edge) the beat starting `tick` ticks in sits: the first drawn
+/// voice that has one there.
+fn beat_x_at(measure: Option<&guitario_score::Measure>, mb: &crate::layout::MeasureBox, tick: u32) -> Option<f32> {
+    let measure = measure?;
+    mb.voices.iter().find_map(|vc| {
+        let beats = &measure.voices.get(vc.voice)?.beats;
+        let mut at = 0u32;
+        let i = beats.iter().position(|b| {
+            let here = at == tick;
+            at = at.saturating_add(b.duration.ticks());
+            here
+        })?;
+        vc.beats.get(i).copied()
+    })
+}
+
 /// The track's lyrics laid on its beats, line by line.
 fn sung(track: &Track) -> Vec<Vec<(usize, usize, guitario_score::Syllable)>> {
     track.lyrics.iter().map(|l| guitario_score::dispatch_lyrics(track, l)).collect()
@@ -493,6 +509,17 @@ impl<'a> Ctx<'a> {
                 self.tempo_mark(mx + 0.5 * s, sys_top - 3.6 * s, tempo);
             }
             let measure = self.track.measures.get(mb.index);
+            // Fermatas over the beats they hold, above the top staff.
+            for f in &h.fermatas {
+                if let Some(x) = beat_x_at(measure, mb, f.tick) {
+                    let glyph = match f.kind {
+                        guitario_score::FermataKind::Short => g::FERMATA_SHORT,
+                        guitario_score::FermataKind::Medium => g::FERMATA,
+                        guitario_score::FermataKind::Long => g::FERMATA_LONG,
+                    };
+                    self.pen.glyph_centered(glyph, pos2(mx + x, sys_top - 1.6 * s), t.ink);
+                }
+            }
             // Playback follows Voice 1; the cursor, selection and clicks use the voice being edited.
             let edit_cols = mb.cols(self.cursor.voice);
             let edit_voice = edit_cols.map_or(0, |c| c.voice);
@@ -1551,6 +1578,25 @@ mod tests {
         let rest = Beat::rest(Duration::new(guitario_theory::NoteValue::Half));
         s.tracks[0].measures[0].voices[0].beats = vec![beat, rest];
         s
+    }
+
+    #[test]
+    fn a_fermata_is_drawn_over_the_beat_it_holds() {
+        use guitario_score::{Fermata, FermataKind};
+        let note = |fret: u8| Beat { rest: false, notes: vec![Note::new(0, fret)], ..Beat::rest(Duration::QUARTER) };
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices[0].beats = vec![note(1), note(2), note(3), note(4)];
+        let dots = |s: &Score| painted(s, true, |sh| matches!(sh, egui::Shape::Circle(_)));
+        let plain = dots(&s);
+        s.headers[0].fermatas = vec![
+            Fermata { tick: 0, kind: FermataKind::Short, length: 0 },
+            Fermata { tick: guitario_theory::TICKS_PER_QUARTER, kind: FermataKind::Medium, length: 0 },
+            Fermata { tick: 3 * guitario_theory::TICKS_PER_QUARTER, kind: FermataKind::Long, length: 0 },
+        ];
+        // Each fallback fermata has its dot; with no beat at a fermata's place nothing is drawn.
+        assert_eq!(dots(&s), plain + 3);
+        s.headers[0].fermatas.push(Fermata { tick: 7, kind: FermataKind::Long, length: 0 });
+        assert_eq!(dots(&s), plain + 3);
     }
 
     #[test]

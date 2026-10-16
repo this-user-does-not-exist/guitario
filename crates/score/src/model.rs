@@ -150,6 +150,63 @@ pub struct MeasureHeader {
     /// A jump (D.C., D.S., To Coda …) taken at the end of this bar.
     #[serde(default)]
     pub jump: Option<Jump>,
+    /// Fermatas over this bar, by where they fall in it; every track holds there.
+    #[serde(default)]
+    pub fermatas: Vec<Fermata>,
+}
+
+/// A fermata: the beat at `tick` (from the start of the bar) is held longer, in every track.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Fermata {
+    pub tick: u32,
+    pub kind: FermataKind,
+    /// Guitar Pro's fermata length in hundredths, kept so a file comes back as it was.
+    #[serde(default)]
+    pub length: u16,
+}
+
+/// How long a fermata holds: the three shapes Guitar Pro draws.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FermataKind {
+    Short,
+    #[default]
+    Medium,
+    Long,
+}
+
+impl FermataKind {
+    pub const ALL: [FermataKind; 3] = [FermataKind::Short, FermataKind::Medium, FermataKind::Long];
+
+    /// How many times its written length the held beat lasts.
+    pub fn stretch(self) -> f64 {
+        match self {
+            FermataKind::Short => 1.5,
+            FermataKind::Medium => 2.0,
+            FermataKind::Long => 3.0,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            FermataKind::Short => "short",
+            FermataKind::Medium => "medium",
+            FermataKind::Long => "long",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<FermataKind> {
+        FermataKind::ALL.into_iter().find(|k| k.name() == name)
+    }
+}
+
+/// A stretch of a bar that plays slower because of a fermata: from `at` ticks into the bar, `ticks`
+/// long, lasting `stretch` times as long as written.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Hold {
+    pub at: u32,
+    pub ticks: u32,
+    pub stretch: f64,
 }
 
 /// A place a jump can go to, or Fine where a jump "al Fine" stops.
@@ -273,6 +330,7 @@ impl MeasureHeader {
             endings: 0,
             targets: Vec::new(),
             jump: None,
+            fermatas: Vec::new(),
         }
     }
 
@@ -838,6 +896,35 @@ impl Score {
 
     pub fn measure_count(&self) -> usize {
         self.headers.len()
+    }
+
+    /// Where bar `measure` is held by its fermatas: each from the fermata to the next moment a beat
+    /// starts in any track or voice (or the bar's end), in order.
+    pub fn holds(&self, measure: usize) -> Vec<Hold> {
+        let Some(h) = self.headers.get(measure).filter(|h| !h.fermatas.is_empty()) else { return Vec::new() };
+        let cap = h.capacity();
+        let mut onsets: Vec<u32> = vec![cap];
+        for v in self.tracks.iter().filter_map(|t| t.measures.get(measure)).flat_map(|m| &m.voices) {
+            let mut at = 0u32;
+            for b in &v.beats {
+                onsets.push(at);
+                at = at.saturating_add(b.duration.ticks());
+            }
+        }
+        onsets.sort_unstable();
+        onsets.dedup();
+        let mut out: Vec<Hold> = h
+            .fermatas
+            .iter()
+            .filter(|f| f.tick < cap)
+            .filter_map(|f| {
+                let end = onsets.iter().copied().find(|o| *o > f.tick)?;
+                Some(Hold { at: f.tick, ticks: end - f.tick, stretch: f.kind.stretch() })
+            })
+            .collect();
+        out.sort_by_key(|h| h.at);
+        out.dedup_by_key(|h| h.at);
+        out
     }
 
     /// The tempo in force at `measure`, following earlier overrides.

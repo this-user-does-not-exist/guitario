@@ -18,7 +18,12 @@ pub enum ScoreError {
     Directions(usize),
     #[error("page setup: {0}")]
     Page(String),
+    #[error("measure {0} has a fermata outside the bar, two at one place, or too many")]
+    Fermatas(usize),
 }
+
+/// Most fermatas one bar may hold.
+pub const MAX_FERMATAS: usize = 64;
 
 /// Longest line of lyrics accepted, in bytes.
 pub const MAX_LYRICS_TEXT: usize = 100_000;
@@ -37,6 +42,12 @@ impl crate::Score {
         for (mi, h) in self.headers.iter().enumerate() {
             if h.targets.iter().enumerate().any(|(i, t)| h.targets.iter().take(i).any(|u| u == t)) {
                 return Err(ScoreError::Directions(mi));
+            }
+            if h.fermatas.len() > MAX_FERMATAS
+                || h.fermatas.iter().any(|f| f.tick >= h.capacity())
+                || h.fermatas.iter().enumerate().any(|(i, f)| h.fermatas.iter().take(i).any(|g| g.tick == f.tick))
+            {
+                return Err(ScoreError::Fermatas(mi));
             }
         }
         for t in self.headers.iter().filter_map(|h| h.tempo).chain([self.tempo]) {
@@ -157,6 +168,12 @@ mod tests {
         let mut s = Score::new();
         s.tracks[0].lyrics = vec![crate::LyricLine::default(); crate::MAX_LYRIC_LINES + 1];
         assert!(matches!(s.validate(), Err(ScoreError::Track { what, .. }) if what.contains("lyrics")));
+
+        let mut s = Score::new();
+        s.headers[0].fermatas = vec![crate::Fermata { tick: 4 * guitario_theory::TICKS_PER_QUARTER, kind: crate::FermataKind::Long, length: 0 }];
+        assert_eq!(s.validate(), Err(ScoreError::Fermatas(0)), "past the end of the bar");
+        s.headers[0].fermatas = vec![crate::Fermata { tick: 0, kind: crate::FermataKind::Long, length: 0 }; 2];
+        assert_eq!(s.validate(), Err(ScoreError::Fermatas(0)), "two at one place");
 
         let mut s = Score::new();
         s.tempo = 5;

@@ -352,6 +352,9 @@ impl Writer {
             if h.free_time {
                 self.drop("free-time bars");
             }
+            if !h.fermatas.is_empty() {
+                self.drop("fermatas");
+            }
             prev = Some(h);
         }
     }

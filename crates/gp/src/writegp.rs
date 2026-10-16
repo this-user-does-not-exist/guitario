@@ -649,10 +649,11 @@ fn master_bar(h: &MeasureHeader, bars: impl Iterator<Item = usize>) -> String {
     let ids: Vec<String> = bars.map(|b| b.to_string()).collect();
     let ts = h.time_signature;
     let mut x = format!(
-        "<MasterBar><Key><AccidentalCount>{}</AccidentalCount><Mode>Major</Mode></Key><Time>{}/{}</Time><Bars>{}</Bars>",
+        "<MasterBar><Key><AccidentalCount>{}</AccidentalCount><Mode>Major</Mode></Key><Time>{}/{}</Time>{}<Bars>{}</Bars>",
         h.key,
         ts.numerator,
         ts.denominator,
+        fermatas(h),
         ids.join(" ")
     );
     if h.repeat_open || h.repeat_close > 0 {
@@ -700,6 +701,36 @@ fn master_bar(h: &MeasureHeader, bars: impl Iterator<Item = usize>) -> String {
         x.push_str("<DoubleBar/>");
     }
     x.push_str("</MasterBar>\n");
+    x
+}
+
+/// A bar's fermatas: the type, where it falls as a fraction of a quarter note, and the length.
+fn fermatas(h: &MeasureHeader) -> String {
+    if h.fermatas.is_empty() {
+        return String::new();
+    }
+    let gcd = |mut a: u32, mut b: u32| {
+        while b != 0 {
+            (a, b) = (b, a % b);
+        }
+        a.max(1)
+    };
+    let mut x = String::from("<Fermatas>");
+    for f in &h.fermatas {
+        let kind = match f.kind {
+            FermataKind::Short => "Short",
+            FermataKind::Medium => "Medium",
+            FermataKind::Long => "Long",
+        };
+        let g = gcd(f.tick, TICKS_PER_QUARTER);
+        x.push_str(&format!(
+            "<Fermata><Type>{kind}</Type><Offset>{}/{}</Offset><Length>{}</Length></Fermata>",
+            f.tick / g,
+            TICKS_PER_QUARTER / g,
+            f64::from(f.length) / 100.0
+        ));
+    }
+    x.push_str("</Fermatas>");
     x
 }
 

@@ -1,8 +1,8 @@
-//! Bar-level commands: clear, double bar, free time, triplet feel.
+//! Bar-level commands: clear, double bar, free time, triplet feel, endings, directions, fermatas.
 
 use crate::commands::{CommandSpec, cmd};
 use crate::{EngineError, Session, params as p};
-use guitario_score::{DirectionTarget, Jump, JumpEnd, Measure, TripletFeel};
+use guitario_score::{DirectionTarget, Fermata, FermataKind, Jump, JumpEnd, Measure, TripletFeel};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
@@ -30,7 +30,30 @@ pub fn specs() -> Vec<CommandSpec> {
             true,
             set_directions,
         ),
+        cmd("beat.setFermata", "Fermata", "Bar", None, "kind: short|medium|long|none (over the cursor beat; every track holds there)", true, set_fermata),
     ]
+}
+
+/// A fermata over the beat under the cursor: it lives on the bar, at the beat's place in it.
+fn set_fermata(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let name = p::string(params, "kind")?;
+    let kind = match name {
+        "none" => None,
+        n => Some(FermataKind::from_name(n).ok_or_else(|| EngineError::BadParam(format!("`kind` must be short, medium, long or none, not `{n}`")))?),
+    };
+    let beat = s.cursor.beat;
+    let voice = s.voice_mut()?;
+    if beat >= voice.beats.len() {
+        return Err(EngineError::invalid("the cursor is not on a beat"));
+    }
+    let tick: u32 = voice.beats.iter().take(beat).map(|b| b.duration.ticks()).sum();
+    let header = s.header_mut()?;
+    header.fermatas.retain(|f| f.tick != tick);
+    if let Some(kind) = kind {
+        header.fermatas.push(Fermata { tick, kind, length: 0 });
+        header.fermatas.sort_by_key(|f| f.tick);
+    }
+    Ok(json!({"tick": tick}))
 }
 
 fn set_endings(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
@@ -157,4 +180,39 @@ fn set_feel(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         h.triplet_feel = feel;
     }
     Ok(json!({"ok": true}))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Session;
+    use guitario_score::FermataKind;
+    use guitario_theory::TICKS_PER_QUARTER;
+    use serde_json::{Value, json};
+
+    #[test]
+    fn a_fermata_goes_on_the_bar_at_the_cursor_beat_and_is_replaced_or_removed() {
+        let mut s = Session::new();
+        for _ in 0..3 {
+            s.run("beat.setDuration", &json!({"value": 4})).unwrap();
+            s.run("note.setFret", &json!({"fret": 3})).unwrap();
+            s.run("cursor.right", &Value::Null).unwrap();
+        }
+        s.run("cursor.set", &json!({"measure": 0, "beat": 2})).unwrap();
+        let r = s.run("beat.setFermata", &json!({"kind": "long"})).unwrap();
+        assert_eq!(r["tick"], 2 * TICKS_PER_QUARTER);
+        let f = |s: &Session| s.score().headers[0].fermatas.iter().map(|f| (f.tick, f.kind)).collect::<Vec<_>>();
+        assert_eq!(f(&s), vec![(2 * TICKS_PER_QUARTER, FermataKind::Long)]);
+        s.run("beat.setFermata", &json!({"kind": "short"})).unwrap();
+        s.run("cursor.set", &json!({"measure": 0, "beat": 0})).unwrap();
+        s.run("beat.setFermata", &json!({"kind": "medium"})).unwrap();
+        assert_eq!(f(&s), vec![(0, FermataKind::Medium), (2 * TICKS_PER_QUARTER, FermataKind::Short)], "one per place, in order");
+        s.run("beat.setFermata", &json!({"kind": "none"})).unwrap();
+        assert_eq!(f(&s).len(), 1);
+        s.run("edit.undo", &Value::Null).unwrap();
+        assert_eq!(f(&s).len(), 2);
+        for bad in [json!({}), json!({"kind": "huge"}), json!({"kind": 2})] {
+            assert!(s.run("beat.setFermata", &bad).is_err(), "{bad}");
+        }
+        assert!(s.score().validate().is_ok());
+    }
 }

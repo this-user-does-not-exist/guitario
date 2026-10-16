@@ -201,6 +201,28 @@ fn header_of(m: Node) -> MeasureHeader {
     };
     h.free_time = child(m, "FreeTime").is_some();
     h.double_bar = child(m, "DoubleBar").is_some();
+    // Fermatas: a type, where in the bar as a fraction of a quarter note, and a length.
+    if let Some(list) = child(m, "Fermatas") {
+        let cap = h.capacity();
+        for f in list.children().filter(|c| c.has_tag_name("Fermata")).take(guitario_score::MAX_FERMATAS) {
+            let kind = match text(f, "Type") {
+                Some("Short") => FermataKind::Short,
+                Some("Long") => FermataKind::Long,
+                _ => FermataKind::Medium,
+            };
+            let tick = text(f, "Offset")
+                .and_then(|o| o.split_once('/'))
+                .and_then(|(n, d)| Some((n.trim().parse::<u64>().ok()?, d.trim().parse::<u64>().ok().filter(|d| *d > 0)?)))
+                .and_then(|(n, d)| u32::try_from(n.saturating_mul(u64::from(guitario_theory::TICKS_PER_QUARTER)) / d).ok())
+                .unwrap_or(0);
+            let length =
+                text(f, "Length").and_then(|l| l.parse::<f64>().ok()).filter(|l| l.is_finite()).map_or(0, |l| (l * 100.0).round().clamp(0.0, 1000.0) as u16);
+            if tick < cap && !h.fermatas.iter().any(|g| g.tick == tick) {
+                h.fermatas.push(Fermata { tick, kind, length });
+            }
+        }
+        h.fermatas.sort_by_key(|f| f.tick);
+    }
     h
 }
 

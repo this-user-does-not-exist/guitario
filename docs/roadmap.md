@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (lyrics; menus 135/173) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (fermatas; menus 135/173) · **Target:** Guitar Pro 8
 
 Forward-looking plan: milestones, the **Current focus** list, and what's next with estimates.
 Where we stand today is in [`target-app-parity.md`](target-app-parity.md) (headline numbers, by
@@ -13,7 +13,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started. Hours are Opus 5
 for one agent working sequentially (uncalibrated, see
 [`target-app-parity.md`](target-app-parity.md#remaining-effort-and-calibration)).
 
-**Stage: alpha** (ready for real work ~27%). The alpha gate below passes; beta is ~815–1,385 h away.
+**Stage: alpha** (ready for real work ~27%). The alpha gate below passes; beta is ~810–1,375 h away.
 
 ## Alpha gate
 
@@ -41,7 +41,7 @@ in Guitar Pro 8.
 | M0 Skeleton | ✅ | workspace, xtask (layers / wasm / ci / stats / parity / scorecard / version), CI workflow, never-crash lints |
 | M1 Model + engine | ✅ | theory, score (validation, timeline), 64 commands with undo, CLI, `.gt` with craft-atomic saves |
 | M2 Tab editor | 🟡 | keyboard entry, Guitar Pro shortcuts, palette, selection and clipboard, four voices; no bend editor |
-| M3 Notation | 🟡 | page view, notation over tab, beams, accidentals, effect lanes, ties, slurs, voices, chord names and diagrams, lyrics, tremolo picking, trills, grace notes, drums; no layouts or fermatas |
+| M3 Notation | 🟡 | page view, notation over tab, beams, accidentals, effect lanes, ties, slurs, voices, chord names and diagrams, lyrics, tremolo picking, trills, grace notes, fermatas, drums; no layouts |
 | M4 Playback | 🟡 | plucked-string synth, transport, loop, speed, metronome, count-in, WAV export; no drums or samples |
 | M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 and GP6 drums remain |
 | M6 Drums | 🟡 | kit tracks, drum pad, notation, GM playback, `.gp` drum import, drum demos, a second voice for the feet; a step editor missing |
@@ -54,7 +54,7 @@ in Guitar Pro 8.
 
 Ranked; each item links to its gap entry. Pick from the top unless an issue is assigned to you.
 
-1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): fermatas, layouts, beaming by the signature, multivoice editing. 50–95 h.
+1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): layouts, beaming by the signature, multivoice editing, fingering. 45–85 h.
 2. **Guitar Pro import depth** ([G3](gaps.md#g3-guitar-pro-exchange)): Guitar Pro 6 drums, MIDI and MusicXML import, a human check of `.gp` exports. 40–80 h.
 3. **Print depth** ([G2](gaps.md#g2-print-depth)): headers and footers, layouts, selected bars, a real-printer check. 10–20 h.
 
@@ -67,7 +67,7 @@ Ranked; each item links to its gap entry. Pick from the top unless an issue is a
 | 0.4 "ties and voices" | ✅ ties, slurs and up to four voices landed 2026-10-16 | done |
 | 0.5 "print it" | ✅ PDF export and printing landed 2026-10-16 | done |
 | Alpha | ✅ the alpha gate passes (2026-10-16) | done |
-| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~815–1,385 h total |
+| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~810–1,375 h total |
 
 ## Milestone definitions
 
@@ -92,6 +92,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-16 | minor | Fermatas (drawn, held in playback and MIDI, GPIF both ways); G4 left 45–85 h; beta ~810–1,375 h |
 | 2026-10-16 | minor | Lyrics (model, command and dialog, engraving under the tab, Guitar Pro 4-8 both ways); G4 left 50–95 h; beta ~815–1,385 h |
 | 2026-10-16 | minor | Chord diagrams drawn and kept in `.gp`; Tools › Chord Diagrams… with a chord namer (M8 started); G4 left 60–115 h; beta ~830–1,410 h |
 | 2026-10-16 | minor | Grace notes (model, command and dialog, playback, engraving, Guitar Pro 3-8 both ways); G4 left 70–130 h; beta ~850–1,440 h |

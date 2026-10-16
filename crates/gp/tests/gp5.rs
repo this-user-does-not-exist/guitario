@@ -15,6 +15,7 @@ fn as_gp5(s: &Score) -> Score {
     let mut tempo = s.tempo;
     for h in &mut s.headers {
         h.free_time = false;
+        h.fermatas.clear();
         if !matches!(h.triplet_feel, TripletFeel::None | TripletFeel::Triplet8th | TripletFeel::Triplet16th) {
             h.triplet_feel = TripletFeel::None;
         }
@@ -110,7 +111,9 @@ fn every_demo_survives_guitar_pro_5() {
 
 #[test]
 fn a_riff_with_every_effect_round_trips() {
-    let s = riff();
+    // Guitar Pro 5 has no fermatas; that is reported in its own test.
+    let mut s = riff();
+    s.headers[0].fermatas.clear();
     let (back, export_warnings, import_warnings) = round_trip(&s);
     assert!(export_warnings.is_empty(), "{export_warnings:?}");
     assert!(import_warnings.is_empty(), "{import_warnings:?}");
@@ -168,9 +171,10 @@ fn what_guitar_pro_5_cannot_hold_is_reported() {
     s.headers[0].triplet_feel = TripletFeel::Scottish8th;
     s.tracks[0].measures[0].voices.push(Voice::default());
     s.tracks[0].measures[0].voices.push(Voice { beats: vec![Beat::rest(Duration::WHOLE)] });
+    // The riff's first bar has fermatas.
     let out = export_gp5(&s);
     let all = out.warnings.join("\n");
-    for what in ["fades out", "double dots", "free-time", "triplet feels", "third and fourth voices"] {
+    for what in ["fades out", "double dots", "free-time", "triplet feels", "third and fourth voices", "fermatas"] {
         assert!(all.contains(what), "missing `{what}` in {all}");
     }
     // Still a readable file.
@@ -239,6 +243,7 @@ fn old_and_foreign_banners_are_refused_clearly() {
 #[test]
 fn the_page_setup_goes_out_and_comes_back() {
     let mut s = riff();
+    s.headers[0].fermatas.clear();
     for page in [
         PageSetup::default(),
         PageSetup { paper: Paper::Letter, ..PageSetup::default() },

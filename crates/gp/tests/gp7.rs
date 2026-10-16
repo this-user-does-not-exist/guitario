@@ -225,6 +225,18 @@ fn lyrics_are_written_as_typed_and_on_their_beats_and_read_from_either() {
 }
 
 #[test]
+fn fermatas_are_written_where_they_fall_as_a_fraction_of_a_quarter() {
+    let xml = score_gpif(&export_gp(&riff()).unwrap().bytes);
+    assert!(xml.contains("<Fermata><Type>Short</Type><Offset>0/1</Offset><Length>0.26</Length></Fermata>"), "{xml}");
+    assert!(xml.contains("<Fermata><Type>Long</Type><Offset>3/2</Offset><Length>1</Length></Fermata>"));
+    // Hostile offsets are dropped, not trusted.
+    let hostile = xml.replace("<Offset>3/2</Offset>", "<Offset>99/0</Offset>").replace("<Offset>0/1</Offset>", "<Offset>400/1</Offset>");
+    let back = guitario_gp::parse_gpif(&hostile).unwrap().score;
+    assert!(back.validate().is_ok());
+    assert!(back.headers[0].fermatas.len() <= 1);
+}
+
+#[test]
 fn drum_hits_outside_the_kit_keep_their_midi_number() {
     let mut s = Score::new();
     s.tracks = vec![Track::drums("Drums", &s.headers)];

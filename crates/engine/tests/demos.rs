@@ -151,6 +151,11 @@ fn specific_pieces_have_their_signature_features() {
     assert_eq!(sung.len(), notes);
     assert_eq!(guitario_score::syllables(&lead.lyrics[0].text).len(), notes);
     assert!(sung.iter().all(|(m, _, _)| *m < 4));
+    // The solo's last note is held under a long fermata, so the piece lasts longer than written.
+    let solo = load("fretboard");
+    let last = solo.score().headers.len() - 1;
+    assert_eq!(solo.score().headers[last].fermatas.first().map(|f| (f.tick, f.kind)), Some((0, guitario_score::FermataKind::Long)));
+    assert_eq!(solo.score().holds(last).first().map(|h| h.stretch), Some(3.0));
     // Djent is on a seven-string.
     assert_eq!(load("seven-strings").score().tracks[0].string_count(), 7);
     // The power-metal demo has twin leads, rhythm, bass and drums.

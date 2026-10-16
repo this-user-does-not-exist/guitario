@@ -12,4 +12,4 @@ mod validate;
 pub use lyrics::{Syllable, dispatch_lyrics, syllables};
 pub use model::*;
 pub use playback::{PlayedBeat, playback_order, timeline};
-pub use validate::{MAX_LYRICS_TEXT, ScoreError};
+pub use validate::{MAX_FERMATAS, MAX_LYRICS_TEXT, ScoreError};

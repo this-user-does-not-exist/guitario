@@ -54,6 +54,8 @@ pub fn riff() -> Score {
     h.key = -3;
     h.triplet_feel = TripletFeel::Triplet16th;
     h.targets = vec![DirectionTarget::Segno];
+    h.fermatas =
+        vec![Fermata { tick: 0, kind: FermataKind::Short, length: 26 }, Fermata { tick: TICKS_PER_QUARTER * 3 / 2, kind: FermataKind::Long, length: 100 }];
     let mut h2 = MeasureHeader::new(TimeSignature { numerator: 6, denominator: 8 });
     h2.repeat_close = 3;
     h2.endings = 0b101;

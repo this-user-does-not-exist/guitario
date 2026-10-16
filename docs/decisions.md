@@ -203,3 +203,14 @@ reported.
 Lyrics are drawn in a lane under the tab (under the drum staff on a drum track), one row per line,
 rather than between the notation and the tab where Guitar Pro puts a vocal staff's words: that gap
 holds the effect lanes, and under the tab the words stay in the same place with notation hidden.
+
+## 2026-10-16: A fermata stretches time, not ticks
+
+GPIF keeps fermatas on the master bar (a type, where in the bar as a fraction of a quarter note, and
+a length), so the model does too (`MeasureHeader::fermatas`, by tick). Holding a beat longer by
+moving ticks would pull the tracks apart, so playback stretches time instead: the tempo map gives
+each bar its fermata holds (`Score::holds`: from the fermata to the next moment a beat starts in any
+track or voice) and plays them 1.5, 2 or 3 times as long for short, medium and long. Ticks, the
+timeline and every track stay as written; MIDI export writes the hold as a slower tempo and the
+bar's tempo after it. What Guitar Pro's `Length` does to playback is not documented, so it is kept
+for the trip back to a `.gp` file and not used. Guitar Pro 5 has no fermatas.

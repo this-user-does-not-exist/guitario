@@ -63,7 +63,14 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
     for mi in playback_order(score) {
         let Some(h) = score.headers.get(mi) else { continue };
         let us = 60_000_000 / u32::from(score.tempo_at(mi).max(1));
-        meta.push((clock, 0, vec![0xff, 0x51, 0x03, (us >> 16) as u8, (us >> 8) as u8, us as u8]));
+        let tempo = |us: u32| vec![0xff, 0x51, 0x03, (us >> 16) as u8, (us >> 8) as u8, us as u8];
+        meta.push((clock, 0, tempo(us)));
+        // A fermata slows the tempo for the beat it holds, then the bar's tempo comes back.
+        for hold in score.holds(mi) {
+            let slow = (f64::from(us) * hold.stretch).round().clamp(1.0, f64::from(0x00FF_FFFF)) as u32;
+            meta.push((clock + u64::from(hold.at), 0, tempo(slow)));
+            meta.push((clock + u64::from(hold.at) + u64::from(hold.ticks), 0, tempo(us)));
+        }
         let den_pow = h.time_signature.denominator.max(1).ilog2() as u8;
         meta.push((clock, 0, vec![0xff, 0x58, 0x04, h.time_signature.numerator, den_pow, 24, 8]));
         clock += u64::from(h.capacity());
@@ -151,6 +158,18 @@ mod tests {
         assert!(b.windows(2).any(|w| w == [0x99, 36]));
         // The guitar stays on channel 1.
         assert!(b.windows(2).any(|w| w == [0x90, 64]));
+    }
+
+    #[test]
+    fn a_fermata_slows_the_tempo_for_its_beat_and_restores_it() {
+        let mut s = one_note();
+        let tempo_events = |b: &[u8]| b.windows(3).filter(|w| *w == [0xff, 0x51, 0x03]).count();
+        let plain = export(&s).unwrap();
+        s.headers[0].fermatas = vec![guitario_score::Fermata { tick: 0, kind: guitario_score::FermataKind::Medium, length: 0 }];
+        let held = export(&s).unwrap();
+        assert_eq!(tempo_events(&held), tempo_events(&plain) + 2);
+        // 120 bpm is 500 000 us per quarter; held twice as long it is 1 000 000 (0x0F4240).
+        assert!(held.windows(6).any(|w| w == [0xff, 0x51, 0x03, 0x0f, 0x42, 0x40]));
     }
 
     #[test]

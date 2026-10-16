@@ -52,8 +52,8 @@ note = "fonts.rs, glyphs.rs"
 [[item]]
 id = "NOTE-9"
 target = "Tremolo picking slashes, grace notes, trills, fermatas, alternate ending brackets"
-status = "partial"
-note = "alternate ending brackets and direction marks (segno, coda, Fine, D.C./D.S.) drawn; tremolo picking slashes (one to three through the stem, above a whole note, under the tab when notation is hidden) and trills (tr with a wavy line above the staff and in the tab lane) drawn, with painted-shape tests; grace notes drawn small left of their note (a slashed eighth before the beat, unslashed on it, slurred into the note; a small fret in the tab with its slur, slide or bend), with room kept by the layout; fermatas missing"
+status = "done"
+note = "alternate ending brackets and direction marks (segno, coda, Fine, D.C./D.S.) drawn; tremolo picking slashes (one to three through the stem, above a whole note, under the tab when notation is hidden) and trills (tr with a wavy line above the staff and in the tab lane) drawn, with painted-shape tests; grace notes drawn small left of their note (a slashed eighth before the beat, unslashed on it, slurred into the note; a small fret in the tab with its slur, slide or bend), with room kept by the layout; fermatas (short, medium, long; beat.setFermata and the palette) drawn over the beat they hold, played by stretching time in every track and written to MIDI as tempo changes, read and written in GPIF (Guitar Pro 5 has none)"
 
 [[item]]
 id = "NOTE-10"
