@@ -50,6 +50,7 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .chain(crate::tools::specs())
         .chain(crate::exchange::specs())
         .chain(crate::chords::specs())
+        .chain(crate::voices::specs())
         .collect()
 });
 
@@ -81,7 +82,7 @@ const CORE: [CommandSpec; 54] = [
     }),
     cmd("cursor.up", "Higher String", "", Some("Up"), "", false, |s, _| s.move_string_cmd(-1)),
     cmd("cursor.down", "Lower String", "", Some("Down"), "", false, |s, _| s.move_string_cmd(1)),
-    cmd("cursor.set", "Set Cursor", "", None, "track?, measure?, beat?, string?", false, cursor_set),
+    cmd("cursor.set", "Set Cursor", "", None, "track?, measure?, beat?, string?, voice? (0-based)", false, cursor_set),
     cmd("note.setFret", "Set Fret", "Note", None, "fret (0..=36)", true, set_fret),
     cmd("note.clear", "Delete Note", "Note", Some("Backspace"), "", true, clear_note),
     cmd("note.setKind", "Note Type", "Note", None, "kind: normal|dead|tie", true, set_kind),
@@ -160,7 +161,7 @@ impl Session {
     }
 
     pub(crate) fn cursor_json(&self) -> Value {
-        json!({"track": self.cursor.track, "measure": self.cursor.measure, "beat": self.cursor.beat, "string": self.cursor.string})
+        json!({"track": self.cursor.track, "measure": self.cursor.measure, "beat": self.cursor.beat, "string": self.cursor.string, "voice": self.cursor.voice})
     }
 
     fn move_left_cmd(&mut self) -> Result<Value, EngineError> {
@@ -296,6 +297,7 @@ fn cursor_set(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     s.cursor.measure = p::opt_uint(params, "measure", 1_000_000)?.map_or(c.measure, |v| v as usize);
     s.cursor.beat = p::opt_uint(params, "beat", 1_000_000)?.map_or(c.beat, |v| v as usize);
     s.cursor.string = p::opt_uint(params, "string", 100)?.map_or(c.string, |v| v as usize);
+    s.cursor.voice = p::opt_uint(params, "voice", 3)?.map_or(c.voice, |v| v as usize);
     s.clamp_cursor();
     Ok(s.cursor_json())
 }

@@ -62,7 +62,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let score = app.session.score().clone();
     let c = app.session.cursor();
     let beat: Option<&Beat> =
-        score.tracks.get(c.track).and_then(|t| t.measures.get(c.measure)).and_then(|m| m.voices.first()).and_then(|v| v.beats.get(c.beat));
+        score.tracks.get(c.track).and_then(|t| t.measures.get(c.measure)).and_then(|m| m.voices.get(c.voice)).and_then(|v| v.beats.get(c.beat));
     let note: Option<&Note> = beat.and_then(|b| b.note_on(c.string as u8));
     // With a selection, note tools apply to every note in it. Guitar techniques don't apply to drums.
     let drums = score.tracks.get(c.track).is_some_and(guitario_score::Track::is_drums);

@@ -61,6 +61,9 @@ impl crate::Score {
             if measure.voices.is_empty() {
                 return Err(bad("has no voice".into()));
             }
+            if measure.voices.len() > crate::MAX_VOICES {
+                return Err(bad(format!("has {} voices; at most {} are supported", measure.voices.len(), crate::MAX_VOICES)));
+            }
             for voice in &measure.voices {
                 if voice.ticks() > header.capacity() {
                     return Err(bad(format!("holds {} ticks but fits {}", voice.ticks(), header.capacity())));
@@ -115,6 +118,10 @@ mod tests {
         let b = &mut s.tracks[0].measures[0].voices[0].beats[0];
         b.rest = false;
         b.notes = vec![Note::new(9, 0)];
+        assert!(matches!(s.validate(), Err(ScoreError::Measure { .. })));
+
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices = vec![crate::Voice::default(); crate::MAX_VOICES + 1];
         assert!(matches!(s.validate(), Err(ScoreError::Measure { .. })));
 
         let mut s = Score::new();

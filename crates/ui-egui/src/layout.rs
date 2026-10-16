@@ -2,7 +2,7 @@
 //! Dimensions follow Guitar Pro's default stylesheet: A4 portrait, 10 mm side margins, 15 mm top,
 //! a 1.5875 mm staff space.
 
-use guitario_score::{Beat, Score, Track};
+use guitario_score::{Beat, Measure, Score, Track};
 
 const MM: f32 = 96.0 / 25.4;
 
@@ -22,6 +22,8 @@ pub struct Metrics {
     pub drums: bool,
     /// The track has chord names or beat text: a taller lane above each system holds them.
     pub annotations: bool,
+    /// The voice being edited, 0-based. A voice with only rests is drawn when it is this one.
+    pub voice: usize,
 }
 
 impl Metrics {
@@ -41,7 +43,13 @@ impl Metrics {
             strings: strings.max(1),
             drums: false,
             annotations: false,
+            voice: 0,
         }
+    }
+
+    /// Draws the voice being edited even while it holds only rests.
+    pub fn with_voice(self, voice: usize) -> Metrics {
+        Metrics { voice, ..self }
     }
 
     /// Room for chord names and beat text above every system when `track` has any.
@@ -120,17 +128,34 @@ impl Metrics {
     }
 }
 
+/// Where one voice's beats sit in a bar, relative to the bar's left edge.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VoiceCols {
+    /// The voice's index in the bar (0 is Voice 1).
+    pub voice: usize,
+    /// Where each beat's notehead or fret goes.
+    pub beats: Vec<f32>,
+    /// The stretch of the bar each beat covers, `(left, right)`: from its own column to the
+    /// column of the voice's next beat.
+    pub spans: Vec<(f32, f32)>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeasureBox {
     pub index: usize,
     /// Left edge, relative to the system's staff start (after the clef/key prefix).
     pub x: f32,
     pub width: f32,
-    /// Beat centres relative to `x`.
-    pub beats: Vec<f32>,
-    /// Beat widths after justification.
-    pub beat_w: Vec<f32>,
+    /// The voices drawn in this bar, Voice 1 first. Beats that start together share a column.
+    pub voices: Vec<VoiceCols>,
     pub show_time: bool,
+}
+
+impl MeasureBox {
+    /// The columns of voice `voice`, or of Voice 1 when that voice is not drawn here.
+    pub fn cols(&self, voice: usize) -> Option<&VoiceCols> {
+        self.voices.iter().find(|v| v.voice == voice).or_else(|| self.voices.first())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -147,23 +172,43 @@ pub struct PageBox {
     pub systems: Vec<SystemBox>,
 }
 
-fn beat_natural(b: &Beat, space: f32) -> f32 {
+/// Indexes of the voices drawn in a bar: Voice 1 always, the others when they hold a note or
+/// are the voice being edited.
+pub fn drawn_voices(measure: &Measure, active: usize) -> Vec<usize> {
+    measure
+        .voices
+        .iter()
+        .enumerate()
+        .filter(|(i, v)| !v.beats.is_empty() && (*i == 0 || *i == active || v.beats.iter().any(|b| !b.rest)))
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// Width of a column whose next onset is `gap` ticks away, plus room for wide frets and chords.
+fn column_natural(gap: u32, beats: &[&Beat], space: f32) -> f32 {
     // Width grows with the log of the length, from 2.7 spaces for a sixteenth.
     let sixteenth = (guitario_theory::TICKS_PER_QUARTER / 4) as f32;
-    let ticks = b.duration.ticks().max(1) as f32;
-    let mut w = space * (2.7 + 1.15 * (ticks / sixteenth).log2()).max(1.9);
-    if b.notes.iter().any(|n| n.fret >= 10) {
+    let mut w = space * (2.7 + 1.15 * (gap.max(1) as f32 / sixteenth).log2()).max(1.9);
+    if beats.iter().any(|b| b.notes.iter().any(|n| n.fret >= 10)) {
         w += 0.5 * space;
     }
-    if b.notes.len() > 1 {
+    if beats.iter().any(|b| b.notes.len() > 1) {
         w += 0.3 * space;
     }
     w
 }
 
+struct VoiceNat {
+    voice: usize,
+    /// The column each beat starts in.
+    col_of: Vec<usize>,
+}
+
 struct Natural {
     fixed: f32,
-    beats: Vec<f32>,
+    /// Column widths: one per moment a beat starts in any voice.
+    cols: Vec<f32>,
+    voices: Vec<VoiceNat>,
     show_time: bool,
     lead: f32,
 }
@@ -177,13 +222,46 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics) -> Natural {
         (Some(_), None) => true,
         _ => false,
     };
-    let beats: Vec<&Beat> = track.measures.get(mi).and_then(|x| x.voices.first()).map(|v| v.beats.iter().collect()).unwrap_or_default();
-    let mut widths: Vec<f32> = beats.iter().map(|b| beat_natural(b, s)).collect();
-    if let ([only], [w]) = (beats.as_slice(), widths.as_mut_slice())
-        && only.rest
-    {
-        *w = w.max(8.0 * s);
-    }
+    let measure = track.measures.get(mi);
+    let drawn = measure.map(|x| drawn_voices(x, m.voice)).unwrap_or_default();
+    // Every beat with the tick it starts at, per drawn voice.
+    let timed: Vec<(usize, Vec<(u64, &Beat)>)> = drawn
+        .iter()
+        .filter_map(|&vi| {
+            let voice = measure?.voices.get(vi)?;
+            let mut at = 0u64;
+            let beats = voice
+                .beats
+                .iter()
+                .map(|b| {
+                    let start = at;
+                    at += u64::from(b.duration.ticks());
+                    (start, b)
+                })
+                .collect();
+            Some((vi, beats))
+        })
+        .collect();
+    let mut onsets: Vec<u64> = timed.iter().flat_map(|(_, bs)| bs.iter().map(|(t, _)| *t)).collect();
+    onsets.sort_unstable();
+    onsets.dedup();
+    let cols: Vec<f32> = onsets
+        .iter()
+        .enumerate()
+        .map(|(ci, &t)| {
+            let here: Vec<&Beat> = timed.iter().flat_map(|(_, bs)| bs.iter().filter(move |(s, _)| *s == t).map(|(_, b)| *b)).collect();
+            let gap = match onsets.get(ci + 1) {
+                Some(&next) => u32::try_from(next - t).unwrap_or(u32::MAX),
+                None => here.iter().map(|b| b.duration.ticks()).min().unwrap_or(1),
+            };
+            let mut w = column_natural(gap, &here, s);
+            if onsets.len() == 1 && here.iter().all(|b| b.rest) {
+                w = w.max(8.0 * s);
+            }
+            w
+        })
+        .collect();
+    let voices = timed.iter().map(|(vi, bs)| VoiceNat { voice: *vi, col_of: bs.iter().filter_map(|(t, _)| onsets.binary_search(t).ok()).collect() }).collect();
     let mut lead = 1.8 * s;
     if show_time {
         lead += 3.0 * s;
@@ -195,7 +273,7 @@ fn natural(score: &Score, track: &Track, mi: usize, m: &Metrics) -> Natural {
     if header.is_some_and(|h| h.repeat_close > 0) {
         fixed += 1.4 * s;
     }
-    Natural { fixed, beats: widths, show_time, lead }
+    Natural { fixed, cols, voices, show_time, lead }
 }
 
 /// The clef + key signature prefix at the start of every system.
@@ -213,7 +291,7 @@ pub fn system_prefix(score: &Score, first_measure: usize, m: &Metrics) -> f32 {
 pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
     let Some(track) = score.tracks.get(track_index) else { return vec![] };
     let naturals: Vec<Natural> = (0..score.headers.len()).map(|mi| natural(score, track, mi, m)).collect();
-    let total = |n: &Natural| n.fixed + n.beats.iter().sum::<f32>();
+    let total = |n: &Natural| n.fixed + n.cols.iter().sum::<f32>();
 
     // Break into systems.
     let mut systems: Vec<(Vec<usize>, f32)> = Vec::new();
@@ -242,7 +320,7 @@ pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
     for (si, (row, prefix)) in systems.into_iter().enumerate() {
         let avail = m.content_w() - prefix;
         let used: f32 = row.iter().filter_map(|i| naturals.get(*i)).map(total).sum();
-        let beats_sum: f32 = row.iter().filter_map(|i| naturals.get(*i)).map(|n| n.beats.iter().sum::<f32>()).sum();
+        let beats_sum: f32 = row.iter().filter_map(|i| naturals.get(*i)).map(|n| n.cols.iter().sum::<f32>()).sum();
         let last_and_short = si + 1 == count && used < avail * 0.7;
         let extra = if last_and_short || beats_sum <= 0.0 { 0.0 } else { (avail - used).max(0.0) };
         let stretch = if beats_sum > 0.0 { 1.0 + extra / beats_sum } else { 1.0 };
@@ -250,18 +328,27 @@ pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
         let mut measures = Vec::new();
         for mi in row {
             let Some(n) = naturals.get(mi) else { continue };
-            let beat_w: Vec<f32> = n.beats.iter().map(|w| w * stretch).collect();
+            let col_w: Vec<f32> = n.cols.iter().map(|w| w * stretch).collect();
+            // Left edge of each column, with one more entry for the right edge of the last.
+            let mut edges = Vec::with_capacity(col_w.len() + 1);
             let mut bx = n.lead;
-            let beats = beat_w
+            edges.push(bx);
+            for w in &col_w {
+                bx += w;
+                edges.push(bx);
+            }
+            let edge = |c: usize| edges.get(c).copied().unwrap_or(bx);
+            let voices = n
+                .voices
                 .iter()
-                .map(|w| {
-                    let c = bx + w / 2.0;
-                    bx += w;
-                    c
+                .map(|v| {
+                    let beats = v.col_of.iter().map(|&c| (edge(c) + edge(c + 1)) / 2.0).collect();
+                    let spans = v.col_of.iter().enumerate().map(|(i, &c)| (edge(c), edge(v.col_of.get(i + 1).copied().unwrap_or(col_w.len())))).collect();
+                    VoiceCols { voice: v.voice, beats, spans }
                 })
                 .collect();
-            let width = n.fixed + beat_w.iter().sum::<f32>();
-            measures.push(MeasureBox { index: mi, x, width, beats, beat_w, show_time: n.show_time });
+            let width = n.fixed + col_w.iter().sum::<f32>();
+            measures.push(MeasureBox { index: mi, x, width, voices, show_time: n.show_time });
             x += width;
         }
         if y + m.system_h() > m.page_h - m.margin_bottom && pages.last().is_some_and(|p| !p.systems.is_empty()) {
@@ -330,6 +417,72 @@ mod tests {
         assert!(pages.iter().flat_map(|p| &p.systems).all(|s| s.y + d.system_h() <= d.page_h));
     }
 
+    fn voiced_score() -> Score {
+        use guitario_score::{Note, Voice};
+        use guitario_theory::{Duration, NoteValue};
+        let mut s = score(1);
+        let note = |d: Duration| Beat { rest: false, notes: vec![Note::new(0, 5)], ..Beat::rest(d) };
+        let (q, h) = (Duration::QUARTER, Duration::new(NoteValue::Half));
+        // Voice 1: two halves. Voice 2: a quarter, a quarter, then a half: onsets 0, q, 2q.
+        s.tracks[0].measures[0].voices = vec![Voice { beats: vec![note(h), note(h)] }, Voice { beats: vec![note(q), note(q), note(h)] }];
+        s
+    }
+
+    #[test]
+    fn voices_share_a_column_when_their_beats_start_together() {
+        let s = voiced_score();
+        let pages = layout(&s, 0, &Metrics::new(1.0, true, 6));
+        let mb = &pages[0].systems[0].measures[0];
+        let (v1, v2) = (&mb.voices[0], &mb.voices[1]);
+        assert_eq!((v1.voice, v2.voice), (0, 1));
+        // Voice 1 beat 0 and voice 2 beat 0 start together; so do voice 1 beat 1 and voice 2 beat 2.
+        assert_eq!(v1.beats[0], v2.beats[0]);
+        assert_eq!(v1.beats[1], v2.beats[2]);
+        // Voice 2's middle beat falls between them.
+        assert!(v2.beats[0] < v2.beats[1] && v2.beats[1] < v2.beats[2]);
+        // A beat's span runs to its voice's next beat: voice 1's first half covers voice 2's first two.
+        assert_eq!(v1.spans[0].0, v2.spans[0].0);
+        assert_eq!(v1.spans[0].1, v2.spans[1].1);
+        assert_eq!(v1.spans[1].1, v2.spans[2].1, "both end at the last column");
+    }
+
+    #[test]
+    fn a_voice_with_only_rests_is_drawn_only_while_it_is_being_edited() {
+        use guitario_score::Voice;
+        let mut s = voiced_score();
+        let rest = guitario_score::Beat::rest(guitario_theory::Duration::WHOLE);
+        s.tracks[0].measures[0].voices[1] = Voice { beats: vec![rest] };
+        let measure = &s.tracks[0].measures[0];
+        assert_eq!(drawn_voices(measure, 0), vec![0]);
+        assert_eq!(drawn_voices(measure, 1), vec![0, 1]);
+        // A bar that lacks the voice has nothing to draw for it.
+        s.tracks[0].measures[0].voices.truncate(1);
+        assert_eq!(drawn_voices(&s.tracks[0].measures[0], 1), vec![0]);
+        let pages = layout(&s, 0, &Metrics::new(1.0, true, 6).with_voice(1));
+        assert_eq!(pages[0].systems[0].measures[0].voices.len(), 1);
+    }
+
+    #[test]
+    fn spans_tile_each_voice_and_one_voice_lays_out_as_before() {
+        let s = voiced_score();
+        let pages = layout(&s, 0, &Metrics::new(1.0, true, 6));
+        let mb = &pages[0].systems[0].measures[0];
+        for v in &mb.voices {
+            for w in v.spans.windows(2) {
+                assert_eq!(w[0].1, w[1].0, "no gap or overlap between a voice's beats");
+            }
+            for (c, (l, r)) in v.beats.iter().zip(&v.spans) {
+                assert!(l <= c && c <= r);
+            }
+        }
+        // One voice: every beat's span is its own column and the centre is in the middle of it.
+        let one = score(2);
+        let pages = layout(&one, 0, &Metrics::new(1.0, true, 6));
+        let v = &pages[0].systems[0].measures[0].voices[0];
+        assert_eq!(v.beats.len(), 1);
+        assert!(((v.spans[0].0 + v.spans[0].1) / 2.0 - v.beats[0]).abs() < 0.001);
+    }
+
     #[test]
     fn a_bar_of_eighths_leaves_room_for_more_bars() {
         // Spacing is relative to the tick resolution: a sixteenth is 2.7 spaces whatever
@@ -340,7 +493,7 @@ mod tests {
             notes: vec![guitario_score::Note::new(0, 0)],
             ..Beat::rest(guitario_theory::Duration::new(guitario_theory::NoteValue::Sixteenth))
         };
-        assert!((beat_natural(&sixteenth, m.space) - 2.7 * m.space).abs() < 0.01);
+        assert!((column_natural(sixteenth.duration.ticks(), &[&sixteenth], m.space) - 2.7 * m.space).abs() < 0.01);
         let mut s = score(8);
         let eighth = Beat { rest: false, notes: vec![guitario_score::Note::new(0, 5)], ..Beat::rest(guitario_theory::Duration::EIGHTH) };
         for m in &mut s.tracks[0].measures {

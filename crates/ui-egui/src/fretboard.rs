@@ -27,7 +27,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
         drum_pad(app, ui, track, c);
         return;
     }
-    let beat = track.measures.get(c.measure).and_then(|m| m.voices.first()).and_then(|v| v.beats.get(c.beat));
+    let beat = track.measures.get(c.measure).and_then(|m| m.voices.get(c.voice)).and_then(|v| v.beats.get(c.beat));
     let strings = track.string_count();
     let avail = ui.available_size();
     let (rect, resp) = ui.allocate_exact_size(vec2(avail.x, avail.y.clamp(90.0, 170.0)), egui::Sense::click());
@@ -111,7 +111,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
 fn drum_pad(app: &mut GuitarioApp, ui: &mut egui::Ui, track: &guitario_score::Track, c: guitario_engine::Cursor) {
     use guitario_theory::drums::KIT;
     let t = tokens();
-    let beat = track.measures.get(c.measure).and_then(|m| m.voices.first()).and_then(|v| v.beats.get(c.beat));
+    let beat = track.measures.get(c.measure).and_then(|m| m.voices.get(c.voice)).and_then(|v| v.beats.get(c.beat));
     let lit = |midi: u8| beat.is_some_and(|b| !b.rest && b.notes.iter().any(|n| n.fret == midi));
     let avail = ui.available_size();
     let (rect, _) = ui.allocate_exact_size(vec2(avail.x, avail.y.clamp(90.0, 170.0)), egui::Sense::hover());

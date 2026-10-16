@@ -2,6 +2,8 @@ use guitario_theory::{Duration, TimeSignature, Tuning};
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_TEMPO: u16 = 120;
+/// Voices a bar may hold, as in Guitar Pro.
+pub const MAX_VOICES: usize = 4;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Score {

@@ -1,5 +1,5 @@
 use crate::EngineError;
-use guitario_score::{Beat, Measure, MeasureHeader, Score, Voice};
+use guitario_score::{Beat, MAX_VOICES, Measure, MeasureHeader, Score, Voice};
 use guitario_theory::{Duration, NoteValue};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -11,6 +11,9 @@ pub struct Cursor {
     pub measure: usize,
     pub beat: usize,
     pub string: usize,
+    /// The voice being edited, 0-based (Guitar Pro's Voice 1 to 4).
+    #[serde(default)]
+    pub voice: usize,
 }
 
 type Snapshot = (Arc<Score>, Cursor);
@@ -116,30 +119,32 @@ impl Session {
         c.track = c.track.min(s.tracks.len().saturating_sub(1));
         c.measure = c.measure.min(s.headers.len().saturating_sub(1));
         let track = s.tracks.get(c.track);
-        let beats = track.and_then(|t| t.measures.get(c.measure)).and_then(|m| m.voices.first()).map_or(1, |v| v.beats.len());
+        c.voice = c.voice.min(MAX_VOICES - 1);
+        // A voice the bar does not have yet reads as one bar-long rest.
+        let beats = track.and_then(|t| t.measures.get(c.measure)).and_then(|m| m.voices.get(c.voice)).map_or(1, |v| v.beats.len());
         c.beat = c.beat.min(beats.saturating_sub(1));
         c.string = c.string.min(track.map_or(0, |t| t.string_count()).saturating_sub(1));
     }
 
+    /// The beat under the cursor, in the cursor's voice (which is added to the bar if it has none).
     pub(crate) fn beat_mut(&mut self) -> Result<&mut Beat, EngineError> {
         let c = self.cursor;
-        Arc::make_mut(&mut self.score)
-            .tracks
-            .get_mut(c.track)
-            .and_then(|t| t.measures.get_mut(c.measure))
-            .and_then(|m| m.voices.first_mut())
-            .and_then(|v| v.beats.get_mut(c.beat))
+        voice_at_mut(Arc::make_mut(&mut self.score), c.track, c.measure, c.voice)
+            .ok_or_else(|| EngineError::invalid("the cursor is not in a measure"))?
+            .beats
+            .get_mut(c.beat)
             .ok_or_else(|| EngineError::invalid("the cursor is not on a beat"))
     }
 
+    /// The cursor's voice in the cursor's bar (added when the bar has none).
     pub(crate) fn voice_mut(&mut self) -> Result<&mut Voice, EngineError> {
         let c = self.cursor;
-        Arc::make_mut(&mut self.score)
-            .tracks
-            .get_mut(c.track)
-            .and_then(|t| t.measures.get_mut(c.measure))
-            .and_then(|m| m.voices.first_mut())
-            .ok_or_else(|| EngineError::invalid("the cursor is not in a measure"))
+        voice_at_mut(Arc::make_mut(&mut self.score), c.track, c.measure, c.voice).ok_or_else(|| EngineError::invalid("the cursor is not in a measure"))
+    }
+
+    /// The cursor's voice in `measure` of the cursor's track, if the bar has it.
+    pub(crate) fn voice_in(&self, measure: usize) -> Option<&Voice> {
+        self.score.tracks.get(self.cursor.track).and_then(|t| t.measures.get(measure)).and_then(|m| m.voices.get(self.cursor.voice))
     }
 
     pub(crate) fn capacity(&self) -> u32 {
@@ -177,13 +182,7 @@ impl Session {
             self.cursor.beat -= 1;
         } else if self.cursor.measure > 0 {
             self.cursor.measure -= 1;
-            let last = self
-                .score
-                .tracks
-                .get(self.cursor.track)
-                .and_then(|t| t.measures.get(self.cursor.measure))
-                .and_then(|m| m.voices.first())
-                .map_or(1, |v| v.beats.len());
+            let last = self.voice_in(self.cursor.measure).map_or(1, |v| v.beats.len());
             self.cursor.beat = last.saturating_sub(1);
         }
     }
@@ -192,6 +191,20 @@ impl Session {
         let max = self.score.tracks.get(self.cursor.track).map_or(0, |t| t.string_count()).saturating_sub(1);
         self.cursor.string = (self.cursor.string as i64 + delta).clamp(0, max as i64) as usize;
     }
+}
+
+/// Voice `voice` of a bar, adding any voices the bar lacks up to it, each one bar-long rest.
+/// `None` when the track or bar does not exist or `voice` is beyond [`MAX_VOICES`].
+pub(crate) fn voice_at_mut(score: &mut Score, track: usize, measure: usize, voice: usize) -> Option<&mut Voice> {
+    if voice >= MAX_VOICES {
+        return None;
+    }
+    let header = score.headers.get(measure)?.clone();
+    let m = score.tracks.get_mut(track)?.measures.get_mut(measure)?;
+    while m.voices.len() <= voice {
+        m.voices.push(Measure::empty_for(&header).voices.into_iter().next().unwrap_or_default());
+    }
+    m.voices.get_mut(voice)
 }
 
 /// `prefer` if it fits in `remaining` ticks, otherwise the longest plain value that does.

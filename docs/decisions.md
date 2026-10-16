@@ -58,3 +58,15 @@ files and the old `"guitario"` format tag still open, the first run imports Guit
 `config.toml` through craft-settings' legacy-file hook, and a sound bank installed in Guitario's
 data folder is used until Guitario has its own. Guitario keeps using the shared craft-libs crates
 and shared-rules standards.
+
+## 2026-10-16: Voices share columns by time
+
+A bar's voices are laid out together, not one after another: every moment a beat starts in any
+voice is a *column*, a column's width follows the gap to the next one (so a single voice spaces
+exactly as before), and each beat sits in the column it starts in. A beat's *span* runs to the
+column of its voice's next beat; clicks, the cursor and the selection use spans, so a half note in
+Voice 1 over two quarters in Voice 2 can be clicked anywhere along its length. Voice 1 takes stems up
+and Voice 2 stems down (drums: hands up, feet down) and their rests move apart. A voice that holds
+only rests is drawn only while it is the one being edited, as Guitar Pro hides an empty second voice.
+Everything that edits a beat (durations, notes, the clipboard, selection) follows `Cursor::voice`;
+`edit.setVoice` adds a voice to the bar (a bar-long rest) when it is missing, as one undo step.

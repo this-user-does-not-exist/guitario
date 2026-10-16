@@ -1,4 +1,4 @@
-use guitario_score::{NoteKind, Score, Track};
+use guitario_score::{Beat, NoteKind, Score, Track};
 use guitario_theory::note_name;
 
 const WIDTH: usize = 78;
@@ -42,9 +42,19 @@ fn render_track(track: &Track, out: &mut String) {
     };
     for measure in &track.measures {
         let mut cols: Vec<String> = vec![String::new(); rows];
-        for beat in measure.voices.first().map(|v| v.beats.as_slice()).unwrap_or_default() {
+        // One column per moment a beat starts in any voice, so voices line up as they sound.
+        let mut columns: std::collections::BTreeMap<u64, Vec<&Beat>> = std::collections::BTreeMap::new();
+        for voice in &measure.voices {
+            let mut at = 0u64;
+            for beat in &voice.beats {
+                columns.entry(at).or_default().push(beat);
+                at += u64::from(beat.duration.ticks());
+            }
+        }
+        for beats in columns.values() {
             let cell = |string: usize| -> String {
-                beat.notes.iter().find(|n| usize::from(n.string) == string).filter(|_| !beat.rest).map_or(String::new(), |n| match n.kind {
+                let note = beats.iter().filter(|b| !b.rest).find_map(|b| b.notes.iter().find(|n| usize::from(n.string) == string));
+                note.map_or(String::new(), |n| match n.kind {
                     NoteKind::Dead => "x".to_string(),
                     NoteKind::Tie => format!("({})", n.fret),
                     NoteKind::Normal if track.is_drums() => {
@@ -87,6 +97,23 @@ mod tests {
         let t = render(&s);
         assert!(t.contains("E|0--|"), "{t}");
         assert!(t.lines().any(|l| l.starts_with("E|12-|")), "{t}");
+    }
+
+    #[test]
+    fn voices_share_columns_by_time() {
+        use guitario_score::Voice;
+        let mut s = Score::new();
+        let note = |string: u8, fret: u8, d: Duration| Beat { rest: false, notes: vec![Note::new(string, fret)], ..Beat::rest(d) };
+        let half = Duration::new(guitario_theory::NoteValue::Half);
+        s.tracks[0].measures[0].voices = vec![
+            Voice { beats: vec![note(0, 3, half), note(0, 5, half)] },
+            Voice { beats: vec![note(5, 0, Duration::QUARTER), note(5, 2, Duration::QUARTER), note(5, 4, half)] },
+        ];
+        let t = render(&s);
+        // Voice 1 starts at 0 and on beat 3, voice 2 at 0, 1 and 2: three columns, each two wide.
+        let rows: Vec<&str> = t.lines().filter(|l| l.contains('|')).collect();
+        assert_eq!(rows.first().copied(), Some("E|3---5-|"), "{t}");
+        assert_eq!(rows.get(5).copied(), Some("E|0-2-4-|"), "{t}");
     }
 
     #[test]

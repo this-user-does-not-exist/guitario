@@ -100,7 +100,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 }
                 for (ti, tr) in score.tracks.iter().enumerate() {
                     let cell = Rect::from_min_size(pos2(x + 1.0, rect.top() + HEAD + ti as f32 * ROW + 4.0), vec2(CELL - 2.0, ROW - 8.0));
-                    let has = tr.measures.get(mi).and_then(|m| m.voices.first()).is_some_and(|v| v.beats.iter().any(|b| !b.rest));
+                    let has = tr.measures.get(mi).is_some_and(|m| m.voices.iter().any(|v| v.beats.iter().any(|b| !b.rest)));
                     if has {
                         p.rect_filled(cell, 2.0, track_color(ti).gamma_multiply(if tr.muted { 0.35 } else { 0.85 }));
                     } else {

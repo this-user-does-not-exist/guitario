@@ -324,30 +324,47 @@ fn fill_measures(
     for (mi, master) in masters.iter().enumerate() {
         let bar_id = ids(text(*master, "Bars")).get(staff_index).copied().unwrap_or(-1);
         let Some(bar) = lookup(t.0, bar_id) else { continue };
-        let voice_id = ids(text(bar, "Voices")).first().copied().unwrap_or(-1);
-        let Some(voice) = lookup(t.1, voice_id) else { continue };
         let cap = headers.get(mi).map_or(0, MeasureHeader::capacity);
-        let mut out = Voice::default();
-        let mut used = 0u32;
-        for beat_id in ids(text(voice, "Beats")) {
-            let Some(bn) = lookup(t.2, beat_id) else { continue };
-            if child(bn, "GraceNotes").is_some() {
-                continue; // grace beats take no time; not modelled yet
+        // A bar lists up to four voices; -1 is a voice it does not have.
+        let mut voices: Vec<Voice> = Vec::new();
+        for voice_id in ids(text(bar, "Voices")).into_iter().take(MAX_VOICES) {
+            let mut out = Voice::default();
+            if let Some(voice) = lookup(t.1, voice_id) {
+                let mut used = 0u32;
+                for beat_id in ids(text(voice, "Beats")) {
+                    let Some(bn) = lookup(t.2, beat_id) else { continue };
+                    if child(bn, "GraceNotes").is_some() {
+                        continue; // grace beats take no time; not modelled yet
+                    }
+                    let Some(beat) = build_beat(bn, &t, place) else { continue };
+                    let ticks = beat.duration.ticks();
+                    if used + ticks > cap {
+                        warnings.push(format!("track `{name}` measure {}: beats overflow the bar and were trimmed", mi + 1));
+                        break;
+                    }
+                    used += ticks;
+                    out.beats.push(beat);
+                }
             }
-            let Some(beat) = build_beat(bn, &t, place) else { continue };
-            let ticks = beat.duration.ticks();
-            if used + ticks > cap {
-                warnings.push(format!("track `{name}` measure {}: beats overflow the bar and were trimmed", mi + 1));
-                break;
+            voices.push(out);
+        }
+        // Voices after the first only matter when they sound; the rest would be bar-long rests.
+        while voices.len() > 1 && voices.last().is_none_or(|v| v.beats.iter().all(|b| b.rest)) {
+            voices.pop();
+        }
+        let Some(m) = track.measures.get_mut(mi) else { continue };
+        if voices.iter().all(|v| v.beats.is_empty()) {
+            continue;
+        }
+        // A voice between others that has no beats is a bar-long rest.
+        for v in &mut voices {
+            if v.beats.is_empty()
+                && let Some(header) = headers.get(mi)
+            {
+                *v = Measure::empty_for(header).voices.into_iter().next().unwrap_or_default();
             }
-            used += ticks;
-            out.beats.push(beat);
         }
-        if let Some(m) = track.measures.get_mut(mi)
-            && !out.beats.is_empty()
-        {
-            m.voices = vec![out];
-        }
+        m.voices = voices;
     }
 }
 
@@ -513,17 +530,19 @@ mod tests {
 <MasterBar><Key><AccidentalCount>1</AccidentalCount></Key><Time>4/4</Time><Bars>0</Bars><Repeat start="true" end="false" count="0"/><Section><Letter>A</Letter><Text>Verse</Text></Section></MasterBar>
 <MasterBar><Time>3/4</Time><Bars>1</Bars><Repeat start="false" end="true" count="3"/><AlternateEndings>1 2</AlternateEndings><Directions><Target>Fine</Target><Target>Segno</Target><Jump>DaSegnoSegnoAlDoubleCoda</Jump></Directions><TripletFeel>Dotted16th</TripletFeel><FreeTime/><DoubleBar/></MasterBar>
 </MasterBars>
-<Bars><Bar id="0"><Voices>0 -1 -1 -1</Voices></Bar><Bar id="1"><Voices>-1</Voices></Bar></Bars>
-<Voices><Voice id="0"><Beats>0 1</Beats></Voice></Voices>
+<Bars><Bar id="0"><Voices>0 1 -1 -1</Voices></Bar><Bar id="1"><Voices>-1</Voices></Bar></Bars>
+<Voices><Voice id="0"><Beats>0 1</Beats></Voice><Voice id="1"><Beats>2</Beats></Voice></Voices>
 <Beats>
 <Beat id="0"><Dynamic>F</Dynamic><Rhythm ref="0"/><Notes>0 1</Notes><Fadding>VolumeSwell</Fadding><Properties><Property name="Brush"><Direction>Up</Direction></Property><Property name="PickStroke"><Direction>Down</Direction></Property><Property name="Popped"><Enable/></Property></Properties><XProperties><XProperty id="687935489"><Int>240</Int></XProperty></XProperties></Beat>
 <Beat id="1"><Rhythm ref="1"/></Beat>
+<Beat id="2"><Rhythm ref="2"/><Notes>2</Notes></Beat>
 </Beats>
 <Notes>
 <Note id="0"><Properties><Property name="String"><String>0</String></Property><Property name="Fret"><Fret>3</Fret></Property><Property name="Slide"><Flags>2</Flags></Property></Properties><LetRing/></Note>
 <Note id="1"><Vibrato>Wide</Vibrato><Accent>5</Accent><Properties><Property name="String"><String>5</String></Property><Property name="Fret"><Fret>0</Fret></Property><Property name="PalmMuted"><Enable/></Property><Property name="Tapped"><Enable/></Property></Properties></Note>
+<Note id="2"><Properties><Property name="String"><String>2</String></Property><Property name="Fret"><Fret>7</Fret></Property></Properties></Note>
 </Notes>
-<Rhythms><Rhythm id="0"><NoteValue>Quarter</NoteValue></Rhythm><Rhythm id="1"><NoteValue>Half</NoteValue><AugmentationDot count="1"/></Rhythm></Rhythms>
+<Rhythms><Rhythm id="2"><NoteValue>Whole</NoteValue></Rhythm><Rhythm id="0"><NoteValue>Quarter</NoteValue></Rhythm><Rhythm id="1"><NoteValue>Half</NoteValue><AugmentationDot count="1"/></Rhythm></Rhythms>
 </GPIF>"#;
 
     #[test]
@@ -569,6 +588,34 @@ mod tests {
         assert!(n.effects.wide_vibrato && !n.effects.vibrato && n.effects.heavy_accent && n.effects.staccato && !n.effects.accent);
         // Empty bar falls back to a rest.
         assert!(t.measures[1].voices[0].beats[0].rest);
+    }
+
+    #[test]
+    fn reads_every_voice_a_bar_lists() {
+        let s = parse_gpif(GPIF).unwrap().score;
+        let m = &s.tracks[0].measures[0];
+        assert_eq!(m.voices.len(), 2);
+        assert_eq!(m.voices[0].beats.len(), 2, "voice 1 is untouched");
+        // GP string 2 of 6 counts from the lowest; ours counts from the top.
+        let b = &m.voices[1].beats[0];
+        assert_eq!((b.notes[0].string, b.notes[0].fret, b.duration.ticks()), (3, 7, 4 * guitario_theory::TICKS_PER_QUARTER));
+        assert!(s.validate().is_ok());
+    }
+
+    #[test]
+    fn a_voice_that_only_rests_is_dropped_and_a_gap_becomes_a_rest() {
+        // Voice 2 holds a rest: nothing to keep.
+        let silent = GPIF.replace("<Beat id=\"2\"><Rhythm ref=\"2\"/><Notes>2</Notes></Beat>", "<Beat id=\"2\"><Rhythm ref=\"2\"/></Beat>");
+        assert_eq!(parse_gpif(&silent).unwrap().score.tracks[0].measures[0].voices.len(), 1);
+        // Voice 2 absent but voice 3 present: voice 2 is filled in as a bar-long rest.
+        let gap = GPIF.replace("<Voices>0 1 -1 -1</Voices>", "<Voices>0 -1 1 -1</Voices>");
+        let m = &parse_gpif(&gap).unwrap().score.tracks[0].measures[0];
+        assert_eq!(m.voices.len(), 3);
+        assert!(m.voices[1].beats.len() == 1 && m.voices[1].beats[0].rest);
+        assert!(!m.voices[2].beats[0].rest);
+        // A hostile bar naming a dozen voices keeps at most four.
+        let many = GPIF.replace("<Voices>0 1 -1 -1</Voices>", "<Voices>0 1 1 1 1 1 1 1 1 1 1 1</Voices>");
+        assert_eq!(parse_gpif(&many).unwrap().score.tracks[0].measures[0].voices.len(), guitario_score::MAX_VOICES);
     }
 
     #[test]

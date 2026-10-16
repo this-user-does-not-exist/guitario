@@ -44,7 +44,9 @@ pub struct Output {
 
 pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Output {
     let Some(track) = score.tracks.get(cursor.track) else { return Output { click: None, drag: None, cursor_rect: None, play_rect: None } };
-    let m = if track.is_drums() { Metrics::for_drums(view.zoom) } else { Metrics::new(view.zoom, view.notation, track.string_count()) }.with_annotations(track);
+    let m = if track.is_drums() { Metrics::for_drums(view.zoom) } else { Metrics::new(view.zoom, view.notation, track.string_count()) }
+        .with_annotations(track)
+        .with_voice(cursor.voice);
     let pages = layout(score, cursor.track, &m);
     let width = (m.page_w + 2.0 * PAGE_GAP).max(ui.available_width());
     let height = pages.len() as f32 * (m.page_h + PAGE_GAP) + PAGE_GAP;
@@ -268,10 +270,13 @@ impl<'a> Ctx<'a> {
         }
 
         // Measures.
-        let mut placed: Vec<Placed> = Vec::new();
+        // Placed beats per voice, in order along the system.
+        let mut placed: Vec<(usize, Vec<Placed>)> = Vec::new();
         let last_measure = self.score.headers.len().saturating_sub(1);
-        for mb in &sys.measures {
+        for (si, mb) in sys.measures.iter().enumerate() {
             let mx = x0 + sys.prefix + mb.x;
+            // The bar before this one in the same system, for ties that cross the bar line.
+            let prev = si.checked_sub(1).and_then(|k| sys.measures.get(k)).map(|p| (p, x0 + sys.prefix + p.x));
             let header = self.score.headers.get(mb.index);
             let Some(h) = header else { continue };
             let end = mx + mb.width;
@@ -376,66 +381,89 @@ impl<'a> Ctx<'a> {
             {
                 self.tempo_mark(mx + 0.5 * s, sys_top - 3.6 * s, tempo);
             }
-            let beats = self.track.measures.get(mb.index).and_then(|x| x.voices.first()).map(|v| v.beats.as_slice()).unwrap_or_default();
+            let measure = self.track.measures.get(mb.index);
+            // Playback follows Voice 1; the cursor, selection and clicks use the voice being edited.
+            let edit_cols = mb.cols(self.cursor.voice);
+            let edit_voice = edit_cols.map_or(0, |c| c.voice);
+            let band = |l: f32, r: f32| Rect::from_min_max(pos2(mx + l, sys_top - 1.2 * s), pos2(mx + r, tb + 1.2 * s));
             if let Some((pm, pb)) = self.play
                 && pm == mb.index
             {
                 // Playback: tint the bar, mark the sounding beat.
                 let bar_rect = Rect::from_min_max(pos2(mx, sys_top - 1.2 * s), pos2(end, tb + 1.2 * s));
                 self.p().rect_filled(bar_rect, 0.0, t.play_bar);
-                if let (Some(cx), Some(w)) = (mb.beats.get(pb), mb.beat_w.get(pb)) {
-                    let col = Rect::from_min_max(pos2(mx + cx - w / 2.0, sys_top - 1.2 * s), pos2(mx + cx + w / 2.0, tb + 1.2 * s));
+                if let Some(&(l, r)) = mb.voices.first().and_then(|v| v.spans.get(pb)) {
+                    let col = band(l, r);
                     self.p().rect_filled(col, 0.0, t.play_beat);
                     self.play_rect = Some(col);
                 }
             }
             if m.notation {
-                self.notation_measure(h, beats, mb, mx, nt);
+                self.notation_measure(h, mb, prev, mx, nt);
             }
             // Selection: one continuous band per measure, running to the bar lines where the
             // selection carries on into the neighbouring measure.
             if let Some(((m0, b0), (m1, b1))) = self.selection
                 && (m0..=m1).contains(&mb.index)
             {
+                let count = measure.and_then(|x| x.voices.get(edit_voice)).map_or(0, |v| v.beats.len());
                 let first = if mb.index == m0 { b0 } else { 0 };
-                let last = if mb.index == m1 { b1 } else { beats.len().saturating_sub(1) };
-                let edge = |bi: usize, right: bool| mb.beats.get(bi).zip(mb.beat_w.get(bi)).map(|(c, w)| mx + c + if right { w / 2.0 } else { -w / 2.0 });
-                let left = if mb.index > m0 { Some(mx) } else { edge(first, false) };
-                let right = if mb.index < m1 { Some(end) } else { edge(last, true) };
+                let last = if mb.index == m1 { b1 } else { count.saturating_sub(1) };
+                let span = |bi: usize| edit_cols.and_then(|c| c.spans.get(bi)).copied();
+                let left = if mb.index > m0 { Some(mx) } else { span(first).map(|(l, _)| mx + l) };
+                let right = if mb.index < m1 { Some(end) } else { span(last).map(|(_, r)| mx + r) };
                 if let (Some(l), Some(r)) = (left, right) {
                     self.p().rect_filled(Rect::from_min_max(pos2(l, sys_top - 1.2 * s), pos2(r, tb + 1.2 * s)), 0.0, t.selection_fill);
                 }
             }
-            for (bi, beat) in beats.iter().enumerate() {
-                let (Some(cx), Some(w)) = (mb.beats.get(bi), mb.beat_w.get(bi)) else { continue };
-                let x = mx + cx;
-                let col = Rect::from_min_max(pos2(x - w / 2.0, sys_top - 1.2 * s), pos2(x + w / 2.0, tb + 1.2 * s));
-                if self.cursor.measure == mb.index && self.cursor.beat == bi {
-                    self.p().rect_filled(col, 2.0, t.cursor_fill);
-                    if !m.drums {
-                        let cy = self.tab_y(tt, self.cursor.string.min(strings.saturating_sub(1)));
-                        let r = Rect::from_center_size(pos2(x, cy), vec2((1.6 * m.tab_gap).min(*w - 2.0).max(m.tab_gap), m.tab_gap));
-                        self.p().rect_stroke(r, 2.0, Stroke::new(1.5, t.cursor_stroke), egui::StrokeKind::Outside);
+            for vc in &mb.voices {
+                let Some(beats) = measure.and_then(|x| x.voices.get(vc.voice)).map(|v| v.beats.as_slice()) else { continue };
+                let slot = match placed.iter().position(|(v, _)| *v == vc.voice) {
+                    Some(i) => i,
+                    None => {
+                        placed.push((vc.voice, Vec::new()));
+                        placed.len() - 1
                     }
-                    self.cursor_rect = Some(col);
+                };
+                for (bi, beat) in beats.iter().enumerate() {
+                    let (Some(cx), Some(&(l, r))) = (vc.beats.get(bi), vc.spans.get(bi)) else { continue };
+                    let x = mx + cx;
+                    let (col, w) = (band(l, r), r - l);
+                    if vc.voice == edit_voice {
+                        if self.cursor.measure == mb.index && self.cursor.beat == bi {
+                            self.p().rect_filled(col, 2.0, t.cursor_fill);
+                            if !m.drums {
+                                let cy = self.tab_y(tt, self.cursor.string.min(strings.saturating_sub(1)));
+                                let r = Rect::from_center_size(pos2(x, cy), vec2((1.6 * m.tab_gap).min(w - 2.0).max(m.tab_gap), m.tab_gap));
+                                self.p().rect_stroke(r, 2.0, Stroke::new(1.5, t.cursor_stroke), egui::StrokeKind::Outside);
+                            }
+                            self.cursor_rect = Some(col);
+                        }
+                        self.hits.push(Hit { rect: col, measure: mb.index, beat: bi, tab_top: tt });
+                    }
+                    // Chord names, then beat text, above the system as Guitar Pro stacks them.
+                    if vc.voice == 0 {
+                        if let Some(chord) = beat.chord.as_ref().filter(|c| !c.name.is_empty()) {
+                            self.p().text(pos2(x, sys_top - 6.4 * s), egui::Align2::CENTER_BOTTOM, &chord.name, serif(10.5 * m.zoom), t.ink);
+                        }
+                        if let Some(text) = &beat.text {
+                            self.p().text(pos2(x, sys_top - 5.1 * s), egui::Align2::CENTER_BOTTOM, text, serif_italic(8.5 * m.zoom), t.ink);
+                        }
+                    }
+                    if let Some((_, list)) = placed.get_mut(slot) {
+                        list.push(Placed { x, w, beat });
+                    }
                 }
-                // Chord names, then beat text, above the system as Guitar Pro stacks them.
-                if let Some(chord) = beat.chord.as_ref().filter(|c| !c.name.is_empty()) {
-                    self.p().text(pos2(x, sys_top - 6.4 * s), egui::Align2::CENTER_BOTTOM, &chord.name, serif(10.5 * m.zoom), t.ink);
-                }
-                if let Some(text) = &beat.text {
-                    self.p().text(pos2(x, sys_top - 5.1 * s), egui::Align2::CENTER_BOTTOM, text, serif_italic(8.5 * m.zoom), t.ink);
-                }
-                self.hits.push(Hit { rect: col, measure: mb.index, beat: bi, tab_top: tt });
-                placed.push(Placed { x, w: *w, beat });
             }
         }
         // Tab content after the cursor so frets sit on top of it.
         if !m.drums {
-            for (i, pb) in placed.iter().enumerate() {
-                self.tab_beat(pb, placed.get(i + 1..).unwrap_or_default(), tt);
+            for (_, list) in &placed {
+                for (i, pb) in list.iter().enumerate() {
+                    self.tab_beat(pb, list.get(..i).unwrap_or_default(), list.get(i + 1..).unwrap_or_default(), tt);
+                }
+                self.effect_lanes(list, tt);
             }
-            self.effect_lanes(&placed, tt);
         }
         if !m.notation {
             self.tab_rhythm(sys, x0, tb);
@@ -511,33 +539,76 @@ impl<'a> Ctx<'a> {
 
     // ---- standard notation -----------------------------------------------------------------
 
-    fn notation_measure(&self, h: &MeasureHeader, beats: &[Beat], mb: &crate::layout::MeasureBox, mx: f32, nt: f32) {
+    /// Every voice of a bar on the staff. With more than one voice, Voice 1 takes the stems up and
+    /// the next voice the stems down, and their rests move apart; accidentals carry across voices.
+    fn notation_measure(&self, h: &MeasureHeader, mb: &crate::layout::MeasureBox, prev: Option<(&crate::layout::MeasureBox, f32)>, mx: f32, nt: f32) {
+        let Some(measure) = self.track.measures.get(mb.index) else { return };
+        let mut acc = Accidentals::default();
+        let multi = mb.voices.len() > 1;
+        for vc in &mb.voices {
+            let Some(voice) = measure.voices.get(vc.voice) else { continue };
+            // Where a tie into this bar starts: the last note on that string in the previous bar.
+            let incoming = |string: u8| -> Option<f32> {
+                let (pmb, pmx) = prev?;
+                let pv = self.track.measures.get(pmb.index)?.voices.get(vc.voice)?;
+                let cols = pmb.voices.iter().find(|c| c.voice == vc.voice)?;
+                let j = pv.beats.iter().rposition(|b| !b.rest && b.note_on(string).is_some())?;
+                Some(pmx + cols.beats.get(j)?)
+            };
+            self.notation_voice(h, &voice.beats, &vc.beats, (vc.voice, multi), (mx, nt), &incoming, &mut acc);
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn notation_voice(
+        &self,
+        h: &MeasureHeader,
+        beats: &[Beat],
+        xs: &[f32],
+        (slot, multi): (usize, bool),
+        (mx, nt): (f32, f32),
+        incoming: &dyn Fn(u8) -> Option<f32>,
+        acc: &mut Accidentals,
+    ) {
         let s = self.m.space;
         let ink = self.t.ink;
-        let mut acc = Accidentals::default();
+        // Stems: by the notes' height alone, or by voice when the bar has several.
+        let stem_up = |avg: f32| if multi { slot % 2 == 0 } else { self.m.drums || avg < 4.0 };
         // Positions and stems per beat.
+        /// A notehead: staff position, accidental to print (-1 flat, 0 natural, 1 sharp) and head shape.
+        type Head = (i32, Option<i8>, &'static str);
         struct Info {
             x: f32,
-            pos: Vec<(i32, Option<i8>, &'static str)>,
+            /// Staff position of each note by string, for ties and slurs.
+            by_string: Vec<(u8, i32)>,
+            pos: Vec<Head>,
             up: bool,
             div: u32,
         }
         let mut infos: Vec<Option<Info>> = Vec::new();
         for (bi, beat) in beats.iter().enumerate() {
-            let x = mx + mb.beats.get(bi).copied().unwrap_or(0.0);
+            let x = mx + xs.get(bi).copied().unwrap_or(0.0);
             if beat.rest || beat.notes.is_empty() {
                 let div = beat.duration.value.divisor();
+                // With several voices a rest moves out of the way: up for Voice 1, down for the next.
+                let shift = if !multi {
+                    0
+                } else if slot % 2 == 0 {
+                    3
+                } else {
+                    -3
+                };
                 let pos = match div {
                     1 => 6,
                     _ => 4,
-                };
+                } + shift;
                 let c = g::rest_for(div);
                 self.pen.glyph_centered(c, pos2(x, self.nota_y(nt, pos)), ink);
                 self.dots(beat, x + 0.9 * s, nt, 5);
                 infos.push(None);
                 continue;
             }
-            let mut pos: Vec<(i32, Option<i8>, &'static str)> = beat
+            let keyed: Vec<(u8, Head)> = beat
                 .notes
                 .iter()
                 .filter_map(|n| {
@@ -545,19 +616,21 @@ impl<'a> Ctx<'a> {
                         // Drum notation: the kit map places each piece; cymbals take a cross.
                         let piece = guitario_theory::drums::piece(n.fret);
                         let pos = piece.map_or(6, |p| i32::from(p.staff_pos));
-                        return Some((pos, None, if piece.is_some_and(|p| p.cross) { "x" } else { "n" }));
+                        return Some((n.string, (pos, None, if piece.is_some_and(|p| p.cross) { "x" } else { "n" })));
                     }
                     let p = self.track.tuning.pitch(usize::from(n.string), n.fret, self.track.capo)?;
                     let written = p.0.saturating_add(12).min(127);
                     let sp = spell(written, h.key);
                     let head = if n.kind == NoteKind::Dead { "x" } else { "n" };
-                    Some((staff_pos(sp, self.clef), acc.next(sp, h.key), head))
+                    Some((n.string, (staff_pos(sp, self.clef), acc.next(sp, h.key), head)))
                 })
                 .collect();
+            let by_string = keyed.iter().map(|(st, p)| (*st, p.0)).collect();
+            let mut pos: Vec<Head> = keyed.into_iter().map(|(_, p)| p).collect();
             pos.sort_by_key(|p| p.0);
             let avg = pos.iter().map(|p| p.0).sum::<i32>() as f32 / pos.len().max(1) as f32;
             // Drum parts are written stems up (one voice, hands and feet together).
-            infos.push(Some(Info { x, pos, up: self.m.drums || avg < 4.0, div: beat.duration.value.divisor() }));
+            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor() }));
         }
 
         let groups = beam_groups(beats, h.time_signature);
@@ -567,7 +640,7 @@ impl<'a> Ctx<'a> {
             let avg = all.iter().sum::<i32>() as f32 / all.len().max(1) as f32;
             for i in gr {
                 if let Some(Some(info)) = infos.get_mut(*i) {
-                    info.up = self.m.drums || avg < 4.0;
+                    info.up = stem_up(avg);
                 }
             }
         }
@@ -653,6 +726,39 @@ impl<'a> Ctx<'a> {
             }
         }
 
+        // Ties and slurs: arcs between noteheads, away from the stems (up for the upper voice).
+        if !self.m.drums {
+            let arc = Stroke::new((0.18 * s).max(1.0), ink);
+            let side = |info: &Info| if multi { slot % 2 == 0 } else { !info.up };
+            for (bi, beat) in beats.iter().enumerate() {
+                let Some(Some(info)) = infos.get(bi) else { continue };
+                let above = side(info);
+                let dir = if above { -1.0 } else { 1.0 };
+                for n in &beat.notes {
+                    let Some(&(_, pos)) = info.by_string.iter().find(|(st, _)| *st == n.string) else { continue };
+                    let y = self.nota_y(nt, pos) + dir * 0.7 * s;
+                    // A tie joins this note to the last one on its string: in this bar, or the bar before.
+                    if n.kind == NoteKind::Tie {
+                        let from = (0..bi)
+                            .rev()
+                            .find(|&j| beats.get(j).is_some_and(|b| !b.rest && b.note_on(n.string).is_some()))
+                            .and_then(|j| xs.get(j).map(|cx| mx + cx))
+                            .or_else(|| incoming(n.string))
+                            .unwrap_or(info.x - 3.2 * s);
+                        g::arc(self.p(), pos2(from + 0.6 * head_w, y), pos2(info.x - 0.6 * head_w, y), dir * 0.9 * s, arc);
+                    }
+                    // A hammer-on, pull-off or legato slide is a slur to the next note on the string.
+                    if n.effects.hammer || n.effects.slide == Some(Slide::Legato) {
+                        let to = (bi + 1..beats.len()).find(|&j| beats.get(j).is_some_and(|b| !b.rest && b.note_on(n.string).is_some()));
+                        if let Some(to) = to.and_then(|j| xs.get(j)) {
+                            let y = y + dir * 0.3 * s;
+                            g::arc(self.p(), pos2(info.x + 0.3 * head_w, y), pos2(mx + to - 0.3 * head_w, y), dir * 1.1 * s, arc);
+                        }
+                    }
+                }
+            }
+        }
+
         // Beams.
         let beam_t = 0.5 * s;
         for gr in &groups {
@@ -727,7 +833,7 @@ impl<'a> Ctx<'a> {
         }
     }
 
-    fn tab_beat(&self, pb: &Placed, rest: &[Placed], tt: f32) {
+    fn tab_beat(&self, pb: &Placed, before: &[Placed], rest: &[Placed], tt: f32) {
         let (m, t) = (self.m, self.t);
         let s = m.space;
         if pb.beat.rest {
@@ -773,6 +879,13 @@ impl<'a> Ctx<'a> {
             self.p().rect_filled(r, 0.0, t.page);
             self.p().galley(pos2(r.center().x - galley.size().x / 2.0, y - galley.size().y / 2.0), galley, t.ink);
             let fw = r.width() / 2.0;
+            // A tied fret is joined to the last note on its string by an arc over the strings.
+            if n.kind == NoteKind::Tie {
+                let from = before.iter().rev().find(|q| !q.beat.rest && q.beat.note_on(n.string).is_some()).map(|q| q.x + fw * 0.4);
+                let a = pos2(from.unwrap_or(pb.x - fw - 2.6 * s), y - m.tab_gap * 0.55);
+                let b = pos2(pb.x - fw * 0.4, y - m.tab_gap * 0.55);
+                g::arc(self.p(), a, b, -0.8 * s, fx);
+            }
             // The next note on this string, for hammer-ons and slides.
             let next = rest.iter().find_map(|q| q.beat.note_on(n.string).filter(|_| !q.beat.rest).map(|nn| (q.x, nn)));
             if n.effects.hammer {
@@ -924,56 +1037,58 @@ impl<'a> Ctx<'a> {
         let (y0, y1) = (tb + 1.2 * s, tb + 4.2 * s);
         for mb in &sys.measures {
             let mx = x0 + sys.prefix + mb.x;
-            let beats = self.track.measures.get(mb.index).and_then(|x| x.voices.first()).map(|v| v.beats.as_slice()).unwrap_or_default();
-            let ts = self.score.headers.get(mb.index).map(|h| h.time_signature).unwrap_or_default();
-            let groups = beam_groups(beats, ts);
-            let x_of = |bi: usize| mb.beats.get(bi).map(|cx| mx + cx);
-            for (bi, beat) in beats.iter().enumerate() {
-                let Some(x) = x_of(bi) else { continue };
-                let div = beat.duration.value.divisor();
-                if beat.rest {
-                    self.pen.glyph_centered(g::rest_for(div), pos2(x, (y0 + y1) / 2.0), ink);
-                    continue;
-                }
-                match div {
-                    1 => {}
-                    2 => {
-                        self.p().line_segment([pos2(x, (y0 + y1) / 2.0), pos2(x, y1)], stem);
+            for vc in &mb.voices {
+                let beats = self.track.measures.get(mb.index).and_then(|x| x.voices.get(vc.voice)).map(|v| v.beats.as_slice()).unwrap_or_default();
+                let ts = self.score.headers.get(mb.index).map(|h| h.time_signature).unwrap_or_default();
+                let groups = beam_groups(beats, ts);
+                let x_of = |bi: usize| vc.beats.get(bi).map(|cx| mx + cx);
+                for (bi, beat) in beats.iter().enumerate() {
+                    let Some(x) = x_of(bi) else { continue };
+                    let div = beat.duration.value.divisor();
+                    if beat.rest {
+                        self.pen.glyph_centered(g::rest_for(div), pos2(x, (y0 + y1) / 2.0), ink);
+                        continue;
                     }
-                    _ => {
-                        self.p().line_segment([pos2(x, y0), pos2(x, y1)], stem);
-                        if !groups.iter().any(|gr| gr.contains(&bi))
-                            && let Some(f) = g::flag_for(div, false)
-                        {
-                            self.pen.glyph(f, pos2(x - stem.width / 2.0, y1), ink);
+                    match div {
+                        1 => {}
+                        2 => {
+                            self.p().line_segment([pos2(x, (y0 + y1) / 2.0), pos2(x, y1)], stem);
+                        }
+                        _ => {
+                            self.p().line_segment([pos2(x, y0), pos2(x, y1)], stem);
+                            if !groups.iter().any(|gr| gr.contains(&bi))
+                                && let Some(f) = g::flag_for(div, false)
+                            {
+                                self.pen.glyph(f, pos2(x - stem.width / 2.0, y1), ink);
+                            }
                         }
                     }
+                    for d in 0..beat.duration.dots {
+                        self.p().circle_filled(pos2(x + (0.6 + f32::from(d) * 0.5) * s, y1 - 0.5 * s), 0.2 * s, ink);
+                    }
                 }
-                for d in 0..beat.duration.dots {
-                    self.p().circle_filled(pos2(x + (0.6 + f32::from(d) * 0.5) * s, y1 - 0.5 * s), 0.2 * s, ink);
-                }
-            }
-            // Beams: one per level an eighth, a 16th… needs, with stubs for lone shorter notes.
-            let beam_t = 0.45 * s;
-            for gr in &groups {
-                for level in 0..4u32 {
-                    let need = 8u32 << level;
-                    let y = y1 - level as f32 * (beam_t + 0.25 * s);
-                    let members: Vec<(f32, bool)> = gr.iter().filter_map(|&i| Some((x_of(i)?, beats.get(i)?.duration.value.divisor() >= need))).collect();
-                    let mut k = 0;
-                    while k < members.len() {
-                        if !members.get(k).is_some_and(|m| m.1) {
-                            k += 1;
-                            continue;
+                // Beams: one per level an eighth, a 16th… needs, with stubs for lone shorter notes.
+                let beam_t = 0.45 * s;
+                for gr in &groups {
+                    for level in 0..4u32 {
+                        let need = 8u32 << level;
+                        let y = y1 - level as f32 * (beam_t + 0.25 * s);
+                        let members: Vec<(f32, bool)> = gr.iter().filter_map(|&i| Some((x_of(i)?, beats.get(i)?.duration.value.divisor() >= need))).collect();
+                        let mut k = 0;
+                        while k < members.len() {
+                            if !members.get(k).is_some_and(|m| m.1) {
+                                k += 1;
+                                continue;
+                            }
+                            let mut j = k;
+                            while members.get(j + 1).is_some_and(|m| m.1) {
+                                j += 1;
+                            }
+                            let (Some(a), Some(b)) = (members.get(k), members.get(j)) else { break };
+                            let (xa, xb) = if j == k { (a.0, a.0 + if k + 1 < members.len() { s } else { -s }) } else { (a.0, b.0) };
+                            self.p().rect_filled(Rect::from_min_max(pos2(xa.min(xb), y - beam_t), pos2(xa.max(xb) + stem.width / 2.0, y)), 0.0, ink);
+                            k = j + 1;
                         }
-                        let mut j = k;
-                        while members.get(j + 1).is_some_and(|m| m.1) {
-                            j += 1;
-                        }
-                        let (Some(a), Some(b)) = (members.get(k), members.get(j)) else { break };
-                        let (xa, xb) = if j == k { (a.0, a.0 + if k + 1 < members.len() { s } else { -s }) } else { (a.0, b.0) };
-                        self.p().rect_filled(Rect::from_min_max(pos2(xa.min(xb), y - beam_t), pos2(xa.max(xb) + stem.width / 2.0, y)), 0.0, ink);
-                        k = j + 1;
                     }
                 }
             }
@@ -1001,5 +1116,74 @@ pub fn short_name(track: &Track) -> String {
     match by_program {
         Some(s) if lower.contains("guitar") || lower.contains("bass") || lower.starts_with("track") => s.to_string(),
         _ => track.name.chars().take(8).collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use guitario_theory::Duration;
+
+    /// Curves painted for `score`: ties, slurs and hammer-on arcs are all quadratic Béziers.
+    fn curves(score: &Score, notation: bool) -> usize {
+        fn count(shape: &egui::Shape) -> usize {
+            match shape {
+                egui::Shape::QuadraticBezier(_) => 1,
+                egui::Shape::Vec(inner) => inner.iter().map(count).sum(),
+                _ => 0,
+            }
+        }
+        let score = score.clone();
+        let mut fonts = None;
+        let mut harness = egui_kittest::Harness::builder().with_size(vec2(1400.0, 800.0)).build_ui(move |ui| {
+            // Fonts take effect on the frame after they are installed.
+            let Some(fonts) = fonts else {
+                fonts = Some(crate::fonts::install(ui.ctx()));
+                return;
+            };
+            show(ui, &score, Cursor::default(), &View { zoom: 1.0, notation, fonts, play: None, selection: None });
+        });
+        harness.run_steps(3);
+        harness.output().shapes.iter().map(|s| count(&s.shape)).sum()
+    }
+
+    /// A bar of two quarter notes on the top string and a half rest.
+    fn two_notes(second: impl FnOnce(&mut Note), first: impl FnOnce(&mut Note)) -> Score {
+        let mut s = Score::new();
+        let (mut a, mut b) = (Note::new(0, 3), Note::new(0, 3));
+        first(&mut a);
+        second(&mut b);
+        let beat = |n: Note| Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::QUARTER) };
+        let rest = Beat::rest(Duration::new(guitario_theory::NoteValue::Half));
+        s.tracks[0].measures[0].voices[0].beats = vec![beat(a), beat(b), rest];
+        s
+    }
+
+    #[test]
+    fn a_tie_is_drawn_in_notation_and_in_tab() {
+        let tied = two_notes(|n| n.kind = NoteKind::Tie, |_| {});
+        let plain = two_notes(|_| {}, |_| {});
+        assert_eq!(curves(&tied, false), curves(&plain, false) + 1, "tab only: one arc over the strings");
+        assert_eq!(curves(&tied, true), curves(&plain, true) + 2, "with notation: one more over the staff");
+    }
+
+    #[test]
+    fn a_tie_into_the_first_beat_has_an_incoming_arc() {
+        let incoming = two_notes(|_| {}, |n| n.kind = NoteKind::Tie);
+        let plain = two_notes(|_| {}, |_| {});
+        assert_eq!(curves(&incoming, false), curves(&plain, false) + 1);
+        assert_eq!(curves(&incoming, true), curves(&plain, true) + 2);
+    }
+
+    #[test]
+    fn hammer_ons_and_legato_slides_are_slurred_in_notation() {
+        let plain = two_notes(|n| n.fret = 5, |_| {});
+        let hammer = two_notes(|n| n.fret = 5, |n| n.effects.hammer = true);
+        let legato = two_notes(|n| n.fret = 5, |n| n.effects.slide = Some(Slide::Legato));
+        for (name, score) in [("hammer-on", &hammer), ("legato slide", &legato)] {
+            // The tab already arcs these; notation adds a slur of its own.
+            assert_eq!(curves(score, false), curves(&plain, false) + 1, "{name}: the tab arc");
+            assert_eq!(curves(score, true), curves(&plain, true) + 2, "{name}: and the notation slur");
+        }
     }
 }

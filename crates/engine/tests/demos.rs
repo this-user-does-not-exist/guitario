@@ -196,6 +196,29 @@ fn every_guitar_pro_5_copy_opens_as_its_score() {
 }
 
 #[test]
+fn the_two_voice_study_has_two_voices_a_tie_and_plays_both() {
+    let (_, path) = scores().into_iter().find(|(n, _)| n.contains("two-voices")).unwrap();
+    let s = open(&path);
+    let score = s.score();
+    let t = &score.tracks[0];
+    assert!(t.measures.iter().all(|m| m.voices.len() == 2 && m.voices.iter().all(|v| v.beats.iter().any(|b| !b.rest))));
+    // The G that ends bar 4 is tied into bar 5 on the same string, and sounds as one four-beat note.
+    let end4 = t.measures[3].voices[0].beats.last().unwrap();
+    let start5 = &t.measures[4].voices[0].beats[0];
+    assert_eq!((end4.notes[0].string, end4.notes[0].fret), (start5.notes[0].string, start5.notes[0].fret));
+    assert_eq!(start5.notes[0].kind, guitario_score::NoteKind::Tie);
+    let played = guitario_score::timeline(score);
+    assert!(played.iter().any(|p| p.measure == 3 && p.string == 0 && p.ticks == 4 * guitario_theory::TICKS_PER_QUARTER));
+    // Melody and bass start together on the first beat of every bar, and every note of both voices sounds.
+    let sounding =
+        t.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).flat_map(|b| &b.notes).filter(|n| n.kind != guitario_score::NoteKind::Tie).count();
+    assert_eq!(played.len(), sounding);
+    assert!(played.iter().filter(|p| p.start_tick == 0).count() == 2);
+    // Voice 2 reaches MIDI: more than a melody's worth of notes.
+    assert!(guitario_midi::export(score).unwrap().len() > 400);
+}
+
+#[test]
 fn band_pieces_have_drums_on_their_kit_lanes() {
     let mut with_drums = 0;
     for (name, path) in scores() {
