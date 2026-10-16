@@ -88,12 +88,15 @@ pub fn riff() -> Score {
     popped.technique = Some(BeatTechnique::Pop);
     popped.stroke = Some(StrokeDirection::Up);
     popped.fade = Some(Fade::In);
+    popped.tremolo = Some(TremoloSpeed::ThirtySecond);
+    let mut trilled = Note::new(0, 12);
+    trilled.effects.trill = Some(Trill { fret: 14, speed: TrillSpeed::SixtyFourth });
     let mut triplet = note(vec![slide], Duration { tuplet: (3, 2), ..e });
     triplet.dynamic = Dynamic::Pp;
     t.measures[0].voices[0].beats = vec![chord, popped, note(vec![bend], e), note(vec![tie], Duration::QUARTER), triplet.clone(), triplet.clone(), triplet];
     t.measures[1].voices = vec![
         Voice { beats: vec![note(vec![dead], Duration { dots: 1, ..Duration::QUARTER }), Beat::rest(Duration { dots: 1, ..Duration::QUARTER })] },
-        Voice { beats: vec![Beat::rest(Duration::QUARTER), note(vec![Note::new(0, 12)], Duration::new(NoteValue::Half))] },
+        Voice { beats: vec![Beat::rest(Duration::QUARTER), note(vec![trilled], Duration::new(NoteValue::Half))] },
     ];
     let mut drums = guitario_score::Track::drums("Drums", &s.headers);
     drums.muted = true;

@@ -173,6 +173,40 @@
         "tempo": null,
         "repeat_open": false,
         "repeat_close": 0,
+        "marker": "Tremolo speeds",
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": "Trills",
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "repeat_open": false,
+        "repeat_close": 0,
         "marker": "Dead, ghost, accent",
         "double_bar": false,
         "free_time": false,
@@ -288,7 +322,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -298,7 +333,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -329,7 +365,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -339,7 +376,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -370,7 +408,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -380,7 +419,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -411,7 +451,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -421,7 +462,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -452,7 +494,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -462,7 +505,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -493,7 +537,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -503,7 +548,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -534,7 +580,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -544,7 +591,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -575,7 +623,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -585,7 +634,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -624,7 +674,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -634,7 +685,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -665,7 +717,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -675,7 +728,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -706,7 +760,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -716,7 +771,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -747,7 +803,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -757,7 +814,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -796,7 +854,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -806,7 +865,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -837,7 +897,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -847,7 +908,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -878,7 +940,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -888,7 +951,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -919,7 +983,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -929,7 +994,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -968,7 +1034,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -978,7 +1045,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1009,7 +1077,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1019,7 +1088,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1050,7 +1120,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1060,7 +1131,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1091,7 +1163,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1101,7 +1174,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -1140,7 +1214,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1150,7 +1225,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1181,7 +1257,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1191,7 +1268,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1222,7 +1300,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1232,7 +1311,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1263,7 +1343,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1273,7 +1354,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -1312,7 +1394,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1322,7 +1405,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1353,7 +1437,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1363,7 +1448,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1394,7 +1480,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1404,7 +1491,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1423,7 +1511,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -1462,7 +1551,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1472,7 +1562,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1503,7 +1594,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1513,7 +1605,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1544,7 +1637,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1554,7 +1648,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1585,7 +1680,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1595,7 +1691,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1626,7 +1723,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       },
                       {
@@ -1647,7 +1745,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       },
                       {
@@ -1668,7 +1767,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       },
                       {
@@ -1689,7 +1789,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       },
                       {
@@ -1710,7 +1811,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1720,7 +1822,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -1759,7 +1862,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1769,7 +1873,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1800,7 +1905,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1810,7 +1916,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1841,7 +1948,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1851,7 +1959,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1882,7 +1991,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1892,7 +2002,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1923,7 +2034,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1933,7 +2045,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -1964,7 +2077,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -1974,7 +2088,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -2005,7 +2120,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -2015,7 +2131,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -2046,7 +2163,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -2056,7 +2174,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -2087,7 +2206,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -2097,7 +2217,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -2128,7 +2249,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -2138,7 +2260,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -2169,7 +2292,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -2179,7 +2303,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -2210,7 +2335,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -2220,7 +2346,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -2232,7 +2359,7 @@
                 "beats": [
                   {
                     "duration": {
-                      "value": "thirty_second",
+                      "value": "quarter",
                       "dots": 0,
                       "tuplet": [
                         1,
@@ -2259,7 +2386,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -2269,11 +2397,12 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": "thirty_second"
                   },
                   {
                     "duration": {
-                      "value": "thirty_second",
+                      "value": "quarter",
                       "dots": 0,
                       "tuplet": [
                         1,
@@ -2284,6 +2413,294 @@
                     "notes": [
                       {
                         "string": 5,
+                        "fret": 1,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": true,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": "thirty_second"
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "fret": 3,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": true,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": "thirty_second"
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "fret": 1,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": true,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": "thirty_second"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "fret": 0,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": "eighth"
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "fret": 0,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": "sixteenth"
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "fret": 0,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": "thirty_second"
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "fret": 2,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": true,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null
+                        }
+                      },
+                      {
+                        "string": 4,
                         "fret": 0,
                         "kind": "normal",
                         "effects": {
@@ -2300,7 +2717,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -2310,11 +2728,20 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
-                  },
+                    "chord": null,
+                    "tremolo": "sixteenth"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "voices": [
+              {
+                "beats": [
                   {
                     "duration": {
-                      "value": "thirty_second",
+                      "value": "quarter",
                       "dots": 0,
                       "tuplet": [
                         1,
@@ -2324,8 +2751,8 @@
                     "rest": false,
                     "notes": [
                       {
-                        "string": 5,
-                        "fret": 0,
+                        "string": 0,
+                        "fret": 12,
                         "kind": "normal",
                         "effects": {
                           "hammer": false,
@@ -2333,7 +2760,7 @@
                           "harmonic": null,
                           "bend": null,
                           "vibrato": false,
-                          "palm_mute": true,
+                          "palm_mute": false,
                           "let_ring": false,
                           "ghost": false,
                           "accent": false,
@@ -2341,7 +2768,11 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": {
+                            "fret": 14,
+                            "speed": "sixteenth"
+                          }
                         }
                       }
                     ],
@@ -2351,11 +2782,12 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
-                      "value": "thirty_second",
+                      "value": "quarter",
                       "dots": 0,
                       "tuplet": [
                         1,
@@ -2365,8 +2797,8 @@
                     "rest": false,
                     "notes": [
                       {
-                        "string": 5,
-                        "fret": 0,
+                        "string": 0,
+                        "fret": 12,
                         "kind": "normal",
                         "effects": {
                           "hammer": false,
@@ -2374,7 +2806,7 @@
                           "harmonic": null,
                           "bend": null,
                           "vibrato": false,
-                          "palm_mute": true,
+                          "palm_mute": false,
                           "let_ring": false,
                           "ghost": false,
                           "accent": false,
@@ -2382,7 +2814,11 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": {
+                            "fret": 14,
+                            "speed": "thirty_second"
+                          }
                         }
                       }
                     ],
@@ -2392,11 +2828,12 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
-                      "value": "thirty_second",
+                      "value": "quarter",
                       "dots": 0,
                       "tuplet": [
                         1,
@@ -2406,8 +2843,8 @@
                     "rest": false,
                     "notes": [
                       {
-                        "string": 5,
-                        "fret": 0,
+                        "string": 0,
+                        "fret": 10,
                         "kind": "normal",
                         "effects": {
                           "hammer": false,
@@ -2415,7 +2852,7 @@
                           "harmonic": null,
                           "bend": null,
                           "vibrato": false,
-                          "palm_mute": true,
+                          "palm_mute": false,
                           "let_ring": false,
                           "ghost": false,
                           "accent": false,
@@ -2423,7 +2860,11 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": {
+                            "fret": 12,
+                            "speed": "sixty_fourth"
+                          }
                         }
                       }
                     ],
@@ -2433,1114 +2874,28 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
-                      "value": "thirty_second",
+                      "value": "quarter",
                       "dots": 0,
                       "tuplet": [
                         1,
                         1
                       ]
                     },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 0,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
+                    "rest": true,
+                    "notes": [],
                     "dynamic": "mf",
                     "text": null,
                     "stroke": null,
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 0,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 0,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 3,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 3,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 3,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 3,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 3,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 3,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 3,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 3,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
-                  },
-                  {
-                    "duration": {
-                      "value": "thirty_second",
-                      "dots": 0,
-                      "tuplet": [
-                        1,
-                        1
-                      ]
-                    },
-                    "rest": false,
-                    "notes": [
-                      {
-                        "string": 5,
-                        "fret": 1,
-                        "kind": "normal",
-                        "effects": {
-                          "hammer": false,
-                          "slide": null,
-                          "harmonic": null,
-                          "bend": null,
-                          "vibrato": false,
-                          "palm_mute": true,
-                          "let_ring": false,
-                          "ghost": false,
-                          "accent": false,
-                          "staccato": false,
-                          "heavy_accent": false,
-                          "wide_vibrato": false,
-                          "tapped": false,
-                          "left_hand_tapped": false
-                        }
-                      }
-                    ],
-                    "dynamic": "mf",
-                    "text": null,
-                    "stroke": null,
-                    "technique": null,
-                    "fade": null,
-                    "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -3579,7 +2934,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3589,7 +2945,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -3620,7 +2977,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3630,7 +2988,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -3661,7 +3020,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3671,7 +3031,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -3702,7 +3063,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3712,7 +3074,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -3743,7 +3106,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3753,7 +3117,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -3784,7 +3149,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3794,7 +3160,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -3825,7 +3192,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3835,7 +3203,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -3866,7 +3235,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3876,7 +3246,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -3915,7 +3286,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3925,7 +3297,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -3956,7 +3329,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -3966,7 +3340,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -3997,7 +3372,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -4007,7 +3383,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -4046,7 +3423,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -4056,7 +3434,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -4087,7 +3466,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -4097,7 +3477,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -4128,7 +3509,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -4138,7 +3520,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -4169,7 +3552,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -4179,7 +3563,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -4210,7 +3595,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -4220,7 +3606,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -4251,7 +3638,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -4261,7 +3649,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -4292,7 +3681,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -4302,7 +3692,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -4321,7 +3712,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -4360,7 +3752,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       },
                       {
@@ -4381,7 +3774,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       },
                       {
@@ -4402,7 +3796,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       },
                       {
@@ -4423,7 +3818,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       },
                       {
@@ -4444,7 +3840,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       },
                       {
@@ -4465,7 +3862,8 @@
                           "heavy_accent": false,
                           "wide_vibrato": false,
                           "tapped": false,
-                          "left_hand_tapped": false
+                          "left_hand_tapped": false,
+                          "trill": null
                         }
                       }
                     ],
@@ -4475,7 +3873,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -4494,7 +3893,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   },
                   {
                     "duration": {
@@ -4513,7 +3913,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -4521,6 +3922,14 @@
           }
         ]
       }
-    ]
+    ],
+    "page": {
+      "paper": "a4",
+      "landscape": false,
+      "margin_left": 10,
+      "margin_right": 10,
+      "margin_top": 15,
+      "margin_bottom": 12
+    }
   }
 }

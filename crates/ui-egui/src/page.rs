@@ -861,6 +861,8 @@ impl<'a> Ctx<'a> {
 
         // Beams.
         let beam_t = 0.5 * s;
+        // Where the beams put the stems' ends, for what is drawn on the stems afterwards.
+        let mut beamed_ends: Vec<(usize, f32, f32)> = Vec::new();
         for gr in &groups {
             let ends: Vec<(usize, f32, f32, bool, u32)> = gr
                 .iter()
@@ -872,6 +874,7 @@ impl<'a> Ctx<'a> {
                 .collect();
             let Some(&(_, _, _, up, _)) = ends.first() else { continue };
             let beam_y = if up { ends.iter().map(|e| e.2).fold(f32::MAX, f32::min) } else { ends.iter().map(|e| e.2).fold(f32::MIN, f32::max) };
+            beamed_ends.extend(ends.iter().map(|e| (e.0, e.1, beam_y)));
             for &(i, x, _, _, _) in &ends {
                 let Some(Some(info)) = infos.get(i) else { continue };
                 let (lo, hi) = (info.pos.first().map_or(4, |p| p.0), info.pos.last().map_or(4, |p| p.0));
@@ -913,6 +916,54 @@ impl<'a> Ctx<'a> {
                 self.p().text(pos2(cx, y), egui::Align2::CENTER_CENTER, b.duration.tuplet.0.to_string(), serif(9.0 * self.m.zoom), ink);
             }
         }
+        for (i, x, y) in beamed_ends {
+            if let Some(slot) = stem_ends.get_mut(i) {
+                *slot = Some((x, y));
+            }
+        }
+
+        // Tremolo picking slashes through the stems, and trill marks above the staff.
+        for (i, info) in infos.iter().enumerate() {
+            let (Some(info), Some(b)) = (info, beats.get(i)) else { continue };
+            if b.rest {
+                continue;
+            }
+            let (lo, hi) = (info.pos.first().map_or(4, |p| p.0), info.pos.last().map_or(4, |p| p.0));
+            if let Some(speed) = b.tremolo {
+                match stem_ends.get(i).copied().flatten() {
+                    // Halfway along the stem, clear of the beams and the flag.
+                    Some((sx, y1)) => self.slashes(sx, (self.nota_y(nt, if info.up { lo } else { hi }) + y1) / 2.0, speed.slashes()),
+                    // A whole note has no stem: the slashes sit above the head.
+                    None => self.slashes(info.x, self.nota_y(nt, hi) - 1.8 * s, speed.slashes()),
+                }
+            }
+            if b.notes.iter().any(|n| n.effects.trill.is_some()) {
+                let next = infos.iter().skip(i + 1).flatten().next().map(|n| n.x - 0.8 * s);
+                // Clear of the heads (and of an up-stem), but inside the lane above the staff.
+                let pos = (if info.up { hi + 8 } else { hi + 3 }).clamp(12, 22);
+                self.trill_mark(info.x - 0.4 * s, next.unwrap_or(info.x + 3.5 * s), self.nota_y(nt, pos));
+            }
+        }
+    }
+
+    /// Tremolo picking: short diagonal strokes across a stem, centred on `(x, y)`.
+    fn slashes(&self, x: f32, y: f32, count: u8) {
+        let s = self.m.space;
+        let stroke = Stroke::new((0.4 * s).max(1.5), self.t.ink);
+        for k in 0..count {
+            let dy = (f32::from(k) - f32::from(count.saturating_sub(1)) / 2.0) * 0.8 * s;
+            self.p().line_segment([pos2(x - 0.7 * s, y + dy + 0.35 * s), pos2(x + 0.7 * s, y + dy - 0.35 * s)], stroke);
+        }
+    }
+
+    /// "tr" and a wavy line from `x0` to `x1` at height `y`.
+    fn trill_mark(&self, x0: f32, x1: f32, y: f32) {
+        let (m, s) = (self.m, self.m.space);
+        let ink = self.t.effect_ink;
+        let galley = self.p().layout_no_wrap("tr".to_string(), serif_italic(10.0 * m.zoom), ink);
+        let w = galley.size().x;
+        self.p().galley(pos2(x0, y - galley.size().y / 2.0), galley, ink);
+        g::wavy(self.p(), x0 + w + 0.2 * s, x1.max(x0 + w + 2.0 * s), y, 0.3 * s, Stroke::new(1.2, ink));
     }
 
     fn dots(&self, beat: &Beat, x: f32, nt: f32, pos: i32) {
@@ -1076,7 +1127,9 @@ impl<'a> Ctx<'a> {
             if pb.beat.rest {
                 continue;
             }
-            if pb.beat.notes.iter().any(|n| n.effects.wide_vibrato) {
+            if pb.beat.notes.iter().any(|n| n.effects.trill.is_some()) {
+                self.trill_mark(pb.x - 0.4 * s, pb.x + pb.w - 0.6 * s, tt - 1.6 * s);
+            } else if pb.beat.notes.iter().any(|n| n.effects.wide_vibrato) {
                 g::wavy(self.p(), pb.x - 0.4 * s, pb.x + pb.w / 2.0, tt - 1.6 * s, 0.5 * s, Stroke::new(2.0, t.effect_ink));
             } else if pb.beat.notes.iter().any(|n| n.effects.vibrato) {
                 g::wavy(self.p(), pb.x - 0.4 * s, pb.x + pb.w / 2.0, tt - 1.6 * s, 0.25 * s, Stroke::new(1.2, t.effect_ink));
@@ -1148,6 +1201,17 @@ impl<'a> Ctx<'a> {
                     if beat.rest {
                         self.pen.glyph_centered(g::rest_for(div), pos2(x, (y0 + y1) / 2.0), ink);
                         continue;
+                    }
+                    if let Some(speed) = beat.tremolo {
+                        // On the stem, or just under the tab for a whole note.
+                        let y = if div == 1 {
+                            y0 + 0.4 * s
+                        } else if div == 2 {
+                            (y0 + y1) / 2.0 + 0.9 * s
+                        } else {
+                            (y0 + y1) / 2.0
+                        };
+                        self.slashes(x, y, speed.slashes());
                     }
                     match div {
                         1 => {}
@@ -1226,11 +1290,15 @@ mod tests {
 
     /// Curves painted for `score`: ties, slurs and hammer-on arcs are all quadratic Béziers.
     fn curves(score: &Score, notation: bool) -> usize {
-        fn count(shape: &egui::Shape) -> usize {
+        painted(score, notation, |s| matches!(s, egui::Shape::QuadraticBezier(_)))
+    }
+
+    /// How many painted shapes `is` accepts when `score` is drawn at 100 %.
+    fn painted(score: &Score, notation: bool, is: impl Fn(&egui::Shape) -> bool) -> usize {
+        fn count(shape: &egui::Shape, is: &dyn Fn(&egui::Shape) -> bool) -> usize {
             match shape {
-                egui::Shape::QuadraticBezier(_) => 1,
-                egui::Shape::Vec(inner) => inner.iter().map(count).sum(),
-                _ => 0,
+                egui::Shape::Vec(inner) => inner.iter().map(|s| count(s, is)).sum(),
+                other => usize::from(is(other)),
             }
         }
         let score = score.clone();
@@ -1244,7 +1312,55 @@ mod tests {
             show(ui, &score, Cursor::default(), &View { zoom: 1.0, notation, fonts, play: None, selection: None });
         });
         harness.run_steps(3);
-        harness.output().shapes.iter().map(|s| count(&s.shape)).sum()
+        harness.output().shapes.iter().map(|s| count(&s.shape, &is)).sum()
+    }
+
+    fn lines(score: &Score, notation: bool) -> usize {
+        painted(score, notation, |s| matches!(s, egui::Shape::LineSegment { .. }))
+    }
+
+    fn texts(score: &Score, notation: bool, what: &str) -> usize {
+        painted(score, notation, |s| matches!(s, egui::Shape::Text(t) if t.galley.text() == what))
+    }
+
+    /// A bar of one note of the given length, with `edit` applied to its beat.
+    fn one_note(value: guitario_theory::NoteValue, edit: impl FnOnce(&mut Beat)) -> Score {
+        let mut s = Score::new();
+        let mut beat = Beat { rest: false, notes: vec![Note::new(0, 5)], ..Beat::rest(Duration::new(value)) };
+        edit(&mut beat);
+        let rest = Beat::rest(Duration::new(guitario_theory::NoteValue::Half));
+        s.tracks[0].measures[0].voices[0].beats = vec![beat, rest];
+        s
+    }
+
+    #[test]
+    fn tremolo_picking_draws_one_slash_per_speed_on_the_stem_in_notation_and_tab_only() {
+        use guitario_score::TremoloSpeed;
+        for value in
+            [guitario_theory::NoteValue::Quarter, guitario_theory::NoteValue::Half, guitario_theory::NoteValue::Eighth, guitario_theory::NoteValue::Whole]
+        {
+            let plain = one_note(value, |_| {});
+            for notation in [true, false] {
+                for speed in TremoloSpeed::ALL {
+                    let picked = one_note(value, |b| b.tremolo = Some(speed));
+                    assert_eq!(lines(&picked, notation), lines(&plain, notation) + usize::from(speed.slashes()), "{value:?} notation={notation} {speed:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_trill_is_marked_tr_in_notation_and_in_the_tab_lane() {
+        use guitario_score::{Trill, TrillSpeed};
+        let plain = one_note(guitario_theory::NoteValue::Quarter, |_| {});
+        let trilled = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            if let Some(n) = b.notes.first_mut() {
+                n.effects.trill = Some(Trill { fret: 7, speed: TrillSpeed::Sixteenth });
+            }
+        });
+        assert_eq!(texts(&plain, true, "tr"), 0);
+        assert_eq!(texts(&trilled, true, "tr"), 2, "above the staff and over the tab");
+        assert_eq!(texts(&trilled, false, "tr"), 1, "tab only");
     }
 
     /// A bar of two quarter notes on the top string and a half rest.

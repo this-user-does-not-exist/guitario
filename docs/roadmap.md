@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (print preview and page setup; menus 130/173) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (tremolo picking and trills; menus 132/173) · **Target:** Guitar Pro 8
 
 Forward-looking plan: milestones, the **Current focus** list, and what's next with estimates.
 Where we stand today is in [`target-app-parity.md`](target-app-parity.md) (headline numbers, by
@@ -13,7 +13,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started. Hours are Opus 5
 for one agent working sequentially (uncalibrated, see
 [`target-app-parity.md`](target-app-parity.md#remaining-effort-and-calibration)).
 
-**Stage: alpha** (ready for real work ~27%). The alpha gate below passes; beta is ~870–1,470 h away.
+**Stage: alpha** (ready for real work ~27%). The alpha gate below passes; beta is ~860–1,455 h away.
 
 ## Alpha gate
 
@@ -54,7 +54,7 @@ in Guitar Pro 8.
 
 Ranked; each item links to its gap entry. Pick from the top unless an issue is assigned to you.
 
-1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): chord diagrams, lyrics, grace notes, layouts. 90–160 h.
+1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): chord diagrams, lyrics, grace notes, layouts. 80–145 h.
 2. **Guitar Pro import depth** ([G3](gaps.md#g3-guitar-pro-exchange)): Guitar Pro 6 drums, MIDI and MusicXML import, a human check of `.gp` exports. 40–80 h.
 3. **Print depth** ([G2](gaps.md#g2-print-depth)): headers and footers, layouts, selected bars, a real-printer check. 10–20 h.
 
@@ -67,7 +67,7 @@ Ranked; each item links to its gap entry. Pick from the top unless an issue is a
 | 0.4 "ties and voices" | ✅ ties, slurs and up to four voices landed 2026-10-16 | done |
 | 0.5 "print it" | ✅ PDF export and printing landed 2026-10-16 | done |
 | Alpha | ✅ the alpha gate passes (2026-10-16) | done |
-| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~870–1,470 h total |
+| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~860–1,455 h total |
 
 ## Milestone definitions
 
@@ -92,6 +92,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-16 | minor | Tremolo picking and trills (model, commands, playback, drawing, Guitar Pro 3-5 and GPIF); G4 left 80–145 h; beta ~860–1,455 h |
 | 2026-10-16 | minor | Print preview and page setup (Letter, Legal, A5, landscape, margins; kept in `.gt`, `.gp` and `.gp5`); G2 left 10–20 h; beta ~870–1,470 h |
 | 2026-10-16 | minor | PDF export and printing: the share workflow passes, so the alpha gate passes; stage alpha; beta ~880–1,490 h (G2's 60–100 h done, 20–40 h of print depth added) |
 | 2026-10-16 | minor | `.gp` export: the share workflow only lacks print/PDF; beta ~920–1,550 h |

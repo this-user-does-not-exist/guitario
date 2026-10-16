@@ -134,10 +134,15 @@ fn specific_pieces_have_their_signature_features() {
     for want in [(7, 8), (5, 4), (13, 16), (6, 8), (12, 8)] {
         assert!(sigs.contains(&want), "{want:?} missing from {sigs:?}");
     }
-    // Black metal tremolo uses thirty-second notes and a key signature.
+    // Black metal tremolo is picked in thirty-seconds (not written as them), in a key signature.
     let bm = load("frostbitten");
-    assert!(bm.score().tracks[0].measures[0].voices[0].beats.iter().all(|b| b.duration.value.divisor() == 32));
+    let first_bar = &bm.score().tracks[0].measures[0].voices[0].beats;
+    assert!(first_bar.iter().all(|b| b.tremolo == Some(guitario_score::TremoloSpeed::ThirtySecond) && b.duration.value.divisor() == 4));
     assert_eq!(bm.score().headers[0].key, 3);
+    // Each picked quarter sounds eight times: four beats of eight picks in the first bar, which the
+    // repeat plays twice.
+    let picks = guitario_score::timeline(bm.score()).iter().filter(|p| p.track == 0 && p.measure == 0).count();
+    assert_eq!(picks, 2 * 4 * 8);
     // Djent is on a seven-string.
     assert_eq!(load("seven-strings").score().tracks[0].string_count(), 7);
     // The power-metal demo has twin leads, rhythm, bass and drums.
@@ -148,6 +153,14 @@ fn specific_pieces_have_their_signature_features() {
     assert!(notes.iter().any(|n| n.effects.hammer) && notes.iter().any(|n| n.effects.slide.is_some()) && notes.iter().any(|n| n.effects.bend.is_some()));
     assert!(notes.iter().any(|n| n.effects.harmonic.is_some()) && notes.iter().any(|n| n.effects.vibrato) && notes.iter().any(|n| n.effects.palm_mute));
     assert!(notes.iter().any(|n| n.effects.ghost) && notes.iter().any(|n| n.effects.accent));
+    // Tremolo picking at three speeds and trills at three speeds.
+    let beats: Vec<_> = t.score().tracks[0].measures.iter().flat_map(|m| &m.voices[0].beats).collect();
+    for speed in guitario_score::TremoloSpeed::ALL {
+        assert!(beats.iter().any(|b| b.tremolo == Some(speed)), "{speed:?}");
+    }
+    for speed in guitario_score::TrillSpeed::ALL {
+        assert!(notes.iter().any(|n| n.effects.trill.is_some_and(|t| t.speed == speed)), "{speed:?}");
+    }
     assert!(notes.iter().any(|n| n.kind == guitario_score::NoteKind::Dead) && notes.iter().any(|n| n.kind == guitario_score::NoteKind::Tie));
 }
 

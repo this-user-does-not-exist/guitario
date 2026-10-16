@@ -443,6 +443,106 @@ pub struct Beat {
     /// A chord name (and diagram) shown above the beat.
     #[serde(default)]
     pub chord: Option<Chord>,
+    /// Tremolo picking: every note of the beat is picked again and again at this speed (slashes on the stem).
+    #[serde(default)]
+    pub tremolo: Option<TremoloSpeed>,
+}
+
+/// How fast a tremolo-picked beat repeats its notes; the slashes drawn on the stem are the same count.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TremoloSpeed {
+    Eighth,
+    Sixteenth,
+    ThirtySecond,
+}
+
+impl TremoloSpeed {
+    pub const ALL: [TremoloSpeed; 3] = [TremoloSpeed::Eighth, TremoloSpeed::Sixteenth, TremoloSpeed::ThirtySecond];
+
+    /// Ticks between two picks.
+    pub fn ticks(self) -> u32 {
+        guitario_theory::TICKS_PER_QUARTER / self.per_quarter()
+    }
+
+    /// Picks in a quarter note.
+    pub fn per_quarter(self) -> u32 {
+        match self {
+            TremoloSpeed::Eighth => 2,
+            TremoloSpeed::Sixteenth => 4,
+            TremoloSpeed::ThirtySecond => 8,
+        }
+    }
+
+    /// Slashes through the stem: one for eighths, two for sixteenths, three for thirty-seconds.
+    pub fn slashes(self) -> u8 {
+        match self {
+            TremoloSpeed::Eighth => 1,
+            TremoloSpeed::Sixteenth => 2,
+            TremoloSpeed::ThirtySecond => 3,
+        }
+    }
+
+    pub fn from_slashes(n: u8) -> Option<TremoloSpeed> {
+        TremoloSpeed::ALL.into_iter().find(|s| s.slashes() == n)
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            TremoloSpeed::Eighth => "eighth",
+            TremoloSpeed::Sixteenth => "sixteenth",
+            TremoloSpeed::ThirtySecond => "thirty_second",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<TremoloSpeed> {
+        TremoloSpeed::ALL.into_iter().find(|s| s.name() == name)
+    }
+}
+
+/// A trill: the note alternates with another fret of the same string, at this speed, through its beat.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Trill {
+    pub fret: u8,
+    pub speed: TrillSpeed,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TrillSpeed {
+    #[default]
+    Sixteenth,
+    ThirtySecond,
+    SixtyFourth,
+}
+
+impl TrillSpeed {
+    pub const ALL: [TrillSpeed; 3] = [TrillSpeed::Sixteenth, TrillSpeed::ThirtySecond, TrillSpeed::SixtyFourth];
+
+    /// Ticks one note of the trill lasts.
+    pub fn ticks(self) -> u32 {
+        guitario_theory::TICKS_PER_QUARTER / self.per_quarter()
+    }
+
+    pub fn per_quarter(self) -> u32 {
+        match self {
+            TrillSpeed::Sixteenth => 4,
+            TrillSpeed::ThirtySecond => 8,
+            TrillSpeed::SixtyFourth => 16,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            TrillSpeed::Sixteenth => "sixteenth",
+            TrillSpeed::ThirtySecond => "thirty_second",
+            TrillSpeed::SixtyFourth => "sixty_fourth",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<TrillSpeed> {
+        TrillSpeed::ALL.into_iter().find(|s| s.name() == name)
+    }
 }
 
 /// A chord symbol, with the fingering diagram Guitar Pro draws above the staff when it has one.
@@ -520,6 +620,7 @@ impl Beat {
             fade: None,
             brush: None,
             chord: None,
+            tremolo: None,
         }
     }
 
@@ -593,6 +694,9 @@ pub struct NoteEffects {
     pub tapped: bool,
     #[serde(default)]
     pub left_hand_tapped: bool,
+    /// The note alternates with another fret of its string.
+    #[serde(default)]
+    pub trill: Option<Trill>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

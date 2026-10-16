@@ -191,7 +191,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -218,7 +219,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -245,7 +247,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -272,7 +275,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -299,7 +303,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -326,7 +331,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -353,7 +359,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -380,7 +387,8 @@
                     "technique": null,
                     "fade": null,
                     "brush": null,
-                    "chord": null
+                    "chord": null,
+                    "tremolo": null
                   }
                 ]
               }
@@ -388,6 +396,14 @@
           }
         ]
       }
-    ]
+    ],
+    "page": {
+      "paper": "a4",
+      "landscape": false,
+      "margin_left": 10,
+      "margin_right": 10,
+      "margin_top": 15,
+      "margin_bottom": 12
+    }
   }
 }

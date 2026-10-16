@@ -213,6 +213,8 @@ struct Parser<'a> {
     warnings: Vec<String>,
     /// Features the model cannot hold yet, counted for one warning each.
     dropped: BTreeMap<&'static str, usize>,
+    /// Tremolo picking read from a note of the beat being read; Guitar Pro keeps it per note, we per beat.
+    tremolo: Option<TremoloSpeed>,
 }
 
 impl Parser<'_> {
@@ -228,7 +230,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, GpError> {
     let Some(v) = version_of(&banner) else {
         return Err(GpError::Unsupported(if banner.is_empty() { "not a Guitar Pro file".into() } else { format!("{banner} is not supported") }));
     };
-    let mut p = Parser { r, v, warnings: Vec::new(), dropped: BTreeMap::new() };
+    let mut p = Parser { r, v, warnings: Vec::new(), dropped: BTreeMap::new(), tremolo: None };
     let score = p.song()?;
     // Some writers pad the end with zeros; anything else left over means part of the file was not understood.
     let rest = p.r.data.get(p.r.pos..).unwrap_or_default();
@@ -626,6 +628,7 @@ impl Parser<'_> {
         let fx = if flags & 0x08 != 0 { self.beat_effects(&mut beat)? } else { BeatFx::default() };
         let mix = if flags & 0x10 != 0 { Some(self.mix_table()?) } else { None };
         let strings = self.r.u8()?;
+        self.tremolo = None;
         let mut dynamic = None;
         for bit in (0..7u8).rev() {
             if strings & (1 << bit) == 0 {
@@ -651,6 +654,8 @@ impl Parser<'_> {
         beat.rest = status != 1 || beat.notes.is_empty();
         if beat.rest {
             beat.notes.clear();
+        } else {
+            beat.tremolo = self.tremolo.take();
         }
         // Notes without a velocity play forte in Guitar Pro 3-5; a rest has no dynamic of its own.
         beat.dynamic = if beat.rest { Dynamic::default() } else { dynamic.map_or(Dynamic::F, dynamic_of) };
@@ -848,6 +853,15 @@ impl Parser<'_> {
         if let Some(slot) = voice {
             *slot = Some(fret);
         }
+        // A trill needs a played note and another fret that exists.
+        if let Some(trill) = note.effects.trill
+            && (t.drums || note.kind != NoteKind::Normal || trill.fret == fret || trill.fret > 36)
+        {
+            note.effects.trill = None;
+            if !t.drums && note.kind == NoteKind::Normal && trill.fret > 36 {
+                self.drop("frets above 36");
+            }
+        }
         if t.drums {
             let midi = fret.min(guitario_theory::drums::MAX_DRUM);
             note.string = guitario_theory::drums::lane_for(midi);
@@ -890,8 +904,9 @@ impl Parser<'_> {
         e.palm_mute = f2 & 0x02 != 0;
         e.vibrato |= f2 & 0x40 != 0;
         if f2 & 0x04 != 0 {
-            self.r.skip(1)?;
-            self.drop("tremolo picking marks");
+            // 1 eighth, 2 sixteenth, 3 thirty-second: the number of slashes.
+            let slashes = self.r.u8()?;
+            self.tremolo = TremoloSpeed::from_slashes(slashes).or(self.tremolo);
         }
         if f2 & 0x08 != 0 {
             let s = self.r.i8()?;
@@ -946,8 +961,14 @@ impl Parser<'_> {
             };
         }
         if f2 & 0x20 != 0 {
-            self.r.skip(2)?; // trill fret and speed
-            self.drop("trills");
+            // The other fret, and the period: 1 sixteenth, 2 thirty-second, 3 sixty-fourth.
+            let (fret, period) = (self.r.u8()?, self.r.u8()?);
+            let speed = match period {
+                2 => TrillSpeed::ThirtySecond,
+                3 => TrillSpeed::SixtyFourth,
+                _ => TrillSpeed::Sixteenth,
+            };
+            note.effects.trill = Some(Trill { fret, speed });
         }
         Ok(())
     }
