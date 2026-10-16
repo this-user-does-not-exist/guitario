@@ -12,6 +12,8 @@ mod drums;
 mod error;
 mod exchange;
 mod params;
+mod print;
+mod render;
 mod selection;
 mod session;
 mod techniques;
@@ -22,6 +24,8 @@ mod voices;
 pub use bars::direction_targets;
 pub use commands::{CommandSpec, registry};
 pub use error::EngineError;
+pub use print::{DuplexMode, MAX_COPIES, PrintJob, PrintReceipt, PrintTask, PrinterInfo, Spooler};
+pub use render::{PageRenderer, PdfDocument, PdfRequest};
 pub use selection::{Clip, Selection};
 
 /// File extensions `file.open` imports as Guitar Pro.

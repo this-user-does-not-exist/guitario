@@ -7,6 +7,12 @@ license.workspace = true
 [lints]
 workspace = true
 
+[features]
+# PDF export draws pages with the UI crate's engraving code; build without it for a lean headless tool.
+default = ["pdf"]
+pdf = ["dep:guitario-ui-egui"]
+
 [dependencies]
 guitario-engine = { workspace = true }
+guitario-ui-egui = { workspace = true, optional = true }
 serde_json = { workspace = true }

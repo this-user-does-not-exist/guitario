@@ -28,6 +28,8 @@ pub struct Session {
     pub(crate) dirty: bool,
     pub(crate) selection: Option<crate::Selection>,
     pub(crate) clipboard: Option<crate::Clip>,
+    pub(crate) renderer: Option<Arc<dyn crate::PageRenderer>>,
+    pub(crate) spooler: Option<Arc<dyn crate::Spooler>>,
 }
 
 impl Default for Session {
@@ -51,6 +53,8 @@ impl Session {
             dirty: false,
             selection: None,
             clipboard: None,
+            renderer: None,
+            spooler: None,
         };
         s.clamp_cursor();
         s

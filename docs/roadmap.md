@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (`.gp` export: the share workflow only lacks print/PDF) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (PDF export and printing: the alpha gate passes) · **Target:** Guitar Pro 8
 
 Forward-looking plan: milestones, the **Current focus** list, and what's next with estimates.
 Where we stand today is in [`target-app-parity.md`](target-app-parity.md) (headline numbers, by
@@ -13,7 +13,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started. Hours are Opus 5
 for one agent working sequentially (uncalibrated, see
 [`target-app-parity.md`](target-app-parity.md#remaining-effort-and-calibration)).
 
-**Stage: pre-alpha** (ready for real work ~22%). Alpha needs the gate below: ~70–120 h.
+**Stage: alpha** (ready for real work ~27%). The alpha gate below passes; beta is ~880–1,490 h away.
 
 ## Alpha gate
 
@@ -27,10 +27,12 @@ that blocks the workflow, keeps Guitario pre-alpha.
 | Practise: loop a passage, slow it down, metronome and count-in | yes | selection loop, speed 25–200 %, metronome, count-in (`crates/playback` tests) | 0 |
 | Arrange a band song: guitars, bass and drums, sections, repeats | yes | drum tracks, pad, notation and playback; 12 band demos with drums (`crates/engine/tests/demos.rs`) | 0 |
 | Open a tab someone sent (`.gp5` or `.gp`), play it, edit it | yes | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` through File › Open; 76 real files import (G3); every voice is kept, drawn and played | 0 |
-| Share: print or export PDF, or send a `.gp` back | **partial (blocking)** | `.gp` and `.gp5` go back to Guitar Pro users (`.gp` read back by us for every demo and 76 real files, not yet opened in Guitar Pro itself); no print or PDF (G2) | 60–100 |
+| Share: print or export PDF, or send a `.gp` back | yes | File › Export › PDF… writes A4 vector pages for every demo without warnings (`crates/ui-egui/src/pdf.rs` tests; pages checked as rasters); File › Print… sends them through craft-print (not yet tried on a real printer); `.gp` and `.gp5` go back to Guitar Pro users (`.gp` read back by us for every demo and 76 real files, not yet opened in Guitar Pro itself) | 0 |
 | Read and write standard notation with ties and two voices | yes | up to four voices (Edit › Voice 1-4), ties across bars, slurs for hammer-ons and legato; `crates/ui-egui/src/page.rs` tests, `demos/15-two-voices.gt` | 0 |
 
-**Result: fails.** One workflow is still blocked (print/PDF), so the stage is pre-alpha.
+**Result: passes.** Every workflow works end to end, so the stage is alpha. Two human checks are
+still open and the pass does not hide them: a page on a real printer, and a `.gp` export opened
+in Guitar Pro 8.
 
 ## Milestones
 
@@ -43,7 +45,7 @@ that blocks the workflow, keeps Guitario pre-alpha.
 | M4 Playback | 🟡 | plucked-string synth, transport, loop, speed, metronome, count-in, WAV export; no drums or samples |
 | M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 and GP6 drums remain |
 | M6 Drums | 🟡 | kit tracks, drum pad, notation, GM playback, `.gp` drum import, drum demos, a second voice for the feet; a step editor missing |
-| M7 Print, PDF, MusicXML | ⬜ | |
+| M7 Print, PDF, MusicXML | 🟡 | PDF export and printing; no MusicXML, preview or page setup |
 | M8 Tools | ⬜ | tuner, chord engine, scales |
 | M9 Automation | ⬜ | control channel, MCP |
 | M10 Distribution | ⬜ | packaging, signing, icon, web build |
@@ -52,9 +54,9 @@ that blocks the workflow, keeps Guitario pre-alpha.
 
 Ranked; each item links to its gap entry. Pick from the top unless an issue is assigned to you.
 
-1. **Print and PDF** ([G2](gaps.md#g2-print-and-pdf-export)) through craft-pdf and craft-print: the last thing that fails the alpha gate. 60–100 h.
-2. **Notation depth** ([G4](gaps.md#g4-notation-depth)): chord diagrams, lyrics, grace notes, layouts. 90–160 h.
-3. **Guitar Pro import depth** ([G3](gaps.md#g3-guitar-pro-exchange)): Guitar Pro 6 drums, MIDI and MusicXML import, a human check of `.gp` exports. 40–80 h.
+1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): chord diagrams, lyrics, grace notes, layouts. 90–160 h.
+2. **Guitar Pro import depth** ([G3](gaps.md#g3-guitar-pro-exchange)): Guitar Pro 6 drums, MIDI and MusicXML import, a human check of `.gp` exports. 40–80 h.
+3. **Print depth** ([G2](gaps.md#g2-print-depth)): preview, page setup, layouts, a real-printer check. 20–40 h.
 
 ## What's next, with estimates
 
@@ -63,9 +65,9 @@ Ranked; each item links to its gap entry. Pick from the top unless an issue is a
 | 0.2 "the band" | ✅ drums landed 2026-10-15 (kit tracks, notation, playback, import, demo parts) | done |
 | 0.3 "files from friends" | ✅ `.gp5`/`.gp4`/`.gp3`/`.gpx` import and `.gp5` export landed 2026-10-16, checked on a local real-file corpus | done |
 | 0.4 "ties and voices" | ✅ ties, slurs and up to four voices landed 2026-10-16 | done |
-| 0.5 "print it" | PDF export and printing | 60–100 h |
-| Alpha | The alpha gate passes | ~70–120 h total |
-| Beta | sampled playback for guitar/bass/drums, tools, layouts, releases on three platforms | ~920–1,550 h total |
+| 0.5 "print it" | ✅ PDF export and printing landed 2026-10-16 | done |
+| Alpha | ✅ the alpha gate passes (2026-10-16) | done |
+| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~880–1,490 h total |
 
 ## Milestone definitions
 
@@ -90,6 +92,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-16 | minor | PDF export and printing: the share workflow passes, so the alpha gate passes; stage alpha; beta ~880–1,490 h (G2's 60–100 h done, 20–40 h of print depth added) |
 | 2026-10-16 | minor | `.gp` export: the share workflow only lacks print/PDF; beta ~920–1,550 h |
 | 2026-10-16 | minor | Ties, slurs and up to four voices: the notation workflow passes; alpha ~70–120 h; print/PDF is the focus |
 | 2026-10-16 | minor | Guitar Pro 3-6 import and `.gp5` export: the open-a-tab workflow passes; alpha ~130–230 h; focus re-ranked |

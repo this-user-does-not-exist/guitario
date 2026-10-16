@@ -48,6 +48,21 @@ breaks with justification, pagination on A4 with Guitar Pro's default stylesheet
 staff space, 10 mm side margins). `notation.rs` (pure) spells pitches, places them on the staff and
 groups beams. `page.rs` paints, and records hit rectangles that clicks turn into cursor moves.
 
+## Print and PDF
+
+The engine cannot draw pages or reach a printer (no egui, no spooler below L6), so it defines two
+small traits and the commands that use them: `PageRenderer` (score and request in, PDF bytes out;
+`file.exportPdf`) and `Spooler` (printer list, submit a PDF; `file.print`, `file.printers`).
+`engine/src/render.rs` and `print.rs` hold them; a fake pair tests the commands. The shell
+registers `ui-egui/src/pdf.rs` and `spool.rs` (and `GuitarioApp::new` does it, so the desktop
+app, tests and offscreen renders all print). `pdf.rs` paints each page with
+`page::paint_print_page`, the page view's own engraving, into a headless egui context, then turns
+the recorded shapes into Krilla drawing operations through craft-pdf's guarded writer: lines,
+curves and rectangles become paths, and every glyph is placed where egui laid it out and drawn from
+an embedded subset of the font that supplied it. `spool.rs` wraps craft-print
+(CUPS, native Windows). `print_dialog.rs` runs the printer lookup and the job on worker threads;
+a job (`PrintTask`) owns a snapshot of the score, so editing during a print is safe.
+
 ## Playback
 
 `score::timeline` flattens the score (repeats unrolled, ties merged). `playback::Player` turns it

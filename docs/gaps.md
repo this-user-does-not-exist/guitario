@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G2: PDF export and printing landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -19,7 +19,7 @@ agent can't finish alone.
 | # | Gap | Kind | Impact | Estimate | Parity doc |
 |---|---|---|---|---:|---|
 | G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
-| G2 | Print and PDF export | file format | blocks alpha | 60–100 h | [file-format-parity](file-format-parity.md) |
+| G2 | Print depth: preview, page setup, layouts | file format | medium | 20–40 h | [file-format-parity](file-format-parity.md) |
 | G3 | Guitar Pro exchange (import depth, MusicXML, MIDI import) | file format | medium-high | 40–80 h | [file-format-parity](file-format-parity.md) |
 | G4 | Notation depth (diagrams, lyrics, grace notes, layouts) | features | high | 90–160 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
@@ -47,12 +47,26 @@ agent can't finish alone.
   accent noteheads, open-hat circles); sampled drums.
 - **Estimate:** 30–60 h.
 
-### G2. Print and PDF export
-- **Missing:** PDF export of the page view, system printing, print preview.
-- **Evidence:** FILE-7 missing. The page view already lays out A4 pages; it paints with egui.
-- **Plan:** render pages to PDF through `craft-pdf`'s guarded authoring and print through
-  `craft-print` (both in craft-libs), so the suite shares one PDF and print path.
-- **Estimate:** 60–100 h.
+### G2. Print depth
+- **Landed 2026-10-16:** PDF export (File › Export › PDF…, `file.exportPdf`, `guitario-cli convert
+  in out.pdf [--tracks 0,2] [--tab-only]`) and printing (File › Print…, Cmd+P, `file.print` and
+  `file.printers`). The pages are the page view's own engraving (`page::paint_print_page`),
+  painted into a headless egui context; `crates/ui-egui/src/pdf.rs` turns the recorded shapes into
+  Krilla drawing operations through craft-pdf's guarded writer, so the PDF is vector with embedded
+  font subsets and selectable text. Each track starts on a new page; the header is on each track's
+  first page; page numbers run through the document. The engine owns the commands and two small
+  traits (`PageRenderer`, `Spooler`), so it stays wasm-clean and a fake pair tests them. Printing
+  goes through craft-print (CUPS, or the native Windows path) on a worker thread, with pages
+  shrunk to fit other paper. Every demo exports without warnings (`pdf.rs` tests); pages were
+  checked by rasterizing with poppler.
+- **Missing:** print preview; page setup (Letter and other paper, margins, orientation); headers
+  and footers; printing selected bars; layout choices (page, screen, multitrack) that Guitar Pro
+  prints; images and gradients in a page (none exist yet); fonts that carry notation symbols
+  (the fallback shapes are used when no SMuFL font is installed).
+- **Human:** send a page to a real printer on macOS, Windows and Linux; the Windows spooler path
+  has never run, and CUPS was only tested through `lp`'s argument list.
+- **Evidence:** FILE-7 partial, FILE-11 missing.
+- **Estimate:** 20–40 h.
 
 ### G3. Guitar Pro exchange
 - **Landed 2026-10-16:** `.gp5`, `.gp4` and `.gp3` import (`crates/gp/src/legacy.rs`), `.gpx`

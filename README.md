@@ -11,7 +11,7 @@
   <img alt="100% Rust" src="https://img.shields.io/badge/100%25-Rust-b7410e?style=flat-square&logo=rust">
   <img alt="macOS · Windows · Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-native-2f7bf5?style=flat-square">
   <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-3a3a3a?style=flat-square">
-  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-d69e2e?style=flat-square">
+  <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-d69e2e?style=flat-square">
 </p>
 
 <br>
@@ -23,8 +23,9 @@
 </p>
 
 > [!WARNING]
-> Guitario is **pre-alpha**. Writing, arranging with drums, playing and practising work end to
-> end; printing and full Guitar Pro exchange do not yet. See [ROADMAP.md](ROADMAP.md).
+> Guitario is **alpha**. Writing, arranging with drums, playing, practising, Guitar Pro exchange
+> and PDF export and printing work end to end; notation depth, sampled sound and tools do not
+> yet. See [ROADMAP.md](ROADMAP.md).
 
 <p align="center">
   <a href="#features">Features</a> ·
@@ -94,7 +95,7 @@ Every edit is an engine command with a stable id and JSON params, so the UI, the
 
 ```sh
 cargo run -p guitario-cli -- commands                       # every command, with its params
-cargo run -p guitario-cli -- convert song.gp song.wav       # .gp/.gt to .gt/.mid/.wav/.txt
+cargo run -p guitario-cli -- convert song.gp song.wav       # .gp/.gt to .gt/.gp/.gp5/.pdf/.mid/.wav/.txt
 cargo run -p guitario-cli -- run - riff.json --save riff.gt
 ```
 

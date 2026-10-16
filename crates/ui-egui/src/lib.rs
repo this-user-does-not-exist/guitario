@@ -17,9 +17,15 @@ mod notation;
 mod page;
 mod palette;
 pub mod parity;
+mod pdf;
 mod prefs;
+mod print_dialog;
+mod spool;
 mod theme;
 mod topbar;
+
+pub use pdf::PdfRenderer;
+pub use spool::SystemSpooler;
 
 use guitario_engine::Session;
 use serde_json::{Value, json};
@@ -74,6 +80,7 @@ pub struct GuitarioApp {
     /// Don't Save was chosen, so the next close may go ahead.
     discard_confirmed: bool,
     about_open: bool,
+    print: print_dialog::PrintDialog,
 }
 
 /// What the unsaved-changes prompt will do once the user answers.
@@ -86,7 +93,10 @@ enum Pending {
 }
 
 impl GuitarioApp {
-    pub fn new(session: Session, startup_error: Option<String>) -> Self {
+    pub fn new(mut session: Session, startup_error: Option<String>) -> Self {
+        // The page view and the PDF come from the same engraving code, so the shell owns the renderer.
+        session.set_renderer(std::sync::Arc::new(PdfRenderer));
+        session.set_spooler(std::sync::Arc::new(SystemSpooler));
         let status_is_error = startup_error.is_some();
         Self {
             session,
@@ -109,6 +119,7 @@ impl GuitarioApp {
             pending: None,
             discard_confirmed: false,
             about_open: false,
+            print: print_dialog::PrintDialog::default(),
         }
     }
 
@@ -235,6 +246,8 @@ impl GuitarioApp {
             U::ExportAscii => self.export_dialog("Text", "txt", "file.exportAscii"),
             U::ExportGp5 => self.export_dialog("Guitar Pro 5", "gp5", "file.exportGp5"),
             U::ExportGp => self.export_dialog("Guitar Pro 8", "gp", "file.exportGp"),
+            U::ExportPdf => self.export_pdf_dialog(),
+            U::Print => self.open_print(),
             U::ImportGuitarPro => self.open_dialog(),
             U::Quit => ctx_quit(),
             U::SongInfo => {
@@ -302,6 +315,15 @@ impl GuitarioApp {
         let stem = self.session.path().and_then(|p| p.file_stem()).map_or_else(|| "score".to_string(), |s| s.to_string_lossy().into_owned());
         if let Some(p) = rfd::FileDialog::new().add_filter(kind, &[ext]).set_file_name(format!("{stem}.{ext}")).save_file() {
             self.run(id, json!({"path": p.display().to_string()}));
+        }
+    }
+
+    /// Exports the track on screen as PDF, with the notation setting the page view has.
+    fn export_pdf_dialog(&mut self) {
+        let stem = self.session.path().and_then(|p| p.file_stem()).map_or_else(|| "score".to_string(), |s| s.to_string_lossy().into_owned());
+        if let Some(p) = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_file_name(format!("{stem}.pdf")).save_file() {
+            let tracks = [self.session.cursor().track];
+            self.run("file.exportPdf", json!({"path": p.display().to_string(), "tracks": tracks, "notation": self.view.notation}));
         }
     }
 
@@ -624,6 +646,7 @@ impl GuitarioApp {
         self.sync_settings(&ctx);
         self.prompt(&ctx);
         self.about(&ctx);
+        self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));
 

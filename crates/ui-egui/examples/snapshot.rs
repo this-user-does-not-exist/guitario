@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -156,8 +156,17 @@ fn main() {
         app.transport.position = 5.1;
         app.transport.metronome = true;
     }
+    let print = args.iter().any(|a| a == "--print");
+    if print {
+        app.open_print();
+    }
     let mut harness = egui_kittest::Harness::builder().with_size(egui::vec2(w, h)).build_ui(move |ui| app.show(ui));
     harness.run_steps(4);
+    if print {
+        // Give the printer lookup a moment to answer.
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        harness.run_steps(3);
+    }
     match harness.render() {
         Ok(img) => {
             if let Err(e) = img.save(&out) {

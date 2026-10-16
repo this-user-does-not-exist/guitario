@@ -180,7 +180,16 @@ impl Pen<'_> {
             }
             SHARP => text("#", 2.6 * s),
             FLAT => text("b", 2.8 * s),
-            NATURAL => text("♮", 2.6 * s),
+            NATURAL => {
+                // Two stems joined by two slanted bars; no text font has U+266E, so it is drawn.
+                let thin = Stroke::new((0.14 * s).max(1.0), color);
+                let (l, r) = (0.22 * w, 0.78 * w);
+                p.line_segment([at + vec2(l, -1.5 * s), at + vec2(l, 0.7 * s)], thin);
+                p.line_segment([at + vec2(r, -0.7 * s), at + vec2(r, 1.5 * s)], thin);
+                let bar = Stroke::new((0.3 * s).max(1.0), color);
+                p.line_segment([at + vec2(l, -0.1 * s), at + vec2(r, -0.45 * s)], bar);
+                p.line_segment([at + vec2(l, 0.45 * s), at + vec2(r, 0.1 * s)], bar);
+            }
             G_CLEF => {
                 p.text(at + vec2(0.0, 1.2 * s), egui::Align2::LEFT_BOTTOM, "G", egui::FontId::proportional(5.5 * s), color);
             }
