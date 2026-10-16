@@ -113,6 +113,69 @@ fn entry(app: &mut GuitarioApp, ui: &mut egui::Ui, item: &MenuItem) {
                 }
             });
         }
+        Action::Ui(UiAction::AlternateEndings) => {
+            ui.menu_button(item.label, |ui| {
+                let c = app.session.cursor();
+                let bits = app.session.score().headers.get(c.measure).map_or(0, |h| h.endings);
+                for n in 1..=8u8 {
+                    let mut on = bits & (1 << (n - 1)) != 0;
+                    if ui.checkbox(&mut on, format!("Ending {n}")).clicked() {
+                        let next = if on { bits | (1 << (n - 1)) } else { bits & !(1 << (n - 1)) };
+                        let list: Vec<u8> = (1..=8u8).filter(|k| next & (1 << (k - 1)) != 0).collect();
+                        app.run("measure.setEndings", json!({"endings": list}));
+                    }
+                }
+                ui.separator();
+                if ui.button("No Ending").clicked() {
+                    app.run("measure.setEndings", json!({"endings": []}));
+                    ui.close();
+                }
+            });
+        }
+        Action::Ui(UiAction::Directions) => {
+            ui.menu_button(item.label, |ui| {
+                let c = app.session.cursor();
+                let header = app.session.score().headers.get(c.measure).cloned();
+                let targets = header.as_ref().map(|h| h.targets.clone()).unwrap_or_default();
+                let names = |t: &guitario_score::DirectionTarget| guitario_engine::direction_targets().iter().find(|(_, x)| x == t).map(|(n, _)| *n);
+                for (label, name) in [("Segno", "segno"), ("Segno Segno", "segnoSegno"), ("Coda", "coda"), ("Double Coda", "doubleCoda"), ("Fine", "fine")] {
+                    let mut on = targets.iter().any(|t| names(t) == Some(name));
+                    if ui.checkbox(&mut on, label).clicked() {
+                        let mut list: Vec<&str> = targets.iter().filter_map(names).filter(|n| *n != name).collect();
+                        if on {
+                            list.push(name);
+                        }
+                        app.run("measure.setDirections", json!({"targets": list}));
+                    }
+                }
+                ui.separator();
+                for (label, name) in [
+                    ("D.C.", "daCapo"),
+                    ("D.C. al Fine", "daCapoAlFine"),
+                    ("D.C. al Coda", "daCapoAlCoda"),
+                    ("D.C. al Double Coda", "daCapoAlDoubleCoda"),
+                    ("D.S.", "dalSegno"),
+                    ("D.S. al Fine", "dalSegnoAlFine"),
+                    ("D.S. al Coda", "dalSegnoAlCoda"),
+                    ("D.S. al Double Coda", "dalSegnoAlDoubleCoda"),
+                    ("D.S.S.", "dalSegnoSegno"),
+                    ("D.S.S. al Fine", "dalSegnoSegnoAlFine"),
+                    ("D.S.S. al Coda", "dalSegnoSegnoAlCoda"),
+                    ("D.S.S. al Double Coda", "dalSegnoSegnoAlDoubleCoda"),
+                    ("To Coda", "toCoda"),
+                    ("To Double Coda", "toDoubleCoda"),
+                ] {
+                    if ui.button(label).clicked() {
+                        app.run("measure.setDirections", json!({"jump": name}));
+                        ui.close();
+                    }
+                }
+                if ui.button("No Jump").clicked() {
+                    app.run("measure.setDirections", json!({"jump": null}));
+                    ui.close();
+                }
+            });
+        }
         Action::Ui(UiAction::Tuplet) => {
             ui.menu_button(item.label, |ui| {
                 for (n, m) in [(1, 1), (3, 2), (5, 4), (6, 4), (7, 4), (9, 8), (10, 8)] {

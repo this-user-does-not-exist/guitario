@@ -77,7 +77,7 @@ Every screenshot here is the real app rendering one of the original demo scores 
   </tr>
 </table>
 
-**Editing:** fret entry from the keyboard or the fretboard, Guitar Pro's single-key techniques, an edition palette that shows the current beat, selection with copy, cut, paste and transpose, undo for every edit, and a Guitar Pro menu bar whose unbuilt items are greyed out ([menu parity](docs/parity-checklist.md): 117 of 172).
+**Editing:** fret entry from the keyboard or the fretboard, Guitar Pro's single-key techniques, an edition palette that shows the current beat, selection with copy, cut, paste and transpose, undo for every edit, and a Guitar Pro menu bar whose unbuilt items are greyed out ([menu parity](docs/parity-checklist.md): 119 of 172).
 
 **Drums:** drum-kit tracks with a percussion staff, a drum pad, Guitar Pro's two-digit drum entry (3 then 6 is a kick), synthesised General MIDI drums and drum tab export.
 

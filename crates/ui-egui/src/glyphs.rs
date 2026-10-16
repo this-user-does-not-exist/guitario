@@ -28,6 +28,10 @@ pub const MARCATO_BELOW: char = '\u{E4AD}';
 /// stringsDownBow / stringsUpBow: pick strokes.
 pub const STROKE_DOWN: char = '\u{E610}';
 pub const STROKE_UP: char = '\u{E612}';
+pub const SEGNO: char = '\u{E047}';
+pub const CODA: char = '\u{E048}';
+/// codaSquare, used for the double coda.
+pub const CODA_SQUARE: char = '\u{E049}';
 pub const REST_WHOLE: char = '\u{E4E3}';
 pub const REST_HALF: char = '\u{E4E4}';
 pub const REST_QUARTER: char = '\u{E4E5}';
@@ -208,6 +212,18 @@ impl Pen<'_> {
             }
             STROKE_UP => {
                 p.add(egui::Shape::line(vec![at + vec2(0.0, -1.1 * s), at, at + vec2(w, -1.1 * s)], stroke));
+            }
+            SEGNO => text("§", 2.6 * s),
+            CODA | CODA_SQUARE => {
+                let square = c == CODA_SQUARE;
+                let c = at + vec2(w / 2.0, -0.9 * s);
+                if square {
+                    p.rect_stroke(egui::Rect::from_center_size(c, vec2(1.1 * s, 1.1 * s)), 0.0, stroke, egui::StrokeKind::Middle);
+                } else {
+                    p.circle_stroke(c, 0.55 * s, stroke);
+                }
+                p.line_segment([c - vec2(0.0, 0.9 * s), c + vec2(0.0, 0.9 * s)], stroke);
+                p.line_segment([c - vec2(0.9 * s, 0.0), c + vec2(0.9 * s, 0.0)], stroke);
             }
             STACCATO_ABOVE => {
                 p.circle_filled(at + vec2(0.2 * s, -0.2 * s), 0.18 * s, color);

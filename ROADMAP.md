@@ -19,7 +19,7 @@ work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~41%** | partly measured: menus 117/172, [scorecard](docs/scorecard.md) |
+| **Feature breadth** | **~41%** | partly measured: menus 119/172, [scorecard](docs/scorecard.md) |
 | **Ready for real work** | **~20%** (15–25%) | estimated: weighted by dimension below |
 | Mainstream user | ~25% (20–30%) | estimated |
 | Essentials user | ~60% (50–70%) | estimated |

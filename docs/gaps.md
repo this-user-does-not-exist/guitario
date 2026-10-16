@@ -83,9 +83,11 @@ agent can't finish alone.
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double
   bars, free time, triplet feel (played), duplicate and reorder tracks, wide vibrato, heavy accent,
-  tapping, slap/pop, pick strokes, fade in/out and swell, brush, arpeggio and rasgueado (played).
+  tapping, slap/pop, pick strokes, fade in/out and swell, brush, arpeggio and rasgueado (played);
+  alternate endings and directions (segno, coda, Fine, D.C./D.S./To Coda) edited, played, drawn
+  and imported from `.gp`.
 - **Missing:** bend-curve editor (pre-bend, release, multi-point), nested tuplets, Paste Special,
-  transpose track, alternate endings and directions.
+  transpose track.
 - **Evidence:** EDIT-3/5/8/13 in the scorecard.
 - **Estimate:** 80–140 h.
 

@@ -14,6 +14,7 @@ pub struct FontSet {
 
 pub const SMUFL: &str = "gc-smufl";
 pub const SERIF: &str = "gc-serif";
+pub const SERIF_ITALIC: &str = "gc-serif-italic";
 pub const SANS: &str = "gc-sans";
 const MAX_FONT_BYTES: u64 = 16 * 1024 * 1024;
 
@@ -92,6 +93,7 @@ pub fn install(ctx: &egui::Context) -> FontSet {
         defs.families.insert(egui::FontFamily::Name(key.into()), chain);
     };
     family(&mut defs, SERIF, &["Times New Roman.ttf", "times.ttf", "LiberationSerif-Regular.ttf", "DejaVuSerif.ttf"]);
+    family(&mut defs, SERIF_ITALIC, &["Times New Roman Italic.ttf", "timesi.ttf", "LiberationSerif-Italic.ttf", "DejaVuSerif-Italic.ttf"]);
     family(&mut defs, SANS, &["Arial.ttf", "arial.ttf", "LiberationSans-Regular.ttf", "DejaVuSans.ttf"]);
 
     if let Some(bytes) = find(&["Bravura.otf", "Leland.otf"]) {
@@ -105,6 +107,11 @@ pub fn install(ctx: &egui::Context) -> FontSet {
 
 pub fn serif(size: f32) -> egui::FontId {
     egui::FontId::new(size, egui::FontFamily::Name(SERIF.into()))
+}
+
+/// Italic serif for expression text (Fine, D.C., D.S.); the upright serif's fallback chain applies.
+pub fn serif_italic(size: f32) -> egui::FontId {
+    egui::FontId::new(size, egui::FontFamily::Name(SERIF_ITALIC.into()))
 }
 
 pub fn sans(size: f32) -> egui::FontId {

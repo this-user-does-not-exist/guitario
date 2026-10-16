@@ -49,6 +49,8 @@ pub enum UiAction {
     Tuplet,
     Brush(&'static str),
     CheckBarDurations,
+    AlternateEndings,
+    Directions,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -151,8 +153,8 @@ pub static CATALOG: &[MenuItem] = &[
     u("Bar", "Key Signature…", U::KeySignature, ""),
     u("Bar", "Repeat Open", U::ToggleRepeatOpen, ""),
     u("Bar", "Repeat Close", U::ToggleRepeatClose, ""),
-    m("Bar", "Alternate Endings…"),
-    m("Bar", "Directions…"),
+    u("Bar", "Alternate Endings…", U::AlternateEndings, ""),
+    u("Bar", "Directions…", U::Directions, ""),
     u("Bar", "Section…", U::Section, ""),
     u("Bar", "Tempo Change…", U::TempoChange, ""),
     c("Bar", "Double Bar", "measure.toggleDoubleBar", "", ""),

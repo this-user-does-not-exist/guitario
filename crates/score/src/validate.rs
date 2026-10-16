@@ -14,6 +14,8 @@ pub enum ScoreError {
     Track { track: usize, what: String },
     #[error("tempo must be 20..=400 bpm, got {0}")]
     Tempo(u16),
+    #[error("measure {0} lists a direction mark twice")]
+    Directions(usize),
 }
 
 impl crate::Score {
@@ -25,6 +27,11 @@ impl crate::Score {
         }
         if self.tracks.is_empty() {
             return Err(ScoreError::NoTracks);
+        }
+        for (mi, h) in self.headers.iter().enumerate() {
+            if h.targets.iter().enumerate().any(|(i, t)| h.targets.iter().take(i).any(|u| u == t)) {
+                return Err(ScoreError::Directions(mi));
+            }
         }
         for t in self.headers.iter().filter_map(|h| h.tempo).chain([self.tempo]) {
             if !(20..=400).contains(&t) {

@@ -45,6 +45,72 @@ pub struct MeasureHeader {
     pub free_time: bool,
     #[serde(default)]
     pub triplet_feel: TripletFeel,
+    /// Alternate endings this bar belongs to, as a bit set: bit 0 is the first ending. 0 is none.
+    #[serde(default)]
+    pub endings: u8,
+    /// Segno, coda and fine marks at this bar.
+    #[serde(default)]
+    pub targets: Vec<DirectionTarget>,
+    /// A jump (D.C., D.S., To Coda …) taken at the end of this bar.
+    #[serde(default)]
+    pub jump: Option<Jump>,
+}
+
+/// A place a jump can go to, or Fine where a jump "al Fine" stops.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectionTarget {
+    Segno,
+    SegnoSegno,
+    Coda,
+    DoubleCoda,
+    Fine,
+}
+
+/// Where a D.C. or D.S. jump ends: at Fine, or by taking the next To Coda.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JumpEnd {
+    End,
+    Fine,
+    Coda,
+    DoubleCoda,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Jump {
+    /// Da Capo: back to the start.
+    DaCapo(JumpEnd),
+    /// Dal Segno: back to the segno.
+    DalSegno(JumpEnd),
+    /// Dal Segno Segno: back to the double segno.
+    DalSegnoSegno(JumpEnd),
+    /// To Coda: taken only after a jump "al Coda".
+    ToCoda,
+    ToDoubleCoda,
+}
+
+impl Jump {
+    /// The text Guitar Pro prints for this jump.
+    pub fn label(self) -> &'static str {
+        match self {
+            Jump::DaCapo(JumpEnd::End) => "D.C.",
+            Jump::DaCapo(JumpEnd::Fine) => "D.C. al Fine",
+            Jump::DaCapo(JumpEnd::Coda) => "D.C. al Coda",
+            Jump::DaCapo(JumpEnd::DoubleCoda) => "D.C. al Double Coda",
+            Jump::DalSegno(JumpEnd::End) => "D.S.",
+            Jump::DalSegno(JumpEnd::Fine) => "D.S. al Fine",
+            Jump::DalSegno(JumpEnd::Coda) => "D.S. al Coda",
+            Jump::DalSegno(JumpEnd::DoubleCoda) => "D.S. al Double Coda",
+            Jump::DalSegnoSegno(JumpEnd::End) => "D.S.S.",
+            Jump::DalSegnoSegno(JumpEnd::Fine) => "D.S.S. al Fine",
+            Jump::DalSegnoSegno(JumpEnd::Coda) => "D.S.S. al Coda",
+            Jump::DalSegnoSegno(JumpEnd::DoubleCoda) => "D.S.S. al Double Coda",
+            Jump::ToCoda => "To Coda",
+            Jump::ToDoubleCoda => "To Double Coda",
+        }
+    }
 }
 
 /// Guitar Pro's triplet feels: how pairs of eighths or sixteenths are played.
@@ -108,6 +174,9 @@ impl MeasureHeader {
             double_bar: false,
             free_time: false,
             triplet_feel: TripletFeel::None,
+            endings: 0,
+            targets: Vec::new(),
+            jump: None,
         }
     }
 

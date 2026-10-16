@@ -153,7 +153,64 @@ fn header_of(m: Node) -> MeasureHeader {
         let joined = [text(s, "Letter"), text(s, "Text")].into_iter().flatten().filter(|t| !t.is_empty()).collect::<Vec<_>>().join(" ");
         h.marker = (!joined.is_empty()).then_some(joined);
     }
+    if let Some(e) = text(m, "AlternateEndings") {
+        h.endings = e.split_whitespace().filter_map(|n| n.parse::<u8>().ok()).filter(|n| (1..=8).contains(n)).fold(0, |b, n| b | 1 << (n - 1));
+    }
+    if let Some(d) = child(m, "Directions") {
+        for c in d.children().filter(Node::is_element) {
+            let v = c.text().unwrap_or("").trim();
+            if c.has_tag_name("Target") {
+                let t = match v {
+                    "Segno" => Some(DirectionTarget::Segno),
+                    "SegnoSegno" => Some(DirectionTarget::SegnoSegno),
+                    "Coda" => Some(DirectionTarget::Coda),
+                    "DoubleCoda" => Some(DirectionTarget::DoubleCoda),
+                    "Fine" => Some(DirectionTarget::Fine),
+                    _ => None,
+                };
+                if let Some(t) = t.filter(|t| !h.targets.contains(t)) {
+                    h.targets.push(t);
+                }
+            } else if c.has_tag_name("Jump") {
+                h.jump = jump_of(v).or(h.jump);
+            }
+        }
+    }
+    h.triplet_feel = match text(m, "TripletFeel") {
+        Some("Triplet8th") => TripletFeel::Triplet8th,
+        Some("Triplet16th") => TripletFeel::Triplet16th,
+        Some("Dotted8th") => TripletFeel::Dotted8th,
+        Some("Dotted16th") => TripletFeel::Dotted16th,
+        Some("Scottish8th") => TripletFeel::Scottish8th,
+        Some("Scottish16th") => TripletFeel::Scottish16th,
+        _ => TripletFeel::None,
+    };
+    h.free_time = child(m, "FreeTime").is_some();
+    h.double_bar = child(m, "DoubleBar").is_some();
     h
+}
+
+/// A GPIF `Directions/Jump` name.
+fn jump_of(name: &str) -> Option<Jump> {
+    let (base, end) = match name.split_once("Al") {
+        Some((b, e)) => (b, e),
+        None => (name, ""),
+    };
+    let end = match end {
+        "" => JumpEnd::End,
+        "Fine" => JumpEnd::Fine,
+        "Coda" => JumpEnd::Coda,
+        "DoubleCoda" => JumpEnd::DoubleCoda,
+        _ => return None,
+    };
+    Some(match (base, end) {
+        ("DaCapo", e) => Jump::DaCapo(e),
+        ("DaSegno", e) => Jump::DalSegno(e),
+        ("DaSegnoSegno", e) => Jump::DalSegnoSegno(e),
+        ("DaCoda", JumpEnd::End) => Jump::ToCoda,
+        ("DaDoubleCoda", JumpEnd::End) => Jump::ToDoubleCoda,
+        _ => return None,
+    })
 }
 
 type Tables<'a, 'b> = (&'b Table<'a>, &'b Table<'a>, &'b Table<'a>, &'b Table<'a>, &'b Table<'a>);
@@ -304,6 +361,54 @@ fn rhythm_duration(r: Node) -> Option<Duration> {
     Some(Duration { value, dots, tuplet })
 }
 
+/// A beat `XProperty` by id, as an integer.
+fn xproperty(bn: Node, id: &str) -> Option<i64> {
+    child(bn, "XProperties")?
+        .children()
+        .find(|c| c.has_tag_name("XProperty") && c.attribute("id") == Some(id))
+        .and_then(|x| x.children().find(|c| c.is_element()))
+        .and_then(|v| v.text())
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .filter(|v| v.is_finite())
+        .map(|v| v as i64)
+}
+
+/// Beat techniques: strums, arpeggios, rasgueado, pick strokes, slap/pop and fades.
+fn beat_effects(bn: Node, beat: &mut Beat) {
+    let dir = |name: &str| property(bn, name).and_then(|p| text(p, "Direction"));
+    // Brush and arpeggio durations are stored at 960 ticks per quarter.
+    let ticks = |id: &str, default: u32| {
+        let scale = guitario_theory::TICKS_PER_QUARTER / 960;
+        xproperty(bn, id).and_then(|v| u32::try_from(v.clamp(1, 7680)).ok()).map_or(default, |v| v * scale)
+    };
+    let default = guitario_theory::TICKS_PER_QUARTER / 8;
+    if let Some(d) = dir("Brush") {
+        beat.brush = Some(Brush { kind: BrushKind::Brush, down: d == "Down", ticks: ticks("687935489", default) });
+    } else if let Some(d) = text(bn, "Arpeggio") {
+        beat.brush = Some(Brush { kind: BrushKind::Arpeggio, down: d == "Down", ticks: ticks("687931393", default) });
+    } else if property(bn, "Rasgueado").is_some() {
+        beat.brush = Some(Brush { kind: BrushKind::Rasgueado, down: true, ticks: default });
+    }
+    beat.stroke = match dir("PickStroke") {
+        Some("Up") => Some(StrokeDirection::Up),
+        Some("Down") => Some(StrokeDirection::Down),
+        _ => None,
+    };
+    beat.technique = if prop_on(bn, "Slapped") {
+        Some(BeatTechnique::Slap)
+    } else if prop_on(bn, "Popped") {
+        Some(BeatTechnique::Pop)
+    } else {
+        None
+    };
+    beat.fade = match text(bn, "Fadding") {
+        Some("FadeIn") => Some(Fade::In),
+        Some("FadeOut") => Some(Fade::Out),
+        Some("VolumeSwell") => Some(Fade::Swell),
+        _ => None,
+    };
+}
+
 fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
     let rid = child(bn, "Rhythm")?.attribute("ref")?.parse::<i64>().ok()?;
     let duration = rhythm_duration(lookup(t.4, rid)?)?;
@@ -319,6 +424,7 @@ fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
         _ => Dynamic::Mf,
     };
     beat.text = text(bn, "FreeText").filter(|s| !s.is_empty()).map(str::to_string);
+    beat_effects(bn, &mut beat);
     for nid in ids(text(bn, "Notes")) {
         let Some(nn) = lookup(t.3, nid) else { continue };
         let Some((string, fret)) = place.place(nn) else { continue };
@@ -335,12 +441,16 @@ fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
         };
         let e = &mut note.effects;
         e.hammer = prop_on(nn, "HopoOrigin");
-        e.vibrato = child(nn, "Vibrato").is_some();
+        e.wide_vibrato = text(nn, "Vibrato") == Some("Wide");
+        e.vibrato = child(nn, "Vibrato").is_some() && !e.wide_vibrato;
+        e.tapped = prop_on(nn, "Tapped");
+        e.left_hand_tapped = prop_on(nn, "LeftHandTapped");
         e.let_ring = child(nn, "LetRing").is_some();
         e.ghost = child(nn, "AntiAccent").is_some();
         e.palm_mute = prop_on(nn, "PalmMuted");
         let accent = text(nn, "Accent").and_then(|v| v.parse::<u8>().ok()).unwrap_or(0);
-        e.accent = accent & (4 | 8) != 0;
+        e.accent = accent & 8 != 0;
+        e.heavy_accent = accent & 4 != 0;
         e.staccato = accent & 1 != 0;
         e.slide = match prop_num::<u32>(nn, "Slide").unwrap_or(0) {
             f if f & 1 != 0 => Some(Slide::Shift),
@@ -391,17 +501,17 @@ mod tests {
 <Name><![CDATA[Standard]]></Name></Properties></Staff></Staves></Track></Tracks>
 <MasterBars>
 <MasterBar><Key><AccidentalCount>1</AccidentalCount></Key><Time>4/4</Time><Bars>0</Bars><Repeat start="true" end="false" count="0"/><Section><Letter>A</Letter><Text>Verse</Text></Section></MasterBar>
-<MasterBar><Time>3/4</Time><Bars>1</Bars><Repeat start="false" end="true" count="3"/></MasterBar>
+<MasterBar><Time>3/4</Time><Bars>1</Bars><Repeat start="false" end="true" count="3"/><AlternateEndings>1 2</AlternateEndings><Directions><Target>Fine</Target><Target>Segno</Target><Jump>DaSegnoSegnoAlDoubleCoda</Jump></Directions><TripletFeel>Dotted16th</TripletFeel><FreeTime/><DoubleBar/></MasterBar>
 </MasterBars>
 <Bars><Bar id="0"><Voices>0 -1 -1 -1</Voices></Bar><Bar id="1"><Voices>-1</Voices></Bar></Bars>
 <Voices><Voice id="0"><Beats>0 1</Beats></Voice></Voices>
 <Beats>
-<Beat id="0"><Dynamic>F</Dynamic><Rhythm ref="0"/><Notes>0 1</Notes></Beat>
+<Beat id="0"><Dynamic>F</Dynamic><Rhythm ref="0"/><Notes>0 1</Notes><Fadding>VolumeSwell</Fadding><Properties><Property name="Brush"><Direction>Up</Direction></Property><Property name="PickStroke"><Direction>Down</Direction></Property><Property name="Popped"><Enable/></Property></Properties><XProperties><XProperty id="687935489"><Int>240</Int></XProperty></XProperties></Beat>
 <Beat id="1"><Rhythm ref="1"/></Beat>
 </Beats>
 <Notes>
 <Note id="0"><Properties><Property name="String"><String>0</String></Property><Property name="Fret"><Fret>3</Fret></Property><Property name="Slide"><Flags>2</Flags></Property></Properties><LetRing/></Note>
-<Note id="1"><Properties><Property name="String"><String>5</String></Property><Property name="Fret"><Fret>0</Fret></Property><Property name="PalmMuted"><Enable/></Property></Properties></Note>
+<Note id="1"><Vibrato>Wide</Vibrato><Accent>5</Accent><Properties><Property name="String"><String>5</String></Property><Property name="Fret"><Fret>0</Fret></Property><Property name="PalmMuted"><Enable/></Property><Property name="Tapped"><Enable/></Property></Properties></Note>
 </Notes>
 <Rhythms><Rhythm id="0"><NoteValue>Quarter</NoteValue></Rhythm><Rhythm id="1"><NoteValue>Half</NoteValue><AugmentationDot count="1"/></Rhythm></Rhythms>
 </GPIF>"#;
@@ -418,6 +528,16 @@ mod tests {
         assert_eq!(s.headers[1].repeat_close, 2);
         assert_eq!(s.headers[0].marker.as_deref(), Some("A Verse"));
         assert_eq!(s.headers[1].time_signature, TimeSignature { numerator: 3, denominator: 4 });
+        let h = &s.headers[1];
+        assert_eq!(h.endings, 0b11);
+        assert_eq!(h.targets, vec![DirectionTarget::Fine, DirectionTarget::Segno]);
+        assert_eq!(h.jump, Some(Jump::DalSegnoSegno(JumpEnd::DoubleCoda)));
+        assert_eq!(h.triplet_feel, TripletFeel::Dotted16th);
+        assert!(h.free_time && h.double_bar);
+        assert!(!s.headers[0].free_time && s.headers[0].jump.is_none());
+        assert_eq!(jump_of("DaCoda"), Some(Jump::ToCoda));
+        assert_eq!(jump_of("DaCapoAlFine"), Some(Jump::DaCapo(JumpEnd::Fine)));
+        assert_eq!(jump_of("Nonsense"), None);
         let t = &s.tracks[0];
         assert_eq!((t.capo, t.program), (2, 29));
         // GP string 0 is the lowest; ours 0 is the highest.
@@ -431,6 +551,12 @@ mod tests {
         assert!(beats[1].rest);
         assert_eq!(beats[1].duration.ticks(), 3 * guitario_theory::TICKS_PER_QUARTER);
         assert_eq!(beats[0].dynamic, Dynamic::F);
+        let b = &beats[0];
+        assert_eq!(b.brush, Some(Brush { kind: BrushKind::Brush, down: false, ticks: 240 * (guitario_theory::TICKS_PER_QUARTER / 960) }));
+        assert_eq!((b.stroke, b.technique, b.fade), (Some(StrokeDirection::Down), Some(BeatTechnique::Pop), Some(Fade::Swell)));
+        // Note 1 is on GP string 5, the highest: our string 0.
+        let n = b.notes.iter().find(|n| n.effects.tapped).unwrap();
+        assert!(n.effects.wide_vibrato && !n.effects.vibrato && n.effects.heavy_accent && n.effects.staccato && !n.effects.accent);
         // Empty bar falls back to a rest.
         assert!(t.measures[1].voices[0].beats[0].rest);
     }

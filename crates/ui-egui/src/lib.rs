@@ -217,7 +217,16 @@ impl GuitarioApp {
         let track = self.session.score().tracks.get(c.track).cloned();
         match a {
             U::Open => self.open_dialog(),
-            U::OpenRecent | U::TimeSignature | U::KeySignature | U::Section | U::TempoChange | U::TripletFeel | U::Tuplet | U::Brush(_) => {}
+            U::OpenRecent
+            | U::TimeSignature
+            | U::KeySignature
+            | U::Section
+            | U::TempoChange
+            | U::TripletFeel
+            | U::Tuplet
+            | U::Brush(_)
+            | U::AlternateEndings
+            | U::Directions => {}
             U::CloseDocument => self.new_document(),
             U::CheckBarDurations => self.check_bar_durations(),
             U::Save => self.save_dialog(false),

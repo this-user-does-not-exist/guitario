@@ -66,8 +66,8 @@ note = "measure.* commands; Bar menu and palette"
 [[item]]
 id = "EDIT-11"
 target = "Alternate endings, directions (segno, coda, fine), double bars, free time, triplet feel"
-status = "partial"
-note = "bars.rs: double bar, free time, triplet feel (7 feels, played and marked); alternate endings and directions missing"
+status = "done"
+note = "bars.rs: endings, directions (segno, coda, fine, D.C./D.S./To Coda, played by score::playback_order), double bar, free time, triplet feel"
 
 [[item]]
 id = "EDIT-12"

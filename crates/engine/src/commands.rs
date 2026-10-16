@@ -542,7 +542,17 @@ fn measure_insert(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     let at = s.cursor.measure;
     let score = Arc::make_mut(&mut s.score);
     let template = score.headers.get(at).cloned().ok_or_else(|| EngineError::invalid("no such measure"))?;
-    let fresh = MeasureHeader { tempo: None, repeat_open: false, repeat_close: 0, marker: None, double_bar: false, ..template };
+    let fresh = MeasureHeader {
+        tempo: None,
+        repeat_open: false,
+        repeat_close: 0,
+        marker: None,
+        double_bar: false,
+        endings: 0,
+        targets: Vec::new(),
+        jump: None,
+        ..template
+    };
     for t in &mut score.tracks {
         t.measures.insert(at, Measure::empty_for(&fresh));
     }
