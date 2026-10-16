@@ -188,7 +188,7 @@ impl Player {
             let n = u32::from(h.time_signature.numerator.max(1));
             let step = seg.ticks / n;
             for k in 0..n {
-                clicks.push((seg.start_sec + f64::from(k * step) * seg.sec_per_tick, k == 0));
+                clicks.push((seg.start_sec + seg.sec_at(k * step), k == 0));
             }
         }
 
@@ -303,12 +303,7 @@ impl Player {
         self.t = sec;
         if self.opts.count_in {
             // One bar of the time signature where playback starts, at its tempo.
-            let idx = self
-                .map
-                .segments
-                .iter()
-                .position(|s| s.start_sec + f64::from(s.ticks) * s.sec_per_tick > sec)
-                .unwrap_or(self.map.segments.len().saturating_sub(1));
+            let idx = self.map.segments.iter().position(|s| s.start_sec + s.duration() > sec).unwrap_or(self.map.segments.len().saturating_sub(1));
             let n = self.meter.get(idx).copied().unwrap_or(4).max(1);
             let beat = self.map.segments.get(idx).map_or(0.5, |s| f64::from(s.ticks) / f64::from(n) * s.sec_per_tick);
             for k in 0..n {

@@ -26,7 +26,9 @@
         "triplet_feel": "none",
         "endings": 0,
         "targets": [],
-        "jump": null
+        "jump": null,
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -43,7 +45,9 @@
         "triplet_feel": "none",
         "endings": 0,
         "targets": [],
-        "jump": null
+        "jump": null,
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -60,7 +64,9 @@
         "triplet_feel": "none",
         "endings": 0,
         "targets": [],
-        "jump": null
+        "jump": null,
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -77,7 +83,9 @@
         "triplet_feel": "none",
         "endings": 0,
         "targets": [],
-        "jump": null
+        "jump": null,
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -94,7 +102,9 @@
         "triplet_feel": "none",
         "endings": 0,
         "targets": [],
-        "jump": null
+        "jump": null,
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -111,7 +121,9 @@
         "triplet_feel": "none",
         "endings": 0,
         "targets": [],
-        "jump": null
+        "jump": null,
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -128,7 +140,9 @@
         "triplet_feel": "none",
         "endings": 0,
         "targets": [],
-        "jump": null
+        "jump": null,
+        "fermatas": [],
+        "beams": []
       },
       {
         "time_signature": {
@@ -145,7 +159,15 @@
         "triplet_feel": "none",
         "endings": 0,
         "targets": [],
-        "jump": null
+        "jump": null,
+        "fermatas": [
+          {
+            "tick": 0,
+            "kind": "long",
+            "length": 0
+          }
+        ],
+        "beams": []
       }
     ],
     "tracks": [
@@ -204,7 +226,16 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": {
+                            "fret": 10,
+                            "duration": "thirty_second",
+                            "transition": "hammer",
+                            "on_beat": false,
+                            "dead": false
+                          },
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -247,7 +278,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -290,7 +324,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -333,7 +370,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -376,7 +416,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -427,7 +470,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -470,7 +516,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -513,7 +562,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -556,7 +608,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -599,7 +654,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -642,7 +700,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -685,7 +746,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -728,7 +792,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -771,7 +838,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -814,7 +884,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -857,7 +930,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -908,7 +984,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -951,7 +1030,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -994,7 +1076,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1045,7 +1130,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1088,7 +1176,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1131,7 +1222,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1174,7 +1268,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1217,7 +1314,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1260,7 +1360,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1303,7 +1406,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1346,7 +1452,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1389,7 +1498,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1432,7 +1544,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1475,7 +1590,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1518,7 +1636,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1569,7 +1690,16 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": {
+                            "fret": 15,
+                            "duration": "thirty_second",
+                            "transition": "slide",
+                            "on_beat": false,
+                            "dead": false
+                          },
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1612,7 +1742,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1655,7 +1788,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1698,7 +1834,16 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": {
+                            "fret": 14,
+                            "duration": "thirty_second",
+                            "transition": "hammer",
+                            "on_beat": false,
+                            "dead": false
+                          },
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1749,7 +1894,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1792,7 +1940,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1835,7 +1986,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1878,7 +2032,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1921,7 +2078,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -1964,7 +2124,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2015,7 +2178,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2058,7 +2224,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2109,7 +2278,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2126,7 +2298,8 @@
               }
             ]
           }
-        ]
+        ],
+        "lyrics": []
       },
       {
         "name": "Rhythm Guitar",
@@ -2183,7 +2356,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2226,7 +2402,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2269,7 +2448,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2312,7 +2494,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2355,7 +2540,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2398,7 +2586,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2441,7 +2632,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2484,7 +2678,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2527,7 +2724,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2570,7 +2770,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2613,7 +2816,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2656,7 +2862,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2707,7 +2916,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2750,7 +2962,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2793,7 +3008,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2836,7 +3054,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2879,7 +3100,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2922,7 +3146,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -2965,7 +3192,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3008,7 +3238,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3051,7 +3284,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3094,7 +3330,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3137,7 +3376,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3180,7 +3422,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3231,7 +3476,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3274,7 +3522,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3317,7 +3568,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3360,7 +3614,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3403,7 +3660,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3446,7 +3706,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3489,7 +3752,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3532,7 +3798,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3575,7 +3844,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3618,7 +3890,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3661,7 +3936,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3704,7 +3982,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3755,7 +4036,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3798,7 +4082,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3841,7 +4128,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3884,7 +4174,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3927,7 +4220,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -3970,7 +4266,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4013,7 +4312,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4056,7 +4358,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4099,7 +4404,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4142,7 +4450,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4185,7 +4496,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4228,7 +4542,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4279,7 +4596,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4322,7 +4642,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4365,7 +4688,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4408,7 +4734,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4451,7 +4780,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4494,7 +4826,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4537,7 +4872,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4580,7 +4918,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4623,7 +4964,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4666,7 +5010,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4709,7 +5056,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4752,7 +5102,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4803,7 +5156,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4846,7 +5202,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4889,7 +5248,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4932,7 +5294,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -4975,7 +5340,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5018,7 +5386,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5061,7 +5432,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5104,7 +5478,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5147,7 +5524,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5190,7 +5570,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5233,7 +5616,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5276,7 +5662,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5327,7 +5716,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5370,7 +5762,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5413,7 +5808,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5456,7 +5854,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5499,7 +5900,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5542,7 +5946,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5585,7 +5992,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5628,7 +6038,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5671,7 +6084,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5714,7 +6130,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5757,7 +6176,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5800,7 +6222,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5851,7 +6276,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -5873,7 +6301,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -5895,7 +6326,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -5912,7 +6346,8 @@
               }
             ]
           }
-        ]
+        ],
+        "lyrics": []
       },
       {
         "name": "Bass",
@@ -5967,7 +6402,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6010,7 +6448,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6053,7 +6494,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6096,7 +6540,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6139,7 +6586,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6182,7 +6632,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6225,7 +6678,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6268,7 +6724,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6319,7 +6778,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6362,7 +6824,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6405,7 +6870,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6448,7 +6916,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6491,7 +6962,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6534,7 +7008,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6577,7 +7054,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6620,7 +7100,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6671,7 +7154,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6714,7 +7200,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6757,7 +7246,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6800,7 +7292,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6843,7 +7338,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6886,7 +7384,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6929,7 +7430,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -6972,7 +7476,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7023,7 +7530,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7066,7 +7576,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7109,7 +7622,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7152,7 +7668,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7195,7 +7714,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7238,7 +7760,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7281,7 +7806,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7324,7 +7852,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7375,7 +7906,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7418,7 +7952,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7461,7 +7998,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7504,7 +8044,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7547,7 +8090,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7590,7 +8136,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7633,7 +8182,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7676,7 +8228,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7727,7 +8282,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7770,7 +8328,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7813,7 +8374,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7856,7 +8420,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7899,7 +8466,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7942,7 +8512,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -7985,7 +8558,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8028,7 +8604,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8079,7 +8658,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8122,7 +8704,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8165,7 +8750,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8208,7 +8796,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8251,7 +8842,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8294,7 +8888,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8337,7 +8934,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8380,7 +8980,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8431,7 +9034,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8448,7 +9054,8 @@
               }
             ]
           }
-        ]
+        ],
+        "lyrics": []
       },
       {
         "name": "Drums",
@@ -8507,7 +9114,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -8529,7 +9139,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8572,7 +9185,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8615,7 +9231,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -8637,7 +9256,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8680,7 +9302,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8723,7 +9348,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -8745,7 +9373,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8788,7 +9419,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -8810,7 +9444,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8853,7 +9490,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -8875,7 +9515,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8918,7 +9561,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -8969,7 +9615,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -8991,7 +9640,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9034,7 +9686,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9077,7 +9732,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9099,7 +9757,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9142,7 +9803,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9185,7 +9849,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9207,7 +9874,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9250,7 +9920,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9272,7 +9945,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9315,7 +9991,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9337,7 +10016,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9380,7 +10062,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9431,7 +10116,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9453,7 +10141,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9496,7 +10187,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9539,7 +10233,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9561,7 +10258,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9604,7 +10304,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9647,7 +10350,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9669,7 +10375,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9712,7 +10421,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9734,7 +10446,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9777,7 +10492,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9799,7 +10517,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9842,7 +10563,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9893,7 +10617,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -9915,7 +10642,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -9958,7 +10688,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10001,7 +10734,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10023,7 +10759,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10066,7 +10805,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10109,7 +10851,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10131,7 +10876,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10174,7 +10922,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10196,7 +10947,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10239,7 +10993,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10261,7 +11018,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10304,7 +11064,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10355,7 +11118,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10377,7 +11143,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10420,7 +11189,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10463,7 +11235,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10485,7 +11260,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10528,7 +11306,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10571,7 +11352,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10593,7 +11377,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10636,7 +11423,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10658,7 +11448,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10701,7 +11494,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10723,7 +11519,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10766,7 +11565,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10817,7 +11619,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10839,7 +11644,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10882,7 +11690,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10925,7 +11736,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -10947,7 +11761,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -10990,7 +11807,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11033,7 +11853,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -11055,7 +11878,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11098,7 +11924,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -11120,7 +11949,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11163,7 +11995,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -11185,7 +12020,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11228,7 +12066,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11279,7 +12120,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -11301,7 +12145,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11344,7 +12191,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11387,7 +12237,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -11409,7 +12262,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11452,7 +12308,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11495,7 +12354,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -11517,7 +12379,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11560,7 +12425,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -11582,7 +12450,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11625,7 +12496,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -11647,7 +12521,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11690,7 +12567,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11741,7 +12621,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       },
                       {
@@ -11763,7 +12646,10 @@
                           "wide_vibrato": false,
                           "tapped": false,
                           "left_hand_tapped": false,
-                          "trill": null
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
                         }
                       }
                     ],
@@ -11780,7 +12666,8 @@
               }
             ]
           }
-        ]
+        ],
+        "lyrics": []
       }
     ],
     "page": {

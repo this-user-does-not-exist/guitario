@@ -7,11 +7,15 @@
 //! A bar is a comma-separated list of beats. A beat is a duration (`8`, `4.`, `2..`, `8t` for a
 //! triplet), then notes as `string:fret` (string 1 is the high E, `x` is a dead note) or `r` for a
 //! rest. Modifiers follow the note they belong to: `+pm` palm mute, `+lr` let ring, `+h`
-//! hammer/pull, `+tr7` trill to fret 7 (`+tr7:32` and `+tr7:64` for faster ones), `+v` vibrato, `+g` ghost, `+a` accent, `+st` staccato, `+b`/`+b2`/`+b6`/`+b8` bend
+//! hammer/pull, `+tr7` trill to fret 7 (`+tr7:32` and `+tr7:64` for faster ones), `+gr5` a grace
+//! note from fret 5 (then `h` hammered, `s` slid, `b` bent, `o` on the beat, `x` dead, as in
+//! `+gr5ho`), `+lf3`/`+rfi` left- and right-hand fingers, `+v` vibrato, `+g` ghost, `+a` accent, `+st` staccato, `+b`/`+b2`/`+b6`/`+b8` bend
 //! (quarter tones), `+sl` shift slide, `+sll` legato slide, `+sli`/`+sla` slide in from
 //! below/above, `+slo`/`+slu` slide out, `+nh`/`+ah`/`+ph` harmonics, `~` tie. `*pm` applies a
-//! modifier to every note in the beat so far; `@mf` sets the beat's dynamic; `&tp8`, `&tp16` and
-//! `&tp32` make the beat tremolo-picked at that note value. On a drum track a beat
+//! modifier to every note in the beat so far; `@mf` sets the beat's dynamic; `%Am` names the
+//! beat's chord and `%Am=x02210` adds its diagram (frets from the low string, `x` not played); `&tp8`, `&tp16` and
+//! `&tp32` make the beat tremolo-picked at that note value; `&fs`, `&fm` and `&fl` put a short,
+//! medium or long fermata over the beat. On a drum track a beat
 //! lists kit pieces by their short names: `bd` kick, `sd` snare, `hh`/`oh`/`ph` hi-hat closed, open
 //! and pedal, `cr` crash, `ch` china, `sp` splash, `rd`/`rb` ride and bell, `t1`-`t4` and `ft` toms.
 
@@ -35,10 +39,12 @@ struct Bar {
     marker: Option<String>,
     open: bool,
     close: u8,
+    /// Beam groups in the time signature's note value; empty keeps the usual grouping.
+    beams: Vec<u8>,
 }
 
 fn bar(beats: impl AsRef<str>) -> Bar {
-    Bar { beats: beats.as_ref().to_string(), voice2: None, ts: None, key: None, tempo: None, marker: None, open: false, close: 0 }
+    Bar { beats: beats.as_ref().to_string(), voice2: None, ts: None, key: None, tempo: None, marker: None, open: false, close: 0, beams: Vec::new() }
 }
 
 impl Bar {
@@ -48,6 +54,10 @@ impl Bar {
     }
     fn ts(mut self, n: u8, d: u8) -> Self {
         self.ts = Some((n, d));
+        self
+    }
+    fn beams(mut self, groups: &[u8]) -> Self {
+        self.beams = groups.to_vec();
         self
     }
     fn key(mut self, k: i8) -> Self {
@@ -107,6 +117,35 @@ fn effect(s: &mut Session, fx: &str) -> R {
             };
             run(s, "note.setTrill", json!({"fret": fret.parse::<u8>().map_err(|_| format!("bad trill fret `{t}`"))?, "speed": speed}))
         }
+        f if f.starts_with("lf") || f.starts_with("rf") => {
+            // `lf3` the left-hand finger (t or 1-4), `rfi` the right-hand finger (p i m a c).
+            let finger = match &f[2..] {
+                "t" | "p" => "thumb",
+                "1" | "i" => "index",
+                "2" | "m" => "middle",
+                "3" | "a" => "ring",
+                "4" | "c" => "little",
+                other => return Err(format!("bad finger `{other}`")),
+            };
+            let hand = if f.starts_with('l') { "left" } else { "right" };
+            run(s, "note.setFingering", json!({ hand: finger }))
+        }
+        g if g.starts_with("gr") => {
+            // `gr5`, then letters: h hammer, s slide, b bend, o on the beat, x dead.
+            let digits: String = g[2..].chars().take_while(char::is_ascii_digit).collect();
+            let fret: u8 = digits.parse().map_err(|_| format!("bad grace note `{g}`"))?;
+            let flags = &g[2 + digits.len()..];
+            let transition = match (flags.contains('h'), flags.contains('s'), flags.contains('b')) {
+                (true, _, _) => "hammer",
+                (_, true, _) => "slide",
+                (_, _, true) => "bend",
+                _ => "none",
+            };
+            if let Some(bad) = flags.chars().find(|c| !"hsbox".contains(*c)) {
+                return Err(format!("bad grace note flag `{bad}` in `{g}`"));
+            }
+            run(s, "note.setGrace", json!({"fret": fret, "transition": transition, "onBeat": flags.contains('o'), "dead": flags.contains('x')}))
+        }
         b if b.starts_with('b') => {
             let q: u8 = b[1..].parse().map_err(|_| format!("bad bend `{b}`"))?;
             run(s, "note.setBend", json!({"quarterTones": q}))
@@ -131,8 +170,23 @@ fn enter_beat(s: &mut Session, spec: &str, advance: bool) -> R {
             run(s, "beat.toggleRest", Value::Null)?;
         } else if tok == "~" {
             run(s, "note.toggleTie", Value::Null)?;
-        } else if let Some(name) = tok.strip_prefix('%') {
-            run(s, "beat.setChord", json!({"name": name}))?;
+        } else if let Some(chord) = tok.strip_prefix('%') {
+            // `%Am`, or `%Am=x02210` with a diagram: frets from the low string, `x` not played.
+            match chord.split_once('=') {
+                None => run(s, "beat.setChord", json!({"name": chord}))?,
+                Some((name, shape)) => {
+                    let frets: Vec<Value> = shape.chars().rev().map(|c| c.to_digit(10).map_or(Value::Null, |f| json!(f))).collect();
+                    run(s, "beat.setChord", json!({"name": name, "frets": frets}))?;
+                }
+            }
+        } else if let Some(kind) = tok.strip_prefix("&f") {
+            let kind = match kind {
+                "s" => "short",
+                "m" => "medium",
+                "l" => "long",
+                other => return Err(format!("bad fermata `{other}`")),
+            };
+            run(s, "beat.setFermata", json!({"kind": kind}))?;
         } else if let Some(speed) = tok.strip_prefix("&tp") {
             let speed = match speed {
                 "8" => "eighth",
@@ -197,6 +251,9 @@ fn play_track(s: &mut Session, track: usize, bars: &[Bar]) -> R {
             }
             if b.open || b.close > 0 {
                 run(s, "measure.setRepeat", json!({"open": b.open, "close": b.close}))?;
+            }
+            if !b.beams.is_empty() {
+                run(s, "measure.setBeaming", json!({"groups": b.beams}))?;
             }
         }
         let beats: Vec<&str> = b.beats.split(',').map(str::trim).collect();
@@ -505,6 +562,13 @@ fn power_metal() -> R<Session> {
     l1[0] = bar(lead1[0]).mark("Verse");
     l1[4] = bar(&arps[0]).mark("Chorus");
     play_track(&mut s, 0, &l1)?;
+    // Original words for the verse melody, one syllable per note.
+    run(&mut s, "track.select", json!({"index": 0}))?;
+    run(
+        &mut s,
+        "track.setLyrics",
+        json!({"lines": [{"text": "[Verse] Steel ho-ri-zon, burn-ing in the dy-ing light, ban-ners raised, we ride in-to night"}]}),
+    )?;
     add_track(&mut s, "Harmony Guitar", "standard", 29)?;
     let mut l2: Vec<Bar> = lead2.iter().map(bar).collect();
     l2.extend(["1 1:7 +v", "1 1:8 +v", "1 1:10 +v", "1 1:7 +v"].map(bar));
@@ -611,8 +675,8 @@ fn odd_meters() -> R<Session> {
         &mut s,
         0,
         &[
-            bar(&seven).ts(7, 8).mark("7/8 (3+2+2)").open(),
-            bar(&seven_b).close(1),
+            bar(&seven).ts(7, 8).mark("7/8 (3+2+2)").beams(&[3, 2, 2]).open(),
+            bar(&seven_b).beams(&[3, 2, 2]).close(1),
             bar(&five).ts(5, 4).mark("5/4").tempo(132),
             bar(&thirteen).ts(13, 16).mark("13/16 (4+4+5)").tempo(150),
             bar(&six).ts(6, 8).mark("6/8").tempo(100).key(-3),
@@ -736,10 +800,10 @@ fn ballad() -> R<Session> {
     )?;
     let arp = |bass: &str, mid: &str, top: &str| format!("8 {bass} +lr @mp, 8 {mid}, 8 {top}, 8 1:0, 8 {top}, 8 {mid}, 8 {top}, 8 1:0");
     let _ = &arp;
-    let am = "8 5:0 +lr @mp %Am, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
-    let f = "8 4:3 +lr %F, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
-    let c = "8 5:3 +lr %C, 8 3:0, 8 2:1, 8 1:0, 8 2:1, 8 3:0, 8 2:1, 8 1:0";
-    let g = "8 6:3 +lr %G, 8 4:0, 8 3:0, 8 2:0, 8 3:0, 8 4:0, 8 3:0, 8 2:0";
+    let am = "8 5:0 +lr @mp %Am=x02210, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
+    let f = "8 4:3 +lr %Fmaj7=xx3210, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
+    let c = "8 5:3 +lr %C=x32010, 8 3:0, 8 2:1, 8 1:0, 8 2:1, 8 3:0, 8 2:1, 8 1:0";
+    let g = "8 6:3 +lr %G=320003, 8 4:0, 8 3:0, 8 2:0, 8 3:0, 8 4:0, 8 3:0, 8 2:0";
     play_track(&mut s, 0, &[bar(am).mark("Acoustic intro"), bar(f), bar(c), bar(g), bar(am).mark("Heavy").tempo(112), bar(f), bar(c), bar(g)])?;
     add_track(&mut s, "Distortion Guitar", "standard", 30)?;
     let chug = |chord: String| format!("8 {chord} *pm @f, 8 {chord} *pm, 8 {chord} *pm, 8 r, 8 {chord} *pm, 8 {chord} *pm, 4 {chord} *a");
@@ -768,14 +832,14 @@ fn solo() -> R<Session> {
     )?;
     let triplets = ["1:15", "1:12", "2:15", "2:12", "3:14", "3:12", "3:14", "2:12", "2:15", "1:12", "1:15", "1:17"].map(|n| format!("8t {n}"));
     let solo_bars = [
-        "4 1:12 +b +v, 8 1:15, 8 1:12, 4 2:15 +b, 4 2:12".to_string(),
+        "4 1:12 +gr10h +b +v, 8 1:15, 8 1:12, 4 2:15 +b, 4 2:12".to_string(),
         "16 1:15 +h, 16 1:12, 16 2:15 +h, 16 2:12, 16 3:14 +h, 16 3:12, 16 4:14 +h, 16 4:12, 8 3:14 +sl, 8 3:17, 4 3:14 +v".to_string(),
         "2 1:12 +nh, 4 1:15 +b +v, 4 1:12".to_string(),
         j(&triplets),
-        "4. 1:17 +b +v, 8 1:15, 4 1:12, 4 2:15".to_string(),
+        "4. 1:17 +gr15s +b +v, 8 1:15, 4 1:12, 4 2:15 +gr14h".to_string(),
         "8 2:15 +h, 8 2:12, 8 3:14 +h, 8 3:12, 4 4:14, 4 4:12".to_string(),
         "2 1:15 +b +v, 2 1:12 +v".to_string(),
-        "1 1:12 +v".to_string(),
+        "1 1:12 +v &fl".to_string(),
     ];
     let mut b: Vec<Bar> = solo_bars.iter().map(bar).collect();
     b[0] = bar(&solo_bars[0]).mark("Solo");
@@ -820,6 +884,8 @@ fn techniques() -> R<Session> {
             bar("4 6:0 +pm &tp32, 4 6:1 +pm &tp32, 4 6:3 +pm &tp32, 4 6:1 +pm &tp32").mark("Tremolo picking"),
             bar("4 5:0 &tp8, 4 5:0 &tp16, 4 5:0 &tp32, 4 5:0 4:2 *pm &tp16").mark("Tremolo speeds"),
             bar("4 1:12 +tr14, 4 1:12 +tr14:32, 4 1:10 +tr12:64, 4 r").mark("Trills"),
+            bar("4 3:7 +gr5, 4 3:7 +gr5h, 4 3:9 +gr7s, 4 2:8 +gr6bo").mark("Grace notes"),
+            bar("4 3:5 +lf1 +rfp, 4 3:7 +lf3 +rfi, 4 2:5 +lf1 +rfm, 4 2:6 +lf2 +rfa").mark("Fingering"),
             bar("8 6:0 +pm, 8 6:x, 8 5:2 +g, 8 6:x, 8 6:0, 8 6:x, 8 5:2 +a, 8 6:x").mark("Dead, ghost, accent"),
             bar("4 1:5 @p, 4 1:5 ~, 2 1:7 @ff").mark("Ties and dynamics"),
             bar("8t 1:0, 8t 1:3, 8t 1:5, 8t 1:0, 8t 1:3, 8t 1:5, 4 1:7, 4 r").mark("Triplets"),

@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -151,6 +151,14 @@ fn main() {
     if args.iter().any(|a| a == "--tab-only") {
         app.view.notation = false;
     }
+    match value("--layout").as_deref() {
+        Some("screen") => app.view.layout = guitario_ui_egui::LayoutMode::Screen,
+        Some("horizontal") => app.view.layout = guitario_ui_egui::LayoutMode::Horizontal,
+        _ => {}
+    }
+    if args.iter().any(|a| a == "--multitrack") {
+        app.view.multitrack = true;
+    }
     if args.iter().any(|a| a == "--selection") {
         let mut s = demo();
         run(&mut s, "select.set", json!({"fromMeasure": 0, "fromBeat": 3, "toMeasure": 1, "toBeat": 3}));
@@ -178,6 +186,15 @@ fn main() {
     }
     if args.iter().any(|a| a == "--tremolo") {
         app.open_tremolo();
+    }
+    if args.iter().any(|a| a == "--grace") {
+        app.open_grace();
+    }
+    if args.iter().any(|a| a == "--chord") {
+        app.open_chord();
+    }
+    if args.iter().any(|a| a == "--lyrics") {
+        app.open_lyrics();
     }
     let mut harness = egui_kittest::Harness::builder().with_size(egui::vec2(w, h)).build_ui(move |ui| app.show(ui));
     harness.run_steps(4);

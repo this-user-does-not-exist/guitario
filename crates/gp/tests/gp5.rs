@@ -15,6 +15,7 @@ fn as_gp5(s: &Score) -> Score {
     let mut tempo = s.tempo;
     for h in &mut s.headers {
         h.free_time = false;
+        h.fermatas.clear();
         if !matches!(h.triplet_feel, TripletFeel::None | TripletFeel::Triplet8th | TripletFeel::Triplet16th) {
             h.triplet_feel = TripletFeel::None;
         }
@@ -22,6 +23,13 @@ fn as_gp5(s: &Score) -> Score {
             Some(t) if t == tempo => h.tempo = None,
             Some(t) => tempo = t,
             None => {}
+        }
+    }
+    // One track's lyrics: the first that has any.
+    let sung = s.tracks.iter().position(|t| !t.lyrics.is_empty());
+    for (ti, t) in s.tracks.iter_mut().enumerate() {
+        if Some(ti) != sung {
+            t.lyrics.clear();
         }
     }
     for t in &mut s.tracks {
@@ -103,7 +111,9 @@ fn every_demo_survives_guitar_pro_5() {
 
 #[test]
 fn a_riff_with_every_effect_round_trips() {
-    let s = riff();
+    // Guitar Pro 5 has no fermatas; that is reported in its own test.
+    let mut s = riff();
+    s.headers[0].fermatas.clear();
     let (back, export_warnings, import_warnings) = round_trip(&s);
     assert!(export_warnings.is_empty(), "{export_warnings:?}");
     assert!(import_warnings.is_empty(), "{import_warnings:?}");
@@ -117,6 +127,59 @@ fn a_riff_with_every_effect_round_trips() {
     assert_eq!(back.headers[0].triplet_feel, TripletFeel::Triplet16th);
     assert_eq!(back.headers[1].jump, Some(Jump::DalSegno(JumpEnd::Fine)));
     assert_eq!(back.headers[1].tempo, Some(170));
+}
+
+#[test]
+fn beam_groups_travel_with_the_time_signature() {
+    let mut s = riff();
+    s.headers[0].fermatas.clear();
+    // 4/4 beamed in halves, then 6/8 beamed in threes of twos: Guitar Pro 5 counts both in eighths.
+    s.headers[0].beams = vec![2, 2];
+    s.headers[1].beams = vec![2, 2, 2];
+    let (back, warnings, _) = round_trip(&s);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert_eq!((back.headers[0].beams.clone(), back.headers[1].beams.clone()), (vec![2, 2], vec![2, 2, 2]));
+    // The usual grouping comes back as none, and a bar between keeps its neighbour's.
+    let mut s = riff();
+    s.headers[0].fermatas.clear();
+    s.headers.push(s.headers[1].clone());
+    for t in &mut s.tracks {
+        let m = Measure::empty_for(&s.headers[2]);
+        t.measures.push(m);
+    }
+    s.headers[1].beams = vec![2, 2, 2];
+    s.headers[2].beams = vec![2, 2, 2];
+    let (back, _, _) = round_trip(&s);
+    assert!(back.headers[0].beams.is_empty());
+    assert_eq!(back.headers[2].beams, vec![2, 2, 2]);
+    // 13/16 as 4+4+5 is its usual grouping; 3+5+5 cannot be said in eighths and is reported.
+    let mut odd = Score::new();
+    odd.headers[0].time_signature = guitario_theory::TimeSignature::new(13, 16).unwrap();
+    odd.tracks[0].measures[0] = Measure::empty_for(&odd.headers[0]);
+    let (back, warnings, _) = round_trip(&odd);
+    assert!(back.headers[0].beams.is_empty() && warnings.is_empty(), "{warnings:?}");
+    odd.headers[0].beams = vec![3, 5, 5];
+    let out = export_gp5(&odd);
+    assert!(out.warnings.iter().any(|w| w.contains("beam")), "{:?}", out.warnings);
+}
+
+#[test]
+fn lyrics_belong_to_one_track_in_guitar_pro_5() {
+    let mut s = riff();
+    let (back, _, _) = round_trip(&s);
+    assert_eq!(back.tracks[0].lyrics, s.tracks[0].lyrics);
+    // A second track's lyrics are left out, and said to be.
+    s.tracks[1].lyrics = vec![LyricLine { measure: 0, text: "drums sing".into() }];
+    let out = export_gp5(&s);
+    assert!(out.warnings.iter().any(|w| w.contains("lyrics")), "{:?}", out.warnings);
+    let back = import(&out.bytes).unwrap().score;
+    assert!(back.tracks[1].lyrics.is_empty());
+    // Lyrics on the second track alone go out with that track.
+    let mut s = riff();
+    s.tracks[0].lyrics.clear();
+    s.tracks[1].lyrics = vec![LyricLine { measure: 1, text: "only here".into() }];
+    let back = import(&export_gp5(&s).bytes).unwrap().score;
+    assert_eq!((back.tracks[0].lyrics.len(), back.tracks[1].lyrics.clone()), (0, s.tracks[1].lyrics.clone()));
 }
 
 #[test]
@@ -142,9 +205,10 @@ fn what_guitar_pro_5_cannot_hold_is_reported() {
     s.headers[0].triplet_feel = TripletFeel::Scottish8th;
     s.tracks[0].measures[0].voices.push(Voice::default());
     s.tracks[0].measures[0].voices.push(Voice { beats: vec![Beat::rest(Duration::WHOLE)] });
+    // The riff's first bar has fermatas.
     let out = export_gp5(&s);
     let all = out.warnings.join("\n");
-    for what in ["fades out", "double dots", "free-time", "triplet feels", "third and fourth voices"] {
+    for what in ["fades out", "double dots", "free-time", "triplet feels", "third and fourth voices", "fermatas"] {
         assert!(all.contains(what), "missing `{what}` in {all}");
     }
     // Still a readable file.
@@ -213,6 +277,7 @@ fn old_and_foreign_banners_are_refused_clearly() {
 #[test]
 fn the_page_setup_goes_out_and_comes_back() {
     let mut s = riff();
+    s.headers[0].fermatas.clear();
     for page in [
         PageSetup::default(),
         PageSetup { paper: Paper::Letter, ..PageSetup::default() },

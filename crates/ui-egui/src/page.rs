@@ -4,7 +4,7 @@
 
 use crate::fonts::{FontSet, sans, serif, serif_italic};
 use crate::glyphs::{self as g, Pen};
-use crate::layout::{Metrics, PageBox, SystemBox, layout};
+use crate::layout::{LayoutMode, Metrics, PageBox, Part, SystemBox, layout, layout_parts};
 use crate::notation::{Accidentals, Clef, beam_groups, spell, staff_pos};
 use crate::theme::{Tokens, tokens};
 use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
@@ -19,7 +19,7 @@ type BeatTest = fn(&Beat) -> bool;
 
 /// What a click on the page asks for.
 pub enum Click {
-    Beat { measure: usize, beat: usize, string: Option<usize>, shift: bool },
+    Beat { track: usize, measure: usize, beat: usize, string: Option<usize>, shift: bool },
 }
 
 /// An inclusive range of beats, `(measure, beat)` in score order.
@@ -32,6 +32,9 @@ pub struct View {
     /// The beat being played, shown as Guitar Pro's moving playback cursor.
     pub play: Option<(usize, usize)>,
     pub selection: Option<Range>,
+    pub layout: LayoutMode,
+    /// Every track, stacked in each system, instead of the cursor's track alone.
+    pub multitrack: bool,
 }
 
 pub struct Output {
@@ -128,6 +131,7 @@ pub fn paint_print_page(painter: &Painter, score: &Score, track_index: usize, pl
         play_rect: None,
         selection: None,
         clef: Clef::for_tuning(track.tuning.strings.iter().copied().max().unwrap_or(64)),
+        lyrics: sung(track),
     };
     let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(m.page_w, m.page_h));
     if page == 0 {
@@ -144,63 +148,108 @@ pub fn paint_print_page(painter: &Painter, score: &Score, track_index: usize, pl
 }
 
 pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Output {
-    let Some(track) = score.tracks.get(cursor.track) else { return Output { click: None, drag: None, cursor_rect: None, play_rect: None } };
-    let m = metrics_for(track, &score.page, view.zoom, view.notation, cursor.voice);
-    let pages = layout(score, cursor.track, &m);
-    let width = (m.page_w + 2.0 * PAGE_GAP).max(ui.available_width());
-    let height = pages.len() as f32 * (m.page_h + PAGE_GAP) + PAGE_GAP;
+    let none = Output { click: None, drag: None, cursor_rect: None, play_rect: None };
+    if score.tracks.get(cursor.track).is_none() {
+        return none;
+    }
+    // The tracks drawn: the cursor's, or every track in the multitrack view (the top one carries
+    // the bar's markers and directions).
+    let indices: Vec<usize> = if view.multitrack { (0..score.tracks.len()).collect() } else { vec![cursor.track] };
+    let window = (ui.available_width() - 2.0 * PAGE_GAP).max(1.0);
+    let parts: Vec<Part> = indices
+        .iter()
+        .enumerate()
+        .filter_map(|(k, &ti)| {
+            let track = score.tracks.get(ti)?;
+            let voice = if ti == cursor.track { cursor.voice } else { 0 };
+            let m = metrics_for(track, &score.page, view.zoom, view.notation, voice).with_mode(view.layout, window);
+            Some(Part { index: ti, track, metrics: if k == 0 { m } else { m.below() } })
+        })
+        .collect();
+    let Some(page_m) = parts.first().map(|p| p.metrics) else { return none };
+    let pages = layout_parts(score, &parts, &page_m);
+    let system_h: f32 = parts.iter().map(|p| p.metrics.system_h()).sum();
+    // Pages, or one sheet as wide as the window (screen) or as the line of bars (horizontal).
+    let bottom = pages.last().and_then(|p| p.systems.last()).map_or(page_m.margin_top, |sys| sys.y + system_h);
+    let (sheet_w, sheet_h) = match view.layout {
+        LayoutMode::Page => (page_m.page_w, page_m.page_h),
+        LayoutMode::Screen => (page_m.page_w, bottom + page_m.margin_bottom),
+        LayoutMode::Horizontal => {
+            let widest = pages.iter().flat_map(|p| &p.systems).map(SystemBox::width).fold(0.0f32, f32::max);
+            (page_m.margin_left + page_m.indent() + widest + page_m.margin_right, bottom + page_m.margin_bottom)
+        }
+    };
+    let width = (sheet_w + 2.0 * PAGE_GAP).max(ui.available_width());
+    let height = pages.len() as f32 * (sheet_h + PAGE_GAP) + PAGE_GAP;
     let (response, painter) = ui.allocate_painter(vec2(width, height), egui::Sense::click_and_drag());
     let t = tokens();
     painter.rect_filled(response.rect, 0.0, t.workspace);
-    let left = response.rect.left() + (width - m.page_w) / 2.0;
-    let pen = Pen { painter: &painter, fonts: view.fonts, space: m.space };
-    let mut cx = Ctx {
-        pen,
-        m,
-        score,
-        track,
-        cursor,
-        t,
-        hits: Vec::new(),
-        cursor_rect: None,
-        play: view.play,
-        play_rect: None,
-        selection: view.selection,
-        clef: Clef::for_tuning(track.tuning.strings.iter().copied().max().unwrap_or(64)),
-    };
+    let left = response.rect.left() + (width - sheet_w) / 2.0;
+    let mut ctxs: Vec<Ctx> = parts
+        .iter()
+        .map(|p| {
+            let mine = p.index == cursor.track;
+            Ctx {
+                pen: Pen { painter: &painter, fonts: view.fonts, space: p.metrics.space },
+                m: p.metrics,
+                score,
+                track: p.track,
+                // Only the cursor's track shows the cursor, the selection and the playback mark.
+                cursor: if mine { cursor } else { Cursor { track: p.index, measure: usize::MAX, ..Cursor::default() } },
+                t,
+                hits: Vec::new(),
+                cursor_rect: None,
+                play: view.play.filter(|_| mine),
+                play_rect: None,
+                selection: view.selection.filter(|_| mine),
+                clef: Clef::for_tuning(p.track.tuning.strings.iter().copied().max().unwrap_or(64)),
+                lyrics: sung(p.track),
+            }
+        })
+        .collect();
 
     for (pi, page) in pages.iter().enumerate() {
-        let top = response.rect.top() + PAGE_GAP + pi as f32 * (m.page_h + PAGE_GAP);
-        let rect = Rect::from_min_size(pos2(left, top), vec2(m.page_w, m.page_h));
+        let top = response.rect.top() + PAGE_GAP + pi as f32 * (sheet_h + PAGE_GAP);
+        let rect = Rect::from_min_size(pos2(left, top), vec2(sheet_w, sheet_h));
         if !painter.clip_rect().intersects(rect) {
             continue;
         }
-        painter.rect_filled(rect.translate(vec2(3.0, 4.0)), 0.0, Color32::from_black_alpha(70));
+        if view.layout == LayoutMode::Page {
+            painter.rect_filled(rect.translate(vec2(3.0, 4.0)), 0.0, Color32::from_black_alpha(70));
+        }
         painter.rect_filled(rect, 0.0, t.page);
-        if pi == 0 {
+        if pi == 0
+            && view.layout != LayoutMode::Horizontal
+            && let Some(cx) = ctxs.iter().find(|c| c.cursor.track == cursor.track && c.cursor.measure != usize::MAX).or(ctxs.first())
+        {
             cx.header(rect);
         }
-        painter.text(
-            rect.right_bottom() - vec2(m.margin_right, m.margin_bottom * 0.5),
-            egui::Align2::RIGHT_CENTER,
-            format!("{}/{}", pi + 1, pages.len()),
-            serif(9.0 * m.zoom),
-            Color32::from_gray(110),
-        );
-        cx.page(page, rect, pi == 0);
+        if view.layout == LayoutMode::Page {
+            painter.text(
+                rect.right_bottom() - vec2(page_m.margin_right, page_m.margin_bottom * 0.5),
+                egui::Align2::RIGHT_CENTER,
+                format!("{}/{}", pi + 1, pages.len()),
+                serif(9.0 * page_m.zoom),
+                Color32::from_gray(110),
+            );
+        }
+        paint_systems(&mut ctxs, page, rect, pi == 0);
     }
 
+    // Clicks may land on any track's staves; a drag stays in the cursor's track.
     let mut click = None;
     if response.clicked()
         && let Some(pos) = response.interact_pointer_pos()
-        && let Some(h) = cx.hits.iter().find(|h| h.rect.contains(pos))
+        && let Some((cx, h)) = ctxs.iter().find_map(|cx| cx.hits.iter().find(|h| h.rect.contains(pos)).map(|h| (cx, h)))
     {
+        let m = cx.m;
         let string = (!m.drums && pos.y >= h.tab_top - m.tab_gap / 2.0 && pos.y <= h.tab_top + m.tab_h() + m.tab_gap / 2.0)
-            .then(|| (((pos.y - h.tab_top) / m.tab_gap).round().max(0.0) as usize).min(track.string_count().saturating_sub(1)));
+            .then(|| (((pos.y - h.tab_top) / m.tab_gap).round().max(0.0) as usize).min(cx.track.string_count().saturating_sub(1)));
         let shift = ui.input(|i| i.modifiers.shift);
-        click = Some(Click::Beat { measure: h.measure, beat: h.beat, string, shift });
+        click = Some(Click::Beat { track: cx.cursor.track, measure: h.measure, beat: h.beat, string, shift });
     }
-    let hit_at = |p: egui::Pos2| cx.hits.iter().find(|h| h.rect.contains(p)).map(|h| (h.measure, h.beat));
+    let mine = ctxs.iter().find(|c| c.cursor.track == cursor.track);
+    let hit_at = |p: egui::Pos2| mine.and_then(|cx| cx.hits.iter().find(|h| h.rect.contains(p)).map(|h| (h.measure, h.beat)));
     let drag = if response.dragged() {
         let origin = ui.input(|i| i.pointer.press_origin());
         match (origin.and_then(hit_at), response.interact_pointer_pos().and_then(hit_at)) {
@@ -210,7 +259,37 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
     } else {
         None
     };
-    Output { click, drag, cursor_rect: cx.cursor_rect, play_rect: cx.play_rect }
+    Output { click, drag, cursor_rect: mine.and_then(|c| c.cursor_rect), play_rect: mine.and_then(|c| c.play_rect) }
+}
+
+/// Paints a page's systems with every part stacked in each: one track's staves under another's,
+/// joined at the left by the system line when there are several.
+fn paint_systems(ctxs: &mut [Ctx], page: &PageBox, rect: Rect, first_page: bool) {
+    let Some(first) = ctxs.first() else { return };
+    let (m, t, painter) = (first.m, first.t, first.pen.painter);
+    let height: f32 = ctxs.iter().map(|c| c.m.system_h()).sum();
+    for (si, sys) in page.systems.iter().enumerate() {
+        let top = rect.top() + sys.y;
+        let sys_rect = Rect::from_min_size(pos2(rect.left(), top), vec2(rect.width(), height));
+        if !painter.clip_rect().intersects(sys_rect) {
+            continue;
+        }
+        let x0 = rect.left() + m.margin_left + m.indent();
+        let mut y = top;
+        let mut span: Option<(f32, f32)> = None;
+        for cx in ctxs.iter_mut() {
+            let own = sys.of_track(cx.cursor.track);
+            cx.system(&own, x0, y, first_page && si == 0);
+            let (a, b) = cx.staff_span(y);
+            span = Some(span.map_or((a, b), |(s0, _)| (s0, b)));
+            y += cx.m.system_h();
+        }
+        if ctxs.len() > 1
+            && let Some((a, b)) = span
+        {
+            painter.line_segment([pos2(x0, a), pos2(x0, b)], Stroke::new((0.16 * m.space).max(1.0), t.bar_line));
+        }
+    }
 }
 
 struct Hit {
@@ -240,6 +319,29 @@ struct Ctx<'a> {
     play_rect: Option<Rect>,
     selection: Option<Range>,
     clef: Clef,
+    /// Each line of lyrics laid on its beats, `(measure, beat, syllable)`, worked out once per paint.
+    lyrics: Vec<Vec<(usize, usize, guitario_score::Syllable)>>,
+}
+
+/// Where in a bar (from its left edge) the beat starting `tick` ticks in sits: the first drawn
+/// voice that has one there.
+fn beat_x_at(measure: Option<&guitario_score::Measure>, mb: &crate::layout::MeasureBox, tick: u32) -> Option<f32> {
+    let measure = measure?;
+    mb.voices.iter().find_map(|vc| {
+        let beats = &measure.voices.get(vc.voice)?.beats;
+        let mut at = 0u32;
+        let i = beats.iter().position(|b| {
+            let here = at == tick;
+            at = at.saturating_add(b.duration.ticks());
+            here
+        })?;
+        vc.beats.get(i).copied()
+    })
+}
+
+/// The track's lyrics laid on its beats, line by line.
+fn sung(track: &Track) -> Vec<Vec<(usize, usize, guitario_score::Syllable)>> {
+    track.lyrics.iter().map(|l| guitario_score::dispatch_lyrics(track, l)).collect()
 }
 
 impl<'a> Ctx<'a> {
@@ -274,6 +376,14 @@ impl<'a> Ctx<'a> {
         for (i, l) in legend.iter().enumerate() {
             self.p().text(pos2(page.left() + m.margin_left, y + i as f32 * 2.6 * m.space), egui::Align2::LEFT_TOP, l, serif(10.0 * m.zoom), self.t.ink);
         }
+    }
+
+    /// The top of the first staff and the bottom of the last of a system whose top is at `top`.
+    fn staff_span(&self, top: f32) -> (f32, f32) {
+        let m = &self.m;
+        let first = if m.notation { top + m.notation_top() } else { top + m.tab_top() };
+        let last = if m.drums { top + m.notation_top() + m.staff_h() } else { top + m.tab_top() + m.tab_h() };
+        (first, last)
     }
 
     fn page(&mut self, page: &PageBox, rect: Rect, first_page: bool) {
@@ -363,15 +473,19 @@ impl<'a> Ctx<'a> {
             self.pen.glyph_scaled(tab_clef, pos2(x0 + 0.8 * s, (tt + tb) / 2.0), (m.tab_h() / (4.0 * s)).clamp(0.8, 1.8), t.ink);
         }
 
-        // Bar number and the opening tempo mark.
-        self.p().text(pos2(x0 + 0.2 * s, sys_top - 1.0 * s), egui::Align2::LEFT_BOTTOM, (first_mi + 1).to_string(), serif(8.0 * m.zoom), t.bar_number);
-        if first {
+        // Bar number and the opening tempo mark, over the top track.
+        if m.top {
+            self.p().text(pos2(x0 + 0.2 * s, sys_top - 1.0 * s), egui::Align2::LEFT_BOTTOM, (first_mi + 1).to_string(), serif(8.0 * m.zoom), t.bar_number);
+        }
+        if first && m.top {
             self.tempo_mark(x0 + sys.prefix, sys_top - 3.6 * s, self.score.tempo);
         }
 
         // Measures.
         // Placed beats per voice, in order along the system.
         let mut placed: Vec<(usize, Vec<Placed>)> = Vec::new();
+        // Where each beat of the first voice sits, for the lyrics.
+        let mut voice1_x: Vec<((usize, usize), f32)> = Vec::new();
         let last_measure = self.score.headers.len().saturating_sub(1);
         for (si, mb) in sys.measures.iter().enumerate() {
             let mx = x0 + sys.prefix + mb.x;
@@ -389,6 +503,8 @@ impl<'a> Ctx<'a> {
             }
             if h.repeat_close > 0 {
                 self.repeat_sign(end, nt, tt, tb, false);
+            }
+            if h.repeat_close > 0 && m.top {
                 self.p().text(
                     pos2(end, sys_top - 0.6 * s),
                     egui::Align2::RIGHT_BOTTOM,
@@ -396,9 +512,11 @@ impl<'a> Ctx<'a> {
                     serif(9.0 * m.zoom),
                     t.ink,
                 );
-            } else if mb.index == last_measure {
+            }
+            // A repeat sign is the bar line; otherwise the final bar or a plain one.
+            if h.repeat_close == 0 && mb.index == last_measure {
                 self.final_bar(end, nt, tt, tb);
-            } else {
+            } else if h.repeat_close == 0 {
                 if m.notation {
                     self.p().line_segment([pos2(end, nt), pos2(end, nt + 4.0 * s)], bar);
                 }
@@ -407,81 +525,21 @@ impl<'a> Ctx<'a> {
                     self.staves_lines(end - 0.6 * s, nt, tt, tb, bar);
                 }
             }
-            // Alternate endings: a bracket over the bar, numbered where the ending starts and
-            // closed where a repeat ends it.
-            if h.endings != 0 {
-                let y = sys_top - 3.2 * s;
-                let st = Stroke::new(1.0, t.ink);
-                let prev = mb.index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(0, |p| p.endings);
-                let starts = prev != h.endings;
-                let x_start = mx + 0.3 * s;
-                let x_end = end - 0.5 * s;
-                self.p().line_segment([pos2(x_start, y), pos2(x_end, y)], st);
-                if starts {
-                    self.p().line_segment([pos2(x_start, y), pos2(x_start, y + 1.6 * s)], st);
-                    let label: Vec<String> = (0..8).filter(|b| h.endings & (1 << b) != 0).map(|b| format!("{}.", b + 1)).collect();
-                    self.p().text(pos2(x_start + 0.4 * s, y + 0.2 * s), egui::Align2::LEFT_TOP, label.join(" "), serif(8.5 * m.zoom), t.ink);
-                }
-                if h.repeat_close > 0 {
-                    // Short, so the repeat count under it stays clear.
-                    self.p().line_segment([pos2(x_end, y), pos2(x_end, y + 0.8 * s)], st);
-                }
-            }
-            // Directions: segno and coda marks at the start of the bar, Fine and jumps at its end.
-            let dir_y = sys_top - 4.8 * s;
-            let mut dx = mx + 0.6 * s;
-            for target in &h.targets {
-                match target {
-                    DirectionTarget::Segno => dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s,
-                    DirectionTarget::SegnoSegno => {
-                        dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink);
-                        dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s;
-                    }
-                    DirectionTarget::Coda => dx += self.pen.glyph(g::CODA, pos2(dx, dir_y), t.ink) + 0.3 * s,
-                    DirectionTarget::DoubleCoda => dx += self.pen.glyph(g::CODA_SQUARE, pos2(dx, dir_y), t.ink) + 0.3 * s,
-                    DirectionTarget::Fine => {
-                        self.p().text(pos2(end - 0.4 * s, dir_y), egui::Align2::RIGHT_BOTTOM, "Fine", serif_italic(9.5 * m.zoom), t.ink);
-                    }
-                }
-            }
-            if let Some(jump) = h.jump {
-                let y = if h.targets.contains(&DirectionTarget::Fine) { dir_y - 1.8 * s } else { dir_y };
-                let mut x = end - 0.4 * s;
-                if matches!(jump, Jump::ToCoda | Jump::ToDoubleCoda) {
-                    let glyph = if jump == Jump::ToCoda { g::CODA } else { g::CODA_SQUARE };
-                    x -= self.pen.width(glyph);
-                    self.pen.glyph(glyph, pos2(x, y), t.ink);
-                    x -= 0.4 * s;
-                }
-                self.p().text(pos2(x, y), egui::Align2::RIGHT_BOTTOM, jump.label(), serif_italic(9.5 * m.zoom), t.ink);
-            }
-            // Triplet feel where it changes.
-            let prev_feel = mb.index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(TripletFeel::None, |p| p.triplet_feel);
-            if h.triplet_feel != prev_feel {
-                let label = match h.triplet_feel {
-                    TripletFeel::None => "straight",
-                    TripletFeel::Triplet8th => "swing 8ths (♪♪ = ♩♪³)",
-                    TripletFeel::Triplet16th => "swing 16ths",
-                    TripletFeel::Dotted8th => "dotted 8ths (♪♪ = ♪.♬)",
-                    TripletFeel::Dotted16th => "dotted 16ths",
-                    TripletFeel::Scottish8th => "Scottish 8ths",
-                    TripletFeel::Scottish16th => "Scottish 16ths",
-                };
-                self.p().text(pos2(mx + 0.5 * s, sys_top - 5.6 * s), egui::Align2::LEFT_BOTTOM, label, serif(8.5 * m.zoom), t.ink);
-            }
-            if let Some(text) = &h.marker {
-                let galley = self.p().layout_no_wrap(text.clone(), serif(10.0 * m.zoom), t.ink);
-                // At the top of the lane, above chord names and text.
-                let r = Rect::from_min_size(pos2(mx + 0.4 * s, sys_top - m.lane_above() + 0.4 * s), galley.size() + vec2(0.8 * s, 0.4 * s));
-                self.p().rect_stroke(r, 0.0, Stroke::new(1.0, t.ink), egui::StrokeKind::Inside);
-                self.p().galley(r.min + vec2(0.4 * s, 0.2 * s), galley, t.ink);
-            }
-            if let Some(tempo) = h.tempo
-                && mb.index > 0
-            {
-                self.tempo_mark(mx + 0.5 * s, sys_top - 3.6 * s, tempo);
+            if m.top {
+                self.bar_marks(h, mb.index, mx, end, sys_top);
             }
             let measure = self.track.measures.get(mb.index);
+            // Fermatas over the beats they hold, above the top staff.
+            for f in &h.fermatas {
+                if let Some(x) = beat_x_at(measure, mb, f.tick) {
+                    let glyph = match f.kind {
+                        guitario_score::FermataKind::Short => g::FERMATA_SHORT,
+                        guitario_score::FermataKind::Medium => g::FERMATA,
+                        guitario_score::FermataKind::Long => g::FERMATA_LONG,
+                    };
+                    self.pen.glyph_centered(glyph, pos2(mx + x, sys_top - 1.6 * s), t.ink);
+                }
+            }
             // Playback follows Voice 1; the cursor, selection and clicks use the voice being edited.
             let edit_cols = mb.cols(self.cursor.voice);
             let edit_voice = edit_cols.map_or(0, |c| c.voice);
@@ -528,6 +586,9 @@ impl<'a> Ctx<'a> {
                 for (bi, beat) in beats.iter().enumerate() {
                     let (Some(cx), Some(&(l, r))) = (vc.beats.get(bi), vc.spans.get(bi)) else { continue };
                     let x = mx + cx;
+                    if vc.voice == 0 {
+                        voice1_x.push(((mb.index, bi), x));
+                    }
                     let (col, w) = (band(l, r), r - l);
                     if vc.voice == edit_voice {
                         if self.cursor.measure == mb.index && self.cursor.beat == bi {
@@ -543,8 +604,13 @@ impl<'a> Ctx<'a> {
                     }
                     // Chord names, then beat text, above the system as Guitar Pro stacks them.
                     if vc.voice == 0 {
-                        if let Some(chord) = beat.chord.as_ref().filter(|c| !c.name.is_empty()) {
-                            self.p().text(pos2(x, sys_top - 6.4 * s), egui::Align2::CENTER_BOTTOM, &chord.name, serif(10.5 * m.zoom), t.ink);
+                        if let Some(chord) = beat.chord.as_ref() {
+                            if !chord.name.is_empty() {
+                                self.p().text(pos2(x, sys_top - m.chord_name_above()), egui::Align2::CENTER_BOTTOM, &chord.name, serif(10.5 * m.zoom), t.ink);
+                            }
+                            if m.diagrams && !chord.frets.is_empty() {
+                                self.chord_diagram(x, sys_top - m.chord_name_above() + 0.4 * s, chord);
+                            }
                         }
                         if let Some(text) = &beat.text {
                             self.p().text(pos2(x, sys_top - 5.1 * s), egui::Align2::CENTER_BOTTOM, text, serif_italic(8.5 * m.zoom), t.ink);
@@ -567,6 +633,188 @@ impl<'a> Ctx<'a> {
         }
         if !m.notation {
             self.tab_rhythm(sys, x0, tb);
+        }
+        self.lyrics_lane(top, &voice1_x, x1);
+    }
+
+    /// The lines of lyrics under the system: each syllable centred under its beat, a hyphen midway
+    /// to the next syllable of its word (or after it at the end of the system).
+    fn lyrics_lane(&self, top: f32, xs: &[((usize, usize), f32)], x_end: f32) {
+        let m = self.m;
+        if m.lyric_lines == 0 || xs.is_empty() {
+            return;
+        }
+        let font = serif(9.5 * m.zoom);
+        let (first, last) = (xs.first().map_or(0, |e| e.0.0), xs.last().map_or(0, |e| e.0.0));
+        let x_of = |key: (usize, usize)| xs.iter().find(|(k, _)| *k == key).map(|(_, x)| *x);
+        for (k, line) in self.lyrics.iter().enumerate().take(m.lyric_lines) {
+            let y = top + m.lyrics_top() + (k as f32 + 1.0) * m.lyric_line_h();
+            let here: Vec<&(usize, usize, guitario_score::Syllable)> = line.iter().filter(|(mi, _, _)| (first..=last).contains(mi)).collect();
+            for (i, (mi, bi, syl)) in here.iter().enumerate() {
+                let Some(x) = x_of((*mi, *bi)) else { continue };
+                let r = self.p().text(pos2(x, y), egui::Align2::CENTER_BOTTOM, &syl.text, font.clone(), self.t.ink);
+                if syl.hyphen {
+                    // Midway to where the next syllable starts, when it is in this system.
+                    let next_left = here.get(i + 1).and_then(|(m2, b2, s2)| {
+                        let nx = x_of((*m2, *b2))?;
+                        Some(nx - self.p().layout_no_wrap(s2.text.clone(), font.clone(), self.t.ink).size().x / 2.0)
+                    });
+                    let hx = match next_left {
+                        Some(l) if l > r.right() + 0.8 * m.space => (r.right() + l) / 2.0,
+                        _ => (r.right() + 0.6 * m.space).min(x_end),
+                    };
+                    self.p().text(pos2(hx, y), egui::Align2::CENTER_BOTTOM, "-", font.clone(), self.t.ink);
+                }
+            }
+        }
+    }
+
+    /// A chord diagram centred on `cx` with its top at `top`: the lowest string on the left, a nut
+    /// (or the first fret's number) at the top, a dot per fretted string, `o` for an open string and
+    /// `x` for one not played, and a barre where the lowest fret is held across three or more strings.
+    fn chord_diagram(&self, cx: f32, top: f32, chord: &guitario_score::Chord) {
+        let s = self.m.space;
+        let ink = self.t.ink;
+        let n = chord.frets.len();
+        if n == 0 {
+            return;
+        }
+        let gap = 0.8 * s;
+        let row = 0.9 * s;
+        let first = chord.first_fret.max(1);
+        let highest = chord.frets.iter().flatten().copied().max().unwrap_or(0);
+        let rows = usize::from(highest.saturating_sub(first)).saturating_add(1).clamp(4, 7);
+        let left = cx - crate::layout::diagram_width(n, s) / 2.0;
+        let right = left + crate::layout::diagram_width(n, s);
+        let y0 = top + 1.0 * s;
+        let thin = Stroke::new((0.08 * s).max(0.7), ink);
+        // Our strings run highest first; the diagram puts the lowest on the left.
+        let column = |i: usize| left + (n - 1 - i) as f32 * gap;
+        for k in 0..=rows {
+            let y = y0 + k as f32 * row;
+            self.p().line_segment([pos2(left, y), pos2(right, y)], thin);
+        }
+        for i in 0..n {
+            self.p().line_segment([pos2(column(i), y0), pos2(column(i), y0 + rows as f32 * row)], thin);
+        }
+        if first == 1 {
+            self.p().line_segment([pos2(left - 0.05 * s, y0), pos2(right + 0.05 * s, y0)], Stroke::new(0.3 * s, ink));
+        } else {
+            self.p().text(pos2(left - 0.3 * s, y0 + row / 2.0), egui::Align2::RIGHT_CENTER, format!("{first}fr"), serif(7.0 * self.m.zoom), ink);
+        }
+        let mark = 0.22 * s;
+        for (i, fret) in chord.frets.iter().enumerate() {
+            let x = column(i);
+            match fret {
+                None => {
+                    let c = pos2(x, y0 - 0.5 * s);
+                    self.p().line_segment([c - vec2(mark, mark), c + vec2(mark, mark)], thin);
+                    self.p().line_segment([c - vec2(mark, -mark), c + vec2(mark, -mark)], thin);
+                }
+                Some(0) => {
+                    self.p().circle_stroke(pos2(x, y0 - 0.5 * s), mark, thin);
+                }
+                Some(f) if *f >= first && usize::from(f - first) < rows => {
+                    self.p().circle_filled(pos2(x, y0 + (f32::from(f - first) + 0.5) * row), 0.3 * s, ink);
+                }
+                Some(_) => {}
+            }
+        }
+        // A barre: the lowest fret held across three or more strings, none open or muted between; a
+        // chord with an open string (an open D) is fingered, not barred.
+        if let Some(low) = chord.frets.iter().flatten().copied().filter(|f| *f > 0).min()
+            && low >= first
+            && !chord.frets.contains(&Some(0))
+        {
+            let held: Vec<usize> = chord.frets.iter().enumerate().filter(|(_, f)| **f == Some(low)).map(|(i, _)| i).collect();
+            if let (Some(&a), Some(&b)) = (held.first(), held.last())
+                && b >= a + 2
+                && chord.frets.get(a..=b).is_some_and(|span| span.iter().all(|f| f.is_some_and(|f| f >= low)))
+            {
+                let y = y0 + (f32::from(low - first) + 0.5) * row;
+                self.p().line_segment([pos2(column(b), y), pos2(column(a), y)], Stroke::new(0.5 * s, ink));
+            }
+        }
+    }
+
+    /// What a bar shows above its system once, over the top track: alternate endings, directions,
+    /// a change of triplet feel, the section marker and a tempo change.
+    fn bar_marks(&self, h: &MeasureHeader, index: usize, mx: f32, end: f32, sys_top: f32) {
+        let (m, t) = (self.m, self.t);
+        let s = m.space;
+        // Alternate endings: a bracket over the bar, numbered where the ending starts and
+        // closed where a repeat ends it.
+        if h.endings != 0 {
+            let y = sys_top - 3.2 * s;
+            let st = Stroke::new(1.0, t.ink);
+            let prev = index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(0, |p| p.endings);
+            let starts = prev != h.endings;
+            let x_start = mx + 0.3 * s;
+            let x_end = end - 0.5 * s;
+            self.p().line_segment([pos2(x_start, y), pos2(x_end, y)], st);
+            if starts {
+                self.p().line_segment([pos2(x_start, y), pos2(x_start, y + 1.6 * s)], st);
+                let label: Vec<String> = (0..8).filter(|b| h.endings & (1 << b) != 0).map(|b| format!("{}.", b + 1)).collect();
+                self.p().text(pos2(x_start + 0.4 * s, y + 0.2 * s), egui::Align2::LEFT_TOP, label.join(" "), serif(8.5 * m.zoom), t.ink);
+            }
+            if h.repeat_close > 0 {
+                // Short, so the repeat count under it stays clear.
+                self.p().line_segment([pos2(x_end, y), pos2(x_end, y + 0.8 * s)], st);
+            }
+        }
+        // Directions: segno and coda marks at the start of the bar, Fine and jumps at its end.
+        let dir_y = sys_top - 4.8 * s;
+        let mut dx = mx + 0.6 * s;
+        for target in &h.targets {
+            match target {
+                DirectionTarget::Segno => dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                DirectionTarget::SegnoSegno => {
+                    dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink);
+                    dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s;
+                }
+                DirectionTarget::Coda => dx += self.pen.glyph(g::CODA, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                DirectionTarget::DoubleCoda => dx += self.pen.glyph(g::CODA_SQUARE, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                DirectionTarget::Fine => {
+                    self.p().text(pos2(end - 0.4 * s, dir_y), egui::Align2::RIGHT_BOTTOM, "Fine", serif_italic(9.5 * m.zoom), t.ink);
+                }
+            }
+        }
+        if let Some(jump) = h.jump {
+            let y = if h.targets.contains(&DirectionTarget::Fine) { dir_y - 1.8 * s } else { dir_y };
+            let mut x = end - 0.4 * s;
+            if matches!(jump, Jump::ToCoda | Jump::ToDoubleCoda) {
+                let glyph = if jump == Jump::ToCoda { g::CODA } else { g::CODA_SQUARE };
+                x -= self.pen.width(glyph);
+                self.pen.glyph(glyph, pos2(x, y), t.ink);
+                x -= 0.4 * s;
+            }
+            self.p().text(pos2(x, y), egui::Align2::RIGHT_BOTTOM, jump.label(), serif_italic(9.5 * m.zoom), t.ink);
+        }
+        // Triplet feel where it changes.
+        let prev_feel = index.checked_sub(1).and_then(|i| self.score.headers.get(i)).map_or(TripletFeel::None, |p| p.triplet_feel);
+        if h.triplet_feel != prev_feel {
+            let label = match h.triplet_feel {
+                TripletFeel::None => "straight",
+                TripletFeel::Triplet8th => "swing 8ths (♪♪ = ♩♪³)",
+                TripletFeel::Triplet16th => "swing 16ths",
+                TripletFeel::Dotted8th => "dotted 8ths (♪♪ = ♪.♬)",
+                TripletFeel::Dotted16th => "dotted 16ths",
+                TripletFeel::Scottish8th => "Scottish 8ths",
+                TripletFeel::Scottish16th => "Scottish 16ths",
+            };
+            self.p().text(pos2(mx + 0.5 * s, sys_top - 5.6 * s), egui::Align2::LEFT_BOTTOM, label, serif(8.5 * m.zoom), t.ink);
+        }
+        if let Some(text) = &h.marker {
+            let galley = self.p().layout_no_wrap(text.clone(), serif(10.0 * m.zoom), t.ink);
+            // At the top of the lane, above chord names and text.
+            let r = Rect::from_min_size(pos2(mx + 0.4 * s, sys_top - m.lane_above() + 0.4 * s), galley.size() + vec2(0.8 * s, 0.4 * s));
+            self.p().rect_stroke(r, 0.0, Stroke::new(1.0, t.ink), egui::StrokeKind::Inside);
+            self.p().galley(r.min + vec2(0.4 * s, 0.2 * s), galley, t.ink);
+        }
+        if let Some(tempo) = h.tempo
+            && index > 0
+        {
+            self.tempo_mark(mx + 0.5 * s, sys_top - 3.6 * s, tempo);
         }
     }
 
@@ -684,6 +932,11 @@ impl<'a> Ctx<'a> {
             pos: Vec<Head>,
             up: bool,
             div: u32,
+            /// Grace notes before the beat, and whether they are slashed (before the beat, not on it).
+            graces: Vec<Head>,
+            slashed: bool,
+            /// Fingering by staff position: the left- and right-hand fingers.
+            fingers: Vec<(i32, Option<guitario_score::Finger>, Option<guitario_score::Finger>)>,
         }
         let mut infos: Vec<Option<Info>> = Vec::new();
         for (bi, beat) in beats.iter().enumerate() {
@@ -708,6 +961,19 @@ impl<'a> Ctx<'a> {
                 infos.push(None);
                 continue;
             }
+            // Grace notes come before the beat, so their accidentals are spelled first.
+            let graces: Vec<Head> = beat
+                .notes
+                .iter()
+                .filter(|n| n.kind != NoteKind::Tie && !self.m.drums)
+                .filter_map(|n| {
+                    let g = n.effects.grace?;
+                    let p = self.track.tuning.pitch(usize::from(n.string), g.fret, self.track.capo)?;
+                    let sp = spell(p.0.saturating_add(12).min(127), h.key);
+                    Some((staff_pos(sp, self.clef), acc.next(sp, h.key), if g.dead { "x" } else { "n" }))
+                })
+                .collect();
+            let slashed = beat.notes.iter().filter_map(|n| n.effects.grace).any(|g| !g.on_beat);
             let keyed: Vec<(u8, Head)> = beat
                 .notes
                 .iter()
@@ -725,15 +991,22 @@ impl<'a> Ctx<'a> {
                     Some((n.string, (staff_pos(sp, self.clef), acc.next(sp, h.key), head)))
                 })
                 .collect();
+            let fingers = keyed
+                .iter()
+                .filter_map(|(st, p)| {
+                    let e = beat.note_on(*st)?.effects;
+                    (e.left_finger.is_some() || e.right_finger.is_some()).then_some((p.0, e.left_finger, e.right_finger))
+                })
+                .collect();
             let by_string = keyed.iter().map(|(st, p)| (*st, p.0)).collect();
             let mut pos: Vec<Head> = keyed.into_iter().map(|(_, p)| p).collect();
             pos.sort_by_key(|p| p.0);
             let avg = pos.iter().map(|p| p.0).sum::<i32>() as f32 / pos.len().max(1) as f32;
             // Drum parts are written stems up (one voice, hands and feet together).
-            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor() }));
+            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed, fingers }));
         }
 
-        let groups = beam_groups(beats, h.time_signature);
+        let groups = beam_groups(beats, h);
         // A beamed group shares one stem direction.
         for gr in &groups {
             let all: Vec<i32> = gr.iter().filter_map(|i| infos.get(*i).and_then(|x| x.as_ref())).flat_map(|x| x.pos.iter().map(|p| p.0)).collect();
@@ -788,6 +1061,38 @@ impl<'a> Ctx<'a> {
                 if let Some(b) = beat {
                     let dot_pos = if pos % 2 == 0 { pos + 1 } else { *pos };
                     self.dots(b, left + hw + 0.4 * s, nt, dot_pos);
+                }
+            }
+            // Fingering: left-hand digits beside the heads, right-hand letters stacked above the beat.
+            if !info.fingers.is_empty() {
+                let room = if acc_col > 0 { 1.4 * s } else { 0.0 };
+                for (pos, left_finger, _) in &info.fingers {
+                    if let Some(f) = left_finger {
+                        self.p().text(
+                            pos2(left - 0.35 * s - room, self.nota_y(nt, *pos)),
+                            egui::Align2::RIGHT_CENTER,
+                            f.left_mark(),
+                            serif(7.5 * self.m.zoom),
+                            ink,
+                        );
+                    }
+                }
+                let hi = info.pos.last().map_or(4, |p| p.0);
+                let base = if info.up { hi + 8 } else { hi + 3 }.max(10);
+                let mut rights: Vec<(i32, guitario_score::Finger)> = info.fingers.iter().filter_map(|(p, _, r)| r.map(|r| (*p, r))).collect();
+                rights.sort_by_key(|(p, _)| *p);
+                for (k, (_, f)) in rights.iter().enumerate() {
+                    let y = self.nota_y(nt, base) - k as f32 * 1.3 * s;
+                    self.p().text(pos2(info.x, y), egui::Align2::CENTER_BOTTOM, f.right_mark(), serif_italic(8.0 * self.m.zoom), ink);
+                }
+            }
+            // Grace notes: small, left of the heads and their accidentals, slurred into the lowest head.
+            if !info.graces.is_empty() {
+                let room = if acc_col > 0 { 1.4 * s } else { 0.0 };
+                if let Some((gx, gpos)) = self.grace_group(left - 0.9 * s - room, nt, &info.graces, info.slashed) {
+                    let main = info.pos.first().map_or(4, |p| p.0);
+                    let arc = Stroke::new((0.14 * s).max(1.0), ink);
+                    g::arc(self.p(), pos2(gx, self.nota_y(nt, gpos) + 0.6 * s), pos2(left + 0.2 * hw, self.nota_y(nt, main) + 0.7 * s), 0.5 * s, arc);
                 }
             }
             // Stem.
@@ -872,20 +1177,34 @@ impl<'a> Ctx<'a> {
                     Some((*i, x, y, info.up, info.div))
                 })
                 .collect();
-            let Some(&(_, _, _, up, _)) = ends.first() else { continue };
-            let beam_y = if up { ends.iter().map(|e| e.2).fold(f32::MAX, f32::min) } else { ends.iter().map(|e| e.2).fold(f32::MIN, f32::max) };
-            beamed_ends.extend(ends.iter().map(|e| (e.0, e.1, beam_y)));
+            let Some(&(_, x_first, y_first, up, _)) = ends.first() else { continue };
+            let &(_, x_last, y_last, _, _) = ends.last().unwrap_or(&(0, x_first, y_first, up, 0));
+            // The beam slopes with the outer notes, at most a staff space over the group, and lies
+            // flat when an inner note reaches past both ends. It then moves out until every stem
+            // is at least as long as the note alone would want.
+            let inner_beyond =
+                ends.iter().skip(1).take(ends.len().saturating_sub(2)).any(|e| if up { e.2 < y_first.min(y_last) } else { e.2 > y_first.max(y_last) });
+            let slope = if x_last - x_first < 1.0 || inner_beyond { 0.0 } else { (y_last - y_first).clamp(-s, s) / (x_last - x_first) };
+            let base = |x: f32| y_first + slope * (x - x_first);
+            let offset = ends.iter().map(|e| e.2 - base(e.1));
+            let offset = if up { offset.fold(0.0f32, f32::min) } else { offset.fold(0.0f32, f32::max) };
+            let beam_at = |x: f32| base(x) + offset;
+            beamed_ends.extend(ends.iter().map(|e| (e.0, e.1, beam_at(e.1))));
             for &(i, x, _, _, _) in &ends {
                 let Some(Some(info)) = infos.get(i) else { continue };
                 let (lo, hi) = (info.pos.first().map_or(4, |p| p.0), info.pos.last().map_or(4, |p| p.0));
                 let y0 = self.nota_y(nt, if up { lo } else { hi });
-                self.p().line_segment([pos2(x, y0), pos2(x, beam_y)], stem);
+                self.p().line_segment([pos2(x, y0), pos2(x, beam_at(x))], stem);
             }
             let dir = if up { 1.0 } else { -1.0 };
             for level in 0..4u32 {
                 let need = 8u32 << level;
-                let y = beam_y + dir * level as f32 * (beam_t + 0.25 * s);
-                let rect = |a: f32, b: f32| Rect::from_min_max(pos2(a.min(b), y.min(y + dir * beam_t)), pos2(a.max(b), y.max(y + dir * beam_t)));
+                let shift = dir * level as f32 * (beam_t + 0.25 * s);
+                // A parallelogram along the beam line from `a` to `b`.
+                let beam = |a: f32, b: f32| {
+                    let (ya, yb) = (beam_at(a) + shift, beam_at(b) + shift);
+                    egui::Shape::convex_polygon(vec![pos2(a, ya), pos2(b, yb), pos2(b, yb + dir * beam_t), pos2(a, ya + dir * beam_t)], ink, Stroke::NONE)
+                };
                 let mut k = 0;
                 while let Some(&(_, x, _, _, div)) = ends.get(k) {
                     if div < need {
@@ -899,9 +1218,9 @@ impl<'a> Ctx<'a> {
                     let x_end = ends.get(j).map_or(x, |e| e.1);
                     if j == k {
                         let stub = if k + 1 < ends.len() { s } else { -s };
-                        self.p().rect_filled(rect(x, x + stub), 0.0, ink);
+                        self.p().add(beam(x.min(x + stub), x.max(x + stub)));
                     } else {
-                        self.p().rect_filled(rect(x, x_end), 0.0, ink);
+                        self.p().add(beam(x, x_end));
                     }
                     k = j + 1;
                 }
@@ -910,9 +1229,8 @@ impl<'a> Ctx<'a> {
             if let Some(b) = gr.first().and_then(|i| beats.get(*i))
                 && b.duration.tuplet != (1, 1)
             {
-                let xs: Vec<f32> = ends.iter().map(|e| e.1).collect();
-                let cx = (xs.iter().copied().fold(f32::MAX, f32::min) + xs.iter().copied().fold(f32::MIN, f32::max)) / 2.0;
-                let y = beam_y - dir * 1.2 * s;
+                let cx = (x_first + x_last) / 2.0;
+                let y = beam_at(cx) - dir * 1.2 * s;
                 self.p().text(pos2(cx, y), egui::Align2::CENTER_CENTER, b.duration.tuplet.0.to_string(), serif(9.0 * self.m.zoom), ink);
             }
         }
@@ -944,6 +1262,50 @@ impl<'a> Ctx<'a> {
                 self.trill_mark(info.x - 0.4 * s, next.unwrap_or(info.x + 3.5 * s), self.nota_y(nt, pos));
             }
         }
+    }
+
+    /// Small grace notes whose heads end at `right`, sharing one stem up with an eighth flag, slashed
+    /// when they come before the beat. Returns the heads' centre and the lowest head's staff position.
+    fn grace_group(&self, right: f32, nt: f32, graces: &[(i32, Option<i8>, &'static str)], slashed: bool) -> Option<(f32, i32)> {
+        const SCALE: f32 = 0.62;
+        let (s, ink) = (self.m.space, self.t.ink);
+        let mut heads = graces.to_vec();
+        heads.sort_by_key(|g| g.0);
+        let (lo, hi) = (heads.first()?.0, heads.last()?.0);
+        let hw = self.pen.width(g::HEAD_BLACK) * SCALE;
+        let left = right - hw;
+        let thin = Stroke::new((0.1 * s).max(0.8), ink);
+        let mut acc_col = 0;
+        for (pos, accidental, kind) in &heads {
+            let y = self.nota_y(nt, *pos);
+            let mut lp = if *pos <= -2 { -2 } else { 10 };
+            while (*pos <= -2 && lp >= *pos) || (*pos >= 10 && lp <= *pos) {
+                let ly = self.nota_y(nt, lp);
+                self.p().line_segment([pos2(left - 0.25 * s, ly), pos2(left + hw + 0.25 * s, ly)], thin);
+                lp += if *pos <= -2 { -2 } else { 2 };
+            }
+            self.pen.glyph_scaled(if *kind == "x" { g::HEAD_X } else { g::HEAD_BLACK }, pos2(left, y), SCALE, ink);
+            if let Some(a) = accidental {
+                let c = match a {
+                    1 => g::SHARP,
+                    -1 => g::FLAT,
+                    _ => g::NATURAL,
+                };
+                let aw = self.pen.width(c) * SCALE;
+                self.pen.glyph_scaled(c, pos2(left - aw - 0.2 * s - acc_col as f32 * 0.8 * s, y), SCALE, ink);
+                acc_col = (acc_col + 1) % 2;
+            }
+        }
+        let sx = left + hw - thin.width / 2.0;
+        let (y0, y1) = (self.nota_y(nt, lo), self.nota_y(nt, hi + 5));
+        self.p().line_segment([pos2(sx, y0), pos2(sx, y1)], thin);
+        if let Some(f) = g::flag_for(8, true) {
+            self.pen.glyph_scaled(f, pos2(sx - thin.width / 2.0, y1), SCALE, ink);
+        }
+        if slashed {
+            self.p().line_segment([pos2(sx - 0.6 * s, y1 + 1.3 * s), pos2(sx + 0.8 * s, y1 + 0.3 * s)], thin);
+        }
+        Some((left + hw / 2.0, lo))
     }
 
     /// Tremolo picking: short diagonal strokes across a stem, centred on `(x, y)`.
@@ -1030,6 +1392,9 @@ impl<'a> Ctx<'a> {
             self.p().rect_filled(r, 0.0, t.page);
             self.p().galley(pos2(r.center().x - galley.size().x / 2.0, y - galley.size().y / 2.0), galley, t.ink);
             let fw = r.width() / 2.0;
+            if let Some(grace) = n.effects.grace.filter(|_| n.kind != NoteKind::Tie) {
+                self.tab_grace(pb.x - fw, y, n.fret, grace);
+            }
             // A tied fret is joined to the last note on its string by an arc over the strings.
             if n.kind == NoteKind::Tie {
                 let from = before.iter().rev().find(|q| !q.beat.rest && q.beat.note_on(n.string).is_some()).map(|q| q.x + fw * 0.4);
@@ -1086,6 +1451,34 @@ impl<'a> Ctx<'a> {
                     q => format!("{:.2}", f32::from(q) / 4.0),
                 };
                 self.p().text(b - vec2(0.0, 0.8 * s), egui::Align2::CENTER_BOTTOM, label, serif(8.0 * m.zoom), t.effect_ink);
+            }
+        }
+    }
+
+    /// A grace note in the tab: a small fret just left of the note's fret, whose left edge is at
+    /// `right`, with the slur, slide or bend that takes it into the note.
+    fn tab_grace(&self, right: f32, y: f32, fret: u8, grace: guitario_score::Grace) {
+        let (m, t) = (self.m, self.t);
+        let s = m.space;
+        let fx = Stroke::new((0.13 * s).max(1.0), t.effect_ink);
+        let text = if grace.dead { "X".to_string() } else { grace.fret.to_string() };
+        let galley = self.p().layout_no_wrap(text, sans(m.tab_gap * 0.7), t.ink);
+        let gw = galley.size().x;
+        let cx = right - 0.9 * s - gw / 2.0;
+        let r = Rect::from_center_size(pos2(cx, y), vec2(gw + 1.0, m.tab_gap * 0.7));
+        self.p().rect_filled(r, 0.0, t.page);
+        self.p().galley(pos2(cx - gw / 2.0, y - galley.size().y / 2.0), galley, t.ink);
+        let to = right + 0.1 * s;
+        match grace.transition {
+            guitario_score::GraceTransition::None => {}
+            guitario_score::GraceTransition::Hammer => g::arc(self.p(), pos2(cx, y - m.tab_gap * 0.45), pos2(to, y - m.tab_gap * 0.5), -0.5 * s, fx),
+            guitario_score::GraceTransition::Slide => {
+                let h = m.tab_gap * 0.25 * if fret >= grace.fret { 1.0 } else { -1.0 };
+                self.p().line_segment([pos2(r.right() + 0.5, y + h), pos2(to - 0.5, y - h)], fx);
+            }
+            guitario_score::GraceTransition::Bend => {
+                let (a, b) = (pos2(r.right(), y), pos2(to, y - m.tab_gap * 0.6));
+                self.p().add(egui::epaint::QuadraticBezierShape::from_points_stroke([a, pos2(b.x, a.y), b], false, Color32::TRANSPARENT, fx));
             }
         }
     }
@@ -1192,8 +1585,7 @@ impl<'a> Ctx<'a> {
             let mx = x0 + sys.prefix + mb.x;
             for vc in &mb.voices {
                 let beats = self.track.measures.get(mb.index).and_then(|x| x.voices.get(vc.voice)).map(|v| v.beats.as_slice()).unwrap_or_default();
-                let ts = self.score.headers.get(mb.index).map(|h| h.time_signature).unwrap_or_default();
-                let groups = beam_groups(beats, ts);
+                let groups = self.score.headers.get(mb.index).map(|h| beam_groups(beats, h)).unwrap_or_default();
                 let x_of = |bi: usize| vc.beats.get(bi).map(|cx| mx + cx);
                 for (bi, beat) in beats.iter().enumerate() {
                     let Some(x) = x_of(bi) else { continue };
@@ -1295,6 +1687,11 @@ mod tests {
 
     /// How many painted shapes `is` accepts when `score` is drawn at 100 %.
     fn painted(score: &Score, notation: bool, is: impl Fn(&egui::Shape) -> bool) -> usize {
+        painted_in(score, notation, LayoutMode::Page, false, is)
+    }
+
+    /// The same in a layout mode, with every track or the cursor's alone.
+    fn painted_in(score: &Score, notation: bool, layout: LayoutMode, multitrack: bool, is: impl Fn(&egui::Shape) -> bool) -> usize {
         fn count(shape: &egui::Shape, is: &dyn Fn(&egui::Shape) -> bool) -> usize {
             match shape {
                 egui::Shape::Vec(inner) => inner.iter().map(|s| count(s, is)).sum(),
@@ -1309,7 +1706,7 @@ mod tests {
                 fonts = Some(crate::fonts::install(ui.ctx()));
                 return;
             };
-            show(ui, &score, Cursor::default(), &View { zoom: 1.0, notation, fonts, play: None, selection: None });
+            show(ui, &score, Cursor::default(), &View { zoom: 1.0, notation, fonts, play: None, selection: None, layout, multitrack });
         });
         harness.run_steps(3);
         harness.output().shapes.iter().map(|s| count(&s.shape, &is)).sum()
@@ -1331,6 +1728,188 @@ mod tests {
         let rest = Beat::rest(Duration::new(guitario_theory::NoteValue::Half));
         s.tracks[0].measures[0].voices[0].beats = vec![beat, rest];
         s
+    }
+
+    #[test]
+    fn the_multitrack_view_draws_every_track_and_the_layouts_draw_every_bar() {
+        let mut s = Score::new();
+        let note = |string: u8, fret: u8| Beat { rest: false, notes: vec![Note::new(string, fret)], ..Beat::rest(Duration::WHOLE) };
+        s.tracks[0].measures[0].voices[0].beats = vec![note(0, 17)];
+        s.tracks.push(guitario_score::Track::new("Bass", guitario_theory::Tuning::bass(), &s.headers));
+        s.tracks[1].measures[0].voices[0].beats = vec![note(1, 19)];
+        let frets = |multi: bool, layout: LayoutMode| {
+            let count = |what: &'static str| painted_in(&s, true, layout, multi, move |sh| matches!(sh, egui::Shape::Text(t) if t.galley.text() == what));
+            (count("17"), count("19"))
+        };
+        assert_eq!(frets(false, LayoutMode::Page), (1, 0), "the cursor's track alone");
+        for layout in [LayoutMode::Page, LayoutMode::Screen, LayoutMode::Horizontal] {
+            assert_eq!(frets(true, layout), (1, 1), "{layout:?}");
+        }
+        // The track names stand left of each part.
+        let names =
+            painted_in(&s, true, LayoutMode::Page, true, |sh| matches!(sh, egui::Shape::Text(t) if t.galley.text() == "bass" || t.galley.text() == "s-guit."));
+        assert_eq!(names, 2);
+    }
+
+    #[test]
+    fn beams_slope_with_the_melody_but_lie_flat_over_a_peak() {
+        use guitario_theory::NoteValue;
+        // The beam's corners: each beam is a four-point polygon.
+        let beams = |s: &Score| {
+            let mut out = Vec::new();
+            let score = s.clone();
+            let mut fonts = None;
+            let mut harness = egui_kittest::Harness::builder().with_size(vec2(1400.0, 800.0)).build_ui(move |ui| {
+                let Some(fonts) = fonts else {
+                    fonts = Some(crate::fonts::install(ui.ctx()));
+                    return;
+                };
+                show(
+                    ui,
+                    &score,
+                    Cursor::default(),
+                    &View { zoom: 1.0, notation: true, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false },
+                );
+            });
+            harness.run_steps(3);
+            fn walk(shape: &egui::Shape, out: &mut Vec<Vec<egui::Pos2>>) {
+                match shape {
+                    egui::Shape::Vec(inner) => inner.iter().for_each(|s| walk(s, out)),
+                    egui::Shape::Path(p) if p.closed && p.points.len() == 4 => out.push(p.points.clone()),
+                    _ => {}
+                }
+            }
+            for c in &harness.output().shapes {
+                walk(&c.shape, &mut out);
+            }
+            out
+        };
+        let run = |frets: &[u8]| {
+            let mut s = Score::new();
+            let e = Duration::new(NoteValue::Eighth);
+            let mut bs: Vec<Beat> = frets.iter().map(|f| Beat { rest: false, notes: vec![Note::new(2, *f)], ..Beat::rest(e) }).collect();
+            bs.push(Beat::rest(Duration::new(NoteValue::Half)));
+            s.tracks[0].measures[0].voices[0].beats = bs;
+            s
+        };
+        // A rising pair: the beam's right end is higher (smaller y) than its left.
+        let rising = beams(&run(&[2, 9]));
+        let b = rising.first().expect("a beam");
+        assert!(b[1].y < b[0].y - 0.5, "{b:?}");
+        // Rising a long way: the slope is limited to a staff space.
+        let steep = beams(&run(&[0, 12]));
+        let b = steep.first().expect("a beam");
+        assert!(b[0].y - b[1].y <= 1.5875 * 96.0 / 25.4 + 0.5, "{b:?}");
+        // Equal ends: flat.
+        let flat = beams(&run(&[5, 5]));
+        let b = flat.first().expect("a beam");
+        assert!((b[1].y - b[0].y).abs() < 0.01, "{b:?}");
+    }
+
+    #[test]
+    fn fingering_is_drawn_in_notation_only() {
+        use guitario_score::Finger;
+        let fingered = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.notes[0].effects.left_finger = Some(Finger::Ring);
+            b.notes[0].effects.right_finger = Some(Finger::Index);
+        });
+        let plain = one_note(guitario_theory::NoteValue::Quarter, |_| {});
+        assert_eq!(texts(&fingered, true, "3"), texts(&plain, true, "3") + 1);
+        assert_eq!(texts(&fingered, true, "i"), texts(&plain, true, "i") + 1);
+        assert_eq!(texts(&fingered, false, "i"), texts(&plain, false, "i"), "not in the tab");
+        let thumb = one_note(guitario_theory::NoteValue::Quarter, |b| b.notes[0].effects.left_finger = Some(Finger::Thumb));
+        assert_eq!(texts(&thumb, true, "T"), texts(&plain, true, "T") + 1);
+    }
+
+    #[test]
+    fn a_fermata_is_drawn_over_the_beat_it_holds() {
+        use guitario_score::{Fermata, FermataKind};
+        let note = |fret: u8| Beat { rest: false, notes: vec![Note::new(0, fret)], ..Beat::rest(Duration::QUARTER) };
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices[0].beats = vec![note(1), note(2), note(3), note(4)];
+        let dots = |s: &Score| painted(s, true, |sh| matches!(sh, egui::Shape::Circle(_)));
+        let plain = dots(&s);
+        s.headers[0].fermatas = vec![
+            Fermata { tick: 0, kind: FermataKind::Short, length: 0 },
+            Fermata { tick: guitario_theory::TICKS_PER_QUARTER, kind: FermataKind::Medium, length: 0 },
+            Fermata { tick: 3 * guitario_theory::TICKS_PER_QUARTER, kind: FermataKind::Long, length: 0 },
+        ];
+        // Each fallback fermata has its dot; with no beat at a fermata's place nothing is drawn.
+        assert_eq!(dots(&s), plain + 3);
+        s.headers[0].fermatas.push(Fermata { tick: 7, kind: FermataKind::Long, length: 0 });
+        assert_eq!(dots(&s), plain + 3);
+    }
+
+    #[test]
+    fn lyrics_are_drawn_one_syllable_per_beat_with_hyphens() {
+        use guitario_score::LyricLine;
+        let mut s = Score::new();
+        let note = |fret: u8| Beat { rest: false, notes: vec![Note::new(0, fret)], ..Beat::rest(Duration::QUARTER) };
+        s.tracks[0].measures[0].voices[0].beats = vec![note(1), note(2), Beat::rest(Duration::QUARTER), note(3)];
+        s.tracks[0].lyrics = vec![LyricLine { measure: 0, text: "[Verse] Steel ho-rizon".into() }];
+        for notation in [true, false] {
+            assert_eq!(texts(&s, notation, "Steel"), 1);
+            assert_eq!(texts(&s, notation, "ho"), 1);
+            assert_eq!(texts(&s, notation, "rizon"), 1, "the rest is skipped and the last note sings");
+            assert_eq!(texts(&s, notation, "-"), 1);
+            assert_eq!(texts(&s, notation, "Verse"), 0, "a comment is not sung");
+        }
+    }
+
+    #[test]
+    fn a_chord_diagram_draws_its_grid_dots_and_marks() {
+        use guitario_score::Chord;
+        let circles = |s: &Score| painted(s, true, |sh| matches!(sh, egui::Shape::Circle(_)));
+        let named = one_note(guitario_theory::NoteValue::Quarter, |b| b.chord = Some(Chord::named("A5")));
+        // A5: x 0 2 2 x x from the low string; three dots would be a barre, two are not.
+        let a5 = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.chord = Some(Chord { name: "A5".into(), frets: vec![None, None, Some(2), Some(2), Some(0), None], first_fret: 1 })
+        });
+        assert_eq!(texts(&a5, true, "A5"), 1);
+        // Six strings and five fret lines plus a nut, three x marks of two strokes each.
+        assert_eq!(lines(&a5, true), lines(&named, true) + 6 + 5 + 1 + 3 * 2);
+        // Two dots and one open-string ring.
+        assert_eq!(circles(&a5), circles(&named) + 3);
+        // Up the neck: the first fret is written and there is no nut; a barre joins its strings.
+        let barre = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.chord = Some(Chord { name: "D".into(), frets: vec![Some(5), Some(7), Some(7), Some(7), Some(5), None], first_fret: 5 })
+        });
+        assert_eq!(texts(&barre, true, "5fr"), 1);
+        assert_eq!(lines(&barre, true), lines(&named, true) + 6 + 5 + 2 + 1, "grid, one x mark, the barre");
+        // An open D is fingered: no barre although fret 2 is held on both sides of the third fret.
+        let open_d = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.chord = Some(Chord { name: "D".into(), frets: vec![Some(2), Some(3), Some(2), Some(0), None, None], first_fret: 1 })
+        });
+        assert_eq!(lines(&open_d, true), lines(&named, true) + 6 + 5 + 1 + 2 * 2, "grid, nut, two x marks");
+    }
+
+    #[test]
+    fn a_grace_note_is_a_small_fret_in_the_tab_and_a_small_slurred_note_in_notation() {
+        use guitario_score::{Grace, GraceTransition};
+        let plain = one_note(guitario_theory::NoteValue::Quarter, |_| {});
+        let graced = |g: Grace| one_note(guitario_theory::NoteValue::Quarter, |b| b.notes[0].effects.grace = Some(g));
+        // Tab only: the small fret, and a slur for a hammered grace note.
+        let before = graced(Grace::new(3));
+        assert_eq!(texts(&before, false, "3"), texts(&plain, false, "3") + 1);
+        assert_eq!(curves(&before, false), curves(&plain, false));
+        let hammered = graced(Grace { transition: GraceTransition::Hammer, ..Grace::new(3) });
+        assert_eq!(curves(&hammered, false), curves(&plain, false) + 1);
+        let slid = graced(Grace { transition: GraceTransition::Slide, ..Grace::new(3) });
+        assert_eq!(lines(&slid, false), lines(&plain, false) + 1);
+        let dead = graced(Grace { dead: true, ..Grace::new(3) });
+        assert_eq!(texts(&dead, false, "X"), texts(&plain, false, "X") + 1);
+        // Notation: a stem (and a flag, drawn as a line without a music font), slashed before the
+        // beat but not on it, and a slur into the note.
+        let on_beat = lines(&graced(Grace { on_beat: true, ..Grace::new(3) }), true);
+        assert!(on_beat > lines(&plain, true));
+        assert_eq!(lines(&before, true), on_beat + 1, "the slash");
+        assert_eq!(curves(&before, true), curves(&plain, true) + 1);
+        // A tied note never shows one.
+        let tied = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.notes[0].kind = NoteKind::Tie;
+            b.notes[0].effects.grace = Some(Grace::new(3));
+        });
+        assert_eq!(texts(&tied, false, "3"), texts(&plain, false, "3"));
     }
 
     #[test]

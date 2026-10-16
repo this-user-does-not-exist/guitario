@@ -24,8 +24,8 @@ note = "notation.rs tests; key changes after the first bar of a system are not d
 [[item]]
 id = "NOTE-4"
 target = "Stems, flags, beams with secondary beams, rests, dots, tuplet numbers"
-status = "partial"
-note = "beams are flat; beaming groups by beat, not by the signature's grouping (7/8 as 3+2+2)"
+status = "done"
+note = "beams slope with the outer notes (at most a staff space, flat over an inner peak) and keep every stem long enough; groups follow the bar's beaming (measure.setBeaming) or the signature's usual one (7/8 as 2+2+3, 13/16 as 4+4+5, 6/8 as 3+3; guitario_score::default_beaming), kept in Guitar Pro 5 files; Guitar Pro's per-beat beam breaks are not modelled"
 
 [[item]]
 id = "NOTE-5"
@@ -52,13 +52,14 @@ note = "fonts.rs, glyphs.rs"
 [[item]]
 id = "NOTE-9"
 target = "Tremolo picking slashes, grace notes, trills, fermatas, alternate ending brackets"
-status = "partial"
-note = "alternate ending brackets and direction marks (segno, coda, Fine, D.C./D.S.) drawn; tremolo picking slashes (one to three through the stem, above a whole note, under the tab when notation is hidden) and trills (tr with a wavy line above the staff and in the tab lane) drawn, with painted-shape tests; grace notes and fermatas missing"
+status = "done"
+note = "alternate ending brackets and direction marks (segno, coda, Fine, D.C./D.S.) drawn; tremolo picking slashes (one to three through the stem, above a whole note, under the tab when notation is hidden) and trills (tr with a wavy line above the staff and in the tab lane) drawn, with painted-shape tests; grace notes drawn small left of their note (a slashed eighth before the beat, unslashed on it, slurred into the note; a small fret in the tab with its slur, slide or bend), with room kept by the layout; fermatas (short, medium, long; beat.setFermata and the palette) drawn over the beat they hold, played by stretching time in every track and written to MIDI as tempo changes, read and written in GPIF (Guitar Pro 5 has none)"
 
 [[item]]
 id = "NOTE-10"
 target = "Multitrack view and page/screen/horizontal layouts"
-status = "missing"
+status = "done"
+note = "View › Layout › Page, Screen (one sheet as wide as the window) and Horizontal (one line of bars, no title); View › Multitrack stacks every track in each system with beats lined up in time across tracks (layout.rs layout_parts, page.rs paint_systems), markers and directions over the top track, clicks on any track move the cursor there; saved in the preferences; printing and PDF stay one track at a time"
 
 [[item]]
 id = "NOTE-11"
@@ -69,5 +70,5 @@ note = "percussion clef, kit-map staff positions, cross noteheads for cymbals (t
 [[item]]
 id = "NOTE-12"
 target = "Chord diagrams and chord names above the staff"
-status = "partial"
-note = "chord names and beat text drawn above the system in a lane that grows when a track has them (page.rs, layout.rs); diagrams not drawn yet"
+status = "done"
+note = "chord names and beat text drawn above the system in a lane that grows when a track has them; diagrams drawn under the names (nut or first fret, dots, open and muted marks, barres; page.rs chord_diagram, layout.rs), edited in Tools › Chord Diagrams… (a clickable diagram, named from its notes by guitario_theory::chord_name) and read and written in Guitar Pro 3-5 and GPIF; no chord list at the top of the score"

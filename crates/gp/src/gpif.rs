@@ -201,6 +201,28 @@ fn header_of(m: Node) -> MeasureHeader {
     };
     h.free_time = child(m, "FreeTime").is_some();
     h.double_bar = child(m, "DoubleBar").is_some();
+    // Fermatas: a type, where in the bar as a fraction of a quarter note, and a length.
+    if let Some(list) = child(m, "Fermatas") {
+        let cap = h.capacity();
+        for f in list.children().filter(|c| c.has_tag_name("Fermata")).take(guitario_score::MAX_FERMATAS) {
+            let kind = match text(f, "Type") {
+                Some("Short") => FermataKind::Short,
+                Some("Long") => FermataKind::Long,
+                _ => FermataKind::Medium,
+            };
+            let tick = text(f, "Offset")
+                .and_then(|o| o.split_once('/'))
+                .and_then(|(n, d)| Some((n.trim().parse::<u64>().ok()?, d.trim().parse::<u64>().ok().filter(|d| *d > 0)?)))
+                .and_then(|(n, d)| u32::try_from(n.saturating_mul(u64::from(guitario_theory::TICKS_PER_QUARTER)) / d).ok())
+                .unwrap_or(0);
+            let length =
+                text(f, "Length").and_then(|l| l.parse::<f64>().ok()).filter(|l| l.is_finite()).map_or(0, |l| (l * 100.0).round().clamp(0.0, 1000.0) as u16);
+            if tick < cap && !h.fermatas.iter().any(|g| g.tick == tick) {
+                h.fermatas.push(Fermata { tick, kind, length });
+            }
+        }
+        h.fermatas.sort_by_key(|f| f.tick);
+    }
     h
 }
 
@@ -290,7 +312,8 @@ fn build_track(
 ) -> Option<Track> {
     if let Some(kit) = kit {
         let mut track = Track::drums(name, headers);
-        fill_measures(&mut track, staff_index, name, Placement::Drums(kit), masters, headers, t, warnings);
+        let sung = fill_measures(&mut track, staff_index, name, Placement::Drums(kit), &HashMap::new(), masters, headers, t, warnings);
+        track.lyrics = lyrics_of(tn, &track, &sung);
         track.muted = text(tn, "PlaybackState") == Some("Mute");
         track.solo = text(tn, "PlaybackState") == Some("Solo");
         return Some(track);
@@ -321,8 +344,93 @@ fn build_track(
     }
     let open = track.tuning.strings.clone();
     let capo = track.capo;
-    fill_measures(&mut track, staff_index, name, Placement::Strings { open: &open, capo }, masters, headers, t, warnings);
+    let chords = diagrams(tn, open.len());
+    let sung = fill_measures(&mut track, staff_index, name, Placement::Strings { open: &open, capo }, &chords, masters, headers, t, warnings);
+    track.lyrics = lyrics_of(tn, &track, &sung);
     Some(track)
+}
+
+/// The syllables a beat of the first voice carries, per lyrics line: `(measure, beat, lines)`.
+type Sung = Vec<(usize, usize, Vec<String>)>;
+
+/// A track's lyrics: the lines as typed (`Lyrics/Line/Text`, from bar `Offset`), or, when those are
+/// empty, lines rebuilt from the syllables Guitar Pro dispatched onto the beats (`-` for a beat
+/// without one, `+` joining words on one beat).
+fn lyrics_of(tn: Node, track: &Track, sung: &Sung) -> Vec<LyricLine> {
+    let bars = track.measures.len();
+    let mut lines: Vec<LyricLine> = child(tn, "Lyrics")
+        .map(|l| {
+            l.children()
+                .filter(|c| c.has_tag_name("Line"))
+                .take(MAX_LYRIC_LINES)
+                .map(|line| LyricLine {
+                    measure: text(line, "Offset").and_then(|o| o.parse::<usize>().ok()).filter(|o| *o < bars).unwrap_or(0),
+                    text: text(line, "Text").unwrap_or("").chars().take(MAX_LYRICS_TEXT / 4).collect(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if lines.iter().all(|l| l.text.trim().is_empty()) {
+        lines = (0..MAX_LYRIC_LINES)
+            .map(|k| {
+                let on = |e: &(usize, usize, Vec<String>)| e.2.get(k).filter(|t| !t.trim().is_empty()).cloned();
+                let Some(first) = sung.iter().position(|e| on(e).is_some()) else { return LyricLine::default() };
+                let measure = sung.get(first).map_or(0, |e| e.0);
+                // Every sung beat from the start of that bar: a syllable, or `-` for none.
+                let mut words: Vec<String> =
+                    sung.iter().skip_while(|e| e.0 < measure).map(|e| on(e).map_or_else(|| "-".to_string(), |t| t.trim().replace(' ', "+"))).collect();
+                while words.last().is_some_and(|w| w == "-") {
+                    words.pop();
+                }
+                LyricLine { measure, text: words.join(" ") }
+            })
+            .collect();
+    }
+    while lines.last().is_some_and(|l| l.text.trim().is_empty()) {
+        lines.pop();
+    }
+    lines
+}
+
+/// The chord diagrams a track lists (`DiagramCollection` on the staff in Guitar Pro 7/8, on the
+/// track in Guitar Pro 6), by id: the name, and frets made absolute and turned highest string
+/// first. A diagram's frets count from its `baseFret`; 0 is an open string.
+fn diagrams(tn: Node, strings: usize) -> HashMap<i64, Chord> {
+    let mut out = HashMap::new();
+    let collections = tn.descendants().filter(|c| c.has_tag_name("Property") && matches!(c.attribute("name"), Some("DiagramCollection" | "ChordCollection")));
+    for items in collections.filter_map(|c| child(c, "Items")) {
+        for item in items.children().filter(|c| c.has_tag_name("Item")).take(4096) {
+            let Some(id) = item.attribute("id").and_then(|v| v.parse::<i64>().ok()) else { continue };
+            let name: String = item.attribute("name").unwrap_or("").trim().chars().take(64).collect();
+            let mut chord = Chord::named(name);
+            if let Some(d) = child(item, "Diagram") {
+                let base = d.attribute("baseFret").and_then(|v| v.parse::<u8>().ok()).unwrap_or(0).min(35);
+                let mut frets: Vec<Option<u8>> = vec![None; strings];
+                for f in d.children().filter(|c| c.has_tag_name("Fret")) {
+                    let (Some(gs), Some(fret)) =
+                        (f.attribute("string").and_then(|v| v.parse::<usize>().ok()), f.attribute("fret").and_then(|v| v.parse::<u8>().ok()))
+                    else {
+                        continue;
+                    };
+                    let absolute = if fret == 0 { 0 } else { base.saturating_add(fret) };
+                    if gs < strings
+                        && absolute <= 36
+                        && let Some(slot) = frets.get_mut(strings - 1 - gs)
+                    {
+                        *slot = Some(absolute);
+                    }
+                }
+                if frets.iter().any(Option::is_some) {
+                    chord.frets = frets;
+                    chord.first_fret = base + 1;
+                }
+            }
+            if !chord.name.is_empty() || !chord.frets.is_empty() {
+                out.entry(id).or_insert(chord);
+            }
+        }
+    }
+    out
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -331,35 +439,68 @@ fn fill_measures(
     staff_index: usize,
     name: &str,
     place: Placement,
+    chords: &HashMap<i64, Chord>,
     masters: &[Node],
     headers: &[MeasureHeader],
     t: Tables,
     warnings: &mut Vec<String>,
-) {
+) -> Sung {
+    let mut sung: Sung = Vec::new();
+    let mut lost_graces = 0usize;
     for (mi, master) in masters.iter().enumerate() {
         let bar_id = ids(text(*master, "Bars")).get(staff_index).copied().unwrap_or(-1);
         let Some(bar) = lookup(t.0, bar_id) else { continue };
         let cap = headers.get(mi).map_or(0, MeasureHeader::capacity);
         // A bar lists up to four voices; -1 is a voice it does not have.
         let mut voices: Vec<Voice> = Vec::new();
-        for voice_id in ids(text(bar, "Voices")).into_iter().take(MAX_VOICES) {
+        for (vi, voice_id) in ids(text(bar, "Voices")).into_iter().take(MAX_VOICES).enumerate() {
             let mut out = Voice::default();
             if let Some(voice) = lookup(t.1, voice_id) {
                 let mut used = 0u32;
+                // Grace beats take no time: their notes become the grace notes of the next beat's
+                // notes on the same strings.
+                let mut graces: Vec<(u8, Grace)> = Vec::new();
                 for beat_id in ids(text(voice, "Beats")) {
                     let Some(bn) = lookup(t.2, beat_id) else { continue };
-                    if child(bn, "GraceNotes").is_some() {
-                        continue; // grace beats take no time; not modelled yet
+                    if let Some(kind) = text(bn, "GraceNotes") {
+                        if let Some(gb) = build_beat(bn, &t, place, chords).filter(|_| matches!(place, Placement::Strings { .. })) {
+                            for (string, grace) in grace_notes(&gb, kind == "OnBeat") {
+                                if let Some(old) = graces.iter_mut().find(|(st, _)| *st == string) {
+                                    // Two grace notes on one string: the one nearer the note is kept.
+                                    old.1 = grace;
+                                    lost_graces += 1;
+                                } else {
+                                    graces.push((string, grace));
+                                }
+                            }
+                        }
+                        continue;
                     }
-                    let Some(beat) = build_beat(bn, &t, place) else { continue };
+                    let Some(mut beat) = build_beat(bn, &t, place, chords) else { continue };
+                    for (string, grace) in graces.drain(..) {
+                        match beat.notes.iter_mut().find(|n| n.string == string && n.kind != NoteKind::Tie) {
+                            Some(n) => n.effects.grace = Some(grace),
+                            None => lost_graces += 1,
+                        }
+                    }
                     let ticks = beat.duration.ticks();
                     if used + ticks > cap {
                         warnings.push(format!("track `{name}` measure {}: beats overflow the bar and were trimmed", mi + 1));
                         break;
                     }
                     used += ticks;
+                    // The first voice's beats carry the lyrics Guitar Pro dispatched, if any.
+                    if vi == 0 && !beat.rest && sung.len() < 100_000 {
+                        let lines: Vec<String> = child(bn, "Lyrics")
+                            .map(|l| {
+                                l.children().filter(|c| c.has_tag_name("Line")).take(MAX_LYRIC_LINES).map(|c| c.text().unwrap_or("").to_string()).collect()
+                            })
+                            .unwrap_or_default();
+                        sung.push((mi, out.beats.len(), lines));
+                    }
                     out.beats.push(beat);
                 }
+                lost_graces += graces.len();
             }
             voices.push(out);
         }
@@ -381,6 +522,37 @@ fn fill_measures(
         }
         m.voices = voices;
     }
+    if lost_graces > 0 {
+        warnings.push(format!("track `{name}`: {lost_graces} grace notes without a struck note on their string after them were left out"));
+    }
+    sung
+}
+
+/// The notes of a grace beat as grace notes, by string. A hammer-on, slide or bend on a grace note
+/// is how it moves into the note.
+fn grace_notes(gb: &Beat, on_beat: bool) -> Vec<(u8, Grace)> {
+    let duration = match gb.duration.value {
+        NoteValue::Sixteenth => GraceDuration::Sixteenth,
+        NoteValue::SixtyFourth => GraceDuration::SixtyFourth,
+        _ => GraceDuration::ThirtySecond,
+    };
+    gb.notes
+        .iter()
+        .filter(|n| n.kind != NoteKind::Tie)
+        .map(|n| {
+            let transition = if n.effects.hammer {
+                GraceTransition::Hammer
+            } else if matches!(n.effects.slide, Some(Slide::Legato | Slide::Shift)) {
+                GraceTransition::Slide
+            } else if n.effects.bend.is_some() {
+                GraceTransition::Bend
+            } else {
+                GraceTransition::None
+            };
+            let dead = n.kind == NoteKind::Dead;
+            (n.string, Grace { fret: if dead { 0 } else { n.fret }, duration, transition, on_beat, dead })
+        })
+        .collect()
 }
 
 fn rhythm_duration(r: Node) -> Option<Duration> {
@@ -453,7 +625,7 @@ fn beat_effects(bn: Node, beat: &mut Beat) {
     };
 }
 
-fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
+fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chord>) -> Option<Beat> {
     let rid = child(bn, "Rhythm")?.attribute("ref")?.parse::<i64>().ok()?;
     let duration = rhythm_duration(lookup(t.4, rid)?)?;
     let mut beat = Beat::rest(duration);
@@ -468,6 +640,7 @@ fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
         _ => Dynamic::Mf,
     };
     beat.text = text(bn, "FreeText").filter(|s| !s.is_empty()).map(str::to_string);
+    beat.chord = text(bn, "Chord").and_then(|id| id.parse::<i64>().ok()).and_then(|id| chords.get(&id)).cloned();
     beat_effects(bn, &mut beat);
     // The fraction is the slash count's note value as Guitar Pro writes it: 1/8 one slash, 1/4 two, 1/2 three.
     let tremolo = match text(bn, "Tremolo") {
@@ -499,6 +672,18 @@ fn build_beat(bn: Node, t: &Tables, place: Placement) -> Option<Beat> {
         e.let_ring = child(nn, "LetRing").is_some();
         e.ghost = child(nn, "AntiAccent").is_some();
         e.palm_mute = prop_on(nn, "PalmMuted");
+        let finger = |name: &str| match text(nn, name) {
+            Some("P") => Some(Finger::Thumb),
+            Some("I") => Some(Finger::Index),
+            Some("M") => Some(Finger::Middle),
+            Some("A") => Some(Finger::Ring),
+            Some("C") => Some(Finger::Little),
+            _ => None,
+        };
+        if matches!(place, Placement::Strings { .. }) {
+            e.left_finger = finger("LeftFingering");
+            e.right_finger = finger("RightFingering");
+        }
         let accent = text(nn, "Accent").and_then(|v| v.parse::<u8>().ok()).unwrap_or(0);
         e.accent = accent & 8 != 0;
         e.heavy_accent = accent & 4 != 0;

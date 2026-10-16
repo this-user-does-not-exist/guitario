@@ -9,15 +9,61 @@ use serde_json::{Value, json};
 const MAX_NAME: usize = 64;
 
 pub fn specs() -> Vec<CommandSpec> {
-    vec![cmd(
-        "beat.setChord",
-        "Chord",
-        "Beat",
-        None,
-        "name (empty clears), frets? (array per string, highest first: 0..=36 or null for not played), firstFret? (1..=36)",
-        true,
-        set_chord,
-    )]
+    vec![
+        cmd(
+            "beat.setChord",
+            "Chord",
+            "Beat",
+            None,
+            "name (empty clears), frets? (array per string, highest first: 0..=36 or null for not played), firstFret? (1..=36)",
+            true,
+            set_chord,
+        ),
+        cmd(
+            "beat.chordFromNotes",
+            "Chord from Notes",
+            "Beat",
+            None,
+            "name? (default: named from the notes, e.g. E5, Am7, D/F#); the diagram is the beat's notes",
+            true,
+            chord_from_notes,
+        ),
+    ]
+}
+
+/// The diagram of the beat under the cursor (its played notes, each string's fret), named from its
+/// pitches unless a name is given. The diagram starts at the nut when it fits in five frets.
+fn chord_from_notes(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let given = match params.get("name") {
+        None | Some(Value::Null) => None,
+        Some(_) => Some(p::string(params, "name")?.trim().to_string()),
+    };
+    if given.as_ref().is_some_and(|n| n.chars().count() > MAX_NAME) {
+        return Err(EngineError::BadParam(format!("`name` is longer than {MAX_NAME} characters")));
+    }
+    let track = s.score.tracks.get(s.cursor.track).ok_or_else(|| EngineError::invalid("no such track"))?;
+    if track.is_drums() {
+        return Err(EngineError::invalid("a drum beat has no chord diagram"));
+    }
+    let (tuning, capo) = (track.tuning.clone(), track.capo);
+    let key = s.score.headers.get(s.cursor.measure).map_or(0, |h| h.key);
+    let beat = s.beat_mut()?;
+    let mut frets: Vec<Option<u8>> = vec![None; tuning.string_count()];
+    let mut pitches = Vec::new();
+    for n in beat.notes.iter().filter(|n| n.kind != guitario_score::NoteKind::Dead) {
+        if let Some(slot) = frets.get_mut(usize::from(n.string)) {
+            *slot = Some(n.fret);
+            pitches.extend(tuning.pitch(usize::from(n.string), n.fret, capo).map(|p| p.0));
+        }
+    }
+    if pitches.is_empty() {
+        return Err(EngineError::invalid("the beat has no played notes to make a chord of"));
+    }
+    let fretted = frets.iter().flatten().copied().filter(|f| *f > 0);
+    let first_fret = if fretted.clone().max().unwrap_or(0) <= 5 { 1 } else { fretted.min().unwrap_or(1) };
+    let name = given.unwrap_or_else(|| guitario_theory::chord_name(&pitches, key < 0).unwrap_or_default());
+    beat.chord = Some(Chord { name: name.clone(), frets, first_fret });
+    Ok(json!({"name": name}))
 }
 
 fn set_chord(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
@@ -56,6 +102,39 @@ fn set_chord(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 mod tests {
     use crate::Session;
     use serde_json::json;
+
+    #[test]
+    fn a_chord_is_made_from_the_beat_and_named_from_its_notes() {
+        let mut s = Session::new();
+        assert!(s.run("beat.chordFromNotes", &json!({})).is_err(), "a rest has no chord");
+        // An A minor shape: x 0 2 2 1 0, entered string by string (string 0 is the high E).
+        for (string, fret) in [(4, 0), (3, 2), (2, 2), (1, 1), (0, 0)] {
+            s.run("cursor.set", &json!({"string": string})).unwrap();
+            s.run("note.setFret", &json!({"fret": fret})).unwrap();
+        }
+        let r = s.run("beat.chordFromNotes", &json!({})).unwrap();
+        assert_eq!(r["name"], "Am");
+        let c = s.score().tracks[0].measures[0].voices[0].beats[0].chord.clone().unwrap();
+        assert_eq!((c.frets, c.first_fret), (vec![Some(0), Some(1), Some(2), Some(2), Some(0), None], 1));
+        // A given name wins; up the neck the diagram starts at the lowest fret.
+        let mut s = Session::new();
+        for (string, fret) in [(5, 7), (4, 9), (3, 9)] {
+            s.run("cursor.set", &json!({"string": string})).unwrap();
+            s.run("note.setFret", &json!({"fret": fret})).unwrap();
+        }
+        assert_eq!(s.run("beat.chordFromNotes", &json!({})).unwrap()["name"], "B5");
+        assert_eq!(s.score().tracks[0].measures[0].voices[0].beats[0].chord.as_ref().map(|c| c.first_fret), Some(7));
+        s.run("beat.chordFromNotes", &json!({"name": "Riff chord"})).unwrap();
+        assert_eq!(s.score().tracks[0].measures[0].voices[0].beats[0].chord.as_ref().map(|c| c.name.as_str()), Some("Riff chord"));
+        for bad in [json!({"name": 5}), json!({"name": "x".repeat(65)})] {
+            assert!(s.run("beat.chordFromNotes", &bad).is_err(), "{bad}");
+        }
+        // Drums take none.
+        let mut d = Session::new();
+        d.run("track.addDrums", &json!({"name": "Drums"})).unwrap();
+        d.run("track.select", &json!({"index": 1})).unwrap();
+        assert!(d.run("beat.chordFromNotes", &json!({})).is_err());
+    }
 
     #[test]
     fn chords_are_named_drawn_from_frets_and_cleared() {

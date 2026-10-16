@@ -132,20 +132,58 @@ fn stroke_speed(ticks: u32) -> i8 {
 }
 
 /// Eighth notes per beaming group, as Guitar Pro stores them (four groups).
-fn beams(h: &MeasureHeader) -> [u8; 4] {
-    let ts = h.time_signature;
+/// Guitar Pro 5's "beam eighth notes by": four group sizes in eighths, repeated to fill the bar.
+/// `groups` (in the time signature's note value) as those four, when they can say it exactly.
+pub(crate) fn gp5_beams(ts: guitario_theory::TimeSignature, groups: &[u8]) -> Option<[u8; 4]> {
+    let den = u32::from(ts.denominator.max(1));
+    let eighths: Vec<u8> = groups
+        .iter()
+        .map(|g| {
+            let e = u32::from(*g) * 8;
+            (e % den == 0).then(|| u8::try_from(e / den).ok()).flatten().filter(|e| *e > 0)
+        })
+        .collect::<Option<_>>()?;
     let mut out = [0u8; 4];
-    if ts.denominator == 8 && ts.numerator.is_multiple_of(3) {
-        for g in out.iter_mut().take(usize::from(ts.numerator / 3)) {
-            *g = 3;
+    for (slot, e) in out.iter_mut().zip(&eighths) {
+        *slot = *e;
+    }
+    // More than four groups survive only when the first four, repeated, give them back.
+    (from_gp5_beams(ts, &out).as_deref() == Some(groups)).then_some(out)
+}
+
+/// The groups four Guitar Pro 5 sizes in eighths make in the time signature's note value, repeated
+/// until they fill the bar; `None` when they cannot be counted in that value.
+pub(crate) fn from_gp5_beams(ts: guitario_theory::TimeSignature, bytes: &[u8; 4]) -> Option<Vec<u8>> {
+    let den = u32::from(ts.denominator.max(1));
+    let units: Vec<u32> = bytes.iter().filter(|b| **b > 0).map(|b| (u32::from(*b) * den % 8 == 0).then_some(u32::from(*b) * den / 8)).collect::<Option<_>>()?;
+    let total = u32::from(ts.numerator);
+    if units.is_empty() || units.contains(&0) {
+        return None;
+    }
+    let mut out = Vec::new();
+    let mut sum = 0u32;
+    for u in units.iter().cycle().take(MAX_BEAM_GROUPS) {
+        if sum >= total {
+            break;
         }
-    } else {
+        let g = (*u).min(total - sum);
+        out.push(u8::try_from(g).ok()?);
+        sum += g;
+    }
+    Some(out)
+}
+
+/// The four sizes Guitar Pro 5 gets for a time signature's usual grouping (one beat each when that
+/// cannot be said exactly), so a file written here reads back with the usual grouping.
+pub(crate) fn default_gp5_beams(ts: guitario_theory::TimeSignature) -> [u8; 4] {
+    gp5_beams(ts, &default_beaming(ts)).unwrap_or_else(|| {
         let per_beat = u8::try_from((8 / u32::from(ts.denominator.max(1))).max(1)).unwrap_or(1);
+        let mut out = [0u8; 4];
         for g in out.iter_mut().take(usize::from(ts.numerator)) {
             *g = per_beat;
         }
-    }
-    out
+        out
+    })
 }
 
 impl Writer {
@@ -160,11 +198,18 @@ impl Writer {
         for l in notice {
             self.int_byte_string(l);
         }
-        // Lyrics: the track, then five lines of (first measure, text).
-        self.i32(1);
-        for _ in 0..5 {
-            self.i32(1);
-            self.int_string("");
+        // Lyrics: the track, then five lines of (first measure, text), all 1-based. Guitar Pro 5
+        // keeps one track's lyrics: the first track that has any.
+        let mut with_lyrics = score.tracks.iter().enumerate().filter(|(_, t)| !t.lyrics.is_empty());
+        let first = with_lyrics.next();
+        if with_lyrics.next().is_some() {
+            self.drop("lyrics on a second track");
+        }
+        self.i32(first.map_or(1, |(i, _)| i32::try_from(i + 1).unwrap_or(1)));
+        for k in 0..MAX_LYRIC_LINES {
+            let line = first.and_then(|(_, t)| t.lyrics.get(k));
+            self.i32(line.map_or(1, |l| i32::try_from(l.measure + 1).unwrap_or(1)));
+            self.int_string(line.map_or("", |l| l.text.as_str()));
         }
         // RSE master effect: volume, a reserved int, an 11-band equalizer.
         self.i32(100);
@@ -290,6 +335,10 @@ impl Writer {
             if prev.is_none_or(|p| p.time_signature.denominator != ts.denominator) {
                 flags |= 0x02;
             }
+            // The beaming is written with the time signature, so a change of beaming writes both.
+            if prev.is_some_and(|p| p.beaming() != h.beaming()) {
+                flags |= 0x03;
+            }
             if h.repeat_open {
                 flags |= 0x04;
             }
@@ -328,7 +377,14 @@ impl Writer {
                 self.u8(0); // major
             }
             if flags & 0x03 != 0 {
-                let b = beams(h);
+                let b = if h.beams.is_empty() {
+                    default_gp5_beams(ts)
+                } else {
+                    gp5_beams(ts, &h.beams).unwrap_or_else(|| {
+                        self.drop("beam groupings");
+                        default_gp5_beams(ts)
+                    })
+                };
                 self.out.extend(b);
             }
             self.u8(h.endings);
@@ -344,6 +400,9 @@ impl Writer {
             self.u8(feel);
             if h.free_time {
                 self.drop("free-time bars");
+            }
+            if !h.fermatas.is_empty() {
+                self.drop("fermatas");
             }
             prev = Some(h);
         }
@@ -607,6 +666,7 @@ impl Writer {
             || e.harmonic.is_some()
             || e.vibrato
             || e.trill.is_some()
+            || e.grace.is_some()
             || tremolo.is_some();
         let mut flags = 0x20u8;
         if e.heavy_accent {
@@ -624,6 +684,9 @@ impl Writer {
         if e.accent {
             flags |= 0x40;
         }
+        if e.left_finger.is_some() || e.right_finger.is_some() {
+            flags |= 0x80;
+        }
         if e.left_hand_tapped {
             self.drop("left-hand tapping marks");
         }
@@ -637,13 +700,18 @@ impl Writer {
             self.i8(velocity_of(dynamic));
         }
         self.i8(i8::try_from(n.fret).unwrap_or(i8::MAX));
+        if flags & 0x80 != 0 {
+            let finger = |f: Option<Finger>| f.map_or(-1, |f| i8::try_from(f.index()).unwrap_or(-1));
+            self.i8(finger(e.left_finger));
+            self.i8(finger(e.right_finger));
+        }
         self.u8(0); // accidental spelling
         if has_fx {
-            self.note_effects(n, tremolo);
+            self.note_effects(n, dynamic, tremolo);
         }
     }
 
-    fn note_effects(&mut self, n: &Note, tremolo: Option<TremoloSpeed>) {
+    fn note_effects(&mut self, n: &Note, dynamic: Dynamic, tremolo: Option<TremoloSpeed>) {
         let e = &n.effects;
         let mut f1 = 0u8;
         let mut f2 = 0u8;
@@ -661,6 +729,9 @@ impl Writer {
         }
         if e.let_ring {
             f1 |= 0x08;
+        }
+        if e.grace.is_some() {
+            f1 |= 0x10;
         }
         if e.staccato {
             f2 |= 0x01;
@@ -690,6 +761,22 @@ impl Writer {
                 self.i32(value);
                 self.u8(0);
             }
+        }
+        if let Some(g) = e.grace {
+            self.u8(g.fret);
+            self.i8(velocity_of(dynamic));
+            self.u8(match g.transition {
+                GraceTransition::None => 0,
+                GraceTransition::Slide => 1,
+                GraceTransition::Bend => 2,
+                GraceTransition::Hammer => 3,
+            });
+            self.u8(match g.duration {
+                GraceDuration::SixtyFourth => 1,
+                GraceDuration::ThirtySecond => 2,
+                GraceDuration::Sixteenth => 3,
+            });
+            self.u8(u8::from(g.dead) | u8::from(g.on_beat) << 1);
         }
         if let Some(speed) = tremolo {
             self.u8(speed.slashes());

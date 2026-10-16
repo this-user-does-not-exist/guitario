@@ -1,4 +1,4 @@
-use guitario_score::{Score, playback_order};
+use guitario_score::{Hold, Score, playback_order};
 use guitario_theory::TICKS_PER_QUARTER;
 
 /// One measure as played (repeats unrolled).
@@ -9,6 +9,27 @@ pub struct Segment {
     pub ticks: u32,
     pub start_sec: f64,
     pub sec_per_tick: f64,
+    /// Fermatas: stretches of the bar that last longer than written.
+    pub holds: Vec<Hold>,
+}
+
+impl Segment {
+    /// Seconds from the start of the bar to `offset` ticks into it, fermatas included.
+    pub fn sec_at(&self, offset: u32) -> f64 {
+        let extra: f64 = self.holds.iter().map(|h| f64::from(offset.saturating_sub(h.at).min(h.ticks)) * (h.stretch - 1.0).max(0.0)).sum();
+        (f64::from(offset) + extra) * self.sec_per_tick
+    }
+
+    /// Seconds the whole bar lasts.
+    pub fn duration(&self) -> f64 {
+        self.sec_at(self.ticks)
+    }
+
+    /// Seconds per tick at `offset` ticks into the bar.
+    pub fn rate_at(&self, offset: u32) -> f64 {
+        let held = self.holds.iter().find(|h| offset >= h.at && offset < h.at.saturating_add(h.ticks));
+        self.sec_per_tick * held.map_or(1.0, |h| h.stretch.max(1.0))
+    }
 }
 
 /// When a beat of one track sounds.
@@ -32,9 +53,10 @@ impl TempoMap {
         for mi in playback_order(score) {
             let ticks = score.headers.get(mi).map_or(0, |h| h.capacity());
             let sec_per_tick = 60.0 / (f64::from(score.tempo_at(mi).max(1)) * f64::from(TICKS_PER_QUARTER));
-            segments.push(Segment { measure: mi, start_tick: tick, ticks, start_sec: sec, sec_per_tick });
+            let seg = Segment { measure: mi, start_tick: tick, ticks, start_sec: sec, sec_per_tick, holds: score.holds(mi) };
             tick += u64::from(ticks);
-            sec += f64::from(ticks) * sec_per_tick;
+            sec += seg.duration();
+            segments.push(seg);
         }
         TempoMap { segments, total_sec: sec }
     }
@@ -45,12 +67,20 @@ impl TempoMap {
     }
 
     pub fn tick_to_sec(&self, tick: u64) -> f64 {
-        self.segment_at_tick(tick).map_or(0.0, |s| s.start_sec + (tick.saturating_sub(s.start_tick)) as f64 * s.sec_per_tick)
+        self.segment_at_tick(tick).map_or(0.0, |s| {
+            let offset = tick.saturating_sub(s.start_tick);
+            // Past the last bar time runs on at its tempo.
+            match u32::try_from(offset).ok().filter(|o| *o <= s.ticks) {
+                Some(o) => s.start_sec + s.sec_at(o),
+                None => s.start_sec + s.duration() + (offset - u64::from(s.ticks)) as f64 * s.sec_per_tick,
+            }
+        })
     }
 
     /// Seconds per tick at `tick`.
     pub fn rate_at(&self, tick: u64) -> f64 {
-        self.segment_at_tick(tick).map_or(60.0 / (120.0 * f64::from(TICKS_PER_QUARTER)), |s| s.sec_per_tick)
+        self.segment_at_tick(tick)
+            .map_or(60.0 / (120.0 * f64::from(TICKS_PER_QUARTER)), |s| s.rate_at(u32::try_from(tick.saturating_sub(s.start_tick)).unwrap_or(u32::MAX)))
     }
 
     /// Every beat of a track in playback order, for following the cursor during playback.
@@ -61,8 +91,8 @@ impl TempoMap {
             let Some(voice) = t.measures.get(seg.measure).and_then(|m| m.voices.first()) else { continue };
             let mut at = 0u32;
             for (bi, b) in voice.beats.iter().enumerate() {
-                out.push(BeatTime { sec: seg.start_sec + f64::from(at) * seg.sec_per_tick, measure: seg.measure, beat: bi });
-                at += b.duration.ticks();
+                out.push(BeatTime { sec: seg.start_sec + seg.sec_at(at), measure: seg.measure, beat: bi });
+                at = at.saturating_add(b.duration.ticks());
             }
         }
         out
@@ -94,6 +124,29 @@ mod tests {
         assert!((m.tick_to_sec(u64::from(5 * TICKS_PER_QUARTER)) - 4.5).abs() < 1e-9);
         s.headers[1].repeat_close = 1;
         assert!((TempoMap::new(&s).total_sec - 12.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_fermata_holds_its_beat_in_every_track_and_moves_what_follows() {
+        use guitario_score::{Beat, Fermata, FermataKind, Note};
+        use guitario_theory::Duration;
+        let mut s = Score::new();
+        s.tempo = 60;
+        let note = Beat { rest: false, notes: vec![Note::new(0, 5)], ..Beat::rest(Duration::QUARTER) };
+        s.tracks[0].measures[0].voices[0].beats = vec![note.clone(), note.clone(), note.clone(), note];
+        let q = u64::from(TICKS_PER_QUARTER);
+        // A long fermata on beat 2 holds it three times as long: 1 + 3 + 1 + 1 seconds.
+        s.headers[0].fermatas = vec![Fermata { tick: TICKS_PER_QUARTER, kind: FermataKind::Long, length: 0 }];
+        let m = TempoMap::new(&s);
+        assert!((m.total_sec - 6.0).abs() < 1e-9, "{}", m.total_sec);
+        assert!((m.tick_to_sec(q) - 1.0).abs() < 1e-9);
+        assert!((m.tick_to_sec(q + q / 2) - 2.5).abs() < 1e-9, "halfway through the held beat");
+        assert!((m.tick_to_sec(2 * q) - 4.0).abs() < 1e-9);
+        assert!((m.rate_at(q) / m.rate_at(0) - 3.0).abs() < 1e-9);
+        let beats = m.beat_times(&s, 0);
+        assert_eq!(beats.iter().map(|b| b.sec.round() as i64).collect::<Vec<_>>(), vec![0, 1, 4, 5]);
+        // Past the end time runs on at the bar's tempo.
+        assert!((m.tick_to_sec(5 * q) - 7.0).abs() < 1e-9);
     }
 
     #[test]

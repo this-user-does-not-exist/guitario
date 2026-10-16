@@ -143,6 +143,19 @@ fn specific_pieces_have_their_signature_features() {
     // repeat plays twice.
     let picks = guitario_score::timeline(bm.score()).iter().filter(|p| p.track == 0 && p.measure == 0).count();
     assert_eq!(picks, 2 * 4 * 8);
+    // The power-metal verse is sung: one syllable on every note of its four bars, none left over.
+    let pm = load("steel-horizon");
+    let lead = &pm.score().tracks[0];
+    let sung = guitario_score::dispatch_lyrics(lead, &lead.lyrics[0]);
+    let notes: usize = lead.measures.iter().take(4).map(|m| m.voices[0].beats.iter().filter(|b| !b.rest).count()).sum();
+    assert_eq!(sung.len(), notes);
+    assert_eq!(guitario_score::syllables(&lead.lyrics[0].text).len(), notes);
+    assert!(sung.iter().all(|(m, _, _)| *m < 4));
+    // The solo's last note is held under a long fermata, so the piece lasts longer than written.
+    let solo = load("fretboard");
+    let last = solo.score().headers.len() - 1;
+    assert_eq!(solo.score().headers[last].fermatas.first().map(|f| (f.tick, f.kind)), Some((0, guitario_score::FermataKind::Long)));
+    assert_eq!(solo.score().holds(last).first().map(|h| h.stretch), Some(3.0));
     // Djent is on a seven-string.
     assert_eq!(load("seven-strings").score().tracks[0].string_count(), 7);
     // The power-metal demo has twin leads, rhythm, bass and drums.
@@ -161,6 +174,12 @@ fn specific_pieces_have_their_signature_features() {
     for speed in guitario_score::TrillSpeed::ALL {
         assert!(notes.iter().any(|n| n.effects.trill.is_some_and(|t| t.speed == speed)), "{speed:?}");
     }
+    // Grace notes with every way into the note, one of them on the beat.
+    for transition in guitario_score::GraceTransition::ALL {
+        assert!(notes.iter().any(|n| n.effects.grace.is_some_and(|g| g.transition == transition)), "{transition:?}");
+    }
+    assert!(notes.iter().any(|n| n.effects.grace.is_some_and(|g| g.on_beat)));
+    assert!(notes.iter().any(|n| n.effects.left_finger.is_some()) && notes.iter().any(|n| n.effects.right_finger.is_some()));
     assert!(notes.iter().any(|n| n.kind == guitario_score::NoteKind::Dead) && notes.iter().any(|n| n.kind == guitario_score::NoteKind::Tie));
 }
 
@@ -201,11 +220,16 @@ fn every_guitar_pro_5_copy_opens_as_its_score() {
             assert_eq!(notes(ta), notes(tb), "{name}: track `{}`", ta.name);
         }
     }
-    // The ballad's chord names travel too.
+    // The ballad's chord names and diagrams travel too, and each name is what its diagram sounds.
     let (_, path) = scores().into_iter().find(|(n, _)| n.contains("ashes")).unwrap();
-    let chords: Vec<String> =
-        open(&path).score().tracks[0].measures.iter().filter_map(|m| m.voices[0].beats[0].chord.as_ref()).map(|c| c.name.clone()).collect();
-    assert_eq!(chords.get(..4), Some(&["Am", "F", "C", "G"].map(String::from)[..]));
+    let ballad = open(&path);
+    let track = &ballad.score().tracks[0];
+    let chords: Vec<guitario_score::Chord> = track.measures.iter().filter_map(|m| m.voices[0].beats[0].chord.clone()).collect();
+    assert_eq!(chords.iter().take(4).map(|c| c.name.as_str()).collect::<Vec<_>>(), ["Am", "Fmaj7", "C", "G"]);
+    for c in &chords {
+        let pitches: Vec<u8> = c.frets.iter().enumerate().filter_map(|(i, f)| track.tuning.pitch(i, (*f)?, track.capo)).map(|p| p.0).collect();
+        assert_eq!(guitario_theory::chord_name(&pitches, false).as_deref(), Some(c.name.as_str()), "{c:?}");
+    }
 }
 
 #[test]

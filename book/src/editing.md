@@ -8,6 +8,15 @@
 - Select with Shift+arrows, a drag or Shift+click; ⌘C, ⌘X, ⌘V copy, cut and paste; ⌘↑/⌘↓ transpose.
   Techniques and dynamics apply to everything selected.
 - Click a fret on the fretboard to put that note under the cursor.
+- **Note › Grace Note…** adds a small quick note before the one under the cursor: pick its fret and
+  length, whether it comes before the beat or on it, and whether it slides, bends or hammers into
+  the note. **Note › Trill…** and **Note › Tremolo Picking…** work the same way.
+- **Track › Lyrics…** holds up to five lines of words for the track, each from a bar you choose. Each
+  syllable goes under the next note: split words with spaces or hyphens (`ho-ri-zon`), join two
+  words on one note with `+`, skip a note with a lone `-`, and put notes to yourself in `[brackets]`.
+- **Tools › Chord Diagrams…** puts a chord name and diagram over the beat under the cursor. It
+  starts from the notes you entered and names them (E5, Am7, D/F#); click the frets to change the
+  shape, above the nut to switch a string between open and not played, and **Name it** to rename.
 
 ## Drums
 

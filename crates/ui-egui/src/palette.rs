@@ -253,6 +253,28 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 }
             });
             ui.end_row();
+            // A fermata over the cursor beat.
+            let at: u32 = score
+                .tracks
+                .get(c.track)
+                .and_then(|t| t.measures.get(c.measure))
+                .and_then(|m| m.voices.get(c.voice))
+                .map_or(0, |v| v.beats.iter().take(c.beat).map(|b| b.duration.ticks()).sum());
+            let held = header.as_ref().and_then(|h| h.fermatas.iter().find(|f| f.tick == at)).map(|f| f.kind);
+            let r = cell(ui, fonts, Art::Glyph(g::FERMATA, 4.0), held.is_some(), true, "Fermata");
+            egui::Popup::menu(&r).show(|ui| {
+                for (kind, label) in [("short", "Short fermata"), ("medium", "Fermata"), ("long", "Long fermata")] {
+                    if ui.button(label).clicked() {
+                        actions.push(("beat.setFermata", json!({"kind": kind})));
+                        ui.close();
+                    }
+                }
+                if ui.add_enabled(held.is_some(), egui::Button::new("Remove fermata")).clicked() {
+                    actions.push(("beat.setFermata", json!({"kind": "none"})));
+                    ui.close();
+                }
+            });
+            ui.end_row();
             if cell(ui, fonts, Art::Text("+ |"), false, true, "Insert bar before").clicked() {
                 actions.push(("measure.insert", Value::Null));
             }

@@ -147,3 +147,99 @@ slashes (the order the real tremolo test file lists them in, and what other read
 `<Trill>` is the MIDI pitch of the other note and its period an `XProperty` in 960ths of a quarter
 (240, 120, 60), from a single real sample, whose trill pitch equals its own so it is ignored. The
 exports have not been opened in Guitar Pro 8 (human check), as for the rest of `.gp` export.
+
+## 2026-10-16: A grace note belongs to the note it ornaments
+
+Guitar Pro 3-5 keeps one grace note per note (fret, dynamic, transition, length, flags); GPIF
+writes grace notes as beats of their own, before the beat, that take no time. Grace beats would
+make every duration sum, cursor move, selection and column in the editor skip beats that do not
+count, so the model follows Guitar Pro 5: `NoteEffects::grace` (a fret, sixteenth to sixty-fourth,
+before or on the beat, a transition, dead). The GPIF reader folds a grace beat into the next beat's
+notes on the same string (a second grace note on one string keeps the nearer one, and one with no
+struck note after it is dropped, both with a warning); the writer emits one grace beat per kind
+(before or on the beat, and length) a beat's grace notes use, so mixed kinds survive the trip.
+
+Playback: before the beat, the grace note ends where the beat starts and the note before it on the
+string is cut short; on the beat, it starts with the beat and the note is delayed by its length
+(never beyond the beat). A grace note on the first beat of a piece has no time to take from, so it
+goes on the beat. A slid or hammered grace note leads legato into the note; a bent one bends up to
+the note's pitch, which then carries on without a new pluck. A tied note takes no grace note.
+The GP3-5 byte order (fret, dynamic, transition, duration, then GP5 flags) was confirmed on public
+GP3, GP4 and GP5 test files, which read the same grace notes as the GP6 and GP7 copies.
+
+## 2026-10-16: Chord diagrams come from Guitar Pro's diagram collection; names from the notes
+
+GPIF keeps a track's chords once, as `DiagramCollection` items on the staff (on the track in
+Guitar Pro 6), and a beat names one by id. A diagram's frets count from its `baseFret` (0 is an
+open string whatever the base), and its strings from the lowest; the model keeps absolute frets,
+highest string first, with `first_fret = baseFret + 1`, which is what Guitar Pro 5 calls the base
+fret: the GP5, GP6 and GP7 copies of one public chord file read the same. The writer lists each
+distinct chord of a track once and starts its diagram at the chord's first fret, or lower when a
+fret sits below it; a chord without a diagram is an item with a name only.
+
+Diagrams are drawn under the names, so a track with any gets a taller lane above every system,
+and a column holding one is at least as wide as the diagram. A barre is a drawing guess (Guitar
+Pro stores fingering, the model does not): the lowest fret held across three or more strings with
+nothing open or muted between them, and none at all when any string is open, so an open D is not
+barred. The chord namer (`guitario_theory::chord_name`) matches the pitch-class set against shapes
+in order of how common they are, trying the bass note as the root first, so C E G A over C is C6
+and over A is Am7; another root gets a slash bass (D/F#).
+
+## 2026-10-16: Lyrics are typed text, laid on the beats when drawn
+
+Guitar Pro 4-5 keep lyrics as text: five lines for one track, each from a bar. GPIF keeps the same
+lines per track and, when "dispatched", the syllable each beat carries. The model keeps the typed
+lines (`Track::lyrics`, up to five, each a 0-based bar and text) and lays them on the beats when
+they are drawn or written (`guitario_score::dispatch_lyrics`), so inserting a note moves the words
+along as it does in Guitar Pro. The syllable rules follow Guitar Pro's lyrics editor as other
+readers document it: whitespace and hyphens split, `+` joins words on one note, a lone `-` skips a
+note, trailing `_` is dropped and `[...]` is a comment; syllables go to the first voice's beats from
+the line's bar, skipping rests (ties are sung on, as alphaTab reads Guitar Pro files). The GPIF
+reader prefers the typed lines and rebuilds lines from the beats' syllables only when every line is
+empty (joining words on one beat with `+` and marking a skipped beat with `-`); the writer writes
+both. A `.gp5` holds one track's lyrics, so the first track with lyrics goes out and any other is
+reported.
+
+Lyrics are drawn in a lane under the tab (under the drum staff on a drum track), one row per line,
+rather than between the notation and the tab where Guitar Pro puts a vocal staff's words: that gap
+holds the effect lanes, and under the tab the words stay in the same place with notation hidden.
+
+## 2026-10-16: A fermata stretches time, not ticks
+
+GPIF keeps fermatas on the master bar (a type, where in the bar as a fraction of a quarter note, and
+a length), so the model does too (`MeasureHeader::fermatas`, by tick). Holding a beat longer by
+moving ticks would pull the tracks apart, so playback stretches time instead: the tempo map gives
+each bar its fermata holds (`Score::holds`: from the fermata to the next moment a beat starts in any
+track or voice) and plays them 1.5, 2 or 3 times as long for short, medium and long. Ticks, the
+timeline and every track stay as written; MIDI export writes the hold as a slower tempo and the
+bar's tempo after it. What Guitar Pro's `Length` does to playback is not documented, so it is kept
+for the trip back to a `.gp` file and not used. Guitar Pro 5 has no fermatas.
+
+## 2026-10-16: Beam groups are counted in the signature's note value
+
+Guitar Pro 5 stores "beam eighth notes by" (four sizes in eighths) with each time signature; an
+eighth cannot say 13/16 as 4+4+5, so the model counts a bar's groups in its own note value
+(`MeasureHeader::beams`, empty for the usual grouping) and converts at the file boundary: four
+sizes are repeated to fill the bar, and a grouping that cannot be said in eighths, or needs more
+than four sizes that do not repeat, is reported and written as the usual one. The usual groupings
+(`default_beaming`) are one beat each when the beat is a quarter or longer, dotted quarters in
+compound time, twos with a closing three in other eighth meters (7/8 as 2+2+3) and quarter notes'
+worth in shorter meters with up to half a group's remainder joining the last (13/16 as 4+4+5). The
+bytes this writer produces for a usual grouping read back as "usual", so files round-trip.
+
+Beams slope with the outer notes of their group, by at most a staff space, and lie flat when an
+inner note reaches past both ends; the beam then moves away from the heads until no stem is
+shorter than the note alone would want. The rhythm under a tab-only staff keeps flat beams, as
+Guitar Pro draws it.
+
+## 2026-10-16: Layouts and the multitrack view share one layout pass
+
+The layout takes parts (one track, or every track in the multitrack view) and lays their bars out
+together: the columns of a bar are the moments a beat starts in any voice of any track, so tracks
+line up in time, and a system is as tall as its parts stacked. The cursor's track draws the cursor,
+selection and playback mark; the top part alone draws the bar number, tempo, section marker,
+endings, directions and triplet feel, and the parts below it have less room above. The screen
+layout is a page as wide as the window and endless in height (no page breaks, no page number, the
+title kept); the horizontal layout is endless both ways with one unjustified system and no title.
+Layout mode and multitrack are view state in the shell, saved in the preferences, not in the
+score. Printing and PDF still lay out one track at a time in pages.

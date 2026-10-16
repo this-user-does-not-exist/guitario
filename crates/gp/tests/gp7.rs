@@ -36,15 +36,14 @@ fn every_demo_survives_guitar_pro_8() {
 }
 
 #[test]
-fn a_riff_with_every_effect_round_trips_and_what_is_left_out_is_said() {
+fn a_riff_with_every_effect_round_trips_and_nothing_is_left_out() {
     let s = riff();
     let (back, warnings, import_warnings) = round_trip(&s);
     assert!(import_warnings.is_empty(), "{import_warnings:?}");
     assert_same("riff", &as_gp(&s), &back);
-    // The riff has a chord diagram and a track with a non-default mix.
-    let all = warnings.join("\n");
-    assert!(all.contains("chord names and diagrams"), "{all}");
-    assert!(back.tracks[0].measures[0].voices[0].beats[0].chord.is_none());
+    // Nothing the riff carries is left out; its chord diagram comes back.
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert_eq!(back.tracks[0].measures[0].voices[0].beats[0].chord, s.tracks[0].measures[0].voices[0].beats[0].chord);
     // Everything else the riff carries came back: effects, ties, voices, repeats, endings, jumps.
     let h = &back.headers[1];
     assert_eq!((h.repeat_close, h.endings, h.jump, h.double_bar), (3, 0b101, Some(Jump::DalSegno(JumpEnd::Fine)), true));
@@ -137,6 +136,104 @@ fn ties_mark_both_ends_and_hammer_ons_mark_their_target() {
     let xml = score_gpif(&export_gp(&s).unwrap().bytes);
     assert_eq!(xml.matches("name=\"HopoOrigin\"").count(), 1);
     assert_eq!(xml.matches("name=\"HopoDestination\"").count(), 1);
+}
+
+#[test]
+fn grace_notes_are_written_as_grace_beats_before_their_beat() {
+    let s = riff();
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    assert!(xml.contains("<GraceNotes>BeforeBeat</GraceNotes>") && xml.contains("<GraceNotes>OnBeat</GraceNotes>"), "{xml}");
+    // A chord whose notes have grace notes of two kinds gets one grace beat per kind.
+    let mut s = riff();
+    let mut a = Note::new(0, 5);
+    a.effects.grace = Some(Grace::new(3));
+    let mut b = Note::new(1, 5);
+    b.effects.grace = Some(Grace { on_beat: true, ..Grace::new(7) });
+    let mut c = Note::new(2, 5);
+    c.effects.grace = Some(Grace::new(4));
+    s.tracks[0].measures[1].voices =
+        vec![Voice { beats: vec![Beat { rest: false, notes: vec![a, b, c], ..Beat::rest(Duration { dots: 1, ..Duration::WHOLE }) }] }];
+    s.headers[1].time_signature = guitario_theory::TimeSignature { numerator: 6, denominator: 4 };
+    assert!(s.validate().is_ok());
+    let out = export_gp(&s).unwrap();
+    assert_eq!(score_gpif(&out.bytes).matches("<GraceNotes>").count(), 2 + 5, "two for the chord, five in bar 1");
+    let back = import(&out.bytes).unwrap();
+    assert!(back.warnings.is_empty(), "{:?}", back.warnings);
+    let notes = &back.score.tracks[0].measures[1].voices[0].beats[0].notes;
+    assert_eq!(notes.iter().map(|n| n.effects.grace).collect::<Vec<_>>(), vec![a.effects.grace, b.effects.grace, c.effects.grace]);
+}
+
+#[test]
+fn a_grace_beat_with_nothing_to_ornament_is_reported() {
+    let s = riff();
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    // Turn the first grace beat's target into a rest: the grace note has no note to belong to.
+    let first = xml.find("<GraceNotes>BeforeBeat</GraceNotes>").unwrap();
+    let beat_start = xml[first..].find("</Beat>").unwrap() + first;
+    let next_notes = xml[beat_start..].find("<Notes>").unwrap() + beat_start;
+    let end = xml[next_notes..].find("</Notes>").unwrap() + next_notes + "</Notes>".len();
+    let broken = format!("{}{}", &xml[..next_notes], &xml[end..]);
+    let imp = guitario_gp::parse_gpif(&broken).unwrap();
+    assert!(imp.warnings.iter().any(|w| w.contains("grace notes")), "{:?}", imp.warnings);
+    assert!(imp.score.validate().is_ok());
+}
+
+#[test]
+fn chords_are_listed_once_per_track_with_frets_from_their_base_fret() {
+    let mut s = riff();
+    let barre = Chord { name: "D <5> & \"x\"".into(), frets: vec![Some(5), Some(7), Some(7), Some(7), Some(5), None], first_fret: 5 };
+    let named = Chord::named("N.C.");
+    let beats = &mut s.tracks[0].measures[0].voices[0].beats;
+    beats[1].chord = Some(barre.clone());
+    beats[2].chord = Some(barre.clone());
+    beats[3].chord = Some(named.clone());
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    // Three distinct chords on the guitar: D5, the barre and the name; the barre is listed once.
+    assert_eq!(xml.matches("<Item id=").count(), 3, "{xml}");
+    assert!(xml.contains("baseFret=\"4\"") && xml.contains("<Fret string=\"1\" fret=\"1\"/>"), "relative to the base fret");
+    assert!(xml.contains("name=\"D &lt;5&gt; &amp; &quot;x&quot;\""), "names are escaped");
+    let (back, _, warnings) = round_trip(&s);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let got: Vec<_> = back.tracks[0].measures[0].voices[0].beats.iter().map(|b| b.chord.clone()).collect();
+    assert_eq!(got[..4], [s.tracks[0].measures[0].voices[0].beats[0].chord.clone(), Some(barre.clone()), Some(barre), Some(named)]);
+    // A chord on a drum track is said to be left out.
+    let mut d = riff();
+    d.tracks[1].measures[0].voices[0].beats[0].chord = Some(Chord::named("X"));
+    let out = export_gp(&d).unwrap();
+    assert!(out.warnings.iter().any(|w| w.contains("drum tracks")), "{:?}", out.warnings);
+}
+
+#[test]
+fn lyrics_are_written_as_typed_and_on_their_beats_and_read_from_either() {
+    let s = riff();
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    assert!(xml.contains("<Lyrics dispatched=\"true\">") && xml.contains("<Offset>1</Offset>"), "the lines as typed");
+    assert!(xml.contains("<Line><![CDATA[Ün-]]></Line>") && xml.contains("<Line><![CDATA[riff again]]></Line>"), "syllables on beats");
+    // Without the typed lines, the beats' syllables give the same lyrics back.
+    let start = xml.find("<Lyrics dispatched=\"true\">").unwrap();
+    let end = xml[start..].find("</Lyrics>").unwrap() + start + "</Lyrics>".len();
+    let beats_only = format!("{}{}", &xml[..start], &xml[end..]);
+    let back = guitario_gp::parse_gpif(&beats_only).unwrap().score;
+    let sung = |s: &Score, k: usize| {
+        let t = &s.tracks[0];
+        t.lyrics.get(k).map(|l| dispatch_lyrics(t, l).into_iter().map(|(m, b, x)| (m, b, x.text, x.hyphen)).collect::<Vec<_>>()).unwrap_or_default()
+    };
+    for k in 0..2 {
+        assert!(!sung(&s, k).is_empty());
+        assert_eq!(sung(&back, k), sung(&s, k), "line {}", k + 1);
+    }
+}
+
+#[test]
+fn fermatas_are_written_where_they_fall_as_a_fraction_of_a_quarter() {
+    let xml = score_gpif(&export_gp(&riff()).unwrap().bytes);
+    assert!(xml.contains("<Fermata><Type>Short</Type><Offset>0/1</Offset><Length>0.26</Length></Fermata>"), "{xml}");
+    assert!(xml.contains("<Fermata><Type>Long</Type><Offset>3/2</Offset><Length>1</Length></Fermata>"));
+    // Hostile offsets are dropped, not trusted.
+    let hostile = xml.replace("<Offset>3/2</Offset>", "<Offset>99/0</Offset>").replace("<Offset>0/1</Offset>", "<Offset>400/1</Offset>");
+    let back = guitario_gp::parse_gpif(&hostile).unwrap().score;
+    assert!(back.validate().is_ok());
+    assert!(back.headers[0].fermatas.len() <= 1);
 }
 
 #[test]

@@ -32,6 +32,9 @@ pub const SEGNO: char = '\u{E047}';
 pub const CODA: char = '\u{E048}';
 /// codaSquare, used for the double coda.
 pub const CODA_SQUARE: char = '\u{E049}';
+pub const FERMATA: char = '\u{E4C0}';
+pub const FERMATA_SHORT: char = '\u{E4C4}';
+pub const FERMATA_LONG: char = '\u{E4C6}';
 pub const REST_WHOLE: char = '\u{E4E3}';
 pub const REST_HALF: char = '\u{E4E4}';
 pub const REST_QUARTER: char = '\u{E4E5}';
@@ -234,6 +237,20 @@ impl Pen<'_> {
                 p.line_segment([c - vec2(0.0, 0.9 * s), c + vec2(0.0, 0.9 * s)], stroke);
                 p.line_segment([c - vec2(0.9 * s, 0.0), c + vec2(0.9 * s, 0.0)], stroke);
             }
+            FERMATA | FERMATA_SHORT | FERMATA_LONG => {
+                // An arch (a peak, a box for the long one) over a dot sitting on the baseline.
+                let (l, r, top) = (at.x, at.x + w, at.y - 1.3 * s);
+                match c {
+                    FERMATA_SHORT => {
+                        p.add(egui::Shape::line(vec![pos2(l, at.y), pos2((l + r) / 2.0, top), pos2(r, at.y)], stroke));
+                    }
+                    FERMATA_LONG => {
+                        p.add(egui::Shape::line(vec![pos2(l, at.y), pos2(l, top), pos2(r, top), pos2(r, at.y)], stroke));
+                    }
+                    _ => arc(p, pos2(l, at.y), pos2(r, at.y), -1.4 * s, stroke),
+                }
+                p.circle_filled(pos2((l + r) / 2.0, at.y - 0.2 * s), 0.2 * s, color);
+            }
             STACCATO_ABOVE => {
                 p.circle_filled(at + vec2(0.2 * s, -0.2 * s), 0.18 * s, color);
             }
@@ -280,6 +297,7 @@ fn fallback_width(c: char) -> f32 {
         PERC_CLEF => 1.8,
         REST_WHOLE | REST_HALF => 1.1,
         SHARP | NATURAL => 1.0,
+        FERMATA | FERMATA_SHORT | FERMATA_LONG => 2.0,
         FLAT => 0.9,
         DOT => 0.5,
         _ => 1.2,

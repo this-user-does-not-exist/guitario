@@ -2,7 +2,7 @@
 //! [`crate::gpif`] reads it.
 //!
 //! Every bar, voice, beat and note gets its own id (nothing is shared, which is valid and keeps the
-//! writer simple); rhythms are shared. Strings count from the lowest, as in Guitar Pro. What the
+//! writer simple); rhythms are shared, and chords are listed once per track. Strings count from the lowest, as in Guitar Pro. What the
 //! file format can hold but the importer or model does not carry yet is left out and counted in
 //! [`Export::warnings`].
 
@@ -36,6 +36,20 @@ pub fn export_gp(score: &Score) -> Result<Export, GpError> {
     zip.write_all(xml.as_bytes()).map_err(|e| io(&e))?;
     let bytes = zip.finish().map_err(|e| io(&e))?.into_inner();
     Ok(Export { bytes, warnings })
+}
+
+/// Text safe inside an attribute value: no control characters, and markup escaped.
+fn attr(s: &str) -> String {
+    s.chars()
+        .filter(|c| !c.is_control())
+        .map(|c| match c {
+            '&' => "&amp;".to_string(),
+            '<' => "&lt;".to_string(),
+            '>' => "&gt;".to_string(),
+            '"' => "&quot;".to_string(),
+            c => c.to_string(),
+        })
+        .collect()
 }
 
 /// Text safe inside CDATA: no control characters, and `]]>` split so it cannot end the section.
@@ -133,6 +147,11 @@ struct Gpif {
     next_beat: usize,
     next_voice: usize,
     last_on_string: BTreeMap<StringKey, (usize, bool)>,
+    /// Every distinct chord of each track, in first-use order: a beat's `<Chord>` is its index.
+    chords: Vec<Vec<Chord>>,
+    /// The syllables each beat of a track's first voice is sung to, per lyrics line, by
+    /// (track, measure, beat): Guitar Pro reads them from the beats when lyrics are "dispatched".
+    sung: BTreeMap<(usize, usize, usize), Vec<String>>,
     dropped: BTreeMap<&'static str, usize>,
 }
 
@@ -193,6 +212,9 @@ impl Gpif {
         let tracks = score.tracks.len();
         for (mi, h) in headers.iter().enumerate() {
             xml.push_str(&master_bar(h, (0..tracks).map(|ti| mi * tracks + ti)));
+            if !h.beams.is_empty() {
+                self.drop("beam groupings");
+            }
         }
         xml.push_str("</MasterBars>\n");
         for (mi, _) in headers.iter().enumerate() {
@@ -235,6 +257,7 @@ impl Gpif {
             cdata(if t.is_drums() { "Drums/Drums" } else { "Stringed/Guitars/Guitar" }),
             t.program.min(127)
         ));
+        xml.push_str(&self.lyrics_xml(ti, t));
         if t.is_drums() {
             xml.push_str("<InstrumentSet><Name>Drums</Name><Type>drumKit</Type><LineCount>5</LineCount><Elements>\n");
             for p in &drums::KIT {
@@ -258,10 +281,11 @@ impl Gpif {
             // Guitar Pro lists the tuning from the lowest string.
             let lowest_first: Vec<String> = t.tuning.strings.iter().rev().map(u8::to_string).collect();
             xml.push_str(&format!(
-                "<Staves><Staff><Properties><Property name=\"CapoFret\"><Fret>{}</Fret></Property><Property name=\"Tuning\"><Pitches>{}</Pitches><Instrument>Guitar</Instrument><Label>{}</Label><LabelVisible>true</LabelVisible></Property><Name>{}</Name></Properties></Staff></Staves>\n",
+                "<Staves><Staff><Properties><Property name=\"CapoFret\"><Fret>{}</Fret></Property><Property name=\"Tuning\"><Pitches>{}</Pitches><Instrument>Guitar</Instrument><Label>{}</Label><LabelVisible>true</LabelVisible></Property>{}<Name>{}</Name></Properties></Staff></Staves>\n",
                 t.capo,
                 lowest_first.join(" "),
                 cdata(&t.tuning.name),
+                self.diagram_collection(ti, t),
                 cdata(&t.tuning.name)
             ));
         }
@@ -269,6 +293,70 @@ impl Gpif {
         if t.volume != 100 || t.pan != 0 {
             self.drop("track volume and pan settings");
         }
+    }
+
+    /// The track's chords as Guitar Pro's `DiagramCollection`: one item per distinct chord, its frets
+    /// relative to the diagram's `baseFret` and counted from the lowest string. A chord without a
+    /// diagram is an item with a name only.
+    fn diagram_collection(&mut self, ti: usize, t: &Track) -> String {
+        let mut list: Vec<Chord> = Vec::new();
+        for c in t.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).filter_map(|b| b.chord.as_ref()) {
+            if !list.contains(c) {
+                list.push(c.clone());
+            }
+        }
+        if self.chords.len() <= ti {
+            self.chords.resize_with(ti + 1, Vec::new);
+        }
+        let strings = t.string_count();
+        let mut items = String::new();
+        for (id, c) in list.iter().enumerate() {
+            // The diagram starts at the chord's first fret, or lower when a fretted note sits below it.
+            let lowest = c.frets.iter().flatten().copied().filter(|f| *f > 0).min().unwrap_or(1);
+            let base = c.first_fret.max(1).min(lowest) - 1;
+            let mut frets = String::new();
+            for (i, f) in c.frets.iter().enumerate().take(strings) {
+                if let Some(f) = f {
+                    let relative = if *f == 0 { 0 } else { f - base };
+                    frets.push_str(&format!("<Fret string=\"{}\" fret=\"{relative}\"/>", strings - 1 - i));
+                }
+            }
+            let shown = !c.frets.is_empty();
+            items.push_str(&format!(
+                "<Item id=\"{id}\" name=\"{}\"><Diagram stringCount=\"{strings}\" fretCount=\"5\" baseFret=\"{base}\">{frets}<Property name=\"ShowDiagram\" type=\"bool\" value=\"{shown}\"/><Property name=\"ShowName\" type=\"bool\" value=\"true\"/><Property name=\"ShowFingering\" type=\"bool\" value=\"false\"/></Diagram></Item>",
+                attr(&c.name)
+            ));
+        }
+        if let Some(slot) = self.chords.get_mut(ti) {
+            *slot = list;
+        }
+        if items.is_empty() { String::new() } else { format!("<Property name=\"DiagramCollection\"><Items>{items}</Items></Property>") }
+    }
+
+    /// The track's lyrics: the lines as typed, and the syllable each beat is sung to.
+    fn lyrics_xml(&mut self, ti: usize, t: &Track) -> String {
+        if t.lyrics.is_empty() {
+            return String::new();
+        }
+        let mut xml = String::from("<Lyrics dispatched=\"true\">");
+        for k in 0..MAX_LYRIC_LINES {
+            let line = t.lyrics.get(k);
+            xml.push_str(&format!(
+                "<Line><Text>{}</Text><Offset>{}</Offset></Line>",
+                cdata(line.map_or("", |l| l.text.as_str())),
+                line.map_or(0, |l| l.measure)
+            ));
+            if let Some(line) = line {
+                for (mi, bi, syllable) in dispatch_lyrics(t, line) {
+                    let slots = self.sung.entry((ti, mi, bi)).or_insert_with(|| vec![String::new(); MAX_LYRIC_LINES]);
+                    if let Some(slot) = slots.get_mut(k) {
+                        *slot = if syllable.hyphen { format!("{}-", syllable.text) } else { syllable.text };
+                    }
+                }
+            }
+        }
+        xml.push_str("</Lyrics>\n");
+        xml
     }
 
     fn bar(&mut self, id: usize, ti: usize, t: &Track, mi: usize) {
@@ -290,15 +378,19 @@ impl Gpif {
             self.next_voice += 1;
             ids.push(vid.to_string());
             let mut beat_ids = Vec::new();
-            for beat in &voice.beats {
-                beat_ids.push(self.beat(ti, vi, t, beat).to_string());
+            for (bi, beat) in voice.beats.iter().enumerate() {
+                for id in self.grace_beats(ti, vi, t, beat) {
+                    beat_ids.push(id.to_string());
+                }
+                let sung = if vi == 0 { self.sung.remove(&(ti, mi, bi)) } else { None };
+                beat_ids.push(self.beat(ti, vi, t, beat, sung).to_string());
             }
             self.voices.push_str(&format!("<Voice id=\"{vid}\"><Beats>{}</Beats></Voice>\n", beat_ids.join(" ")));
         }
         self.bars.push_str(&format!("<Bar id=\"{id}\"><Clef>{clef}</Clef><Voices>{}</Voices></Bar>\n", ids.join(" ")));
     }
 
-    fn beat(&mut self, ti: usize, vi: usize, t: &Track, b: &Beat) -> usize {
+    fn beat(&mut self, ti: usize, vi: usize, t: &Track, b: &Beat, sung: Option<Vec<String>>) -> usize {
         let id = self.next_beat;
         self.next_beat += 1;
         let rhythm = self.rhythm(b.duration);
@@ -321,6 +413,12 @@ impl Gpif {
             Some(TremoloSpeed::Sixteenth) => xml.push_str("<Tremolo>1/4</Tremolo>"),
             Some(TremoloSpeed::ThirtySecond) => xml.push_str("<Tremolo>1/2</Tremolo>"),
             None => {}
+        }
+        if let Some(c) = &b.chord {
+            match self.chords.get(ti).and_then(|list| list.iter().position(|x| x == c)) {
+                Some(id) => xml.push_str(&format!("<Chord>{id}</Chord>")),
+                None => self.drop("chord names on drum tracks"),
+            }
         }
         if !note_ids.is_empty() {
             xml.push_str(&format!("<Notes>{}</Notes>", note_ids.join(" ")));
@@ -358,11 +456,84 @@ impl Gpif {
         if !xprops.is_empty() {
             xml.push_str(&format!("<XProperties>{xprops}</XProperties>"));
         }
-        if b.chord.is_some() {
-            self.drop("chord names and diagrams");
+        if let Some(lines) = sung {
+            xml.push_str("<Lyrics>");
+            for l in &lines {
+                xml.push_str(&format!("<Line>{}</Line>", cdata(l)));
+            }
+            xml.push_str("</Lyrics>");
         }
         xml.push_str("</Beat>\n");
         self.beats.push_str(&xml);
+        id
+    }
+
+    /// The grace notes of a beat as the grace beats Guitar Pro writes before it: one per kind
+    /// (before or on the beat, and length) the beat's grace notes use.
+    fn grace_beats(&mut self, ti: usize, vi: usize, t: &Track, b: &Beat) -> Vec<usize> {
+        if b.rest || t.is_drums() {
+            return Vec::new();
+        }
+        let graced: Vec<(&Note, Grace)> = b.notes.iter().filter(|n| n.kind != NoteKind::Tie).filter_map(|n| n.effects.grace.map(|g| (n, g))).collect();
+        let mut kinds: Vec<(bool, GraceDuration)> = Vec::new();
+        for (_, g) in &graced {
+            if !kinds.contains(&(g.on_beat, g.duration)) {
+                kinds.push((g.on_beat, g.duration));
+            }
+        }
+        let mut ids = Vec::new();
+        for (on_beat, duration) in kinds {
+            let value = match duration {
+                GraceDuration::Sixteenth => NoteValue::Sixteenth,
+                GraceDuration::ThirtySecond => NoteValue::ThirtySecond,
+                GraceDuration::SixtyFourth => NoteValue::SixtyFourth,
+            };
+            let rhythm = self.rhythm(Duration::new(value));
+            let mut note_ids = Vec::new();
+            for (n, g) in graced.iter().filter(|(_, g)| (g.on_beat, g.duration) == (on_beat, duration)) {
+                note_ids.push(self.grace_note(ti, vi, t, n, *g).to_string());
+            }
+            let id = self.next_beat;
+            self.next_beat += 1;
+            self.beats.push_str(&format!(
+                "<Beat id=\"{id}\"><GraceNotes>{}</GraceNotes><Dynamic>{}</Dynamic><Rhythm ref=\"{rhythm}\"/><Notes>{}</Notes></Beat>\n",
+                if on_beat { "OnBeat" } else { "BeforeBeat" },
+                dynamic_name(b.dynamic),
+                note_ids.join(" ")
+            ));
+            ids.push(id);
+        }
+        ids
+    }
+
+    /// A grace note on the string of `n`: muted when dead; a hammer-on, legato slide or a bend up
+    /// to the note's pitch says how it moves into the note.
+    fn grace_note(&mut self, ti: usize, vi: usize, t: &Track, n: &Note, g: Grace) -> usize {
+        let id = self.notes.len();
+        let mut out = NoteOut::default();
+        let enable = |name: &str| format!("<Property name=\"{name}\"><Enable/></Property>");
+        let gp_string = t.string_count().saturating_sub(1).saturating_sub(usize::from(n.string));
+        out.props
+            .push_str(&format!("<Property name=\"String\"><String>{gp_string}</String></Property><Property name=\"Fret\"><Fret>{}</Fret></Property>", g.fret));
+        if g.dead {
+            out.props.push_str(&enable("Muted"));
+        }
+        match g.transition {
+            GraceTransition::None => {}
+            GraceTransition::Hammer => out.props.push_str(&enable("HopoOrigin")),
+            GraceTransition::Slide => out.props.push_str("<Property name=\"Slide\"><Flags>2</Flags></Property>"),
+            GraceTransition::Bend => {
+                // Up to the note's pitch: hundredths of a whole tone, 50 a semitone; at least a quarter tone.
+                let top = u32::from(n.fret.saturating_sub(g.fret)).saturating_mul(50).max(25);
+                out.props.push_str(&enable("Bended"));
+                out.props.push_str(&format!(
+                    "<Property name=\"BendOriginValue\"><Float>0</Float></Property><Property name=\"BendDestinationValue\"><Float>{top}</Float></Property><Property name=\"BendDestinationOffset\"><Float>60</Float></Property>"
+                ));
+            }
+        }
+        // The note after a hammered grace note is its destination.
+        self.last_on_string.insert((ti, vi, n.string), (id, g.transition == GraceTransition::Hammer));
+        self.notes.push(out);
         id
     }
 
@@ -403,6 +574,19 @@ impl Gpif {
         }
         if e.ghost {
             out.head.push_str("<AntiAccent>Normal</AntiAccent>");
+        }
+        let letter = |f: Finger| match f {
+            Finger::Thumb => "P",
+            Finger::Index => "I",
+            Finger::Middle => "M",
+            Finger::Ring => "A",
+            Finger::Little => "C",
+        };
+        if let Some(f) = e.left_finger.filter(|_| !t.is_drums()) {
+            out.head.push_str(&format!("<LeftFingering>{}</LeftFingering>", letter(f)));
+        }
+        if let Some(f) = e.right_finger.filter(|_| !t.is_drums()) {
+            out.head.push_str(&format!("<RightFingering>{}</RightFingering>", letter(f)));
         }
         if e.let_ring {
             out.head.push_str("<LetRing/>");
@@ -481,10 +665,11 @@ fn master_bar(h: &MeasureHeader, bars: impl Iterator<Item = usize>) -> String {
     let ids: Vec<String> = bars.map(|b| b.to_string()).collect();
     let ts = h.time_signature;
     let mut x = format!(
-        "<MasterBar><Key><AccidentalCount>{}</AccidentalCount><Mode>Major</Mode></Key><Time>{}/{}</Time><Bars>{}</Bars>",
+        "<MasterBar><Key><AccidentalCount>{}</AccidentalCount><Mode>Major</Mode></Key><Time>{}/{}</Time>{}<Bars>{}</Bars>",
         h.key,
         ts.numerator,
         ts.denominator,
+        fermatas(h),
         ids.join(" ")
     );
     if h.repeat_open || h.repeat_close > 0 {
@@ -532,6 +717,36 @@ fn master_bar(h: &MeasureHeader, bars: impl Iterator<Item = usize>) -> String {
         x.push_str("<DoubleBar/>");
     }
     x.push_str("</MasterBar>\n");
+    x
+}
+
+/// A bar's fermatas: the type, where it falls as a fraction of a quarter note, and the length.
+fn fermatas(h: &MeasureHeader) -> String {
+    if h.fermatas.is_empty() {
+        return String::new();
+    }
+    let gcd = |mut a: u32, mut b: u32| {
+        while b != 0 {
+            (a, b) = (b, a % b);
+        }
+        a.max(1)
+    };
+    let mut x = String::from("<Fermatas>");
+    for f in &h.fermatas {
+        let kind = match f.kind {
+            FermataKind::Short => "Short",
+            FermataKind::Medium => "Medium",
+            FermataKind::Long => "Long",
+        };
+        let g = gcd(f.tick, TICKS_PER_QUARTER);
+        x.push_str(&format!(
+            "<Fermata><Type>{kind}</Type><Offset>{}/{}</Offset><Length>{}</Length></Fermata>",
+            f.tick / g,
+            TICKS_PER_QUARTER / g,
+            f64::from(f.length) / 100.0
+        ));
+    }
+    x.push_str("</Fermatas>");
     x
 }
 

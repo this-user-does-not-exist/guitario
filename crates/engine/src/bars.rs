@@ -1,8 +1,8 @@
-//! Bar-level commands: clear, double bar, free time, triplet feel.
+//! Bar-level commands: clear, double bar, free time, triplet feel, endings, directions, fermatas.
 
 use crate::commands::{CommandSpec, cmd};
 use crate::{EngineError, Session, params as p};
-use guitario_score::{DirectionTarget, Jump, JumpEnd, Measure, TripletFeel};
+use guitario_score::{DirectionTarget, Fermata, FermataKind, Jump, JumpEnd, Measure, TripletFeel};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
@@ -30,7 +30,62 @@ pub fn specs() -> Vec<CommandSpec> {
             true,
             set_directions,
         ),
+        cmd(
+            "measure.setBeaming",
+            "Beaming",
+            "Bar",
+            None,
+            "groups: array of group sizes in the time signature's note value ([3, 2, 2] for 7/8 as 3+2+2; [] for the usual grouping); to? (last bar index, default this bar only)",
+            true,
+            set_beaming,
+        ),
+        cmd("beat.setFermata", "Fermata", "Bar", None, "kind: short|medium|long|none (over the cursor beat; every track holds there)", true, set_fermata),
     ]
+}
+
+fn set_beaming(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let list = params.get("groups").and_then(Value::as_array).ok_or_else(|| EngineError::BadParam("`groups` must be an array of numbers".into()))?;
+    if list.len() > guitario_score::MAX_BEAM_GROUPS {
+        return Err(EngineError::BadParam(format!("at most {} beam groups", guitario_score::MAX_BEAM_GROUPS)));
+    }
+    let groups = list
+        .iter()
+        .map(|v| v.as_u64().filter(|g| (1..=64).contains(g)).map(|g| g as u8).ok_or_else(|| EngineError::BadParam("each group is 1..=64".into())))
+        .collect::<Result<Vec<u8>, _>>()?;
+    let from = s.cursor.measure;
+    let count = s.score.headers.len();
+    let to = p::opt_uint(params, "to", 1_000_000)?.map_or(from, |t| t as usize);
+    if to < from || to >= count {
+        return Err(EngineError::BadParam("`to` must be a bar at or after the cursor".into()));
+    }
+    let score = Arc::make_mut(&mut s.score);
+    for h in score.headers.iter_mut().skip(from).take(to - from + 1) {
+        // The usual grouping is kept as none, so a later time signature change starts fresh.
+        h.beams = if groups == guitario_score::default_beaming(h.time_signature) { Vec::new() } else { groups.clone() };
+    }
+    Ok(json!({"ok": true}))
+}
+
+/// A fermata over the beat under the cursor: it lives on the bar, at the beat's place in it.
+fn set_fermata(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let name = p::string(params, "kind")?;
+    let kind = match name {
+        "none" => None,
+        n => Some(FermataKind::from_name(n).ok_or_else(|| EngineError::BadParam(format!("`kind` must be short, medium, long or none, not `{n}`")))?),
+    };
+    let beat = s.cursor.beat;
+    let voice = s.voice_mut()?;
+    if beat >= voice.beats.len() {
+        return Err(EngineError::invalid("the cursor is not on a beat"));
+    }
+    let tick: u32 = voice.beats.iter().take(beat).map(|b| b.duration.ticks()).sum();
+    let header = s.header_mut()?;
+    header.fermatas.retain(|f| f.tick != tick);
+    if let Some(kind) = kind {
+        header.fermatas.push(Fermata { tick, kind, length: 0 });
+        header.fermatas.sort_by_key(|f| f.tick);
+    }
+    Ok(json!({"tick": tick}))
 }
 
 fn set_endings(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
@@ -157,4 +212,60 @@ fn set_feel(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         h.triplet_feel = feel;
     }
     Ok(json!({"ok": true}))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Session;
+    use guitario_score::FermataKind;
+    use guitario_theory::TICKS_PER_QUARTER;
+    use serde_json::{Value, json};
+
+    #[test]
+    fn beaming_is_set_per_bar_cleared_by_the_usual_grouping_and_by_a_new_signature() {
+        let mut s = Session::new();
+        s.run("measure.append", &Value::Null).unwrap();
+        s.run("cursor.set", &json!({"measure": 0, "beat": 0})).unwrap();
+        s.run("measure.setTimeSignature", &json!({"numerator": 7, "denominator": 8})).unwrap();
+        s.run("measure.setBeaming", &json!({"groups": [3, 2, 2]})).unwrap();
+        assert_eq!(s.score().headers[0].beams, vec![3, 2, 2]);
+        s.run("measure.setBeaming", &json!({"groups": [2, 2, 3]})).unwrap();
+        assert!(s.score().headers[0].beams.is_empty(), "the usual 7/8 grouping is stored as none");
+        s.run("measure.setBeaming", &json!({"groups": [4, 3]})).unwrap();
+        s.run("measure.setTimeSignature", &json!({"numerator": 4, "denominator": 4})).unwrap();
+        assert!(s.score().headers[0].beams.is_empty(), "a new signature starts from its usual grouping");
+        s.run("measure.setBeaming", &json!({"groups": [2, 2], "to": 1})).unwrap();
+        assert_eq!((s.score().headers[0].beams.clone(), s.score().headers[1].beams.clone()), (vec![2, 2], vec![2, 2]));
+        for bad in [json!({}), json!({"groups": [0]}), json!({"groups": [2], "to": 5}), json!({"groups": vec![1; 33]}), json!({"groups": ["2"]})] {
+            assert!(s.run("measure.setBeaming", &bad).is_err(), "{bad}");
+        }
+        assert!(s.score().validate().is_ok());
+    }
+
+    #[test]
+    fn a_fermata_goes_on_the_bar_at_the_cursor_beat_and_is_replaced_or_removed() {
+        let mut s = Session::new();
+        for _ in 0..3 {
+            s.run("beat.setDuration", &json!({"value": 4})).unwrap();
+            s.run("note.setFret", &json!({"fret": 3})).unwrap();
+            s.run("cursor.right", &Value::Null).unwrap();
+        }
+        s.run("cursor.set", &json!({"measure": 0, "beat": 2})).unwrap();
+        let r = s.run("beat.setFermata", &json!({"kind": "long"})).unwrap();
+        assert_eq!(r["tick"], 2 * TICKS_PER_QUARTER);
+        let f = |s: &Session| s.score().headers[0].fermatas.iter().map(|f| (f.tick, f.kind)).collect::<Vec<_>>();
+        assert_eq!(f(&s), vec![(2 * TICKS_PER_QUARTER, FermataKind::Long)]);
+        s.run("beat.setFermata", &json!({"kind": "short"})).unwrap();
+        s.run("cursor.set", &json!({"measure": 0, "beat": 0})).unwrap();
+        s.run("beat.setFermata", &json!({"kind": "medium"})).unwrap();
+        assert_eq!(f(&s), vec![(0, FermataKind::Medium), (2 * TICKS_PER_QUARTER, FermataKind::Short)], "one per place, in order");
+        s.run("beat.setFermata", &json!({"kind": "none"})).unwrap();
+        assert_eq!(f(&s).len(), 1);
+        s.run("edit.undo", &Value::Null).unwrap();
+        assert_eq!(f(&s).len(), 2);
+        for bad in [json!({}), json!({"kind": "huge"}), json!({"kind": 2})] {
+            assert!(s.run("beat.setFermata", &bad).is_err(), "{bad}");
+        }
+        assert!(s.score().validate().is_ok());
+    }
 }

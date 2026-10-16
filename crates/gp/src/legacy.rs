@@ -267,9 +267,7 @@ impl Parser<'_> {
         let meta = Meta { title, artist, album, author, notes: notes.join("\n").trim().to_string() };
 
         let feel = if v < Version::V5 && self.r.bool()? { TripletFeel::Triplet8th } else { TripletFeel::None };
-        if v >= Version::V4 {
-            self.lyrics()?;
-        }
+        let lyrics = if v >= Version::V4 { self.lyrics()? } else { None };
         if v >= Version::V5_1 {
             self.r.skip(4 + 4 + 11)?; // master volume, a reserved int, 11-band equalizer
         }
@@ -365,6 +363,13 @@ impl Parser<'_> {
                 track.program = p;
             }
         }
+        // Guitar Pro 4 and 5 keep one track's lyrics.
+        if let Some((ti, lines)) = lyrics {
+            match tracks.get_mut(ti) {
+                Some(t) => t.lyrics = lines.into_iter().filter(|l| l.measure < headers.len()).collect(),
+                None => self.warnings.push(format!("lyrics for track {} were dropped: there is no such track", ti + 1)),
+            }
+        }
         let mut score = Score { meta, tempo: clamp_tempo(tempo).unwrap_or(DEFAULT_TEMPO), headers, tracks, page };
         self.apply_tempo_changes(&mut score, &tempo_changes);
         if score.tracks.len() > MAX_TRACKS {
@@ -375,15 +380,24 @@ impl Parser<'_> {
         Ok(score)
     }
 
-    fn lyrics(&mut self) -> Result<(), GpError> {
-        self.r.i32()?; // the track the lyrics belong to
-        for _ in 0..5 {
-            self.r.i32()?; // first measure
-            if !self.r.int_string()?.trim().is_empty() {
-                self.drop("lyrics lines");
+    /// The track the lyrics belong to (1-based), then five lines of (first bar, 1-based; text).
+    /// `None` when every line is empty.
+    fn lyrics(&mut self) -> Result<Option<(usize, Vec<LyricLine>)>, GpError> {
+        let track = usize::try_from(self.r.i32()?.max(1) - 1).unwrap_or(0);
+        let mut lines = Vec::new();
+        for _ in 0..MAX_LYRIC_LINES {
+            let measure = usize::try_from(self.r.i32()?.max(1) - 1).unwrap_or(0);
+            let mut text = self.r.int_string()?;
+            if text.len() > MAX_LYRICS_TEXT {
+                text = text.chars().take(MAX_LYRICS_TEXT / 4).collect();
+                self.warnings.push("a line of lyrics was too long and was cut".into());
             }
+            lines.push(LyricLine { measure, text });
         }
-        Ok(())
+        while lines.last().is_some_and(|l| l.text.trim().is_empty()) {
+            lines.pop();
+        }
+        Ok((!lines.is_empty()).then_some((track, lines)))
     }
 
     fn channels(&mut self) -> Result<[Channel; 64], GpError> {
@@ -401,6 +415,8 @@ impl Parser<'_> {
         let v = self.v;
         let mut out: Vec<MeasureHeader> = Vec::new();
         let mut ts = TimeSignature::COMMON;
+        // Guitar Pro 5 writes the beaming with each time signature; bars in between keep it.
+        let mut beams: Vec<u8> = Vec::new();
         for i in 0..count {
             if v >= Version::V5 && i > 0 {
                 self.r.skip(1)?;
@@ -443,8 +459,14 @@ impl Parser<'_> {
             h.double_bar = flags & 0x80 != 0;
             if v >= Version::V5 {
                 if flags & 0x03 != 0 {
-                    self.r.skip(4)?; // beaming groups
+                    let bytes = self.r.array::<4>()?;
+                    beams = if bytes == crate::write5::default_gp5_beams(ts) {
+                        Vec::new()
+                    } else {
+                        crate::write5::from_gp5_beams(ts, &bytes).filter(|g| *g != default_beaming(ts)).unwrap_or_default()
+                    };
                 }
+                h.beams = beams.clone();
                 let endings = self.r.u8()?;
                 if flags & 0x10 != 0 {
                     h.endings = endings;
@@ -768,6 +790,37 @@ impl Parser<'_> {
         Ok(fx)
     }
 
+    /// A grace note: fret, dynamic, transition, duration (1 a sixty-fourth, 2 a thirty-second, 3 a
+    /// sixteenth) and, from Guitar Pro 5, flags (dead, on the beat). Guitar Pro 3 and 4 mark a dead
+    /// grace note by fret 255.
+    fn grace(&mut self) -> Result<Option<Grace>, GpError> {
+        let fret = self.r.u8()?;
+        self.r.skip(1)?; // dynamic: the beat's is used
+        let transition = match self.r.u8()? {
+            1 => GraceTransition::Slide,
+            2 => GraceTransition::Bend,
+            3 => GraceTransition::Hammer,
+            _ => GraceTransition::None,
+        };
+        let duration = match self.r.u8()? {
+            1 => GraceDuration::SixtyFourth,
+            3 => GraceDuration::Sixteenth,
+            _ => GraceDuration::ThirtySecond,
+        };
+        let (mut dead, mut on_beat) = (fret == 255, false);
+        if self.v >= Version::V5 {
+            let flags = self.r.u8()?;
+            dead |= flags & 0x01 != 0;
+            on_beat = flags & 0x02 != 0;
+        }
+        let fret = if dead { 0 } else { fret };
+        if fret > 36 {
+            self.drop("grace notes above fret 36");
+            return Ok(None);
+        }
+        Ok(Some(Grace { fret, duration, transition, on_beat, dead }))
+    }
+
     fn mix_table(&mut self) -> Result<Mix, GpError> {
         let v = self.v;
         let instrument = self.r.i8()?;
@@ -811,10 +864,8 @@ impl Parser<'_> {
         }
         let velocity = if flags & 0x10 != 0 { Some(self.r.i8()?) } else { None };
         let fret = if flags & 0x20 != 0 { self.r.i8()? } else { 0 };
-        if flags & 0x80 != 0 {
-            self.r.skip(2)?;
-            self.drop("fingerings");
-        }
+        // Left- and right-hand fingers: -1 none, 0 the thumb to 4 the little finger.
+        let fingers = if flags & 0x80 != 0 { (Finger::from_index(i64::from(self.r.i8()?)), Finger::from_index(i64::from(self.r.i8()?))) } else { (None, None) };
         if v >= Version::V5 {
             if flags & 0x01 != 0 {
                 self.r.skip(8)?; // duration percent
@@ -823,6 +874,7 @@ impl Parser<'_> {
         }
         let mut note = Note::new(0, 0);
         let e = &mut note.effects;
+        (e.left_finger, e.right_finger) = fingers;
         e.ghost = flags & 0x04 != 0;
         e.accent = v >= Version::V4 && flags & 0x40 != 0;
         e.heavy_accent = v >= Version::V5 && flags & 0x02 != 0;
@@ -862,7 +914,14 @@ impl Parser<'_> {
                 self.drop("frets above 36");
             }
         }
+        // A tied note is not struck again, and a drum hit has no grace note.
+        if note.effects.grace.is_some() && (t.drums || note.kind == NoteKind::Tie) {
+            note.effects.grace = None;
+            self.drop("grace notes on tied notes or drum hits");
+        }
         if t.drums {
+            note.effects.left_finger = None;
+            note.effects.right_finger = None;
             let midi = fret.min(guitario_theory::drums::MAX_DRUM);
             note.string = guitario_theory::drums::lane_for(midi);
             note.fret = midi;
@@ -890,8 +949,7 @@ impl Parser<'_> {
             note.effects.bend = self.bend()?;
         }
         if f1 & 0x10 != 0 {
-            self.r.skip(if v >= Version::V5 { 5 } else { 4 })?; // fret, dynamic, transition, duration, flags
-            self.drop("grace notes");
+            note.effects.grace = self.grace()?;
         }
         if v == Version::V3 {
             if f1 & 0x04 != 0 {

@@ -150,6 +150,105 @@ pub struct MeasureHeader {
     /// A jump (D.C., D.S., To Coda …) taken at the end of this bar.
     #[serde(default)]
     pub jump: Option<Jump>,
+    /// Fermatas over this bar, by where they fall in it; every track holds there.
+    #[serde(default)]
+    pub fermatas: Vec<Fermata>,
+    /// How notes are beamed, as group sizes counted in the time signature's note value (`[3, 2, 2]`
+    /// beams 7/8 as 3+2+2, `[4, 4, 5]` beams 13/16 as 4+4+5). Empty is the time signature's usual
+    /// grouping ([`default_beaming`]).
+    #[serde(default)]
+    pub beams: Vec<u8>,
+}
+
+/// Most beam groups a bar may list.
+pub const MAX_BEAM_GROUPS: usize = 32;
+
+/// The usual beam groups of a time signature, counted in its note value: one beat each when the
+/// beat is a quarter or longer (4/4 as 1+1+1+1), dotted quarters in compound time (6/8 as 3+3),
+/// twos with a closing three in other eighth meters (5/8 as 2+3, 7/8 as 2+2+3), and quarter notes'
+/// worth in sixteenth meters with the rest joining the last group (13/16 as 4+4+5).
+pub fn default_beaming(ts: TimeSignature) -> Vec<u8> {
+    let num = ts.numerator.max(1);
+    let groups: Vec<u8> = match ts.denominator {
+        0..=4 => vec![1; usize::from(num)],
+        8 if num.is_multiple_of(3) => vec![3; usize::from(num / 3)],
+        8 => {
+            let mut g = vec![2; usize::from(num / 2)];
+            match g.last_mut() {
+                Some(last) if num % 2 == 1 => *last = 3,
+                Some(_) => {}
+                None => g.push(num),
+            }
+            g
+        }
+        d => {
+            // A quarter note's worth of this value.
+            let quarter = (d / 4).max(1);
+            let mut g = vec![quarter; usize::from(num / quarter)];
+            let rest = num % quarter;
+            match g.last_mut() {
+                Some(last) if rest > 0 && rest * 2 <= quarter => *last += rest,
+                _ if rest > 0 => g.push(rest),
+                _ => {}
+            }
+            g
+        }
+    };
+    groups.into_iter().take(MAX_BEAM_GROUPS).collect()
+}
+
+/// A fermata: the beat at `tick` (from the start of the bar) is held longer, in every track.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Fermata {
+    pub tick: u32,
+    pub kind: FermataKind,
+    /// Guitar Pro's fermata length in hundredths, kept so a file comes back as it was.
+    #[serde(default)]
+    pub length: u16,
+}
+
+/// How long a fermata holds: the three shapes Guitar Pro draws.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FermataKind {
+    Short,
+    #[default]
+    Medium,
+    Long,
+}
+
+impl FermataKind {
+    pub const ALL: [FermataKind; 3] = [FermataKind::Short, FermataKind::Medium, FermataKind::Long];
+
+    /// How many times its written length the held beat lasts.
+    pub fn stretch(self) -> f64 {
+        match self {
+            FermataKind::Short => 1.5,
+            FermataKind::Medium => 2.0,
+            FermataKind::Long => 3.0,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            FermataKind::Short => "short",
+            FermataKind::Medium => "medium",
+            FermataKind::Long => "long",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<FermataKind> {
+        FermataKind::ALL.into_iter().find(|k| k.name() == name)
+    }
+}
+
+/// A stretch of a bar that plays slower because of a fermata: from `at` ticks into the bar, `ticks`
+/// long, lasting `stretch` times as long as written.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Hold {
+    pub at: u32,
+    pub ticks: u32,
+    pub stretch: f64,
 }
 
 /// A place a jump can go to, or Fine where a jump "al Fine" stops.
@@ -273,11 +372,35 @@ impl MeasureHeader {
             endings: 0,
             targets: Vec::new(),
             jump: None,
+            fermatas: Vec::new(),
+            beams: Vec::new(),
         }
     }
 
     pub fn capacity(&self) -> u32 {
         self.time_signature.measure_ticks()
+    }
+
+    /// The beam groups this bar uses, in its time signature's note value: its own, or the usual ones.
+    pub fn beaming(&self) -> Vec<u8> {
+        if self.beams.is_empty() { default_beaming(self.time_signature) } else { self.beams.clone() }
+    }
+
+    /// Where each beam group starts, in ticks from the start of the bar; the first is 0. What is
+    /// left after the groups is a group of its own.
+    pub fn beam_starts(&self) -> Vec<u32> {
+        let cap = self.capacity();
+        let mut starts = vec![0u32];
+        let unit = 4 * guitario_theory::TICKS_PER_QUARTER / u32::from(self.time_signature.denominator.max(1));
+        let mut at = 0u32;
+        for g in self.beaming() {
+            at = at.saturating_add(u32::from(g).saturating_mul(unit));
+            if at >= cap {
+                break;
+            }
+            starts.push(at);
+        }
+        starts
     }
 }
 
@@ -310,6 +433,23 @@ pub struct Track {
     #[serde(default)]
     pub solo: bool,
     pub measures: Vec<Measure>,
+    /// Up to [`MAX_LYRIC_LINES`] lines of lyrics, sung on the track's first voice.
+    #[serde(default)]
+    pub lyrics: Vec<LyricLine>,
+}
+
+/// Lines of lyrics a track may hold, as in Guitar Pro.
+pub const MAX_LYRIC_LINES: usize = 5;
+
+/// One line of lyrics as it is typed: the text and the bar its first syllable falls in. The text is
+/// split into syllables by [`crate::syllables`] and laid one per beat by [`crate::dispatch_lyrics`].
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LyricLine {
+    /// 0-based bar of the first syllable.
+    #[serde(default)]
+    pub measure: usize,
+    #[serde(default)]
+    pub text: String,
 }
 
 impl Track {
@@ -326,6 +466,7 @@ impl Track {
             muted: false,
             solo: false,
             measures: headers.iter().map(Measure::empty_for).collect(),
+            lyrics: Vec::new(),
         }
     }
 
@@ -545,6 +686,97 @@ impl TrillSpeed {
     }
 }
 
+/// A grace note: a quick note on the same string as the note it ornaments, drawn small. It sounds
+/// just before the beat, or on the beat taking its time from the note. Guitar Pro 3-5 keep one per
+/// note, as here; GPIF files write grace notes as beats of their own before the beat.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Grace {
+    pub fret: u8,
+    #[serde(default)]
+    pub duration: GraceDuration,
+    /// How the grace note moves into the note.
+    #[serde(default)]
+    pub transition: GraceTransition,
+    /// On the beat: the grace note starts with the beat and delays the note. Otherwise it sounds just before.
+    #[serde(default)]
+    pub on_beat: bool,
+    /// A muted (x) grace note.
+    #[serde(default)]
+    pub dead: bool,
+}
+
+impl Grace {
+    pub fn new(fret: u8) -> Grace {
+        Grace { fret, duration: GraceDuration::default(), transition: GraceTransition::default(), on_beat: false, dead: false }
+    }
+}
+
+/// How long a grace note sounds.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GraceDuration {
+    Sixteenth,
+    #[default]
+    ThirtySecond,
+    SixtyFourth,
+}
+
+impl GraceDuration {
+    pub const ALL: [GraceDuration; 3] = [GraceDuration::Sixteenth, GraceDuration::ThirtySecond, GraceDuration::SixtyFourth];
+
+    pub fn ticks(self) -> u32 {
+        guitario_theory::TICKS_PER_QUARTER / self.per_quarter()
+    }
+
+    pub fn per_quarter(self) -> u32 {
+        match self {
+            GraceDuration::Sixteenth => 4,
+            GraceDuration::ThirtySecond => 8,
+            GraceDuration::SixtyFourth => 16,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            GraceDuration::Sixteenth => "sixteenth",
+            GraceDuration::ThirtySecond => "thirty_second",
+            GraceDuration::SixtyFourth => "sixty_fourth",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<GraceDuration> {
+        GraceDuration::ALL.into_iter().find(|d| d.name() == name)
+    }
+}
+
+/// How a grace note moves into its note: struck again, or slid, bent or hammered without a new pluck.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GraceTransition {
+    #[default]
+    None,
+    Slide,
+    Bend,
+    Hammer,
+}
+
+impl GraceTransition {
+    pub const ALL: [GraceTransition; 4] = [GraceTransition::None, GraceTransition::Slide, GraceTransition::Bend, GraceTransition::Hammer];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            GraceTransition::None => "none",
+            GraceTransition::Slide => "slide",
+            GraceTransition::Bend => "bend",
+            GraceTransition::Hammer => "hammer",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<GraceTransition> {
+        GraceTransition::ALL.into_iter().find(|t| t.name() == name)
+    }
+}
+
 /// A chord symbol, with the fingering diagram Guitar Pro draws above the staff when it has one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Chord {
@@ -697,6 +929,81 @@ pub struct NoteEffects {
     /// The note alternates with another fret of its string.
     #[serde(default)]
     pub trill: Option<Trill>,
+    /// A small, quick note on the same string just before this one (or on its beat).
+    #[serde(default)]
+    pub grace: Option<Grace>,
+    /// The left-hand finger that frets the note (drawn T, 1-4).
+    #[serde(default)]
+    pub left_finger: Option<Finger>,
+    /// The right-hand finger that plucks it (drawn p, i, m, a, c).
+    #[serde(default)]
+    pub right_finger: Option<Finger>,
+}
+
+/// A finger, as Guitar Pro names them for both hands: thumb, index, middle, ring (annular) and little.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Finger {
+    Thumb,
+    Index,
+    Middle,
+    Ring,
+    Little,
+}
+
+impl Finger {
+    pub const ALL: [Finger; 5] = [Finger::Thumb, Finger::Index, Finger::Middle, Finger::Ring, Finger::Little];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Finger::Thumb => "thumb",
+            Finger::Index => "index",
+            Finger::Middle => "middle",
+            Finger::Ring => "ring",
+            Finger::Little => "little",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Finger> {
+        Finger::ALL.into_iter().find(|f| f.name() == name)
+    }
+
+    /// The left-hand mark: T for the thumb, 1 to 4 for the fingers.
+    pub fn left_mark(self) -> &'static str {
+        match self {
+            Finger::Thumb => "T",
+            Finger::Index => "1",
+            Finger::Middle => "2",
+            Finger::Ring => "3",
+            Finger::Little => "4",
+        }
+    }
+
+    /// The right-hand mark: p, i, m, a, c.
+    pub fn right_mark(self) -> &'static str {
+        match self {
+            Finger::Thumb => "p",
+            Finger::Index => "i",
+            Finger::Middle => "m",
+            Finger::Ring => "a",
+            Finger::Little => "c",
+        }
+    }
+
+    /// Guitar Pro's number: 0 for the thumb to 4 for the little finger.
+    pub fn index(self) -> u8 {
+        match self {
+            Finger::Thumb => 0,
+            Finger::Index => 1,
+            Finger::Middle => 2,
+            Finger::Ring => 3,
+            Finger::Little => 4,
+        }
+    }
+
+    pub fn from_index(i: i64) -> Option<Finger> {
+        Finger::ALL.into_iter().find(|f| i64::from(f.index()) == i)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -726,6 +1033,35 @@ impl Score {
 
     pub fn measure_count(&self) -> usize {
         self.headers.len()
+    }
+
+    /// Where bar `measure` is held by its fermatas: each from the fermata to the next moment a beat
+    /// starts in any track or voice (or the bar's end), in order.
+    pub fn holds(&self, measure: usize) -> Vec<Hold> {
+        let Some(h) = self.headers.get(measure).filter(|h| !h.fermatas.is_empty()) else { return Vec::new() };
+        let cap = h.capacity();
+        let mut onsets: Vec<u32> = vec![cap];
+        for v in self.tracks.iter().filter_map(|t| t.measures.get(measure)).flat_map(|m| &m.voices) {
+            let mut at = 0u32;
+            for b in &v.beats {
+                onsets.push(at);
+                at = at.saturating_add(b.duration.ticks());
+            }
+        }
+        onsets.sort_unstable();
+        onsets.dedup();
+        let mut out: Vec<Hold> = h
+            .fermatas
+            .iter()
+            .filter(|f| f.tick < cap)
+            .filter_map(|f| {
+                let end = onsets.iter().copied().find(|o| *o > f.tick)?;
+                Some(Hold { at: f.tick, ticks: end - f.tick, stretch: f.kind.stretch() })
+            })
+            .collect();
+        out.sort_by_key(|h| h.at);
+        out.dedup_by_key(|h| h.at);
+        out
     }
 
     /// The tempo in force at `measure`, following earlier overrides.
