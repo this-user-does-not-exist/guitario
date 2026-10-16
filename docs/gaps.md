@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G2: PDF export and printing landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -19,7 +19,7 @@ agent can't finish alone.
 | # | Gap | Kind | Impact | Estimate | Parity doc |
 |---|---|---|---|---:|---|
 | G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
-| G2 | Print depth: preview, page setup, layouts | file format | medium | 20–40 h | [file-format-parity](file-format-parity.md) |
+| G2 | Print depth: headers and footers, layouts, selected bars | file format | low-medium | 10–20 h | [file-format-parity](file-format-parity.md) |
 | G3 | Guitar Pro exchange (import depth, MusicXML, MIDI import) | file format | medium-high | 40–80 h | [file-format-parity](file-format-parity.md) |
 | G4 | Notation depth (diagrams, lyrics, grace notes, layouts) | features | high | 90–160 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
@@ -59,14 +59,21 @@ agent can't finish alone.
   goes through craft-print (CUPS, or the native Windows path) on a worker thread, with pages
   shrunk to fit other paper. Every demo exports without warnings (`pdf.rs` tests); pages were
   checked by rasterizing with poppler.
-- **Missing:** print preview; page setup (Letter and other paper, margins, orientation); headers
-  and footers; printing selected bars; layout choices (page, screen, multitrack) that Guitar Pro
-  prints; images and gradients in a page (none exist yet); fonts that carry notation symbols
-  (the fallback shapes are used when no SMuFL font is installed).
+- **Landed 2026-10-16 (second step):** File › Print Preview… (the pages exactly as the PDF has
+  them, painted through the same `PrintSet`, one track or all) and File › Page Setup… (A4, A5,
+  Letter, Legal; portrait or landscape; four margins in mm). The setup is `Score::page`
+  (`score.setPage`, saved in the `.gt` file with a default for older files, one undo step) and
+  drives the page view, the PDF's page size and the print job. It is read from and written to
+  Guitar Pro 5 and GPIF files in whole millimetres (checked on 114 real files, one of them Letter).
+  Keys no longer reach the score while a dialog is open.
+- **Missing:** headers and footers; printing selected bars; layout choices (page, screen,
+  multitrack) that Guitar Pro prints; other paper than the four; images and gradients in a page
+  (none exist yet); fonts that carry notation symbols (the fallback shapes are used when no SMuFL
+  font is installed). A Guitar Pro file with another paper size opens as A4 with a warning.
 - **Human:** send a page to a real printer on macOS, Windows and Linux; the Windows spooler path
   has never run, and CUPS was only tested through `lp`'s argument list.
-- **Evidence:** FILE-7 partial, FILE-11 missing.
-- **Estimate:** 20–40 h.
+- **Evidence:** FILE-7 and FILE-11 partial.
+- **Estimate:** 10–20 h.
 
 ### G3. Guitar Pro exchange
 - **Landed 2026-10-16:** `.gp5`, `.gp4` and `.gp3` import (`crates/gp/src/legacy.rs`), `.gpx`

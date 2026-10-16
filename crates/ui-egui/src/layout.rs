@@ -2,7 +2,7 @@
 //! Dimensions follow Guitar Pro's default stylesheet: A4 portrait, 10 mm side margins, 15 mm top,
 //! a 1.5875 mm staff space.
 
-use guitario_score::{Beat, Measure, Score, Track};
+use guitario_score::{Beat, Measure, PageSetup, Score, Track};
 
 const MM: f32 = 96.0 / 25.4;
 
@@ -13,7 +13,8 @@ pub struct Metrics {
     pub tab_gap: f32,
     pub page_w: f32,
     pub page_h: f32,
-    pub margin_x: f32,
+    pub margin_left: f32,
+    pub margin_right: f32,
     pub margin_top: f32,
     pub margin_bottom: f32,
     pub notation: bool,
@@ -36,7 +37,8 @@ impl Metrics {
             tab_gap: space * 1.55,
             page_w: 210.0 * MM * z,
             page_h: 297.0 * MM * z,
-            margin_x: 10.0 * MM * z,
+            margin_left: 10.0 * MM * z,
+            margin_right: 10.0 * MM * z,
             margin_top: 15.0 * MM * z,
             margin_bottom: 12.0 * MM * z,
             notation,
@@ -45,6 +47,26 @@ impl Metrics {
             annotations: false,
             voice: 0,
         }
+    }
+
+    /// The paper, orientation and margins of `page`, at this zoom.
+    pub fn with_page(self, page: &PageSetup) -> Metrics {
+        let (w, h) = page.size_mm();
+        let px = |mm: f32| mm * MM * self.zoom;
+        Metrics {
+            page_w: px(w),
+            page_h: px(h),
+            margin_left: px(f32::from(page.margin_left)),
+            margin_right: px(f32::from(page.margin_right)),
+            margin_top: px(f32::from(page.margin_top)),
+            margin_bottom: px(f32::from(page.margin_bottom)),
+            ..self
+        }
+    }
+
+    /// Where the centre of the printable width lies, from the page's left edge.
+    pub fn center_x(&self) -> f32 {
+        self.margin_left + (self.page_w - self.margin_left - self.margin_right) / 2.0
     }
 
     /// Draws the voice being edited even while it holds only rests.
@@ -70,7 +92,7 @@ impl Metrics {
 
     /// Width available to a system (clef prefix and measures).
     pub fn content_w(&self) -> f32 {
-        self.page_w - 2.0 * self.margin_x - self.indent()
+        self.page_w - self.margin_left - self.margin_right - self.indent()
     }
 
     /// Space above the first staff: section markers, chord names and text, directions, tempo,
@@ -397,6 +419,45 @@ mod tests {
             assert!(w + sys.prefix <= m.content_w() + 0.5, "{w} + {} > {}", sys.prefix, m.content_w());
             assert!(sys.y + m.system_h() <= m.page_h);
         }
+    }
+
+    #[test]
+    fn every_paper_lays_out_inside_its_margins() {
+        use guitario_score::Paper;
+        let s = score(40);
+        for paper in Paper::ALL {
+            for landscape in [false, true] {
+                let page = PageSetup { paper, landscape, margin_left: 5, margin_right: 25, margin_top: 20, margin_bottom: 10 };
+                let m = Metrics::new(1.0, true, 6).with_page(&page);
+                let (w, h) = page.size_mm();
+                assert!((m.page_w - w * MM).abs() < 0.01 && (m.page_h - h * MM).abs() < 0.01);
+                let pages = layout(&s, 0, &m);
+                let order: Vec<usize> = pages.iter().flat_map(|p| &p.systems).flat_map(|s| &s.measures).map(|x| x.index).collect();
+                assert_eq!(order, (0..40).collect::<Vec<_>>(), "{paper:?} landscape={landscape}");
+                for page in &pages {
+                    for sys in &page.systems {
+                        let used: f32 = sys.measures.iter().map(|x| x.width).sum::<f32>() + sys.prefix;
+                        assert!(used <= m.content_w() + 0.5, "{paper:?}: {used} > {}", m.content_w());
+                        // A system stays above the bottom margin unless it is alone on a page too short for it.
+                        assert!(sys.y + m.system_h() <= m.page_h - m.margin_bottom + 0.5 || page.systems.len() == 1, "{paper:?} landscape={landscape}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn margins_move_the_printable_width_and_its_centre() {
+        let even = Metrics::new(1.0, true, 6);
+        let page = PageSetup { margin_left: 30, margin_right: 10, ..PageSetup::default() };
+        let m = even.with_page(&page);
+        assert!((even.content_w() - m.content_w() - 20.0 * MM).abs() < 0.01);
+        // The centre of the printable width sits right of the page centre when the left margin is wider.
+        assert!(m.center_x() > m.page_w / 2.0);
+        assert!((even.center_x() - even.page_w / 2.0).abs() < 0.01);
+        // Zoom scales the paper and the margins together.
+        let zoomed = Metrics::new(2.0, true, 6).with_page(&page);
+        assert!((zoomed.page_w - 2.0 * m.page_w).abs() < 0.01 && (zoomed.margin_left - 2.0 * m.margin_left).abs() < 0.01);
     }
 
     #[test]

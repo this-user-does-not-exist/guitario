@@ -109,3 +109,23 @@ to shrink them to the printer's paper rather than refuse a mismatch, so a Letter
 Paper choice, margins and headers belong to a page setup dialog, which does not exist yet
 (gap G2). Printing is synchronous in craft-print, so the dialog runs the job on a worker thread;
 the job holds an `Arc` of the score as it was, so edits made meanwhile do not change what prints.
+
+## 2026-10-16: The page setup belongs to the score
+
+Paper, orientation and margins are `Score::page`, not a preference: the same score must print the
+same on every machine, Guitar Pro keeps them in the file, and one `score.setPage` is one undo step.
+`#[serde(default)]` keeps older `.gt` files loading; `validate()` refuses a page whose margins leave
+under 100 mm of paper, so no file can make the layout degenerate. Four papers (A4, A5, Letter, Legal)
+cover what real files hold; anything else in a Guitar Pro file opens as A4 with a warning rather than
+guessing a size. Sizes and margins map to Guitar Pro's whole millimetres (checked on 114 real files:
+all A4 with margins 10, 10, 15, 10 except one Letter stored as 216 x 279). Guitar Pro's default
+bottom margin is 10 mm and ours is 12, so Guitar Pro's defaults read as ours and ours write as
+Guitar Pro's: a file nobody changed stays unchanged in both directions. A landscape `.gp` page is
+written with the sizes as the page lies plus `Orientation`, as Guitar Pro 5 does without the flag;
+nobody has opened one in Guitar Pro 8 to confirm (human check).
+
+## 2026-10-16: Dialogs own the keyboard
+
+`handle_keys` already stood down while a text field had focus and during the unsaved-changes prompt,
+but a dialog without a focused field (Print, Page Setup, Print Preview) let digits become frets and
+Space start playback behind it. `modal_open()` now covers every dialog.

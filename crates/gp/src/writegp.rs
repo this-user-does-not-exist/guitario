@@ -154,7 +154,7 @@ impl Gpif {
         let mut xml = String::from("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<GPIF>\n<GPVersion>7.5.0</GPVersion>\n<GPRevision>12025</GPRevision>\n");
         xml.push_str("<Encoding><EncodingDescription>GP7</EncodingDescription></Encoding>\n");
         xml.push_str(&format!(
-            "<Score><Title>{}</Title><SubTitle>{}</SubTitle><Artist>{}</Artist><Album>{}</Album><Words>{}</Words><Music>{}</Music><WordsAndMusic>{}</WordsAndMusic><Copyright>{}</Copyright><Tabber>{}</Tabber><Instructions>{}</Instructions><Notices>{}</Notices></Score>\n",
+            "<Score><Title>{}</Title><SubTitle>{}</SubTitle><Artist>{}</Artist><Album>{}</Album><Words>{}</Words><Music>{}</Music><WordsAndMusic>{}</WordsAndMusic><Copyright>{}</Copyright><Tabber>{}</Tabber><Instructions>{}</Instructions><Notices>{}</Notices>{}</Score>\n",
             cdata(&m.title),
             cdata(""),
             cdata(&m.artist),
@@ -166,6 +166,7 @@ impl Gpif {
             cdata(&m.author),
             cdata(""),
             cdata(&m.notes),
+            page_setup(&score.page),
         ));
         // Tempo changes live on the master track.
         let track_ids: Vec<String> = (0..score.tracks.len()).map(|i| i.to_string()).collect();
@@ -516,4 +517,16 @@ fn master_bar(h: &MeasureHeader, bars: impl Iterator<Item = usize>) -> String {
     }
     x.push_str("</MasterBar>\n");
     x
+}
+
+/// The score's `PageSetup`, left out for the default page so a file nobody changed stays as it was.
+fn page_setup(page: &guitario_score::PageSetup) -> String {
+    if *page == guitario_score::PageSetup::default() {
+        return String::new();
+    }
+    let (width, height, [left, right, top, bottom]) = crate::page::to_gp(page);
+    let orientation = if page.landscape { "Landscape" } else { "Portrait" };
+    format!(
+        "<PageSetup><Width>{width}</Width><Height>{height}</Height><Orientation>{orientation}</Orientation><TopMargin>{top}</TopMargin><LeftMargin>{left}</LeftMargin><RightMargin>{right}</RightMargin><BottomMargin>{bottom}</BottomMargin><Scale>1</Scale></PageSetup>"
+    )
 }

@@ -15,10 +15,12 @@ mod menu_catalog;
 mod menus;
 mod notation;
 mod page;
+mod page_setup;
 mod palette;
 pub mod parity;
 mod pdf;
 mod prefs;
+mod preview;
 mod print_dialog;
 mod spool;
 mod theme;
@@ -81,6 +83,8 @@ pub struct GuitarioApp {
     discard_confirmed: bool,
     about_open: bool,
     print: print_dialog::PrintDialog,
+    page_setup: page_setup::PageSetupDialog,
+    preview: preview::Preview,
 }
 
 /// What the unsaved-changes prompt will do once the user answers.
@@ -120,6 +124,8 @@ impl GuitarioApp {
             discard_confirmed: false,
             about_open: false,
             print: print_dialog::PrintDialog::default(),
+            page_setup: page_setup::PageSetupDialog::default(),
+            preview: preview::Preview::default(),
         }
     }
 
@@ -248,6 +254,8 @@ impl GuitarioApp {
             U::ExportGp => self.export_dialog("Guitar Pro 8", "gp", "file.exportGp"),
             U::ExportPdf => self.export_pdf_dialog(),
             U::Print => self.open_print(),
+            U::PrintPreview => self.open_preview(),
+            U::PageSetup => self.open_page_setup(),
             U::ImportGuitarPro => self.open_dialog(),
             U::Quit => ctx_quit(),
             U::SongInfo => {
@@ -565,6 +573,11 @@ impl GuitarioApp {
         format!("{}{} — Guitario", self.doc_name(), if self.session.is_dirty() { " •" } else { "" })
     }
 
+    /// A dialog has the window: keys must not reach the score behind it.
+    fn modal_open(&self) -> bool {
+        self.pending.is_some() || self.print.open || self.preview.open || self.page_setup.open
+    }
+
     fn handle_keys(&mut self, ctx: &egui::Context) {
         if ctx.egui_wants_keyboard_input() {
             return;
@@ -639,13 +652,15 @@ impl GuitarioApp {
             return;
         }
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.title()));
-        if self.pending.is_none() {
+        if !self.modal_open() {
             self.handle_keys(&ctx);
         }
         self.poll_playback(&ctx);
         self.sync_settings(&ctx);
         self.prompt(&ctx);
         self.about(&ctx);
+        self.preview_dialog(&ctx);
+        self.page_setup_dialog(&ctx);
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));

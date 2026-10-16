@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -137,6 +137,13 @@ fn main() {
     if let Some(bar) = number("--bar") {
         run(&mut session, "cursor.set", json!({"measure": bar, "beat": number("--beat").unwrap_or(0)}));
     }
+    // `--paper letter` and `--landscape` set the page; `--preview`, `--page-setup` and `--print` open dialogs.
+    if let Some(paper) = value("--paper") {
+        run(&mut session, "score.setPage", json!({"paper": paper}));
+    }
+    if args.iter().any(|a| a == "--landscape") {
+        run(&mut session, "score.setPage", json!({"landscape": true}));
+    }
     let mut app = GuitarioApp::new(session, None);
     if let Some(z) = value("--zoom").and_then(|z| z.parse::<f32>().ok()) {
         app.view.zoom = z;
@@ -159,6 +166,12 @@ fn main() {
     let print = args.iter().any(|a| a == "--print");
     if print {
         app.open_print();
+    }
+    if args.iter().any(|a| a == "--preview") {
+        app.open_preview();
+    }
+    if args.iter().any(|a| a == "--page-setup") {
+        app.open_page_setup();
     }
     let mut harness = egui_kittest::Harness::builder().with_size(egui::vec2(w, h)).build_ui(move |ui| app.show(ui));
     harness.run_steps(4);

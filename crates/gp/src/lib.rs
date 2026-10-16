@@ -12,6 +12,7 @@
 mod gpif;
 mod gpx;
 mod legacy;
+mod page;
 mod write5;
 mod writegp;
 

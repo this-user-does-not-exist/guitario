@@ -1,6 +1,6 @@
 # File format parity
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (PDF export and printing) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (page setup in files; print preview) · **Target:** Guitar Pro 8
 
 Guitar Pro 8's file formats, and what Guitario does with each. Part of
 [target-app parity](target-app-parity.md); gaps G2 and G3 in [gaps](gaps.md).
@@ -13,8 +13,8 @@ Guitar Pro 8's file formats, and what Guitario does with each. Part of
 | `.gtp`, PowerTab `.ptb`, TablEdit `.tef` | read | missing | |
 | MusicXML | read, write | missing | |
 | MIDI | read, write | **write** | `crates/midi`: format 1, repeats unrolled, ties merged, mute/solo respected |
-| PDF | write | **write** | `crates/ui-egui/src/pdf.rs`: File › Export › PDF… and `guitario-cli convert in out.pdf`. A4 vector pages from the page view's own engraving, embedded font subsets, selectable text, one track or all, with or without notation; each track starts a page. Paper other than A4, margins, headers and footers and layout choices are missing (G2) |
-| Print | yes | **yes (A4)** | File › Print… (Cmd+P) and `file.print`: printer, copies, collate, sides, black and white, through craft-print (CUPS, native Windows); pages shrink to fit other paper. No preview or page setup; not yet tried on a real printer (human check) |
+| PDF | write | **write** | `crates/ui-egui/src/pdf.rs`: File › Export › PDF… and `guitario-cli convert in out.pdf`. Vector pages on the score's paper (A4, A5, Letter or Legal; portrait or landscape; four margins) from the page view's own engraving, embedded font subsets, selectable text, one track or all, with or without notation; each track starts a page. Headers and footers, other paper and layout choices are missing (G2) |
+| Print | yes | **yes** | File › Print… (Cmd+P) and `file.print`: printer, copies, collate, sides, black and white, through craft-print (CUPS, native Windows); pages shrink to fit other paper. File › Print Preview… shows the pages as the PDF has them and File › Page Setup… sets the paper; not yet tried on a real printer (human check) |
 | WAV | write | **write** | `crates/playback` offline render, 16-bit stereo |
 | MP3, FLAC, OGG | write | missing | |
 | PNG / SVG images | write | missing | |
@@ -26,6 +26,7 @@ Guitar Pro 8's file formats, and what Guitario does with each. Part of
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-15 | major | First list |
+| 2026-10-16 | minor | Print preview and page setup (`score.setPage`, `preview.rs`, `page_setup.rs`); the page setup is read and written in `.gp5` and `.gp` (`crates/gp/src/page.rs`), checked on a real Letter file |
 | 2026-10-16 | minor | PDF export and printing (`crates/ui-egui/src/pdf.rs`, `spool.rs`, `print_dialog.rs`; engine `file.exportPdf`, `file.print`, `file.printers`) |
 | 2026-10-16 | minor | `.gp` export (`crates/gp/src/writegp.rs`); every demo and 76 real files round-trip; not yet opened in Guitar Pro itself |
 | 2026-10-16 | minor | `.gp`/`.gpx` import keeps voices 2-4 (rest-only voices dropped) |

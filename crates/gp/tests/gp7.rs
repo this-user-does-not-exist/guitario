@@ -193,3 +193,50 @@ fn every_truncation_is_refused_and_corruption_never_panics() {
         }
     }
 }
+
+#[test]
+fn the_page_setup_goes_out_and_comes_back() {
+    let mut s = riff();
+    for page in [
+        PageSetup::default(),
+        PageSetup { paper: Paper::Letter, ..PageSetup::default() },
+        PageSetup { paper: Paper::Legal, landscape: true, margin_left: 5, margin_right: 25, margin_top: 20, margin_bottom: 8 },
+        PageSetup { paper: Paper::A5, margin_left: 0, margin_right: 0, margin_top: 0, margin_bottom: 0, ..PageSetup::default() },
+    ] {
+        s.page = page;
+        let (back, export_warnings, import_warnings) = round_trip(&s);
+        assert_eq!(back.page, page);
+        assert!(import_warnings.is_empty(), "{import_warnings:?}");
+        assert!(export_warnings.iter().all(|w| !w.contains("page")), "{export_warnings:?}");
+    }
+    // A file nobody gave a page leaves it out; one that has a page says so.
+    s.page = PageSetup::default();
+    assert!(!score_gpif(&export_gp(&s).unwrap().bytes).contains("<PageSetup>"));
+    s.page.paper = Paper::Letter;
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes);
+    assert!(xml.contains("<Width>216</Width><Height>279</Height><Orientation>Portrait</Orientation>"), "{xml}");
+}
+
+#[test]
+fn a_real_letter_page_setup_is_read() {
+    // Our own export with the block put in as a real Guitar Pro 6 file stores it.
+    let base = score_gpif(&export_gp(&riff()).unwrap().bytes);
+    assert!(!base.contains("<PageSetup>"));
+    let with = |setup: &str| base.replacen("</Score>", &format!("{setup}</Score>"), 1);
+    let page = |setup: &str| guitario_gp::parse_gpif(&with(setup)).expect("imports").score.page;
+    let letter = "<PageSetup><Width>216</Width><Height>279</Height><Orientation>Portrait</Orientation><TopMargin>15</TopMargin><LeftMargin>10</LeftMargin><RightMargin>10</RightMargin><BottomMargin>10</BottomMargin><Scale>1</Scale></PageSetup>";
+    assert_eq!(page(letter), PageSetup { paper: Paper::Letter, ..PageSetup::default() });
+    assert_eq!(page(""), PageSetup::default());
+    // Landscape from the flag, whichever way round the sizes are written; odd values never panic.
+    let wide = letter.replace("Portrait", "Landscape");
+    assert!(page(&wide).landscape);
+    for odd in [
+        "<PageSetup></PageSetup>",
+        "<PageSetup><Width>x</Width><Height>NaN</Height></PageSetup>",
+        "<PageSetup><Width>1e300</Width><Height>-1e300</Height><LeftMargin>9999999999999</LeftMargin></PageSetup>",
+        "<PageSetup><Width>216</Width><Height>279</Height><TopMargin>-50</TopMargin><BottomMargin>inf</BottomMargin></PageSetup>",
+    ] {
+        let p = page(odd);
+        assert!(p.check().is_ok(), "{odd}: {p:?}");
+    }
+}

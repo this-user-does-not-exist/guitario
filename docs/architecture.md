@@ -62,6 +62,11 @@ curves and rectangles become paths, and every glyph is placed where egui laid it
 an embedded subset of the font that supplied it. `spool.rs` wraps craft-print
 (CUPS, native Windows). `print_dialog.rs` runs the printer lookup and the job on worker threads;
 a job (`PrintTask`) owns a snapshot of the score, so editing during a print is safe.
+`page::PrintSet` lays out the chosen tracks and numbers their pages; the PDF, the preview
+(`preview.rs`, painted small through a visual transform) and the printer all take pages from it.
+The paper is `Score::page` (`PageSetup`: A4, A5, Letter, Legal; orientation; margins in mm), set
+by `score.setPage` and `page_setup.rs`; `Metrics::with_page` turns it into layout units for the
+page view and for print alike. While a dialog is open, keys do not reach the score.
 
 ## Playback
 

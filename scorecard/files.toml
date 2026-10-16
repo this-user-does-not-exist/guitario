@@ -42,7 +42,7 @@ status = "missing"
 id = "FILE-7"
 target = "PDF export and printing"
 status = "partial"
-note = "File › Export › PDF… and `guitario-cli convert in out.pdf` write A4 vector pages with embedded font subsets and selectable text, for one track or all, with or without notation (crates/ui-egui/src/pdf.rs); File › Print… (Cmd+P) sends the same pages through craft-print with printer, copies, collate, sides and black and white, on a worker thread (file.print, file.printers); every demo exports without warnings and its pages were looked at as rasters; not yet sent to a real printer (human check); A4 only (FILE-11)"
+note = "File › Export › PDF… and `guitario-cli convert in out.pdf` write A4 vector pages with embedded font subsets and selectable text, for one track or all, with or without notation, on the score's own paper (crates/ui-egui/src/pdf.rs); File › Print… (Cmd+P) sends the same pages through craft-print with printer, copies, collate, sides and black and white, on a worker thread (file.print, file.printers); every demo exports without warnings and its pages were looked at as rasters; not yet sent to a real printer (human check)"
 
 [[item]]
 id = "FILE-8"
@@ -64,5 +64,5 @@ note = "crates/gp/src/write5.rs, file.exportGp5: every demo round-trips (crates/
 [[item]]
 id = "FILE-11"
 target = "Print preview, page setup (paper size, margins), headers and footers, print selected bars"
-status = "missing"
-note = "gap G2"
+status = "partial"
+note = "File › Print Preview… shows the pages exactly as the PDF has them (one track or all, page by page); File › Page Setup… sets A4, A5, Letter or Legal, portrait or landscape and the four margins (score.setPage, saved in the .gt file, one undo step), used by the page view, the PDF and the print job; the page setup is read from and written to Guitar Pro 5 and 6/7/8 files (checked on a real Letter file); no headers and footers, no printing of selected bars, no other paper (gap G2)"

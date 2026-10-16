@@ -16,6 +16,8 @@ pub enum ScoreError {
     Tempo(u16),
     #[error("measure {0} lists a direction mark twice")]
     Directions(usize),
+    #[error("page setup: {0}")]
+    Page(String),
 }
 
 impl crate::Score {
@@ -28,6 +30,7 @@ impl crate::Score {
         if self.tracks.is_empty() {
             return Err(ScoreError::NoTracks);
         }
+        self.page.check().map_err(ScoreError::Page)?;
         for (mi, h) in self.headers.iter().enumerate() {
             if h.targets.iter().enumerate().any(|(i, t)| h.targets.iter().take(i).any(|u| u == t)) {
                 return Err(ScoreError::Directions(mi));
@@ -131,5 +134,29 @@ mod tests {
         let mut s = Score::new();
         s.tracks.clear();
         assert_eq!(s.validate(), Err(ScoreError::NoTracks));
+    }
+
+    #[test]
+    fn page_setup_is_checked() {
+        use crate::{PageSetup, Paper};
+        let mut s = Score::new();
+        assert_eq!(s.page, PageSetup::default());
+        s.page = PageSetup { paper: Paper::Letter, landscape: true, margin_left: 0, margin_right: 0, margin_top: 0, margin_bottom: 0 };
+        assert_eq!(s.validate(), Ok(()));
+        // A margin wider than allowed.
+        s.page = PageSetup { margin_left: 61, ..PageSetup::default() };
+        assert!(matches!(s.validate(), Err(ScoreError::Page(m)) if m.contains("left margin")));
+        // Margins that leave too little paper, on a small sheet.
+        s.page = PageSetup { paper: Paper::A5, margin_left: 40, margin_right: 40, ..PageSetup::default() };
+        assert!(matches!(s.validate(), Err(ScoreError::Page(m)) if m.contains("A5")));
+        // Orientation changes which side is short.
+        s.page = PageSetup { paper: Paper::A5, landscape: true, margin_top: 60, margin_bottom: 60, ..PageSetup::default() };
+        assert!(matches!(s.validate(), Err(ScoreError::Page(_))));
+        s.page = PageSetup { paper: Paper::Legal, ..PageSetup::default() };
+        assert_eq!(s.page.size_mm(), (215.9, 355.6));
+        s.page.landscape = true;
+        assert_eq!(s.page.size_mm(), (355.6, 215.9));
+        assert_eq!(Paper::from_name(" letter "), Some(Paper::Letter));
+        assert_eq!(Paper::from_name("tabloid"), None);
     }
 }

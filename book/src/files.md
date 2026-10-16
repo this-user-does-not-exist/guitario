@@ -8,6 +8,8 @@
 - **PDF and print.** File › Export › PDF… writes the track on screen as A4 pages (vector, with the
   fonts embedded and the text selectable). File › Print… (Cmd+P) sends the same pages to a printer:
   choose the printer, copies, collate, sides and black and white, and one track or all. Pages are
-  shrunk to fit other paper. From a script: `guitario-cli convert song.gt song.pdf [--tracks 0,2] [--tab-only]`,
+  shrunk to fit other paper. File › Print Preview… shows the pages first, and File › Page Setup… chooses
+  A4, A5, Letter or Legal, portrait or landscape, and the margins; the choice is saved in the file and
+  in Guitar Pro exports. From a script: `guitario-cli convert song.gt song.pdf [--tracks 0,2] [--tab-only]`,
   or the `file.exportPdf`, `file.print` and `file.printers` commands.
 - **Recent files** are under File › Open Recent.

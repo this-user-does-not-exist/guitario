@@ -271,8 +271,13 @@ impl Parser<'_> {
         if v >= Version::V5_1 {
             self.r.skip(4 + 4 + 11)?; // master volume, a reserved int, 11-band equalizer
         }
+        let mut page = PageSetup::default();
         if v >= Version::V5 {
-            self.r.skip(7 * 4 + 2)?; // page size, margins, score proportion, header/footer flags
+            // Page size and margins in millimetres, the score size in percent, header and footer flags.
+            let (width, height) = (self.r.i32()?, self.r.i32()?);
+            let margins = [self.r.i32()?, self.r.i32()?, self.r.i32()?, self.r.i32()?];
+            self.r.skip(4 + 2)?;
+            page = crate::page::from_gp(width, height, None, margins, &mut self.warnings);
             for _ in 0..10 {
                 self.r.int_byte_string()?; // page header and footer templates
             }
@@ -358,7 +363,7 @@ impl Parser<'_> {
                 track.program = p;
             }
         }
-        let mut score = Score { meta, tempo: clamp_tempo(tempo).unwrap_or(DEFAULT_TEMPO), headers, tracks };
+        let mut score = Score { meta, tempo: clamp_tempo(tempo).unwrap_or(DEFAULT_TEMPO), headers, tracks, page };
         self.apply_tempo_changes(&mut score, &tempo_changes);
         if score.tracks.len() > MAX_TRACKS {
             let extra = score.tracks.len() - MAX_TRACKS;
