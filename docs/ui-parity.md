@@ -1,6 +1,6 @@
 # UI parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (palette in Guitar Pro 8's sections, dark scheme sampled from Guitar Pro 8; earlier: tab bar, global view columns, toolbar order) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (instrument views in Guitar Pro 8's look; palette in Guitar Pro 8's sections, dark scheme sampled from Guitar Pro 8; earlier: tab bar, global view columns, toolbar order) · **Target:** Guitar Pro 8
 
 Guitar Pro 8's workspace, element by element. Part of [target-app parity](target-app-parity.md);
 gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
@@ -15,7 +15,7 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Engraving | standard, tab, slash, drums, chord diagrams, lyrics | standard, tab, drums, chord diagrams, lyrics (see [scorecard](scorecard.md#notation-and-engraving)); no slash notation | partial |
 | Inspector | Song and Track tabs: Information, Musical Notation, Sounds, Interpretation (Song: Sound Mastering) | Song and Track in the same look (full-width bold tabs, bold capital headings, "Title:" labels over near-black fields); sections Information, Musical notation, Sounds, Bar; no Interpretation, Sound Mastering, stylesheet or notation toggles | partial |
 | Global view | track list with mixer controls and bar grid | Guitar Pro 8's columns: header with add, track menu, move down/up, multitrack, mute, solo, Vol., Pan., Eq.; rows with colour, instrument icon, number and name, eye (hides the track from the multitrack view), yellow mute, red solo, fader, volume automation A, pan knob (drag, double-click to centre), pan automation A (green when automated, opens the editor), equalizer; Master row carrying the sections with a bookmark; square bar cells in the track colour, grey when empty, the cursor's bar marked dark, numbers at 1, 4, 8 …; no equalizer, master volume, pan or focus (greyed), visibility not saved | partial |
-| Instrument views | fretboard, keyboard, drum pad | fretboard and keyboard (C2-C7; click a key to enter that pitch on the best string; lit for the beat's notes) and drum pad, each with its toolbar button; no key labels for the notes | partial |
+| Instrument views | fretboard, keyboard, drum pad | fretboard, keyboard and drum pad, each with its toolbar button, in Guitar Pro 8's look: side column with ◀ ▶ (previous/next beat) and a gear menu (current beat, beat and bar, current and next beat; left-handed fretboard; saved); notes as yellow marks with their names, the display mode's others dimmed; hover names the pitch and octave; dark neck with an open-string strip, no fret numbers; keyboard C2-C7 with the keys the instrument cannot reach greyed, click enters the pitch on the best string; no scale display, no drum staff view | partial |
 | Mixer | per-track volume, pan, effects; master | volume/pan/mute/solo in inspector and global view | partial |
 | Tools | tuner, chord engine, scales, line in | chord diagram editor and namer | partial |
 | Preferences | dialog | File › Preferences… (theme, interface scale) over persisted view, transport and audio settings | partial |
@@ -39,4 +39,5 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | 2026-10-17 | minor | Tab bar: full-width tab with centred name, modified dot, save/close on hover, context menu, + |
 | 2026-10-17 | minor | Global view in Guitar Pro 8's columns: eye, mute/solo icons, fader, pan knob, automation flags, equalizer, Master row with sections |
 | 2026-10-17 | minor | Toolbar rebuilt in Guitar Pro 8's order and groups; two-row LCD with bar check and current note; relative tonality; undo/redo icons the right way round |
+| 2026-10-17 | minor | Instrument views in Guitar Pro 8's look: side column with arrows and settings, display modes, left-handed, yellow named note marks, keyboard range |
 | 2026-10-17 | minor | Palette in Guitar Pro 8's ten groups with dimmed unbuilt symbols, option corners, wide hairpins; dark scheme, tab and inspector colours sampled from Guitar Pro 8 |

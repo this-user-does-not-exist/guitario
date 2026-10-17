@@ -49,6 +49,9 @@ pub struct ViewPrefs {
     pub fretboard: bool,
     /// View › Instrument View › Keyboard.
     pub keyboard: bool,
+    /// The instrument views' display mode and left-handed fretboard.
+    pub instrument: crate::instrument::Display,
+    pub left_handed: bool,
 }
 
 impl Default for ViewPrefs {
@@ -64,6 +67,8 @@ impl Default for ViewPrefs {
             global_view: true,
             fretboard: true,
             keyboard: false,
+            instrument: crate::instrument::Display::Beat,
+            left_handed: false,
         }
     }
 }
