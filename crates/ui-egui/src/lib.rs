@@ -890,7 +890,7 @@ impl GuitarioApp {
         }
         if self.panels.palette {
             egui::Panel::left("palette")
-                .exact_size(80.0)
+                .exact_size(palette::COLUMNS * palette::CELL + (palette::COLUMNS - 1.0) + 14.0)
                 .frame(egui::Frame::NONE.fill(t.panel).inner_margin(egui::Margin::same(5)))
                 .show(ui, |ui| palette::show(self, ui));
         }

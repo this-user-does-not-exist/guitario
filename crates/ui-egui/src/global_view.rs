@@ -2,20 +2,23 @@
 //! showing which bars hold notes, as in Guitar Pro.
 
 use crate::GuitarioApp;
+use crate::mixer::Control;
 use crate::theme::{tokens, track_color};
 use egui::{Color32, Rect, Stroke, pos2, vec2};
 use serde_json::json;
 
-const ROW: f32 = 26.0;
-const HEAD: f32 = 28.0;
-const LEFT: f32 = 250.0;
-const CELL: f32 = 16.0;
+const ROW: f32 = 30.0;
+const HEAD: f32 = 30.0;
+const LEFT: f32 = 310.0;
+const CELL: f32 = 22.0;
+const SLIDER: f32 = 92.0;
 
 pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let t = tokens();
     let score = app.session.score().clone();
     let c = app.session.cursor();
     let mut actions: Vec<(&'static str, serde_json::Value)> = Vec::new();
+    let mut vol_slots: Vec<(usize, Rect)> = Vec::new();
     let bars = score.headers.len();
     ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
@@ -55,13 +58,23 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     p.text(r.center(), egui::Align2::CENTER_CENTER, label, egui::FontId::proportional(10.0), if on { Color32::BLACK } else { t.text_dim });
                     r
                 };
-                let mr = ms(78.0, "M", tr.muted, Color32::from_rgb(0xe8, 0x9a, 0x3a));
-                let sr = ms(56.0, "S", tr.solo, Color32::from_rgb(0xe8, 0xd4, 0x3a));
-                let vol = Rect::from_min_size(pos2(row.right() - 42.0, row.center().y - 2.0), vec2(34.0, 4.0));
-                p.rect_filled(vol, 2.0, t.chrome_dark);
-                p.rect_filled(Rect::from_min_size(vol.min, vec2(vol.width() * f32::from(tr.volume) / 127.0, 4.0)), 2.0, track_color(i));
+                let mr = ms(SLIDER + 44.0, "M", tr.muted, Color32::from_rgb(0xe8, 0x9a, 0x3a));
+                let sr = ms(SLIDER + 22.0, "S", tr.solo, Color32::from_rgb(0xe8, 0xd4, 0x3a));
+                // The volume slider: dragged live, saved as one step on release.
+                let slot = Rect::from_min_size(pos2(row.right() - SLIDER - 6.0, row.center().y - 8.0), vec2(SLIDER, 16.0));
+                let shown = match app.mixer.drag {
+                    Some((ti, Control::Volume, v)) if ti == i => v.clamp(0, 127) as f32,
+                    _ => f32::from(tr.volume),
+                };
+                let track = Rect::from_min_size(pos2(slot.left(), slot.center().y - 2.0), vec2(SLIDER, 4.0));
+                p.rect_filled(track, 2.0, t.chrome_dark);
+                let fill = SLIDER * shown / 127.0;
+                p.rect_filled(Rect::from_min_size(track.min, vec2(fill, 4.0)), 2.0, track_color(i));
+                p.circle_filled(pos2(slot.left() + fill, slot.center().y), 5.0, t.text);
+                vol_slots.push((i, slot));
                 if resp.clicked()
                     && let Some(pos) = resp.interact_pointer_pos()
+                    && !slot.contains(pos)
                 {
                     let part = if mr.contains(pos) {
                         RowPart::Mute
@@ -100,12 +113,12 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     p.with_clip_rect(clip).text(pos2(x + 2.0, rect.top() + 1.0), egui::Align2::LEFT_TOP, m, egui::FontId::proportional(8.5), t.accent);
                 }
                 for (ti, tr) in score.tracks.iter().enumerate() {
-                    let cell = Rect::from_min_size(pos2(x + 1.0, rect.top() + HEAD + ti as f32 * ROW + 4.0), vec2(CELL - 2.0, ROW - 8.0));
+                    let cell = Rect::from_min_size(pos2(x, rect.top() + HEAD + ti as f32 * ROW + 3.0), vec2(CELL - 1.0, ROW - 6.0));
                     let has = tr.measures.get(mi).is_some_and(|m| m.voices.iter().any(|v| v.beats.iter().any(|b| !b.rest)));
                     if has {
-                        p.rect_filled(cell, 2.0, track_color(ti).gamma_multiply(if tr.muted { 0.35 } else { 0.85 }));
+                        p.rect_filled(cell, 1.0, track_color(ti).gamma_multiply(if tr.muted { 0.35 } else { 0.85 }));
                     } else {
-                        p.rect_stroke(cell, 2.0, Stroke::new(1.0, Color32::from_gray(70)), egui::StrokeKind::Inside);
+                        p.rect_filled(cell, 1.0, track_color(ti).gamma_multiply(0.14));
                     }
                 }
             }
@@ -134,8 +147,26 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             }
         });
     });
+    // Volume sliders sit above the rows' click areas.
+    let mut drag = app.mixer.drag;
+    for (i, slot) in vol_slots {
+        let r = ui.interact(slot.expand(2.0), egui::Id::new(("global-volume", i)), egui::Sense::click_and_drag());
+        if let Some(pos) = r.interact_pointer_pos().filter(|_| r.dragged() || r.clicked() || r.drag_stopped()) {
+            let v = (((pos.x - slot.left()) / SLIDER).clamp(0.0, 1.0) * 127.0).round() as i64;
+            drag = Some((i, Control::Volume, v));
+            if r.drag_stopped() || (r.clicked() && !r.dragged()) {
+                actions.push(("track.setMix", json!({"track": i, "volume": v})));
+                drag = None;
+            }
+        }
+    }
+    let dragging = drag.is_some();
+    app.mixer.drag = drag;
     for (id, p) in actions {
         app.run(id, p);
+    }
+    if dragging {
+        app.push_mix();
     }
 }
 
