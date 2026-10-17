@@ -166,9 +166,11 @@ agent can't finish alone.
   `auto`; `Beat::beam`, honoured by `notation::beam_groups`, so beamed stems, flags and the tab-only
   rhythm follow) and user-placed slurs (`beat.setSlur`: from the cursor beat to a later note in the
   same bar and voice; `Beat::slur`, an arc over the outer heads on the side away from the stems,
-  notation only; a stale one after an edit is skipped, not a panic).
+  notation only; a stale one after an edit is skipped, not a panic). Both have palette buttons
+  (Beam and Slur popups next to the fermata; not yet checked by eye, the snapshot cuts the
+  palette off).
 - **Missing:** a stylesheet switch for the chord list, picking a voice by clicking its notehead in
-  notation, voice shortcuts, menu or palette access to beam and slur (commands only so far), slurs
+  notation, voice shortcuts, slurs
   across bars and in the tab, slurs and beam overrides in Guitar Pro files (neither format keeps
   them in a way the importers read), and keeping column room for a head that steps aside.
 - **Evidence:** NOTE-3/4/5/9/12 and EDIT-9/16 done; their notes list what is left.
