@@ -1932,6 +1932,17 @@ mod tests {
         painted(score, notation, |s| matches!(s, egui::Shape::LineSegment { .. }))
     }
 
+    /// Whether a SMuFL music font is installed. Without one, symbols are painted as shapes, so
+    /// tests that count them as glyphs only run where it is (CI has none; the layout behind
+    /// them is checked font-free in layout::tests).
+    fn music_font() -> bool {
+        let found = crate::fonts::definitions().1.smufl;
+        if !found {
+            eprintln!("no music font: glyph counts skipped");
+        }
+        found
+    }
+
     fn texts(score: &Score, notation: bool, what: &str) -> usize {
         painted(score, notation, |s| matches!(s, egui::Shape::Text(t) if t.galley.text() == what))
     }
@@ -2094,6 +2105,9 @@ mod tests {
 
     #[test]
     fn a_key_change_inside_a_system_draws_its_naturals_and_new_key() {
+        if !music_font() {
+            return;
+        }
         let mut s = Score::new();
         for _ in 0..3 {
             let h = guitario_score::MeasureHeader::new(Default::default());
@@ -2117,6 +2131,9 @@ mod tests {
 
     #[test]
     fn the_system_before_a_change_ends_with_courtesy_signatures() {
+        if !music_font() {
+            return;
+        }
         let mut s = Score::new();
         // Enough bars for several systems; the key and the time change from bar 21.
         for _ in 0..39 {
