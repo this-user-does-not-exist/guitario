@@ -166,7 +166,8 @@ pub fn paint_print_page(painter: &Painter, score: &Score, pl: &PrintLayout, page
                 track,
                 // A cursor on a bar that does not exist is never drawn.
                 cursor: Cursor { track: ti, measure: usize::MAX, ..Cursor::default() },
-                t: tokens(),
+                // Paper is white and the inks are the score's own, whatever the theme.
+                t: &crate::theme::PAPER,
                 hits: Vec::new(),
                 cursor_rect: None,
                 play: None,
