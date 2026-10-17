@@ -71,6 +71,7 @@ pub enum UiAction {
     ToggleInspector,
     ToggleGlobalView,
     ToggleFretboard,
+    ToggleKeyboard,
     About,
     CloseDocument,
     TripletFeel,
@@ -287,7 +288,7 @@ pub static CATALOG: &[MenuItem] = &[
     u("View", "Inspector", U::ToggleInspector, ""),
     u("View", "Global View", U::ToggleGlobalView, ""),
     u("View/Instrument View", "Fretboard", U::ToggleFretboard, ""),
-    m("View/Instrument View", "Keyboard"),
+    u("View/Instrument View", "Keyboard", U::ToggleKeyboard, ""),
     // The instrument view shows the drum pad on a drum track.
     u("View/Instrument View", "Drums", U::ToggleFretboard, ""),
     u("View", "Full Screen", U::FullScreen, "F11"),
