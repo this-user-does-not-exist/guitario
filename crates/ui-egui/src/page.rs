@@ -2,7 +2,7 @@
 //! tablature staff joined by a bracket, laid out by `layout` and painted here. Clicks move the
 //! cursor; the painter never edits the score directly.
 
-use crate::fonts::{FontSet, sans, serif, serif_italic};
+use crate::fonts::{FontSet, sans, serif, serif_bold, serif_italic};
 use crate::glyphs::{self as g, Pen};
 use crate::layout::{LayoutMode, Metrics, PageBox, Part, SystemBox, layout_parts};
 use crate::notation::{Accidentals, Clef, beam_groups, spell, staff_pos};
@@ -332,7 +332,7 @@ fn paint_systems(ctxs: &mut [Ctx], page: &PageBox, rect: Rect, first_page: bool)
         if !painter.clip_rect().intersects(sys_rect) {
             continue;
         }
-        let x0 = rect.left() + m.margin_left + m.indent();
+        let x0 = rect.left() + m.margin_left + sys.indent;
         let mut y = top;
         let mut span: Option<(f32, f32)> = None;
         for cx in ctxs.iter_mut() {
@@ -505,18 +505,33 @@ impl<'a> Ctx<'a> {
         if !meta.author.is_empty() {
             self.p().text(pos2(page.right() - m.margin_right, y), egui::Align2::RIGHT_TOP, format!("Tab: {}", meta.author), serif(10.0 * m.zoom), self.t.ink);
         }
-        // Tuning legend for anything but standard tuning, as Guitar Pro does.
-        let tuning = &self.track.tuning;
-        let mut legend = Vec::new();
-        if !self.track.is_drums() && tuning.strings != guitario_theory::Tuning::standard().strings {
-            let names: Vec<&str> = tuning.strings.iter().rev().map(|p| guitario_theory::note_name(*p)).collect();
-            legend.push(format!("Tuning: {}", names.join(" ")));
+        // The tuning at the top of the score, as Guitar Pro's default stylesheet shows it:
+        // "Standard tuning", or each string numbered in a circle with its note, in two columns.
+        let font = serif(10.0 * m.zoom);
+        let line = 2.4 * m.space;
+        match tuning_legend(self.track) {
+            TuningLegend::None => {}
+            TuningLegend::Standard => {
+                self.p().text(pos2(left, y), egui::Align2::LEFT_TOP, "Standard tuning", font.clone(), self.t.ink);
+                y += line;
+            }
+            TuningLegend::Strings(notes) => {
+                let rows = notes.len().div_ceil(2);
+                let col_w = 5.6 * m.space;
+                for (i, note) in notes.iter().enumerate() {
+                    let (col, row) = (i / rows.max(1), i % rows.max(1));
+                    let x = left + col as f32 * col_w;
+                    let cy = y + row as f32 * line + line / 2.0;
+                    let r = 0.75 * m.space;
+                    self.p().circle_stroke(pos2(x + r, cy), r, Stroke::new(0.8, self.t.ink));
+                    self.p().text(pos2(x + r, cy), egui::Align2::CENTER_CENTER, (i + 1).to_string(), serif(7.5 * m.zoom), self.t.ink);
+                    self.p().text(pos2(x + 2.0 * r + 0.3 * m.space, cy), egui::Align2::LEFT_CENTER, format!("= {note}"), font.clone(), self.t.ink);
+                }
+                y += rows as f32 * line;
+            }
         }
         if self.track.capo > 0 {
-            legend.push(format!("Capo fret {}", self.track.capo));
-        }
-        for (i, l) in legend.iter().enumerate() {
-            self.p().text(pos2(page.left() + m.margin_left, y + i as f32 * 2.6 * m.space), egui::Align2::LEFT_TOP, l, serif(10.0 * m.zoom), self.t.ink);
+            self.p().text(pos2(left, y), egui::Align2::LEFT_TOP, format!("Capo fret {}", self.track.capo), font, self.t.ink);
         }
         self.chord_list(page);
     }
@@ -615,16 +630,18 @@ impl<'a> Ctx<'a> {
             g::arc(self.p(), pos2(bx, tb + 0.5 * s), pos2(bx + 1.6 * s, tb + 1.0 * s), 0.2 * s, Stroke::new(0.25 * s, t.ink));
         }
 
-        // Short track name in the left margin.
-        let short = short_name(self.track);
-        let name_y = if !m.tab {
-            nt + 2.0 * s
-        } else if m.notation {
-            (nt + tb) / 2.0
-        } else {
-            (tt + tb) / 2.0
-        };
-        self.p().text(pos2(x0 - 1.8 * s, name_y), egui::Align2::RIGHT_CENTER, short, serif(9.0 * m.zoom), t.ink);
+        // The abbreviated track name, vertical, left of the first system (Guitar Pro's default
+        // stylesheet: first system, abbreviated, vertical).
+        if first {
+            let name_y = if !m.tab {
+                nt + 2.0 * s
+            } else if m.notation {
+                (nt + tb) / 2.0
+            } else {
+                (tt + tb) / 2.0
+            };
+            self.vertical_text(short_name(self.track), pos2(x0 - 3.2 * s, name_y), serif(10.0 * m.zoom), t.ink);
+        }
 
         // Clefs and key signature.
         let first_mi = sys.measures.first().map_or(0, |x| x.index);
@@ -643,9 +660,8 @@ impl<'a> Ctx<'a> {
                 self.pen.glyph(glyph, pos2(x0 + (4.0 + i as f32) * s, self.nota_y(nt, *p)), t.ink);
             }
         }
-        let tab_clef = if strings <= 4 { g::TAB_CLEF_4 } else { g::TAB_CLEF_6 };
         if m.tab {
-            self.pen.glyph_scaled(tab_clef, pos2(x0 + 0.8 * s, (tt + tb) / 2.0), (m.tab_h() / (4.0 * s)).clamp(0.8, 1.8), t.ink);
+            self.tab_clef(x0 + 1.6 * s, tt, tb);
         }
 
         // Courtesy signatures: what the next system opens with.
@@ -665,9 +681,9 @@ impl<'a> Ctx<'a> {
             }
         }
 
-        // Bar number and the opening tempo mark, over the top track.
+        // The system's first bar number and the opening tempo mark, over the top track.
         if m.top {
-            self.p().text(pos2(x0 + 0.2 * s, sys_top - 1.0 * s), egui::Align2::LEFT_BOTTOM, (first_mi + 1).to_string(), serif(8.0 * m.zoom), t.bar_number);
+            self.bar_number(first_mi, x0 + 0.2 * s, sys_top);
         }
         if first && m.top {
             self.tempo_mark(x0 + sys.prefix, sys_top - 3.6 * s, self.score.tempo);
@@ -686,6 +702,9 @@ impl<'a> Ctx<'a> {
             let header = self.score.headers.get(mb.index);
             let Some(h) = header else { continue };
             let end = mx + mb.width;
+            if si > 0 && m.top {
+                self.bar_number(mb.index, mx + 0.2 * s, sys_top);
+            }
             if mb.key_w > 0.0 && m.notation && !m.drums {
                 let old = mi_key(self.score, mb.index.wrapping_sub(1));
                 self.key_change(old, h.key, mx + 0.6 * s, nt);
@@ -701,8 +720,9 @@ impl<'a> Ctx<'a> {
                 self.repeat_sign(end, nt, tt, tb, false);
             }
             if h.repeat_close > 0 && m.top {
+                // Clear of the bar line, where the next bar's number starts.
                 self.p().text(
-                    pos2(end, sys_top - 0.6 * s),
+                    pos2(end - 0.6 * s, sys_top - 0.6 * s),
                     egui::Align2::RIGHT_BOTTOM,
                     format!("x{}", u16::from(h.repeat_close) + 1),
                     serif(9.0 * m.zoom),
@@ -1009,11 +1029,37 @@ impl<'a> Ctx<'a> {
             self.p().text(pos2(mx + 0.5 * s, sys_top - 5.6 * s), egui::Align2::LEFT_BOTTOM, label, serif(8.5 * m.zoom), t.ink);
         }
         if let Some(text) = &h.marker {
-            let galley = self.p().layout_no_wrap(text.clone(), serif(10.0 * m.zoom), t.ink);
-            // At the top of the lane, above chord names and text.
-            let r = Rect::from_min_size(pos2(mx + 0.4 * s, sys_top - m.lane_above() + 0.4 * s), galley.size() + vec2(0.8 * s, 0.4 * s));
-            self.p().rect_stroke(r, 0.0, Stroke::new(1.0, t.ink), egui::StrokeKind::Inside);
-            self.p().galley(r.min + vec2(0.4 * s, 0.2 * s), galley, t.ink);
+            // At the top of the lane, above chord names and text: the letter boxed, then the name
+            // in bold; a name in brackets frames the letter and name together (Guitar Pro).
+            let (name, framed) = crate::section_dialog::display_name(text);
+            let letter = h.section_letter.as_deref().map(str::trim).filter(|l| !l.is_empty());
+            let font = serif_bold(11.0 * m.zoom);
+            let at = pos2(mx + 0.4 * s, sys_top - m.lane_above() + 0.4 * s);
+            let pad = vec2(0.3 * s, 0.1 * s);
+            let frame = |r: Rect| self.p().rect_stroke(r, 0.0, Stroke::new(1.0, t.ink), egui::StrokeKind::Inside);
+            if framed {
+                let label = match letter {
+                    Some(l) if name.is_empty() => l.to_string(),
+                    Some(l) => format!("{l} {name}"),
+                    None => name.to_string(),
+                };
+                let galley = self.p().layout_no_wrap(label, font, t.ink);
+                let r = Rect::from_min_size(at, galley.size() + 2.0 * pad);
+                frame(r);
+                self.p().galley(r.min + pad, galley, t.ink);
+            } else {
+                let mut x = at.x;
+                if let Some(l) = letter {
+                    let galley = self.p().layout_no_wrap(l.to_string(), font.clone(), t.ink);
+                    let r = Rect::from_min_size(pos2(x, at.y), galley.size() + 2.0 * pad);
+                    frame(r);
+                    self.p().galley(r.min + pad, galley, t.ink);
+                    x = r.right() + 0.5 * s;
+                }
+                if !name.is_empty() {
+                    self.p().text(pos2(x, at.y + pad.y), egui::Align2::LEFT_TOP, name, font, t.ink);
+                }
+            }
         }
         let marked = h.tempo.is_some() && index > 0;
         if let Some(tempo) = h.tempo
@@ -1042,10 +1088,49 @@ impl<'a> Ctx<'a> {
         }
     }
 
+    /// A tempo mark, `♩ = 120` in bold as Guitar Pro's stylesheet sets it.
     fn tempo_mark(&self, x: f32, y: f32, bpm: u16) {
         let s = self.m.space;
-        let w = self.pen.glyph_scaled(g::MET_QUARTER_UP, pos2(x, y), 0.8, self.t.ink);
-        self.p().text(pos2(x + w + 0.3 * s, y), egui::Align2::LEFT_BOTTOM, format!("= {bpm}"), serif(11.0 * self.m.zoom), self.t.ink);
+        let w = self.pen.glyph_scaled(g::MET_QUARTER_UP, pos2(x, y - 0.25 * s), 0.62, self.t.ink);
+        self.p().text(pos2(x + w + 0.5 * s, y), egui::Align2::LEFT_BOTTOM, format!("= {bpm}"), serif_bold(11.0 * self.m.zoom), self.t.ink);
+    }
+
+    /// Bar `index`'s number at `x` over the staff whose top is `sys_top`: small and grey, red on
+    /// screen when the bar's length does not match its time signature.
+    fn bar_number(&self, index: usize, x: f32, sys_top: f32) {
+        let (m, t) = (self.m, self.t);
+        let ink = if self.bar_is_wrong(index) { t.bar_error } else { t.bar_number };
+        self.p().text(pos2(x, sys_top - 0.6 * m.space), egui::Align2::LEFT_BOTTOM, (index + 1).to_string(), serif(8.0 * m.zoom), ink);
+    }
+
+    /// Whether a voice of bar `index` on this track is longer or shorter than the time signature
+    /// asks (free time excepted; an empty extra voice is fine).
+    fn bar_is_wrong(&self, index: usize) -> bool {
+        let (Some(h), Some(bar)) = (self.score.headers.get(index), self.track.measures.get(index)) else { return false };
+        !h.free_time && bar.voices.iter().enumerate().any(|(vi, v)| v.ticks() != h.capacity() && !(vi > 0 && v.beats.is_empty()))
+    }
+
+    /// The tablature clef: T, A and B stacked down the tab staff in a plain sans face, centred
+    /// on `cx`, as Guitar Pro draws it.
+    fn tab_clef(&self, cx: f32, tt: f32, tb: f32) {
+        let gap = self.m.tab_gap;
+        let step = ((tb - tt) / 3.3).min(1.55 * gap);
+        // Arial's capitals are about 0.72 em tall: fill most of each step.
+        let size = step * 0.92 / 0.72;
+        let mid = (tt + tb) / 2.0;
+        for (i, letter) in ["T", "A", "B"].into_iter().enumerate() {
+            let y = mid + (i as f32 - 1.0) * step;
+            self.p().text(pos2(cx, y), egui::Align2::CENTER_CENTER, letter, sans(size), self.t.ink);
+        }
+    }
+
+    /// Text turned to read upwards, centred on `center`.
+    fn vertical_text(&self, text: String, center: egui::Pos2, font: egui::FontId, ink: Color32) {
+        let galley = self.p().layout_no_wrap(text, font, ink);
+        let size = galley.size();
+        // Turned a quarter anticlockwise about its top-left corner, the text runs up from there.
+        let pos = pos2(center.x - size.y / 2.0, center.y + size.x / 2.0);
+        self.p().add(egui::epaint::TextShape::new(pos, galley, ink).with_angle(-std::f32::consts::FRAC_PI_2));
     }
 
     fn time_signature(&self, h: &MeasureHeader, x: f32, nt: f32, tt: f32, tb: f32) {
@@ -1064,7 +1149,8 @@ impl<'a> Ctx<'a> {
             draw(ts.numerator, cx, nt + s, 1.0);
             draw(ts.denominator, cx, nt + 3.0 * s, 1.0);
         }
-        if !self.m.tab {
+        // The tablature shows it only when it stands alone, as Guitar Pro does.
+        if !self.m.tab || self.m.notation {
             return;
         }
         let tab_scale = ((tb - tt) / (4.0 * s)).clamp(0.8, 1.6);
@@ -1940,6 +2026,29 @@ impl<'a> Ctx<'a> {
 
 /// The name at the left of each system after the first: the track's short name, or a Guitar
 /// Pro-style abbreviation of its name (`od.guit.`, `bass` …).
+/// What the top of the score says about a track's tuning.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TuningLegend {
+    /// Drums: nothing.
+    None,
+    /// The instrument's standard tuning.
+    Standard,
+    /// Any other: each string's note, highest string first.
+    Strings(Vec<String>),
+}
+
+pub fn tuning_legend(track: &Track) -> TuningLegend {
+    use guitario_theory::Tuning as T;
+    if track.is_drums() {
+        return TuningLegend::None;
+    }
+    let standard = [T::standard(), T::seven_string(), T::eight_string(), T::bass(), T::bass_five(), T::bass_six()];
+    if standard.iter().any(|t| t.strings == track.tuning.strings) {
+        return TuningLegend::Standard;
+    }
+    TuningLegend::Strings(track.tuning.strings.iter().map(|p| guitario_theory::note_name(*p).to_string()).collect())
+}
+
 pub fn short_name(track: &Track) -> String {
     if !track.short_name.trim().is_empty() {
         return track.short_name.trim().to_string();
@@ -2258,8 +2367,10 @@ mod tests {
             h.time_signature = guitario_theory::TimeSignature::new(7, 8).unwrap();
         }
         // The time signature shows twice: as a courtesy after the last bar line of the system
-        // before, and at the change (7 over the staff and in the tab, each time).
-        assert_eq!(sevens(&s), 2 * 2);
+        // before, and at the change; over the staff only, as Guitar Pro leaves it out of the tab
+        // under standard notation. Tablature alone shows it.
+        assert_eq!(sevens(&s), 2);
+        assert_eq!(texts(&s, false, &g::time_digit(7).to_string()), 2);
         // Every system after the change opens with two flats; the first one, still in C, ends
         // with them as a courtesy: as many flats as when the whole piece is in the new key.
         let mut all_flat = s.clone();

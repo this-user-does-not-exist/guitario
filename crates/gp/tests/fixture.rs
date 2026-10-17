@@ -28,7 +28,7 @@ fn bars_repeats_and_meters() {
     let s = load().score;
     assert_eq!(s.headers.len(), 3);
     assert!(s.headers[0].repeat_open);
-    assert_eq!(s.headers[0].marker.as_deref(), Some("A Riff"));
+    assert_eq!((s.headers[0].section_letter.as_deref(), s.headers[0].marker.as_deref()), (Some("A"), Some("Riff")));
     // A repeat end with count 3 means three plays, i.e. two extra passes.
     assert_eq!(s.headers[1].repeat_close, 2);
     assert_eq!(s.headers[2].time_signature, TimeSignature { numerator: 3, denominator: 4 });

@@ -120,6 +120,15 @@ fn standard_notation_and_tablature_flags_come_back() {
 }
 
 #[test]
+fn a_section_letter_goes_in_front_of_the_marker_name() {
+    let mut s = riff();
+    s.headers[0].fermatas.clear();
+    s.headers[0].section_letter = Some("A".into());
+    let (back, _, _) = round_trip(&s);
+    assert_eq!((back.headers[0].section_letter.as_deref(), back.headers[0].marker.as_deref()), (None, Some("A Intro")));
+}
+
+#[test]
 fn a_riff_with_every_effect_round_trips() {
     // Guitar Pro 5 has no fermatas; that is reported in its own test.
     let mut s = riff();

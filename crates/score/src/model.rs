@@ -147,8 +147,13 @@ pub struct MeasureHeader {
     /// Extra passes: `1` plays the section twice. `0` is no repeat close.
     #[serde(default)]
     pub repeat_close: u8,
+    /// The section's name; `Some` marks a section start (the name may be empty when the section
+    /// only has a letter). A name in brackets, `[Chorus]`, is drawn framed, as Guitar Pro does.
     #[serde(default)]
     pub marker: Option<String>,
+    /// The section's letter (`A`, `B` …), drawn boxed before its name; only read with `marker`.
+    #[serde(default)]
+    pub section_letter: Option<String>,
     /// A double bar line closes this measure.
     #[serde(default)]
     pub double_bar: bool,
@@ -383,6 +388,7 @@ impl MeasureHeader {
             repeat_open: false,
             repeat_close: 0,
             marker: None,
+            section_letter: None,
             double_bar: false,
             free_time: false,
             triplet_feel: TripletFeel::None,

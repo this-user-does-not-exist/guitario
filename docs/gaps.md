@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G8: global view in Guitar Pro 8's columns with a Master row; earlier G8: toolbar in Guitar Pro 8's order, two-row LCD, relative tonality; earlier G8: Preferences, light theme; G4: beam breaks and user-placed slurs; earlier G4: chord list under the title and Multivoice Editing; G6: transpose track; earlier G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G8: score page details from Guitar Pro 8's default stylesheet, Section menu and window, Sound Mastering (greyed), no status bar; earlier G8: global view in Guitar Pro 8's columns with a Master row; earlier G8: toolbar in Guitar Pro 8's order, two-row LCD, relative tonality; earlier G8: Preferences, light theme; G4: beam breaks and user-placed slurs; earlier G4: chord list under the title and Multivoice Editing; G6: transpose track; earlier G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -248,10 +248,18 @@ agent can't finish alone.
   (drag; double-click centres), volume and pan automation flags (green when automated; a click
   opens the editor) and the equalizer; a Master row carrying the sections; square bar cells with
   the cursor's bar marked as in Guitar Pro.
+- **Landed 2026-10-17:** the score page as Guitar Pro 8's default stylesheet draws it: bar numbers
+  on every bar (red on screen for a bar of the wrong length), the abbreviated track name upright on
+  the first system, only the first system indented, a plain T-A-B clef, no time signature in the
+  tab under standard notation, the tuning at the top ("Standard tuning" or circled strings), a bold
+  tempo, and sections as a boxed letter and a name (framed when bracketed). The Section menu
+  (Edit Section…, Next and Previous Section) and Guitar Pro's Section window; section letters kept
+  apart from names in `.gp` both ways. Sound Mastering in the Song inspector (greyed); messages as a
+  toast instead of a status bar, which Guitar Pro does not have.
 - **Missing:** a track equalizer, master volume and pan, focus/unfocus (greyed in the global
   view), saved track visibility, the audio track, tuner, line-in and Fretlight behind their greyed toolbar buttons, a
   home page behind the Home button (it opens a New/Open/recent menu), more preferences (defaults for new scores, key
-  bindings), a polished light theme, an Interpretation section and Sound Mastering in the inspector (Guitar Pro 8's inspector has Song and Track tabs only), floating panels, several documents at once.
+  bindings), a polished light theme, master effects behind Sound Mastering, a stylesheet window for the page details, floating panels, several documents at once.
 - **Evidence:** [ui-parity](ui-parity.md); UI-3/5/8/9 in the scorecard.
 - **Estimate:** 100–170 h.
 
@@ -323,3 +331,4 @@ agent can't finish alone.
 | 2026-10-17 | minor | G8: Preferences dialog, light theme, UI scale; persistent preferences wired into the app (menus 150/173) |
 | 2026-10-17 | minor | G8: Full Screen, Minimize, Keyboard Shortcuts (menus 153/173) |
 | 2026-10-17 | minor | G8: keyboard instrument view (menus 154/173) |
+| 2026-10-17 | minor | G8: score page details from Guitar Pro 8's default stylesheet; Section menu and window with letters (menus 160/177); Sound Mastering greyed; toast instead of a status bar |

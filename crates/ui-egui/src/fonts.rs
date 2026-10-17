@@ -15,6 +15,7 @@ pub struct FontSet {
 pub const SMUFL: &str = "gc-smufl";
 pub const SERIF: &str = "gc-serif";
 pub const SERIF_ITALIC: &str = "gc-serif-italic";
+pub const SERIF_BOLD: &str = "gc-serif-bold";
 pub const SANS: &str = "gc-sans";
 pub const SANS_BOLD: &str = "gc-sans-bold";
 const MAX_FONT_BYTES: u64 = 16 * 1024 * 1024;
@@ -96,6 +97,7 @@ pub fn definitions() -> (egui::FontDefinitions, FontSet) {
     };
     family(&mut defs, SERIF, &["Times New Roman.ttf", "times.ttf", "LiberationSerif-Regular.ttf", "DejaVuSerif.ttf"]);
     family(&mut defs, SERIF_ITALIC, &["Times New Roman Italic.ttf", "timesi.ttf", "LiberationSerif-Italic.ttf", "DejaVuSerif-Italic.ttf"]);
+    family(&mut defs, SERIF_BOLD, &["Times New Roman Bold.ttf", "timesbd.ttf", "LiberationSerif-Bold.ttf", "DejaVuSerif-Bold.ttf"]);
     family(&mut defs, SANS, &["Arial.ttf", "arial.ttf", "LiberationSans-Regular.ttf", "DejaVuSans.ttf"]);
     family(&mut defs, SANS_BOLD, &["Arial Bold.ttf", "arialbd.ttf", "LiberationSans-Bold.ttf", "DejaVuSans-Bold.ttf"]);
 
@@ -121,6 +123,11 @@ pub fn serif(size: f32) -> egui::FontId {
 /// Italic serif for expression text (Fine, D.C., D.S.); the upright serif's fallback chain applies.
 pub fn serif_italic(size: f32) -> egui::FontId {
     egui::FontId::new(size, egui::FontFamily::Name(SERIF_ITALIC.into()))
+}
+
+/// Bold serif for tempo marks and section names, as Guitar Pro's default stylesheet sets them.
+pub fn serif_bold(size: f32) -> egui::FontId {
+    egui::FontId::new(size, egui::FontFamily::Name(SERIF_BOLD.into()))
 }
 
 pub fn sans(size: f32) -> egui::FontId {

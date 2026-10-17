@@ -724,7 +724,8 @@ fn master_bar(h: &MeasureHeader, bars: impl Iterator<Item = usize>) -> String {
         ));
     }
     if let Some(marker) = &h.marker {
-        x.push_str(&format!("<Section><Letter>{}</Letter><Text>{}</Text></Section>", cdata(""), cdata(marker)));
+        let letter = h.section_letter.as_deref().unwrap_or("");
+        x.push_str(&format!("<Section><Letter>{}</Letter><Text>{}</Text></Section>", cdata(letter), cdata(marker)));
     }
     if h.endings != 0 {
         let numbers: Vec<String> = (1..=8u8).filter(|n| h.endings & (1 << (n - 1)) != 0).map(|n| n.to_string()).collect();

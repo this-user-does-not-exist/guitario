@@ -243,3 +243,19 @@ layout is a page as wide as the window and endless in height (no page breaks, no
 title kept); the horizontal layout is endless both ways with one unjustified system and no title.
 Layout mode and multitrack are view state in the shell, saved in the preferences, not in the
 score. Printing and PDF still lay out one track at a time in pages.
+
+## 2026-10-17: The page follows Guitar Pro 8's default stylesheet; no status bar
+
+The page draws what Guitar Pro 8's default stylesheet draws, read from the manual's screenshots:
+bar numbers on every bar, the abbreviated track name upright on the first system only (so only
+that system is indented and the others use the full width), the tuning at the top, a bold tempo,
+no time signature in the tab under standard notation, and a section as its letter boxed and its
+name in bold (a name in brackets framed). The section letter is its own field
+(`MeasureHeader::section_letter`), as in GPIF's `<Section><Letter>`; Guitar Pro 5 has names only,
+so the letter goes in front of the name there. A bar whose voice is longer or shorter than its time
+signature has a red number on screen (Guitar Pro's notation errors are red); paper never shows it.
+These are fixed until a stylesheet window exists.
+
+Guitar Pro has no status bar, so Guitario dropped its own: messages show as a toast over the
+bottom of the score, a few seconds (longer for errors), dismissed by a click. The cursor position
+it used to show is in the LCD.

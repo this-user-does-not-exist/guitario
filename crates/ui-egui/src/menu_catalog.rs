@@ -115,7 +115,7 @@ const fn m(path: &'static str, label: &'static str) -> MenuItem {
     MenuItem { path, label, action: Action::Missing, shortcut: "" }
 }
 
-pub const TOP: [&str; 11] = ["File", "Edit", "Track", "Bar", "Note", "Effects", "Sound", "Tools", "View", "Window", "Help"];
+pub const TOP: [&str; 12] = ["File", "Edit", "Track", "Bar", "Note", "Effects", "Section", "Tools", "Sound", "View", "Window", "Help"];
 
 use UiAction as U;
 
@@ -191,7 +191,6 @@ pub static CATALOG: &[MenuItem] = &[
     u("Bar", "Repeat Close", U::ToggleRepeatClose, ""),
     u("Bar", "Alternate Endings…", U::AlternateEndings, ""),
     u("Bar", "Directions…", U::Directions, ""),
-    u("Bar", "Section…", U::Section, ""),
     u("Bar", "Tempo Change…", U::TempoChange, ""),
     c("Bar", "Double Bar", "measure.toggleDoubleBar", "", ""),
     c("Bar", "Free Time", "measure.toggleFreeTime", "", ""),
@@ -262,6 +261,10 @@ pub static CATALOG: &[MenuItem] = &[
     u("Effects", "Brush (Strum)…", U::Brush("brush"), ""),
     u("Effects", "Arpeggio…", U::Brush("arpeggio"), ""),
     u("Effects", "Rasgueado…", U::Brush("rasgueado"), ""),
+    // Section
+    u("Section", "Edit Section…", U::Section, "Cmd+Alt+Plus"),
+    c("Section", "Next Section", "cursor.nextSection", "", "Cmd+Alt+Right"),
+    c("Section", "Previous Section", "cursor.previousSection", "", "Cmd+Alt+Left"),
     // Sound
     u("Sound", "Play / Stop", U::PlayStop, "Space"),
     u("Sound", "Loop", U::ToggleLoop, ""),

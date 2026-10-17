@@ -375,7 +375,13 @@ impl Writer {
                 self.i8(i8::try_from(u16::from(h.repeat_close) + 1).unwrap_or(i8::MAX));
             }
             if let Some(marker) = &h.marker {
-                self.int_byte_string(marker);
+                // Guitar Pro 5 markers have a name only: the letter goes in front of it.
+                let name = match h.section_letter.as_deref() {
+                    Some(l) if marker.is_empty() => l.to_string(),
+                    Some(l) => format!("{l} {marker}"),
+                    None => marker.clone(),
+                };
+                self.int_byte_string(&name);
                 self.out.extend([0xff, 0, 0, 0]); // red
             }
             if flags & 0x40 != 0 {

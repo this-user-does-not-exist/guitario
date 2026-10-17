@@ -345,8 +345,8 @@ impl GuitarioApp {
                         t.text,
                     );
                     let name_w = (ui.available_width() - 90.0).max(80.0);
-                    ui.add(egui::TextEdit::singleline(&mut w.name).desired_width(name_w));
-                    ui.add(egui::TextEdit::singleline(&mut w.short).desired_width(80.0));
+                    ui.add(egui::TextEdit::singleline(&mut w.name).desired_width(name_w).frame(crate::theme::field_frame()));
+                    ui.add(egui::TextEdit::singleline(&mut w.short).desired_width(80.0).frame(crate::theme::field_frame()));
                 });
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {

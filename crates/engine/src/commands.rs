@@ -58,6 +58,7 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .chain(crate::print::specs())
         .chain(crate::recover::specs())
         .chain(crate::automation::specs())
+        .chain(crate::sections::specs())
         .collect()
 });
 
@@ -141,7 +142,15 @@ const CORE: [CommandSpec; 55] = [
         measure_tempo,
     ),
     cmd("measure.setRepeat", "Repeat", "Measure", None, "open?, close? (extra passes)", true, set_repeat),
-    cmd("measure.setMarker", "Section Marker", "Measure", None, "text (empty clears)", true, set_marker),
+    cmd(
+        "measure.setMarker",
+        "Section Marker",
+        "Measure",
+        None,
+        "text, letter? (A-Z…, up to 4 characters; a name in [brackets] is framed; both empty clear the section)",
+        true,
+        set_marker,
+    ),
     cmd("track.add", "Add Track", "Track", None, "name?, tuning? (preset name)", true, track_add),
     cmd("track.remove", "Remove Track", "Track", None, "", true, track_remove),
     cmd("track.rename", "Rename Track", "Track", None, "name", true, track_rename),
@@ -634,6 +643,7 @@ fn measure_insert(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
         repeat_open: false,
         repeat_close: 0,
         marker: None,
+        section_letter: None,
         double_bar: false,
         endings: 0,
         targets: Vec::new(),
@@ -725,8 +735,14 @@ fn set_repeat(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 }
 
 fn set_marker(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
-    let t = p::string(params, "text")?;
-    s.header_mut()?.marker = (!t.is_empty()).then(|| t.to_string());
+    let t = p::string(params, "text")?.trim();
+    let letter = p::opt_string(params, "letter").map(str::trim).filter(|l| !l.is_empty());
+    if letter.is_some_and(|l| l.chars().count() > 4) {
+        return Err(EngineError::BadParam("a section letter is at most 4 characters".into()));
+    }
+    let h = s.header_mut()?;
+    h.marker = (!t.is_empty() || letter.is_some()).then(|| t.to_string());
+    h.section_letter = h.marker.as_ref().and(letter.map(str::to_string));
     ok()
 }
 

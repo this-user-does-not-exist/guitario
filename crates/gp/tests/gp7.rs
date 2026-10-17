@@ -52,6 +52,17 @@ fn a_riff_with_every_effect_round_trips_and_nothing_is_left_out() {
 }
 
 #[test]
+fn a_section_keeps_its_letter_apart_from_its_name() {
+    let mut s = riff();
+    s.headers[0].section_letter = Some("A".into());
+    s.headers[1].marker = Some(String::new());
+    s.headers[1].section_letter = Some("B".into());
+    let (back, _, _) = round_trip(&s);
+    let got: Vec<_> = back.headers.iter().take(2).map(|h| (h.section_letter.as_deref(), h.marker.as_deref())).collect();
+    assert_eq!(got, vec![(Some("A"), Some("Intro")), (Some("B"), Some(""))]);
+}
+
+#[test]
 fn the_interpretation_comes_back_except_automatic_let_ring() {
     let mut s = riff();
     let i = Interpretation { style: PlayingStyle::Fingers, palm_mute: 30, accentuation: 34, auto_let_ring: true, auto_brush: true, stringed: false };

@@ -35,6 +35,7 @@ mod preferences;
 mod prefs;
 mod preview;
 mod print_dialog;
+mod section_dialog;
 mod shortcuts;
 mod sounds;
 mod spool;
@@ -98,6 +99,9 @@ pub struct GuitarioApp {
     session: Session,
     status: String,
     status_is_error: bool,
+    /// The message the toast shows and since when: Guitar Pro has no status bar, so a message
+    /// appears over the bottom of the score for a moment.
+    toast: (String, Instant),
     /// The last typed digit and when, so `1` then `2` within a moment makes fret 12.
     last_digit: Option<(Instant, u8)>,
     follow_cursor: bool,
@@ -130,6 +134,7 @@ pub struct GuitarioApp {
     chord: chord_dialog::ChordDialog,
     lyrics: lyrics_dialog::LyricsDialog,
     transpose: transpose_dialog::TransposeDialog,
+    section: section_dialog::SectionDialog,
     mixer: mixer::Mixer,
     tempo_automation: automation_dialog::TempoAutomation,
     mix_automation: automation_dialog::MixAutomation,
@@ -169,8 +174,9 @@ impl GuitarioApp {
         let status_is_error = startup_error.is_some();
         Self {
             session,
-            status: startup_error.unwrap_or_else(|| "Ready. Type a fret number to enter a note.".into()),
+            status: startup_error.unwrap_or_default(),
             status_is_error,
+            toast: (String::new(), Instant::now()),
             last_digit: None,
             follow_cursor: true,
             fonts: fonts::FontSet::default(),
@@ -207,6 +213,7 @@ impl GuitarioApp {
             lyrics: lyrics_dialog::LyricsDialog::default(),
             autosave: autosave::Autosave::off(),
             transpose: transpose_dialog::TransposeDialog::default(),
+            section: section_dialog::SectionDialog::default(),
             mixer: mixer::Mixer::default(),
             tempo_automation: automation_dialog::TempoAutomation::default(),
             mix_automation: automation_dialog::MixAutomation::default(),
@@ -388,13 +395,13 @@ impl GuitarioApp {
             U::OpenRecent
             | U::TimeSignature
             | U::KeySignature
-            | U::Section
             | U::TempoChange
             | U::TripletFeel
             | U::Tuplet
             | U::Brush(_)
             | U::AlternateEndings
             | U::Directions => {}
+            U::Section => self.open_section(),
             U::CloseDocument => self.new_document(),
             U::CheckBarDurations => self.check_bar_durations(),
             U::Save => self.save_dialog(false),
@@ -912,6 +919,7 @@ impl GuitarioApp {
         self.chord_dialog(&ctx);
         self.lyrics_dialog(&ctx);
         self.transpose_dialog(&ctx);
+        self.section_dialog(&ctx);
         self.mixer_window(&ctx);
         self.tempo_automation_dialog(&ctx);
         self.mix_automation_dialog(&ctx);
@@ -935,41 +943,6 @@ impl GuitarioApp {
             egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.panel)).show(ui, |ui| home::show(self, ui));
             return;
         }
-        egui::Panel::bottom("status").exact_size(22.0).frame(bar(t.chrome_dark)).show(ui, |ui| {
-            ui.horizontal_centered(|ui| {
-                let c = self.session.cursor();
-                let text = egui::RichText::new(&self.status).small();
-                ui.label(if self.status_is_error { text.color(egui::Color32::from_rgb(0xff, 0x7a, 0x6a)) } else { text.color(t.text_dim) });
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let sel = self.session.selection().map(|s| {
-                        let ((m0, b0), (m1, b1)) = s.ordered();
-                        let beats_in = |m: usize| {
-                            self.session
-                                .score()
-                                .tracks
-                                .get(s.track)
-                                .and_then(|t| t.measures.get(m))
-                                .and_then(|x| x.voices.get(c.voice))
-                                .map_or(1, |v| v.beats.len())
-                        };
-                        let n: usize = (m0..=m1)
-                            .map(|m| {
-                                let first = if m == m0 { b0 } else { 0 };
-                                let last = if m == m1 { b1 + 1 } else { beats_in(m) };
-                                last.saturating_sub(first)
-                            })
-                            .sum();
-                        format!("{n} beats selected · ")
-                    });
-                    let voice = if c.voice > 0 { format!(" · Voice {}", c.voice + 1) } else { String::new() };
-                    ui.label(
-                        egui::RichText::new(format!("{}Bar {} · Beat {} · String {}{voice}", sel.unwrap_or_default(), c.measure + 1, c.beat + 1, c.string + 1))
-                            .small()
-                            .color(t.text_dim),
-                    );
-                });
-            });
-        });
         if self.panels.global {
             egui::Panel::bottom("global")
                 .resizable(true)
@@ -981,7 +954,12 @@ impl GuitarioApp {
             egui::Panel::bottom("keyboard").exact_size(110.0).frame(egui::Frame::NONE.fill(t.chrome_dark)).show(ui, |ui| keyboard::show(self, ui));
         }
         if self.panels.fretboard {
-            egui::Panel::bottom("fretboard").exact_size(132.0).frame(egui::Frame::NONE.fill(t.chrome_dark)).show(ui, |ui| fretboard::show(self, ui));
+            // As tall as Guitar Pro's: about 15 points a string.
+            let strings = self.session.score().tracks.get(self.session.cursor().track).map_or(6, |t| t.string_count()) as f32;
+            egui::Panel::bottom("fretboard")
+                .exact_size(fretboard::height(strings))
+                .frame(egui::Frame::NONE.fill(t.chrome_dark))
+                .show(ui, |ui| fretboard::show(self, ui));
         }
         if self.panels.palette {
             egui::Panel::left("palette")
@@ -995,7 +973,7 @@ impl GuitarioApp {
                 .frame(egui::Frame::NONE.fill(t.panel).inner_margin(egui::Margin::same(8)))
                 .show(ui, |ui| inspector::show(self, ui));
         }
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.workspace)).show(ui, |ui| {
+        let central = egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.workspace)).show(ui, |ui| {
             let play = self.transport.beat.filter(|_| self.transport.playing);
             let selection = self.session.selection().filter(|s| s.track == self.session.cursor().track).map(|s| s.ordered());
             let view = page::View {
@@ -1040,6 +1018,42 @@ impl GuitarioApp {
                 self.follow_cursor = false;
             }
         });
+        self.toast(ui.ctx(), central.response.rect);
+    }
+
+    /// The latest message over the bottom of the score: a few seconds, longer for an error; a
+    /// click dismisses it.
+    fn toast(&mut self, ctx: &egui::Context, area: egui::Rect) {
+        if self.toast.0 != self.status {
+            self.toast = (self.status.clone(), Instant::now());
+        }
+        let life = std::time::Duration::from_secs(if self.status_is_error { 8 } else { 4 });
+        let age = self.toast.1.elapsed();
+        if self.status.is_empty() || age >= life {
+            return;
+        }
+        ctx.request_repaint_after(life.saturating_sub(age));
+        let t = theme::tokens();
+        let ink = if self.status_is_error { egui::Color32::from_rgb(0xff, 0x8a, 0x7a) } else { t.text };
+        let shown = egui::Area::new(egui::Id::new("toast"))
+            .order(egui::Order::Foreground)
+            .pivot(egui::Align2::CENTER_BOTTOM)
+            .fixed_pos(egui::pos2(area.center().x, area.bottom() - 14.0))
+            .interactable(true)
+            .show(ctx, |ui| {
+                egui::Frame::new()
+                    .fill(t.panel_header.gamma_multiply(0.96))
+                    .stroke(egui::Stroke::new(1.0, t.border))
+                    .corner_radius(6)
+                    .inner_margin(egui::Margin::symmetric(12, 6))
+                    .show(ui, |ui| {
+                        ui.set_max_width((area.width() - 40.0).max(120.0));
+                        ui.label(egui::RichText::new(&self.status).color(ink));
+                    })
+            });
+        if shown.response.interact(egui::Sense::click()).clicked() {
+            self.status.clear();
+        }
     }
 }
 

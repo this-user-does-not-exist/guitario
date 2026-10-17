@@ -19,6 +19,7 @@ mod params;
 mod print;
 mod recover;
 mod render;
+mod sections;
 mod selection;
 mod session;
 mod techniques;

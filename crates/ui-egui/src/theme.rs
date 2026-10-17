@@ -46,6 +46,9 @@ pub struct Tokens {
     pub staff_line: Color32,
     pub bar_line: Color32,
     pub bar_number: Color32,
+    /// The bar number of a bar whose length does not match its time signature: Guitar Pro marks
+    /// notation errors in red on screen.
+    pub bar_error: Color32,
     pub cursor_fill: Color32,
     pub cursor_stroke: Color32,
     pub selection_fill: Color32,
@@ -85,7 +88,8 @@ pub const GP: Tokens = Tokens {
     ink: Color32::from_rgb(0x14, 0x14, 0x14),
     staff_line: Color32::from_rgb(0x9a, 0x9a, 0x9a),
     bar_line: Color32::from_rgb(0x50, 0x50, 0x50),
-    bar_number: Color32::from_rgb(0xc8, 0x3a, 0x3a),
+    bar_number: Color32::from_rgb(0x8c, 0x8c, 0x8c),
+    bar_error: Color32::from_rgb(0xd0, 0x30, 0x30),
     cursor_fill: Color32::from_rgba_premultiplied(0x18, 0x48, 0x80, 0x30),
     cursor_stroke: Color32::from_rgb(0x2f, 0x7b, 0xf5),
     selection_fill: Color32::from_rgba_premultiplied(0x10, 0x3c, 0x78, 0x48),
@@ -126,7 +130,8 @@ pub const LIGHT: Tokens = Tokens {
 };
 
 /// What prints and exports use whatever the theme: the score's own inks on white paper.
-pub const PAPER: Tokens = Tokens { page: Color32::WHITE, ..GP };
+/// Paper shows no notation errors.
+pub const PAPER: Tokens = Tokens { page: Color32::WHITE, bar_error: GP.bar_number, ..GP };
 
 pub fn tokens() -> &'static Tokens {
     match theme() {
@@ -140,6 +145,13 @@ pub fn track_color(score: &guitario_score::Score, i: usize) -> Color32 {
     let default = || guitario_score::TRACK_COLORS.get(i % guitario_score::TRACK_COLORS.len()).copied().unwrap_or([0xe0, 0x4f, 0x4f]);
     let rgb = score.tracks.get(i).map_or_else(default, |t| t.color_at(i));
     Color32::from_rgb(rgb[0], rgb[1], rgb[2])
+}
+
+/// Guitar Pro's text field: the near-black well with rounded corners and a thin outline.
+pub fn field_frame() -> egui::Frame {
+    let t = tokens();
+    let (fill, edge) = if theme() == Theme::Light { (Color32::WHITE, t.border) } else { (t.lcd_bg, Color32::from_rgb(0x4a, 0x4d, 0x5c)) };
+    egui::Frame::new().fill(fill).stroke(egui::Stroke::new(1.0, edge)).corner_radius(5).inner_margin(egui::Margin::symmetric(6, 3))
 }
 
 pub fn apply(ctx: &egui::Context) {

@@ -18,6 +18,11 @@ fn fret_x(n: u8, x0: f32, x1: f32) -> f32 {
     x0 + (x1 - x0) * pos(f32::from(n)) / pos(f32::from(FRETS))
 }
 
+/// The panel's height for a neck of `strings` strings (a drum pad takes the six-string height).
+pub fn height(strings: f32) -> f32 {
+    (strings.max(6.0) * 15.0 + 6.0).min(170.0)
+}
+
 pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let t = tokens();
     let score = app.session.score().clone();

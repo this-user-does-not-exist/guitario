@@ -322,8 +322,19 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     let next = score.headers.iter().enumerate().skip(mi + 1).find(|(_, h)| h.marker.is_some()).map_or(bars, |(i, _)| i);
                     let clip = Rect::from_min_max(pos2(x, master_y), pos2(rect.left() + next as f32 * CELL - 2.0, master_y + ROW));
                     let label = p.with_clip_rect(clip);
-                    draw(&label, Rect::from_center_size(pos2(x + 10.0, master_y + ROW / 2.0), vec2(13.0, 13.0)), Icon::Bookmark, t.text);
-                    label.text(pos2(x + 21.0, master_y + ROW / 2.0), egui::Align2::LEFT_CENTER, m, egui::FontId::proportional(13.0), t.text);
+                    // Guitar Pro boxes the section's letter; a section without one keeps a bookmark.
+                    let cy = master_y + ROW / 2.0;
+                    let (name, _) = crate::section_dialog::display_name(m);
+                    match hd.section_letter.as_deref().map(str::trim).filter(|l| !l.is_empty()) {
+                        Some(l) => {
+                            let galley = label.layout_no_wrap(l.to_string(), egui::FontId::proportional(12.0), t.text);
+                            let r = Rect::from_center_size(pos2(x + 10.0, cy), vec2(galley.size().x.max(9.0) + 6.0, 16.0));
+                            label.rect_stroke(r, 3.0, Stroke::new(1.0, t.text), egui::StrokeKind::Inside);
+                            label.galley(r.center() - galley.size() / 2.0, galley, t.text);
+                        }
+                        None => draw(&label, Rect::from_center_size(pos2(x + 10.0, cy), vec2(13.0, 13.0)), Icon::Bookmark, t.text),
+                    }
+                    label.text(pos2(x + 24.0, cy), egui::Align2::LEFT_CENTER, name, egui::FontId::proportional(13.0), t.text);
                 }
                 for (ti, tr) in score.tracks.iter().enumerate() {
                     let cell = Rect::from_min_size(pos2(x + 1.0, grid_top + ti as f32 * ROW + 1.0), vec2(CELL - 2.0, ROW - 2.0));

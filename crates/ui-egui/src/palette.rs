@@ -59,7 +59,6 @@ enum Pop {
     Harmonic,
     Slur,
     Text,
-    Section,
 }
 
 /// A window a button opens.
@@ -365,7 +364,7 @@ fn sections(s: &State) -> Vec<(&'static str, Vec<Button>)> {
         later(Art::Text("BV"), "Extended barre"),
         later(Art::Text("2:51"), "Timer"),
         b(Art::Text("TXT"), "Text", beat.is_some_and(|b| b.text.is_some()), hb, Act::Pop(Pop::Text)),
-        b(Art::Draw(draw_section), "Section", hd.is_some_and(|h| h.marker.is_some()), true, Act::Pop(Pop::Section)),
+        b(Art::Draw(draw_section), "Section", hd.is_some_and(|h| h.marker.is_some()), true, Act::Ui(UiAction::Section)),
         blank(),
         b(Art::Draw(draw_beam_auto), "Automatic beaming", hb && beam.is_none(), hb, run("beat.setBeam", json!({"mode": "auto"}))),
         b(Art::Draw(draw_beam), "Force beaming", beam == Some(guitario_score::BeamOverride::Join), hb, run("beat.setBeam", json!({"mode": "join"}))),
@@ -791,18 +790,6 @@ fn popup(r: &egui::Response, kind: Pop, s: &State, acts: &mut Vec<Act>) {
             if ui.button("Set text").clicked() || (edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
                 acts.push(run("beat.setText", json!({"text": text})));
                 ui.data_mut(|d| d.remove::<String>(id));
-                ui.close();
-            }
-        }
-        Pop::Section => {
-            for name in ["Intro", "Verse", "Pre-Chorus", "Chorus", "Bridge", "Solo", "Breakdown", "Outro"] {
-                if ui.selectable_label(hd.and_then(|h| h.marker.as_deref()) == Some(name), name).clicked() {
-                    acts.push(run("measure.setMarker", json!({"text": name})));
-                    ui.close();
-                }
-            }
-            if ui.add_enabled(hd.is_some_and(|h| h.marker.is_some()), egui::Button::new("Remove section")).clicked() {
-                acts.push(run("measure.setMarker", json!({"text": ""})));
                 ui.close();
             }
         }

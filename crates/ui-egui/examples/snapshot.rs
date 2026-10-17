@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--section] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -47,7 +47,7 @@ fn demo() -> Session {
     run(&mut s, "score.setTempo", json!({"bpm": 104}));
     run(&mut s, "track.rename", json!({"name": "Electric Guitar"}));
     run(&mut s, "track.setProgram", json!({"program": 29}));
-    run(&mut s, "measure.setMarker", json!({"text": "Intro"}));
+    run(&mut s, "measure.setMarker", json!({"text": "Intro", "letter": "A"}));
     run(&mut s, "measure.setRepeat", json!({"open": true}));
     let pm: &[&str] = &["palmMute"];
     let none: &[&str] = &[];
@@ -82,7 +82,7 @@ fn demo() -> Session {
     run(&mut s, "measure.setRepeat", json!({"close": 1}));
     run(&mut s, "cursor.set", json!({"measure": 2, "beat": 0}));
     // Bar 3: chords and a triplet group.
-    run(&mut s, "measure.setMarker", json!({"text": "Verse"}));
+    run(&mut s, "measure.setMarker", json!({"text": "Verse", "letter": "B"}));
     enter(
         &mut s,
         &[
@@ -212,6 +212,9 @@ fn main() {
     }
     if args.iter().any(|a| a == "--add-track") {
         app.open_add_track(None);
+    }
+    if args.iter().any(|a| a == "--section") {
+        app.open_section();
     }
     if args.iter().any(|a| a == "--home") {
         app.show_home();

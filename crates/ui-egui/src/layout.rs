@@ -231,14 +231,25 @@ impl Metrics {
         Metrics { notation: standard, tab: tab || !standard, ..self }
     }
 
-    /// Room left of every system for the short track name.
+    /// Room left of the first system for the track name.
     pub fn indent(&self) -> f32 {
         6.5 * self.space
     }
 
-    /// Width available to a system (clef prefix and measures).
+    /// Width available to the first system (clef prefix and measures).
     pub fn content_w(&self) -> f32 {
         self.page_w - self.margin_left - self.margin_right - self.indent()
+    }
+
+    /// The indent of system `index` of the score: only the first is indented (and the single line
+    /// of the horizontal layout).
+    pub fn system_indent(&self, index: usize) -> f32 {
+        if index == 0 || self.mode == LayoutMode::Horizontal { self.indent() } else { 0.0 }
+    }
+
+    /// Width available to system `index` of the score.
+    pub fn system_w(&self, index: usize) -> f32 {
+        self.content_w() + self.indent() - self.system_indent(index)
     }
 
     /// Space above the first staff: section markers, chord names and text, directions, tempo,
@@ -403,6 +414,9 @@ pub struct SystemBox {
     /// Room after the last bar line for courtesy signatures: the key or time signature the next
     /// system opens with, when it changes there. Zero without.
     pub courtesy: f32,
+    /// How far the system starts right of the left margin: the first system is indented for the
+    /// track name, as Guitar Pro's "Indent first system"; the others start at the margin.
+    pub indent: f32,
 }
 
 impl SystemBox {
@@ -687,7 +701,7 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
     let mut i = 0;
     while i < naturals.len() {
         let prefix = prefix_at(i);
-        let avail = if horizontal { f32::INFINITY } else { page.content_w() - prefix };
+        let avail = if horizontal { f32::INFINITY } else { page.system_w(systems.len()) - prefix };
         let mut used = 0.0;
         let mut row = Vec::new();
         while let Some(n) = naturals.get(i) {
@@ -717,7 +731,7 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
     let count = systems.len();
     for (si, (row, prefix)) in systems.into_iter().enumerate() {
         let courtesy = if horizontal || si + 1 == count { 0.0 } else { row.last().map_or(0.0, |&l| courtesy_w(score, parts, l, s)) };
-        let avail = page.content_w() - prefix - courtesy;
+        let avail = page.system_w(si) - prefix - courtesy;
         let used: f32 = row.iter().filter_map(|i| naturals.get(*i)).map(total).sum();
         let beats_sum: f32 = row.iter().filter_map(|i| naturals.get(*i)).map(|n| n.cols.iter().sum::<f32>()).sum();
         let last_and_short = si + 1 == count && used < avail * 0.7;
@@ -760,7 +774,7 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
             y = page.margin_top;
         }
         if let Some(pg) = pages.last_mut() {
-            pg.systems.push(SystemBox { measures, y, prefix, courtesy });
+            pg.systems.push(SystemBox { measures, y, prefix, courtesy, indent: page.system_indent(si) });
         }
         y += system_h;
     }
@@ -952,7 +966,7 @@ mod tests {
         let systems = |p: &[PageBox]| p.iter().map(|p| p.systems.len()).sum::<usize>();
         assert!(systems(&pn) > systems(&pw), "a narrow window needs more systems");
         for sys in &pw[0].systems {
-            assert!(sys.width() <= wide.content_w() + 0.5);
+            assert!(sys.width() <= wide.content_w() + wide.indent() - sys.indent + 0.5);
         }
         // The page view of the same score has several pages.
         assert!(layout(&s, 0, &base).len() > 1);
@@ -999,12 +1013,29 @@ mod tests {
     }
 
     #[test]
+    fn only_the_first_system_is_indented_and_the_others_use_the_room() {
+        let s = score(30);
+        let m = Metrics::new(1.0, true, 6);
+        let systems: Vec<SystemBox> = layout(&s, 0, &m).into_iter().flat_map(|p| p.systems).collect();
+        assert!(systems.len() > 2);
+        assert_eq!(systems[0].indent, m.indent());
+        assert!(systems.iter().skip(1).all(|sys| sys.indent == 0.0));
+        // The later systems are justified to the wider line.
+        let width = |sys: &SystemBox| sys.measures.iter().map(|x| x.width).sum::<f32>() + sys.prefix;
+        assert!((width(&systems[1]) - m.system_w(1)).abs() < 0.5, "{} vs {}", width(&systems[1]), m.system_w(1));
+        assert!((width(&systems[0]) - m.content_w()).abs() < 0.5);
+        let h = m.with_horizontal();
+        assert!(layout(&s, 0, &h).iter().flat_map(|p| &p.systems).all(|sys| sys.indent == h.indent()));
+    }
+
+    #[test]
     fn systems_fit_the_page_width() {
         let s = score(30);
         let m = Metrics::new(1.5, true, 6);
         for sys in layout(&s, 0, &m).iter().flat_map(|p| &p.systems) {
             let w: f32 = sys.measures.iter().map(|x| x.width).sum();
-            assert!(w + sys.prefix <= m.content_w() + 0.5, "{w} + {} > {}", sys.prefix, m.content_w());
+            let room = m.content_w() + m.indent() - sys.indent;
+            assert!(w + sys.prefix <= room + 0.5, "{w} + {} > {room}", sys.prefix);
             assert!(sys.y + m.system_h() <= m.page_h);
         }
     }
@@ -1025,7 +1056,8 @@ mod tests {
                 for page in &pages {
                     for sys in &page.systems {
                         let used: f32 = sys.measures.iter().map(|x| x.width).sum::<f32>() + sys.prefix;
-                        assert!(used <= m.content_w() + 0.5, "{paper:?}: {used} > {}", m.content_w());
+                        let room = m.content_w() + m.indent() - sys.indent;
+                        assert!(used <= room + 0.5, "{paper:?}: {used} > {room}");
                         // A system stays above the bottom margin unless it is alone on a page too short for it.
                         assert!(sys.y + m.system_h() <= m.page_h - m.margin_bottom + 0.5 || page.systems.len() == 1, "{paper:?} landscape={landscape}");
                     }

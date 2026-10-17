@@ -17,10 +17,15 @@ playback cursor. Widgets read `theme::tokens()`; never hard-code a colour.
   rounded groups (`Group`), blue when toggled on; right-end groups drop out first when narrow.
 - Edition palette down the left edge: note values, rhythm modifiers, dynamics, articulations and
   techniques, bar tools; buttons light up for the beat and note under the cursor.
-- Score in the middle: A4 pages, notation over tab joined by a bracket, TAB clef, short track name
-  in the left margin, red bar numbers, boxed section names, tempo marks above the first system.
+- Score in the middle: A4 pages on a slate workspace, drawn as Guitar Pro's default stylesheet
+  draws them: title block, "Standard tuning" (or circled strings) and a bold tempo above the first
+  system; notation over tab joined by a bracket, a plain T-A-B clef, the time signature in the
+  staff only (in the tab when it stands alone); the abbreviated track name upright left of the
+  first system, which alone is indented; small grey bar numbers on every bar (red on screen for a
+  bar of the wrong length); sections as a boxed letter and a bold name, framed when bracketed.
 - Inspector on the right (Song, Track). Fretboard and global view along the bottom.
-- Menus mirror Guitar Pro's (`menu_catalog.rs`); unbuilt items are greyed out.
+- Menus mirror Guitar Pro's twelve, in its order (`menu_catalog.rs`); unbuilt items are greyed out.
+- No status bar (Guitar Pro has none): messages show as a toast over the bottom of the score.
 
 ## Icons
 

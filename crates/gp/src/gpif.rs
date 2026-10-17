@@ -201,8 +201,9 @@ fn header_of(m: Node) -> MeasureHeader {
         }
     }
     if let Some(s) = child(m, "Section") {
-        let joined = [text(s, "Letter"), text(s, "Text")].into_iter().flatten().filter(|t| !t.is_empty()).collect::<Vec<_>>().join(" ");
-        h.marker = (!joined.is_empty()).then_some(joined);
+        let field = |tag| text(s, tag).map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
+        h.section_letter = field("Letter");
+        h.marker = field("Text").or_else(|| h.section_letter.as_ref().map(|_| String::new()));
     }
     if let Some(e) = text(m, "AlternateEndings") {
         h.endings = e.split_whitespace().filter_map(|n| n.parse::<u8>().ok()).filter(|n| (1..=8).contains(n)).fold(0, |b, n| b | 1 << (n - 1));
@@ -848,7 +849,8 @@ mod tests {
         assert_eq!(s.headers[0].key, 1);
         assert!(s.headers[0].repeat_open);
         assert_eq!(s.headers[1].repeat_close, 2);
-        assert_eq!(s.headers[0].marker.as_deref(), Some("A Verse"));
+        assert_eq!(s.headers[0].marker.as_deref(), Some("Verse"));
+        assert_eq!(s.headers[0].section_letter.as_deref(), Some("A"));
         assert_eq!(s.headers[1].time_signature, TimeSignature { numerator: 3, denominator: 4 });
         let h = &s.headers[1];
         assert_eq!(h.endings, 0b11);

@@ -102,7 +102,7 @@ fn text_box(app: &mut GuitarioApp, ui: &mut egui::Ui, key: &'static str, current
     } else {
         egui::TextEdit::singleline(&mut text)
     };
-    let r = ui.add(edit.desired_width(width));
+    let r = ui.add(edit.desired_width(width).frame(crate::theme::field_frame()));
     if r.changed() {
         app.edit_buffers.insert(key, text.clone());
     }
@@ -179,8 +179,7 @@ fn song(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static st
     section(ui, "Musical notation", |ui| {
         egui::Grid::new("song-notation").num_columns(2).spacing([8.0, 8.0]).show(ui, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label("Concert tone:"));
-            let mut concert = false;
-            ui.add_enabled(false, egui::Checkbox::new(&mut concert, "Off")).on_disabled_hover_text("No track transposes for reading (not in Guitario yet)");
+            ui.horizontal(|ui| dim_switch(ui, "No track transposes for reading (not in Guitario yet)"));
             ui.end_row();
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label("Stylesheet:"));
             if ui.button("Open…").on_hover_text("Page format (the rest of the stylesheet is not in Guitario yet)").clicked() {
@@ -189,6 +188,74 @@ fn song(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static st
             ui.end_row();
         });
     });
+    section(ui, "Sound mastering", |ui| {
+        ui.label("Setup the mastering for all tracks");
+        ui.add_space(4.0);
+        // Guitar Pro's three master effects: a compressor, a reverb and an equalizer, each with its
+        // preset list, power and options. Guitario has no master effects yet.
+        for preset in ["Analog", "Studio", "10-Band"] {
+            mastering_row(ui, preset);
+            ui.add_space(3.0);
+        }
+        ui.add_space(4.0);
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+            ui.add_enabled(false, egui::Button::new("Show Pedalboard…")).on_disabled_hover_text("The master effect chain (not in Guitario yet)");
+        });
+    });
+}
+
+/// A greyed on/off switch, off, for a setting Guitario does not have yet.
+fn dim_switch(ui: &mut egui::Ui, tip: &str) {
+    let t = tokens();
+    let (r, resp) = ui.allocate_exact_size(egui::vec2(40.0, 22.0), egui::Sense::hover());
+    let p = ui.painter();
+    p.rect_filled(r, 11.0, t.control.gamma_multiply(0.6));
+    p.circle_filled(egui::pos2(r.left() + 11.0, r.center().y), 7.0, Color32::WHITE.gamma_multiply(0.6));
+    ui.label(egui::RichText::new("Off").color(t.text_dim));
+    resp.on_hover_text(tip);
+}
+
+/// One row of Sound Mastering, greyed: effect icon, preset with its list arrows, power, options.
+fn mastering_row(ui: &mut egui::Ui, preset: &str) {
+    let t = tokens();
+    let (r, resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 28.0), egui::Sense::hover());
+    let p = ui.painter();
+    let ink = t.text_dim;
+    let (icon, rest) = r.split_left_right_at_x(r.left() + 30.0);
+    let (name, rest) = rest.split_left_right_at_x(rest.right() - 62.0);
+    let (power, more) = rest.split_left_right_at_x(rest.left() + 34.0);
+    for (cell, corners) in [
+        (icon, egui::CornerRadius { nw: 5, sw: 5, ne: 0, se: 0 }),
+        (name, egui::CornerRadius::ZERO),
+        (power, egui::CornerRadius::ZERO),
+        (more, egui::CornerRadius { nw: 0, sw: 0, ne: 5, se: 5 }),
+    ] {
+        p.rect_filled(cell.shrink2(egui::vec2(0.5, 0.0)), corners, t.control.gamma_multiply(0.6));
+    }
+    // A little amp head: a box with two knobs.
+    let a = egui::Rect::from_center_size(icon.center(), egui::vec2(16.0, 10.0));
+    p.rect_stroke(a, 1.5, egui::Stroke::new(1.2, ink), egui::StrokeKind::Inside);
+    for dx in [-3.5, 3.0] {
+        p.circle_filled(a.center() + egui::vec2(dx, 0.5), 1.6, ink);
+    }
+    p.text(egui::pos2(name.left() + 10.0, name.center().y), egui::Align2::LEFT_CENTER, preset, egui::FontId::proportional(14.0), ink);
+    let cx = egui::pos2(name.right() - 14.0, name.center().y);
+    for (dy, tip) in [(-4.0, -1.0), (4.0, 1.0)] {
+        p.add(egui::Shape::line(
+            vec![cx + egui::vec2(-4.0, dy - 2.0 * tip), cx + egui::vec2(0.0, dy + 2.0 * tip), cx + egui::vec2(4.0, dy - 2.0 * tip)],
+            egui::Stroke::new(1.4, ink),
+        ));
+    }
+    // Power: an open ring with a bar through its gap.
+    let c = power.center();
+    let ring: Vec<egui::Pos2> = (0..=20)
+        .map(|i| -std::f32::consts::FRAC_PI_2 + 0.6 + i as f32 * (2.0 * std::f32::consts::PI - 1.2) / 20.0)
+        .map(|a| c + 6.5 * egui::vec2(a.cos(), a.sin()))
+        .collect();
+    p.add(egui::Shape::line(ring, egui::Stroke::new(1.6, ink)));
+    p.line_segment([c + egui::vec2(0.0, -8.0), c + egui::vec2(0.0, -1.5)], egui::Stroke::new(1.6, ink));
+    crate::icons::draw(p, more.shrink(7.0), crate::icons::Icon::More, ink);
+    resp.on_hover_text("Master effects (not in Guitario yet)");
 }
 
 /// Colours offered for a track: Guitar Pro's eight, then lighter and darker ones.
@@ -398,7 +465,10 @@ fn notation(ui: &mut egui::Ui, tr: &guitario_score::Track, ti: usize, actions: &
         label(ui, "Tuning:");
         let names: Vec<&str> = tr.tuning.strings.iter().rev().map(|p| guitario_theory::note_name(*p)).collect();
         let t = tokens();
-        let w = (ui.available_width() - 30.0).max(80.0);
+        // The two cells butt together; the gap between them must come out of the width too, or the row
+        // overflows every frame and the (resizable) panel widens until it fills the window.
+        ui.spacing_mut().item_spacing.x = 1.0;
+        let w = (ui.available_width() - 28.0 - ui.spacing().item_spacing.x).max(80.0);
         let (r, resp) = ui.allocate_exact_size(egui::vec2(w, 26.0), egui::Sense::click());
         let p = ui.painter().clone();
         p.rect_filled(r, egui::CornerRadius { nw: 5, sw: 5, ne: 0, se: 0 }, if resp.hovered() { t.control_hover } else { t.control });

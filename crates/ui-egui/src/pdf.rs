@@ -312,6 +312,11 @@ impl Converter<'_> {
         let (family, size) = (&fmt.font_id.family, fmt.font_id.size);
         s.set_fill(Some(fill));
         s.set_stroke(None);
+        // Rotated text (a vertical track name) turns about its anchor, as egui draws it.
+        let turned = t.angle != 0.0 && t.angle.is_finite();
+        if turned {
+            s.push_transform(&Transform::from_rotate_at(t.angle.to_degrees(), t.pos.x, t.pos.y));
+        }
         for row in &galley.rows {
             for g in &row.row.glyphs {
                 if g.chr.is_whitespace() || g.chr.is_control() {
@@ -329,6 +334,9 @@ impl Converter<'_> {
                     }
                 }
             }
+        }
+        if turned {
+            s.pop();
         }
     }
 }

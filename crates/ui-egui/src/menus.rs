@@ -65,21 +65,6 @@ fn entry(app: &mut GuitarioApp, ui: &mut egui::Ui, item: &MenuItem) {
                 }
             });
         }
-        Action::Ui(UiAction::Section) => {
-            ui.menu_button(item.label, |ui| {
-                for name in ["Intro", "Verse", "Pre-Chorus", "Chorus", "Bridge", "Breakdown", "Solo", "Outro"] {
-                    if ui.button(name).clicked() {
-                        app.run("measure.setMarker", json!({"text": name}));
-                        ui.close();
-                    }
-                }
-                ui.separator();
-                if ui.button("Remove Section").clicked() {
-                    app.run("measure.setMarker", json!({"text": ""}));
-                    ui.close();
-                }
-            });
-        }
         Action::Ui(UiAction::TempoChange) => {
             ui.menu_button(item.label, |ui| {
                 for bpm in [60, 80, 100, 120, 140, 160, 180, 200, 220] {

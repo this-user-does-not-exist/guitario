@@ -230,6 +230,7 @@ pub(crate) fn append_measure(score: &mut Score, header: MeasureHeader) {
         repeat_open: false,
         repeat_close: 0,
         marker: None,
+        section_letter: None,
         double_bar: false,
         endings: 0,
         targets: Vec::new(),
