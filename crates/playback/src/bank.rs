@@ -11,7 +11,7 @@
 //! `cargo xtask sounds` downloads the recommended libraries and writes this file. A track whose
 //! role has no entry (or whose instrument fails to load) keeps the built-in synth.
 
-use crate::player::used_keys;
+use crate::player::used_keys_by_track;
 use crate::sfz::Instrument;
 use crate::{Options, Player};
 use guitario_score::{Score, Track};
@@ -55,14 +55,22 @@ impl Role {
     }
 }
 
-type Loaded = (PathBuf, Vec<u8>, Arc<Instrument>);
+/// An instrument file decoded for these keys (sorted), or why it could not be.
+type Loaded = (PathBuf, Vec<u8>, Result<Arc<Instrument>, String>);
 
 #[derive(Default)]
 pub struct SoundBank {
     dir: PathBuf,
     entries: Vec<(Role, PathBuf)>,
-    /// Instruments already decoded, by file and keys, so pressing Play twice does not decode twice.
+    /// Instruments already decoded, one per file with every key loaded so far, so pressing Play
+    /// again (or adding a note) does not decode again. Held only to look up and insert, never
+    /// while decoding.
     cache: std::sync::Mutex<Vec<Loaded>>,
+}
+
+/// Whether `have` (sorted) holds every key of `want` (sorted).
+fn covers(have: &[u8], want: &[u8]) -> bool {
+    want.iter().all(|k| have.binary_search(k).is_ok())
 }
 
 impl std::fmt::Debug for SoundBank {
@@ -127,29 +135,83 @@ impl SoundBank {
         self.cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
     }
 
-    /// Gives each track with a mapped role its sampled instrument, loading only the samples the
-    /// score plays. Returns one message per problem; those tracks keep the built-in synth.
-    pub fn apply(&self, player: &mut Player, score: &Score) -> Vec<String> {
+    /// What `score` needs from the bank: each track with a mapped role, its instrument file and
+    /// the keys it plays.
+    fn needs(&self, score: &Score) -> Vec<(usize, PathBuf, Vec<u8>)> {
+        let keys = used_keys_by_track(score);
+        score
+            .tracks
+            .iter()
+            .zip(keys)
+            .enumerate()
+            .filter(|(_, (_, k))| !k.is_empty())
+            .filter_map(|(ti, (track, k))| Some((ti, Role::of(track).and_then(|r| self.path_for(r))?.to_path_buf(), k)))
+            .collect()
+    }
+
+    fn cache(&self) -> std::sync::MutexGuard<'_, Vec<Loaded>> {
+        self.cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Whether every instrument `score` needs is decoded (or known not to load), so [`apply`]
+    /// returns at once. Cheap enough to ask after each edit.
+    pub fn ready(&self, score: &Score) -> bool {
+        let needs = self.needs(score);
+        let cache = self.cache();
+        needs.iter().all(|(_, path, keys)| cache.iter().any(|(p, k, inst)| p == path && (inst.is_err() || covers(k, keys))))
+    }
+
+    /// Decodes what `score` needs and is not decoded yet: each file once, for every key any
+    /// track asks of it plus those it had. Safe to run on a worker thread; returns one message per
+    /// problem.
+    pub fn preload(&self, score: &Score) -> Vec<String> {
+        // Keys wanted per file, across the tracks that share it.
+        let mut wanted: Vec<(PathBuf, Vec<u8>)> = Vec::new();
+        for (_, path, keys) in self.needs(score) {
+            match wanted.iter_mut().find(|(p, _)| *p == path) {
+                Some((_, k)) => k.extend(keys),
+                None => wanted.push((path, keys)),
+            }
+        }
         let mut notes = Vec::new();
-        let mut cache = self.cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        for (ti, track) in score.tracks.iter().enumerate() {
-            let Some(path) = Role::of(track).and_then(|r| self.path_for(r)) else { continue };
-            let keys = used_keys(score, ti);
-            if keys.is_empty() {
-                continue;
-            }
-            if let Some((_, _, inst)) = cache.iter().find(|(p, k, _)| p == path && *k == keys) {
-                player.set_instrument(ti, Some(Arc::clone(inst)));
-                continue;
-            }
-            match Instrument::load(path, Some(&keys)) {
-                Ok(inst) => {
-                    let inst = Arc::new(inst);
-                    notes.extend(inst.warnings.iter().take(3).map(|w| format!("{}: {w}", inst.name)));
-                    player.set_instrument(ti, Some(Arc::clone(&inst)));
-                    cache.push((path.to_path_buf(), keys, inst));
+        for (path, mut keys) in wanted {
+            keys.sort_unstable();
+            keys.dedup();
+            let had = {
+                let cache = self.cache();
+                match cache.iter().find(|(p, _, _)| *p == path) {
+                    Some((_, k, inst)) if inst.is_err() || covers(k, &keys) => continue,
+                    Some((_, k, _)) => k.clone(),
+                    None => Vec::new(),
                 }
-                Err(e) => notes.push(format!("{}: {e}", track.name)),
+            };
+            keys.extend(had);
+            keys.sort_unstable();
+            keys.dedup();
+            let loaded =
+                Instrument::load(&path, Some(&keys)).map(Arc::new).map_err(|e| format!("{}: {e}", path.file_stem().unwrap_or_default().to_string_lossy()));
+            match &loaded {
+                Ok(inst) => notes.extend(inst.warnings.iter().take(3).map(|w| format!("{}: {w}", inst.name))),
+                Err(e) => notes.push(e.clone()),
+            }
+            let mut cache = self.cache();
+            cache.retain(|(p, _, _)| *p != path);
+            cache.push((path, keys, loaded));
+        }
+        notes
+    }
+
+    /// Gives each track with a mapped role its sampled instrument, loading only the samples the
+    /// score plays (nothing when [`preload`] already did). Returns one message per problem; those
+    /// tracks keep the built-in synth.
+    pub fn apply(&self, player: &mut Player, score: &Score) -> Vec<String> {
+        let mut notes = self.preload(score);
+        let cache = self.cache();
+        for (ti, path, _) in self.needs(score) {
+            match cache.iter().find(|(p, _, _)| *p == path).map(|(_, _, i)| i) {
+                Some(Ok(inst)) => player.set_instrument(ti, Some(Arc::clone(inst))),
+                Some(Err(e)) if !notes.contains(e) => notes.push(e.clone()),
+                _ => {}
             }
         }
         notes
@@ -216,6 +278,47 @@ mod tests {
         let (pcm, notes) = bank.render(&s, 8000);
         assert_eq!(notes.len(), 1);
         assert!(pcm.iter().any(|x| x.abs() > 0.01));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preloading_decodes_once_and_grows_with_new_notes() {
+        let dir = bank_dir("pre");
+        std::fs::write(dir.join(BANK_FILE), r#"{"guitar_clean":"g/k.sfz","bass":"g/missing.sfz"}"#).unwrap();
+        let bank = SoundBank::open(&dir).unwrap();
+        let mut s = Score::new();
+        s.tracks[0].program = 25;
+        let notes = |frets: &[u8]| frets.iter().map(|f| Beat { rest: false, notes: vec![Note::new(0, *f)], ..Beat::rest(Duration::QUARTER) }).collect();
+        s.tracks[0].measures[0].voices[0].beats = notes(&[0, 2, 4, 5]);
+        assert!(!bank.ready(&s));
+        assert!(bank.preload(&s).is_empty());
+        assert!(bank.ready(&s));
+        let first = |b: &SoundBank| match &b.cache()[0] {
+            (_, keys, Ok(inst)) => (keys.clone(), Arc::as_ptr(inst)),
+            _ => panic!("not loaded"),
+        };
+        let (keys, inst) = first(&bank);
+        assert_eq!(keys, vec![64, 66, 68, 69]);
+        // Fewer notes: the same instrument, nothing decoded.
+        s.tracks[0].measures[0].voices[0].beats = notes(&[2, 4]);
+        assert!(bank.ready(&s));
+        bank.preload(&s);
+        assert_eq!(first(&bank).1, inst);
+        // A new note: decoded again with the old keys and the new one, once.
+        s.tracks[0].measures[0].voices[0].beats = notes(&[7]);
+        assert!(!bank.ready(&s));
+        let mut p = Player::new(&s, 8000, Options::default());
+        assert!(bank.apply(&mut p, &s).is_empty());
+        assert_eq!(first(&bank).0, vec![64, 66, 68, 69, 71]);
+        assert_eq!(bank.cache().len(), 1);
+        // A file that cannot load is reported once per Play, and not decoded again.
+        let mut bass = s.tracks[0].clone();
+        bass.program = 33;
+        s.tracks.push(bass);
+        assert!(!bank.ready(&s));
+        assert_eq!(bank.preload(&s).len(), 1);
+        assert!(bank.ready(&s) && bank.preload(&s).is_empty());
+        assert_eq!(bank.apply(&mut Player::new(&s, 8000, Options::default()), &s).len(), 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

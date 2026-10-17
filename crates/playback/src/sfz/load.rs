@@ -54,11 +54,11 @@ impl Instrument {
             let p = confined(base, rel)?;
             read_limited(&p, MAX_SFZ_BYTES).ok().map(|b| String::from_utf8_lossy(&b).into_owned())
         };
-        let mut load = |rel: &str| {
+        let load = |rel: &str| {
             let p = confined(base, rel).ok_or_else(|| SfzError::Io(format!("{rel}: path leaves the library")))?;
             Sample::decode(&read_limited(&p, MAX_SAMPLE_BYTES)?, rel)
         };
-        Instrument::build(&name, &text, &mut include, &mut load, keys)
+        Instrument::build(&name, &text, &mut include, &load, keys)
     }
 }
 

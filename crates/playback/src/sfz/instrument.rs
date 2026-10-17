@@ -27,6 +27,40 @@ fn needed_regions(regions: &[Region], keys: &[u8]) -> Vec<bool> {
     needed
 }
 
+/// Decodes `names` with `load` on up to every core, results in the same order. The calling thread
+/// works too, so where no thread can be started (wasm) everything still decodes, one by one.
+fn decode_all(names: &[&str], load: &(dyn Fn(&str) -> Result<Sample, SfzError> + Sync)) -> Vec<Result<Sample, SfzError>> {
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let next = AtomicUsize::new(0);
+    let results: Mutex<Vec<Option<Result<Sample, SfzError>>>> = Mutex::new((0..names.len()).map(|_| None).collect());
+    let work = || {
+        loop {
+            let i = next.fetch_add(1, Ordering::Relaxed);
+            let Some(name) = names.get(i) else { break };
+            let r = load(name);
+            if let Some(slot) = results.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_mut(i) {
+                *slot = Some(r);
+            }
+        }
+    };
+    let helpers = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get).min(names.len()).saturating_sub(1).min(15);
+    std::thread::scope(|scope| {
+        for _ in 0..helpers {
+            if std::thread::Builder::new().name("sfz-decode".into()).spawn_scoped(scope, work).is_err() {
+                break;
+            }
+        }
+        work();
+    });
+    results
+        .into_inner()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .into_iter()
+        .map(|r| r.unwrap_or_else(|| Err(SfzError::Decode("not decoded".into()))))
+        .collect()
+}
+
 /// What a note-on should start.
 pub struct Hit<'a> {
     pub region: &'a Region,
@@ -43,30 +77,42 @@ impl Instrument {
         name: &str,
         text: &str,
         include: &mut dyn FnMut(&str) -> Option<String>,
-        load: &mut dyn FnMut(&str) -> Result<Sample, SfzError>,
+        load: &(dyn Fn(&str) -> Result<Sample, SfzError> + Sync),
         keys: Option<&[u8]>,
     ) -> Result<Instrument, SfzError> {
         let parsed = parse(text, include);
         let mut warnings = parsed.warnings;
-        let mut cache: HashMap<String, Option<Arc<Sample>>> = HashMap::new();
-        let mut regions = Vec::new();
         let needed = keys.map(|ks| needed_regions(&parsed.regions, ks));
-        for (i, r) in parsed.regions.into_iter().enumerate() {
-            if needed.as_ref().is_some_and(|n| !n.get(i).copied().unwrap_or(false)) {
-                continue;
+        let kept: Vec<Region> = parsed
+            .regions
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| needed.as_ref().is_none_or(|n| n.get(*i).copied().unwrap_or(false)))
+            .map(|(_, r)| r)
+            .collect();
+        // Each sample once, decoded on every core: a library's files are independent.
+        let mut names: Vec<&str> = Vec::new();
+        for r in &kept {
+            if !names.contains(&r.sample.as_str()) {
+                names.push(&r.sample);
             }
-            let sample = cache
-                .entry(r.sample.clone())
-                .or_insert_with(|| match load(&r.sample) {
-                    Ok(s) => Some(Arc::new(s)),
-                    Err(e) => {
-                        warnings.push(format!("{}: {e}", r.sample));
-                        None
-                    }
-                })
-                .clone();
-            if let Some(s) = sample {
-                regions.push((r, s));
+        }
+        let decoded = decode_all(&names, load);
+        let mut cache: HashMap<&str, Option<Arc<Sample>>> = HashMap::new();
+        for (name, result) in names.iter().zip(decoded) {
+            let sample = match result {
+                Ok(s) => Some(Arc::new(s)),
+                Err(e) => {
+                    warnings.push(format!("{name}: {e}"));
+                    None
+                }
+            };
+            cache.insert(name, sample);
+        }
+        let mut regions = Vec::new();
+        for r in &kept {
+            if let Some(Some(s)) = cache.get(r.sample.as_str()) {
+                regions.push((r.clone(), Arc::clone(s)));
             }
         }
         if regions.is_empty() {
@@ -117,7 +163,7 @@ mod tests {
     }
 
     fn inst(text: &str) -> Instrument {
-        Instrument::build("t", text, &mut |_| None, &mut |_| Ok(tone(44_100)), None).unwrap()
+        Instrument::build("t", text, &mut |_| None, &|_| Ok(tone(44_100)), None).unwrap()
     }
 
     #[test]
@@ -145,43 +191,69 @@ mod tests {
             "t",
             "<region> sample=a.wav key=1\n<region> sample=b.wav key=2",
             &mut |_| None,
-            &mut |n| if n == "a.wav" { Ok(tone(8000)) } else { Err(SfzError::Io("gone".into())) },
+            &|n| if n == "a.wav" { Ok(tone(8000)) } else { Err(SfzError::Io("gone".into())) },
             None,
         )
         .unwrap();
         assert_eq!(i.region_count(), 1);
         assert_eq!(i.warnings.len(), 1);
-        assert!(Instrument::build("t", "<region> sample=b.wav key=2", &mut |_| None, &mut |_| Err(SfzError::Io("x".into())), None).is_err());
-        assert!(Instrument::build("t", "", &mut |_| None, &mut |_| Ok(tone(8000)), None).is_err());
+        assert!(Instrument::build("t", "<region> sample=b.wav key=2", &mut |_| None, &|_| Err(SfzError::Io("x".into())), None).is_err());
+        assert!(Instrument::build("t", "", &mut |_| None, &|_| Ok(tone(8000)), None).is_err());
     }
 
     #[test]
     fn out_of_range_keys_load_the_nearest_region() {
-        let mut loaded = Vec::new();
+        let loaded = std::sync::Mutex::new(Vec::new());
         let text = "<region> sample=a.wav lokey=40 hikey=50\n<region> sample=b.wav lokey=60 hikey=70";
-        let mut load = |n: &str| {
-            loaded.push(n.to_string());
+        let load = |n: &str| {
+            loaded.lock().unwrap().push(n.to_string());
             Ok(tone(8000))
         };
-        let i = Instrument::build("t", text, &mut |_| None, &mut load, Some(&[30])).unwrap();
+        let i = Instrument::build("t", text, &mut |_| None, &load, Some(&[30])).unwrap();
         assert_eq!(i.select(30, 100, 0, 0.5).len(), 1);
-        assert_eq!(loaded, ["a.wav"]);
+        assert_eq!(*loaded.lock().unwrap(), ["a.wav"]);
     }
 
     #[test]
     fn unwanted_regions_are_not_loaded() {
-        let mut loaded = Vec::new();
+        let loaded = std::sync::Mutex::new(Vec::new());
         let i = Instrument::build(
             "t",
             "<region> sample=a.wav key=1\n<region> sample=b.wav key=2",
             &mut |_| None,
-            &mut |n| {
-                loaded.push(n.to_string());
+            &|n| {
+                loaded.lock().unwrap().push(n.to_string());
                 Ok(tone(8000))
             },
             Some(&[2]),
         )
         .unwrap();
-        assert_eq!((i.region_count(), loaded.as_slice()), (1, &["b.wav".to_string()][..]));
+        assert_eq!((i.region_count(), loaded.lock().unwrap().as_slice()), (1, &["b.wav".to_string()][..]));
+    }
+
+    #[test]
+    fn many_samples_decode_in_parallel_in_region_order_each_once() {
+        // Sixty regions over twenty files: every file decoded once, regions keep their order and
+        // their own sample, one bad file only warns.
+        let text: String = (0..60).map(|i| format!("<region> sample=s{}.wav key={}\n", i % 20, i)).collect();
+        let calls = std::sync::atomic::AtomicUsize::new(0);
+        let i = Instrument::build(
+            "t",
+            &text,
+            &mut |_| None,
+            &|n| {
+                calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let k: usize = n.trim_start_matches('s').trim_end_matches(".wav").parse().unwrap();
+                if k == 7 { Err(SfzError::Io("gone".into())) } else { Ok(Sample { rate: 8000, left: vec![k as f32; 10], right: None }) }
+            },
+            None,
+        )
+        .unwrap();
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 20);
+        assert_eq!((i.region_count(), i.warnings.len()), (57, 1));
+        for key in [0u8, 21, 59] {
+            let hit = i.select(key, 100, 0, 0.5);
+            assert_eq!(hit[0].sample.left[0], f32::from(key % 20), "key {key}");
+        }
     }
 }

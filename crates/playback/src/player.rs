@@ -106,18 +106,25 @@ pub struct Player {
 /// The sorted, distinct MIDI keys `track` plays, so a sampled instrument can load only the
 /// samples the score needs. Dead notes count as the open string's pitch.
 pub fn used_keys(score: &Score, track: usize) -> Vec<u8> {
-    let Some(t) = score.tracks.get(track) else { return Vec::new() };
-    let mut keys: Vec<u8> = timeline(score)
-        .iter()
-        .filter(|p| p.track == track)
-        .filter_map(|p| match p.pitch {
+    used_keys_by_track(score).into_iter().nth(track).unwrap_or_default()
+}
+
+/// [`used_keys`] for every track, from one pass over the timeline.
+pub fn used_keys_by_track(score: &Score) -> Vec<Vec<u8>> {
+    let mut keys: Vec<Vec<u8>> = vec![Vec::new(); score.tracks.len()];
+    for p in timeline(score) {
+        let (Some(t), Some(list)) = (score.tracks.get(p.track), keys.get_mut(p.track)) else { continue };
+        let key = match p.pitch {
             Some(pt) => Some(pt.0),
             None if p.dead => t.tuning.strings.get(usize::from(p.string)).copied(),
             None => None,
-        })
-        .collect();
-    keys.sort_unstable();
-    keys.dedup();
+        };
+        list.extend(key);
+    }
+    for list in &mut keys {
+        list.sort_unstable();
+        list.dedup();
+    }
     keys
 }
 
@@ -710,8 +717,8 @@ mod tests {
             left: (0..rate as usize * 3).map(|n| (n as f32 / rate as f32 * hz * std::f32::consts::TAU).sin() * 0.8).collect(),
             right: None,
         };
-        let mut load = |name: &str| Ok(tone(if name.starts_with("lo") { 110.0 } else { 440.0 }));
-        Arc::new(Instrument::build("test", sfz, &mut |_| None, &mut load, None).unwrap())
+        let load = |name: &str| Ok(tone(if name.starts_with("lo") { 110.0 } else { 440.0 }));
+        Arc::new(Instrument::build("test", sfz, &mut |_| None, &load, None).unwrap())
     }
 
     #[test]

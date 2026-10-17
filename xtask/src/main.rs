@@ -19,6 +19,8 @@ commands:
   wasm            cargo check --target wasm32-unknown-unknown for the wasm-safe crates (L0-L5)
   ci              fmt --check, clippy -D warnings, test, layers, parity --check, scorecard --check
   stats           count tests and lines per crate
+  perf [--report] time a 400-bar, six-track score through every stage in release and check
+                  perf/budgets.toml (--report: print without failing)
   parity [--check]
                   Guitar Pro menu parity; rewrites docs/parity-checklist.md (--check: fail if stale)
   scorecard [--check]
@@ -37,6 +39,7 @@ fn main() -> ExitCode {
         Some("wasm") => cmd_wasm(),
         Some("ci") => cmd_ci(),
         Some("stats") => stats::run(&root()),
+        Some("perf") => cmd_perf(rest.contains(&"--report")),
         Some("parity") => cmd_parity(rest.contains(&"--check")),
         Some("scorecard") => scorecard::run(&root(), rest.contains(&"--check")),
         Some("sounds") => sounds::run(&rest),
@@ -113,6 +116,16 @@ fn cmd_parity(check: bool) -> Result<(), String> {
         c.arg("--check");
     }
     run(c, if check { "parity --check" } else { "parity" })
+}
+
+/// Performance budgets (crates/ui-egui/src/perf.rs, perf/budgets.toml), in a release build.
+fn cmd_perf(report: bool) -> Result<(), String> {
+    let mut test = cargo();
+    test.args(["test", "--release", "-p", "guitario-ui-egui", "--lib", "perf::tests::budgets_hold", "--", "--ignored", "--exact", "--nocapture"]);
+    if report {
+        test.env("GUITARIO_PERF_REPORT", "1");
+    }
+    run(test, "perf")
 }
 
 fn cmd_ci() -> Result<(), String> {

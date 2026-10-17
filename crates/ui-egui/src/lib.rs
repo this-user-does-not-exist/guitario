@@ -23,9 +23,11 @@ mod page_setup;
 mod palette;
 pub mod parity;
 mod pdf;
+mod perf;
 mod prefs;
 mod preview;
 mod print_dialog;
+mod sounds;
 mod spool;
 mod theme;
 mod topbar;
@@ -87,7 +89,13 @@ pub struct GuitarioApp {
     pub transport: Transport,
     audio: Option<guitario_audio::AudioOut>,
     /// Sampled SFZ instruments for drums, bass and guitars; None plays the built-in synth.
-    sounds: Option<guitario_playback::SoundBank>,
+    sounds: Option<std::sync::Arc<guitario_playback::SoundBank>>,
+    /// Instruments decoding on a worker thread for the score as it is, so Play never waits on them.
+    preload: Option<std::thread::JoinHandle<Vec<String>>>,
+    /// The score version last checked against the bank.
+    preloaded: Option<std::sync::Arc<guitario_score::Score>>,
+    /// Play was pressed while sounds were loading: it starts when they are ready.
+    play_when_ready: bool,
     settings: prefs::Store,
     /// A New/Open/Close waiting on the unsaved-changes prompt.
     pending: Option<Pending>,
@@ -135,6 +143,9 @@ impl GuitarioApp {
             transport: Transport { playing: false, metronome: false, count_in: false, looping: false, speed: 1.0, position: 0.0, beat: None },
             audio: None,
             sounds: None,
+            preload: None,
+            preloaded: None,
+            play_when_ready: false,
             // In memory until the app hands over the real store, so tests and offscreen renders
             // never touch the user's profile.
             settings: prefs::Store::open(craft_settings::Location::Memory).0,
@@ -154,7 +165,7 @@ impl GuitarioApp {
 
     /// Plays drums, bass and guitars from this sound bank (see `guitario_playback::SoundBank`).
     pub fn with_sounds(mut self, bank: Option<guitario_playback::SoundBank>) -> Self {
-        self.sounds = bank;
+        self.sounds = bank.map(std::sync::Arc::new);
         self
     }
 
@@ -546,6 +557,21 @@ impl GuitarioApp {
             self.stop();
             return;
         }
+        if self.play_when_ready {
+            self.play_when_ready = false;
+            self.status = "Playback cancelled.".into();
+            return;
+        }
+        // Sampled instruments still decoding: start once they are ready instead of freezing.
+        if let Some(bank) = &self.sounds
+            && !bank.ready(self.session.score())
+        {
+            self.play_when_ready = true;
+            self.preloaded = None;
+            self.status = "Loading sounds\u{2026}".into();
+            self.status_is_error = false;
+            return;
+        }
         if self.audio.is_none() {
             match guitario_audio::AudioOut::open() {
                 Ok(a) => self.audio = Some(a),
@@ -720,6 +746,7 @@ impl GuitarioApp {
         if !self.modal_open() {
             self.handle_keys(&ctx);
         }
+        self.sounds_tick(&ctx);
         self.poll_playback(&ctx);
         self.sync_settings(&ctx);
         self.autosave_tick(&ctx);
