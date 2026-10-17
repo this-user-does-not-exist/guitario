@@ -149,7 +149,15 @@ const CORE: [CommandSpec; 55] = [
     cmd("track.setProgram", "Instrument", "Track", None, "program (0..=127), track? (index; default the cursor's)", true, track_program),
     cmd("track.setMix", "Mix", "Track", None, "volume? (0..=127), pan? (-63..=63), muted?, solo?, track? (index; default the cursor's)", true, track_mix),
     cmd("track.select", "Select Track", "Track", None, "index", false, track_select),
-    cmd("score.setMeta", "Song Information", "File", None, "title?, artist?, album?, author?, notes?", true, set_meta),
+    cmd(
+        "score.setMeta",
+        "Song Information",
+        "File",
+        None,
+        "title?, artist?, subtitle?, album?, words?, music?, copyright?, author? (transcriber), notes? (notice), instructions?",
+        true,
+        set_meta,
+    ),
     cmd("score.setTempo", "Tempo", "Measure", None, "bpm (20..=400)", true, set_tempo),
     cmd("score.info", "Score Info", "", None, "", false, info),
     cmd("score.validate", "Validate", "", None, "", false, |s, _| {
@@ -788,7 +796,7 @@ fn track_capo(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 }
 
 /// The track a mixer command names (`track`, an index), else the cursor's.
-fn mixer_track<'a>(s: &'a mut Session, params: &Value) -> Result<&'a mut Track, EngineError> {
+pub(crate) fn mixer_track<'a>(s: &'a mut Session, params: &Value) -> Result<&'a mut Track, EngineError> {
     match p::opt_uint(params, "track", 10_000)? {
         None => s.track_mut(),
         Some(i) => Arc::make_mut(&mut s.score).tracks.get_mut(i as usize).ok_or_else(|| EngineError::BadParam(format!("`track` {i}: no such track"))),
@@ -826,9 +834,18 @@ fn track_mix(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 
 fn set_meta(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let meta = &mut Arc::make_mut(&mut s.score).meta;
-    for (key, field) in
-        [("title", &mut meta.title), ("artist", &mut meta.artist), ("album", &mut meta.album), ("author", &mut meta.author), ("notes", &mut meta.notes)]
-    {
+    for (key, field) in [
+        ("title", &mut meta.title),
+        ("artist", &mut meta.artist),
+        ("subtitle", &mut meta.subtitle),
+        ("album", &mut meta.album),
+        ("words", &mut meta.words),
+        ("music", &mut meta.music),
+        ("copyright", &mut meta.copyright),
+        ("author", &mut meta.author),
+        ("notes", &mut meta.notes),
+        ("instructions", &mut meta.instructions),
+    ] {
         if params.get(key).is_some() {
             *field = p::string(params, key)?.chars().take(10_000).collect();
         }

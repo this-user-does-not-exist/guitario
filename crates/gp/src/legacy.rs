@@ -247,12 +247,12 @@ impl Parser<'_> {
     fn song(&mut self) -> Result<Score, GpError> {
         let v = self.v;
         let title = self.r.int_byte_string()?;
-        let _subtitle = self.r.int_byte_string()?;
+        let subtitle = self.r.int_byte_string()?;
         let artist = self.r.int_byte_string()?;
         let album = self.r.int_byte_string()?;
         let words = self.r.int_byte_string()?;
         let music = if v >= Version::V5 { self.r.int_byte_string()? } else { String::new() };
-        let _copyright = self.r.int_byte_string()?;
+        let copyright = self.r.int_byte_string()?;
         let tab = self.r.int_byte_string()?;
         let instructions = self.r.int_byte_string()?;
         let lines = self.r.count(self.r.remaining(), "notice lines")?;
@@ -260,11 +260,10 @@ impl Parser<'_> {
         for _ in 0..lines {
             notes.push(self.r.int_byte_string()?);
         }
-        if !instructions.is_empty() {
-            notes.insert(0, instructions);
-        }
-        let author = [tab, music, words].into_iter().find(|s| !s.trim().is_empty()).unwrap_or_default();
-        let meta = Meta { title, artist, album, author, notes: notes.join("\n").trim().to_string() };
+        // Before Guitar Pro 5 one field held words and music.
+        let music = if v >= Version::V5 { music } else { words.clone() };
+        let notes = notes.join("\n").trim().to_string();
+        let meta = Meta { title, artist, subtitle, album, words, music, copyright, author: tab, notes, instructions };
 
         let feel = if v < Version::V5 && self.r.bool()? { TripletFeel::Triplet8th } else { TripletFeel::None };
         let lyrics = if v >= Version::V4 { self.lyrics()? } else { None };
@@ -506,7 +505,8 @@ impl Parser<'_> {
         let channel = self.r.i32()?;
         self.r.skip(4 + 4)?; // effect channel, fret count
         let capo = self.r.i32()?;
-        self.r.skip(4)?; // colour
+        let color = [self.r.u8()?, self.r.u8()?, self.r.u8()?];
+        self.r.skip(1)?;
         if v >= Version::V5 {
             // Display flags, auto-accentuation, MIDI bank and the RSE instrument and equalizer.
             self.r.skip(if v == Version::V5 { 44 } else { 49 })?;
@@ -540,6 +540,7 @@ impl Parser<'_> {
             t.program = u8::try_from(ch.program.clamp(0, 127)).unwrap_or(t.program);
             t
         };
+        track.color = Some(color);
         // Volume and balance are stored in steps of 8 (0..=16).
         track.volume = u8::try_from((u16::from(ch.volume) * 8).min(127)).unwrap_or(127);
         track.pan = i8::try_from((i16::from(ch.balance) * 8 - 64).clamp(-63, 63)).unwrap_or(0);

@@ -69,7 +69,21 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
     let mut score = Score::new();
     if let Some(s) = child(root, "Score") {
         let get = |k: &str| text(s, k).unwrap_or_default().to_string();
-        score.meta = Meta { title: get("Title"), artist: get("Artist"), album: get("Album"), author: get("Tabber"), notes: get("Notices") };
+        // Guitar Pro keeps one name in WordsAndMusic when words and music are by the same people.
+        let both = get("WordsAndMusic");
+        let or_both = |v: String| if v.trim().is_empty() { both.clone() } else { v };
+        score.meta = Meta {
+            title: get("Title"),
+            artist: get("Artist"),
+            subtitle: get("SubTitle"),
+            album: get("Album"),
+            words: or_both(get("Words")),
+            music: or_both(get("Music")),
+            copyright: get("Copyright"),
+            author: get("Tabber"),
+            notes: get("Notices"),
+            instructions: get("Instructions"),
+        };
         if let Some(ps) = child(s, "PageSetup") {
             let mm = |k: &str| text(ps, k).and_then(|v| v.trim().parse::<f64>().ok()).filter(|v| v.is_finite()).map(|v| v.round().clamp(-1e6, 1e6) as i32);
             if let (Some(width), Some(height)) = (mm("Width"), mm("Height")) {
@@ -146,7 +160,11 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
         }
         let kit = is_drums.then(|| articulations(*tn));
         match build_track(*tn, staff, my_staff, &name, kit.as_deref(), &masters, &score.headers, (&bars, &voices, &beats, &notes, &rhythms), &mut warnings) {
-            Some(t) => score.tracks.push(t),
+            Some(mut t) => {
+                t.short_name = text(*tn, "ShortName").unwrap_or_default().trim().chars().take(100).collect();
+                t.color = text(*tn, "Color").and_then(rgb);
+                score.tracks.push(t);
+            }
             None => warnings.push(format!("track {} (`{name}`) could not be read and was skipped", ti + 1)),
         }
     }
@@ -748,6 +766,12 @@ fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chor
     beat.rest = beat.notes.is_empty();
     beat.tremolo = tremolo.filter(|_| !beat.rest);
     Some(beat)
+}
+
+/// A colour as Guitar Pro writes it, "red green blue" from 0 to 255; anything else is none.
+fn rgb(text: &str) -> Option<[u8; 3]> {
+    let parts: Vec<u8> = text.split_whitespace().map(|p| p.parse::<u8>().ok()).collect::<Option<_>>()?;
+    <[u8; 3]>::try_from(parts).ok()
 }
 
 #[cfg(test)]

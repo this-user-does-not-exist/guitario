@@ -223,7 +223,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 let sel = i == c.track;
                 p.rect_filled(row, 0.0, if sel { t.row_selected } else { t.panel });
                 p.line_segment([row.left_bottom(), row.right_bottom()], Stroke::new(1.0, t.chrome_dark));
-                p.rect_filled(Rect::from_min_size(row.min, vec2(5.0, ROW)), 0.0, track_color(i));
+                p.rect_filled(Rect::from_min_size(row.min, vec2(5.0, ROW)), 0.0, track_color(&score, i));
                 let cy = row.center().y;
                 draw(&p, Rect::from_center_size(pos2(row.left() + 22.0, cy), vec2(16.0, 16.0)), crate::icons::instrument(tr), t.text);
                 let name_clip = Rect::from_min_max(pos2(row.left() + 38.0, row.top()), pos2(row.right() - col::EYE - 16.0, row.bottom()));
@@ -336,7 +336,8 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 for (ti, tr) in score.tracks.iter().enumerate() {
                     let cell = Rect::from_min_size(pos2(x + 1.0, grid_top + ti as f32 * ROW + 1.0), vec2(CELL - 2.0, ROW - 2.0));
                     let has = tr.measures.get(mi).is_some_and(|m| m.voices.iter().any(|v| v.beats.iter().any(|b| !b.rest)));
-                    let fill = if has { track_color(ti).gamma_multiply(if tr.muted { 0.45 } else { 1.0 }) } else { Color32::from_rgb(0x4a, 0x4c, 0x55) };
+                    let fill =
+                        if has { track_color(&score, ti).gamma_multiply(if tr.muted { 0.45 } else { 1.0 }) } else { Color32::from_rgb(0x4a, 0x4c, 0x55) };
                     p.rect_filled(cell, 1.0, fill);
                 }
             }

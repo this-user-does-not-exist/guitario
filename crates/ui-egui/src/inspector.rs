@@ -78,51 +78,177 @@ fn section(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
     body(ui);
 }
 
-fn field(
-    app: &mut GuitarioApp,
-    ui: &mut egui::Ui,
-    label: &str,
-    key: &'static str,
-    current: &str,
-    commit: impl FnOnce(&str) -> (&'static str, Value),
-    actions: &mut Vec<(&'static str, Value)>,
-) {
-    // Guitar Pro labels a field "Title:" above it.
-    ui.label(egui::RichText::new(format!("{label}:")).size(13.0));
+impl GuitarioApp {
+    /// Opens the inspector's Track tab (the snapshot example uses it).
+    pub fn show_track_inspector(&mut self) {
+        self.inspector_tab = Tab::Track;
+    }
+}
+
+/// A text box that commits on Return or when it loses focus. `multiline` boxes take Ctrl+Return
+/// (⌘Return) for a new line, as Guitar Pro's do. Returns the text to commit, if it changed.
+fn text_box(app: &mut GuitarioApp, ui: &mut egui::Ui, key: &'static str, current: &str, width: f32, multiline: bool) -> Option<String> {
     let mut text = app.edit_buffers.get(key).cloned().unwrap_or_else(|| current.to_string());
-    let r = ui.add(egui::TextEdit::singleline(&mut text).desired_width(f32::INFINITY));
+    let edit = if multiline {
+        egui::TextEdit::multiline(&mut text).desired_rows(1).return_key(egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Enter))
+    } else {
+        egui::TextEdit::singleline(&mut text)
+    };
+    let r = ui.add(edit.desired_width(width));
     if r.changed() {
         app.edit_buffers.insert(key, text.clone());
     }
+    // Return alone finishes a multiline box too.
+    if multiline && r.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) && !i.modifiers.command) {
+        r.surrender_focus();
+    }
+    let mut out = None;
     if r.lost_focus() {
         if text != current {
-            actions.push(commit(&text));
+            out = Some(text);
         }
         app.edit_buffers.remove(key);
+    }
+    out
+}
+
+/// Guitar Pro's "More ▾" / "Less ▴" button (the UI font has no triangles, so they are drawn).
+fn more_button(ui: &mut egui::Ui, more: bool) -> egui::Response {
+    let t = tokens();
+    let font = egui::FontId::proportional(14.0);
+    let galley = ui.painter().layout_no_wrap(if more { "Less" } else { "More" }.into(), font, t.text);
+    let size = egui::vec2(galley.size().x + 28.0, 24.0);
+    let (r, resp) = ui.allocate_exact_size(size, egui::Sense::click());
+    let p = ui.painter();
+    p.rect_filled(r, 5.0, if resp.hovered() { t.control_hover } else { t.control });
+    p.galley(egui::pos2(r.left() + 9.0, r.center().y - galley.size().y / 2.0), galley, t.text);
+    let c = egui::pos2(r.right() - 12.0, r.center().y);
+    let (tip, base) = if more { (-3.5, 2.5) } else { (3.5, -2.5) };
+    p.add(egui::Shape::convex_polygon(vec![c + egui::vec2(-4.5, base), c + egui::vec2(4.5, base), c + egui::vec2(0.0, tip)], t.text, egui::Stroke::NONE));
+    resp
+}
+
+/// A labelled song field: "Title:" over its box.
+fn song_field(app: &mut GuitarioApp, ui: &mut egui::Ui, label: &str, key: &'static str, current: &str, actions: &mut Vec<(&'static str, Value)>) {
+    ui.label(egui::RichText::new(format!("{label}:")).size(13.0));
+    if let Some(text) = text_box(app, ui, key, current, f32::INFINITY, true) {
+        actions.push(("score.setMeta", json!({ key: text })));
     }
     ui.add_space(4.0);
 }
 
 fn song(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static str, Value)>) {
     let score = app.session.score().clone();
-    let meta = &score.meta;
+    let m = &score.meta;
+    let more_id = egui::Id::new("inspector-song-more");
+    let more = ui.data(|d| d.get_temp::<bool>(more_id)).unwrap_or(false);
     section(ui, "Information", |ui| {
-        field(app, ui, "Title", "title", &meta.title, |v| ("score.setMeta", json!({"title": v})), actions);
-        field(app, ui, "Artist", "artist", &meta.artist, |v| ("score.setMeta", json!({"artist": v})), actions);
-        field(app, ui, "Album", "album", &meta.album, |v| ("score.setMeta", json!({"album": v})), actions);
-        field(app, ui, "Tab author", "author", &meta.author, |v| ("score.setMeta", json!({"author": v})), actions);
-    });
-    section(ui, "Tempo", |ui| {
-        let mut bpm = i64::from(score.tempo);
-        ui.horizontal(|ui| {
-            ui.label("♩ =");
-            if ui.add(egui::DragValue::new(&mut bpm).range(20..=400)).changed() {
-                actions.push(("score.setTempo", json!({"bpm": bpm})));
+        song_field(app, ui, "Title", "title", &m.title, actions);
+        song_field(app, ui, "Artist", "artist", &m.artist, actions);
+        if more {
+            for (label, key, value) in [
+                ("Subtitle", "subtitle", &m.subtitle),
+                ("Album", "album", &m.album),
+                ("Words", "words", &m.words),
+                ("Music", "music", &m.music),
+                ("Copyright", "copyright", &m.copyright),
+                ("Transcriber", "author", &m.author),
+                ("Notice", "notes", &m.notes),
+                ("Instructions", "instructions", &m.instructions),
+            ] {
+                song_field(app, ui, label, key, value, actions);
             }
+        }
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new("Ctrl+Return for new line.").size(12.0).color(tokens().text_dim));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if more_button(ui, more).clicked() {
+                    ui.data_mut(|d| d.insert_temp(more_id, !more));
+                }
+            });
         });
     });
-    section(ui, "Notes", |ui| {
-        field(app, ui, "Notes", "notes", &meta.notes, |v| ("score.setMeta", json!({"notes": v})), actions);
+    section(ui, "Musical notation", |ui| {
+        egui::Grid::new("song-notation").num_columns(2).spacing([8.0, 8.0]).show(ui, |ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label("Concert tone:"));
+            let mut concert = false;
+            ui.add_enabled(false, egui::Checkbox::new(&mut concert, "Off")).on_disabled_hover_text("No track transposes for reading (not in Guitario yet)");
+            ui.end_row();
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label("Stylesheet:"));
+            if ui.button("Open…").on_hover_text("Page format (the rest of the stylesheet is not in Guitario yet)").clicked() {
+                app.open_page_setup();
+            }
+            ui.end_row();
+        });
+    });
+}
+
+/// Colours offered for a track: Guitar Pro's eight, then lighter and darker ones.
+const SWATCHES: [[u8; 3]; 16] = [
+    [0xe0, 0x4f, 0x4f],
+    [0x3f, 0x9b, 0xe8],
+    [0x5c, 0xbd, 0x5c],
+    [0xe8, 0xa2, 0x3a],
+    [0xa8, 0x6b, 0xe0],
+    [0x3c, 0xc4, 0xb8],
+    [0xe0, 0x6b, 0xb5],
+    [0xc4, 0xc4, 0x48],
+    [0xf0, 0x90, 0x80],
+    [0x8c, 0xc8, 0xf0],
+    [0xa8, 0xe0, 0x90],
+    [0xf0, 0xd0, 0x80],
+    [0x80, 0x30, 0x30],
+    [0x30, 0x50, 0x90],
+    [0x30, 0x70, 0x40],
+    [0x90, 0x90, 0x98],
+];
+
+/// Guitar Pro's track information row: colour, instrument icon, name and short name.
+fn track_info(app: &mut GuitarioApp, ui: &mut egui::Ui, score: &guitario_score::Score, ti: usize, actions: &mut Vec<(&'static str, Value)>) {
+    let Some(tr) = score.tracks.get(ti) else { return };
+    let t = tokens();
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 3.0;
+        let (r, resp) = ui.allocate_exact_size(egui::vec2(26.0, 26.0), egui::Sense::click());
+        ui.painter().rect_filled(r, egui::CornerRadius { nw: 5, sw: 5, ne: 0, se: 0 }, if resp.hovered() { t.control_hover } else { t.control });
+        ui.painter().rect_filled(r.shrink(6.0), 2.0, track_color(score, ti));
+        let resp = resp.on_hover_text("Track colour");
+        egui::Popup::menu(&resp).show(|ui| {
+            egui::Grid::new("track-swatches").spacing([3.0, 3.0]).show(ui, |ui| {
+                for (k, c) in SWATCHES.iter().enumerate() {
+                    let (r, sr) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::click());
+                    ui.painter().rect_filled(r, 3.0, Color32::from_rgb(c[0], c[1], c[2]));
+                    if tr.color_at(ti) == *c {
+                        ui.painter().rect_stroke(r, 3.0, egui::Stroke::new(2.0, Color32::WHITE), egui::StrokeKind::Inside);
+                    }
+                    if sr.clicked() {
+                        actions.push(("track.setInfo", json!({"track": ti, "color": format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2])})));
+                        ui.close();
+                    }
+                    if k % 8 == 7 {
+                        ui.end_row();
+                    }
+                }
+            });
+            if ui.add_enabled(tr.color.is_some(), egui::Button::new("Default colour")).clicked() {
+                actions.push(("track.setInfo", json!({"track": ti, "color": null})));
+                ui.close();
+            }
+        });
+        let (r, _) = ui.allocate_exact_size(egui::vec2(26.0, 26.0), egui::Sense::hover());
+        ui.painter().rect_filled(r, egui::CornerRadius { nw: 0, sw: 0, ne: 5, se: 5 }, t.control);
+        crate::icons::draw(ui.painter(), r.shrink(5.0), crate::icons::instrument(tr), t.text);
+        let short_w = 64.0;
+        let name_w = (ui.available_width() - short_w - 8.0).max(60.0);
+        if let Some(name) = text_box(app, ui, "track.name", &tr.name, name_w, false)
+            && !name.trim().is_empty()
+        {
+            actions.push(("track.setInfo", json!({"track": ti, "name": name})));
+        }
+        let shown = crate::page::short_name(tr);
+        if let Some(short) = text_box(app, ui, "track.short", &shown, short_w, false) {
+            actions.push(("track.setInfo", json!({"track": ti, "shortName": short})));
+        }
     });
 }
 
@@ -130,28 +256,7 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
     let score = app.session.score().clone();
     let c = app.session.cursor();
     let Some(tr) = score.tracks.get(c.track) else { return };
-    section(ui, "Information", |ui| {
-        ui.horizontal(|ui| {
-            let (r, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
-            ui.painter().rect_filled(r, 2.0, track_color(c.track));
-            ui.label(format!("Track {}", c.track + 1));
-        });
-        field(app, ui, "Name", "track.name", &tr.name, |v| ("track.rename", json!({"name": v})), actions);
-        if tr.is_drums() {
-            ui.label(egui::RichText::new("Instrument").small().color(tokens().text_dim));
-            ui.label("Drum kit (General MIDI)");
-            return;
-        }
-        ui.label(egui::RichText::new("Instrument").small().color(tokens().text_dim));
-        let current = program_name(tr.program);
-        egui::ComboBox::from_id_salt("program").width(ui.available_width()).selected_text(current).show_ui(ui, |ui| {
-            for (p, name) in PROGRAMS {
-                if ui.selectable_label(tr.program == p, name).clicked() {
-                    actions.push(("track.setProgram", json!({"program": p})));
-                }
-            }
-        });
-    });
+    section(ui, "Information", |ui| track_info(app, ui, &score, c.track, actions));
     if tr.is_drums() {
         section(ui, "Kit", |ui| {
             ui.label(egui::RichText::new("Type a General MIDI number (36 kick, 38 snare, 42 hi-hat, 49 crash) or click the drum pad.").small());
@@ -182,6 +287,17 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
         });
     }
     section(ui, "Sounds", |ui| {
+        if tr.is_drums() {
+            ui.label("Drum kit (General MIDI)");
+        } else {
+            egui::ComboBox::from_id_salt("program").width(ui.available_width()).selected_text(format!("1. {}", program_name(tr.program))).show_ui(ui, |ui| {
+                for (p, name) in PROGRAMS {
+                    if ui.selectable_label(tr.program == p, name).clicked() {
+                        actions.push(("track.setProgram", json!({"program": p})));
+                    }
+                }
+            });
+        }
         let mut vol = i64::from(tr.volume);
         if ui.add(egui::Slider::new(&mut vol, 0..=127).text("Volume")).drag_stopped() {
             actions.push(("track.setMix", json!({"volume": vol})));
@@ -198,31 +314,5 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
                 actions.push(("track.setMix", json!({"solo": !tr.solo})));
             }
         });
-    });
-    if let Some(h) = score.headers.get(c.measure) {
-        section(ui, &format!("Bar {}", c.measure + 1), |ui| {
-            ui.label(format!("Time signature  {}/{}", h.time_signature.numerator, h.time_signature.denominator));
-            ui.label(format!(
-                "Key  {}",
-                match h.key {
-                    0 => "C major".to_string(),
-                    k if k > 0 => format!("{k} sharp(s)"),
-                    k => format!("{} flat(s)", -k),
-                }
-            ));
-            ui.label(format!("Tempo  {}", h.tempo.map_or_else(|| format!("{} (inherited)", score.tempo_at(c.measure)), |t| t.to_string())));
-        });
-    }
-    ui.add_space(8.0);
-    ui.horizontal(|ui| {
-        if ui.button("Add track").clicked() {
-            actions.push(("track.add", json!({})));
-        }
-        if ui.button("Add drums").clicked() {
-            actions.push(("track.addDrums", json!({})));
-        }
-        if ui.add_enabled(score.tracks.len() > 1, egui::Button::new("Remove track")).clicked() {
-            actions.push(("track.remove", Value::Null));
-        }
     });
 }

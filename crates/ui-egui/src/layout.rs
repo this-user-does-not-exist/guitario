@@ -285,17 +285,55 @@ impl Metrics {
         if self.mode == LayoutMode::Horizontal {
             return 0.0;
         }
-        let mut h = 14.0 * self.space;
-        if !score.meta.artist.is_empty() {
-            h += 4.0 * self.space;
-        }
-        h + self.chord_list_h()
+        let lines: f32 = title_lines(&score.meta).iter().map(TitleLine::height).sum();
+        (14.0 + lines) * self.space + self.chord_list_h()
     }
 
     /// Where the chord list starts below the top margin.
     pub fn chord_list_top(&self, score: &Score) -> f32 {
         self.header_h(score) - self.chord_list_h()
     }
+}
+
+/// A line of the title block under the title, in Guitar Pro's order.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TitleLine {
+    Subtitle(String),
+    Artist(String),
+    Album(String),
+    /// Words and music by the same people.
+    WordsAndMusic(String),
+    /// Words at the left, music at the right; either may be empty.
+    Credits {
+        words: String,
+        music: String,
+    },
+}
+
+impl TitleLine {
+    /// The line's height in staff spaces.
+    pub fn height(&self) -> f32 {
+        match self {
+            TitleLine::Subtitle(_) => 5.0,
+            TitleLine::Artist(_) | TitleLine::Album(_) => 4.0,
+            TitleLine::WordsAndMusic(_) | TitleLine::Credits { .. } => 3.5,
+        }
+    }
+}
+
+/// The title block's lines under the title, skipping empty fields.
+pub fn title_lines(meta: &guitario_score::Meta) -> Vec<TitleLine> {
+    let field = |s: &str| Some(s.trim().to_string()).filter(|s| !s.is_empty());
+    let mut out = Vec::new();
+    out.extend(field(&meta.subtitle).map(TitleLine::Subtitle));
+    out.extend(field(&meta.artist).map(TitleLine::Artist));
+    out.extend(field(&meta.album).map(TitleLine::Album));
+    match (field(&meta.words), field(&meta.music)) {
+        (Some(w), Some(m)) if w == m => out.push(TitleLine::WordsAndMusic(w)),
+        (None, None) => {}
+        (w, m) => out.push(TitleLine::Credits { words: w.unwrap_or_default(), music: m.unwrap_or_default() }),
+    }
+    out
 }
 
 /// Where one voice's beats sit in a bar, relative to the bar's left edge.

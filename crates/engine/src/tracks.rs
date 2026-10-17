@@ -1,4 +1,4 @@
-//! Track tools: duplicate, reorder and transpose.
+//! Track tools: information (name, short name, colour), duplicate, reorder and transpose.
 
 use crate::commands::{CommandSpec, cmd};
 use crate::params;
@@ -8,6 +8,15 @@ use std::sync::Arc;
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
+        cmd(
+            "track.setInfo",
+            "Track Information",
+            "Track",
+            None,
+            "name?, shortName? (\"\" abbreviates the name), color? (\"#rrggbb\", or null for the default), track? (index; default the cursor's)",
+            true,
+            set_info,
+        ),
         cmd("track.duplicate", "Duplicate Track", "Track", None, "", true, duplicate),
         cmd(
             "track.transpose",
@@ -21,6 +30,41 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd("track.moveUp", "Move Track Up", "Track", None, "", true, |s, _| shift(s, -1)),
         cmd("track.moveDown", "Move Track Down", "Track", None, "", true, |s, _| shift(s, 1)),
     ]
+}
+
+/// A colour written `#rrggbb`.
+fn hex_color(text: &str) -> Option<[u8; 3]> {
+    let hex = text.trim().strip_prefix('#')?;
+    if hex.len() != 6 || !hex.is_ascii() {
+        return None;
+    }
+    let byte = |i: usize| hex.get(i..i + 2).and_then(|h| u8::from_str_radix(h, 16).ok());
+    Some([byte(0)?, byte(2)?, byte(4)?])
+}
+
+fn set_info(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
+    let name = p.get("name").map(|_| params::string(p, "name")).transpose()?;
+    if name.is_some_and(|n| n.trim().is_empty()) {
+        return Err(EngineError::BadParam("`name` cannot be empty".into()));
+    }
+    let short = p.get("shortName").map(|_| params::string(p, "shortName")).transpose()?;
+    let color = match p.get("color") {
+        None => None,
+        Some(Value::Null) => Some(None),
+        Some(Value::String(c)) => Some(Some(hex_color(c).ok_or_else(|| EngineError::BadParam(format!("`color` must be #rrggbb, not `{c}`")))?)),
+        Some(_) => return Err(EngineError::BadParam("`color` must be a \"#rrggbb\" string or null".into())),
+    };
+    let t = crate::commands::mixer_track(s, p)?;
+    if let Some(n) = name {
+        t.name = n.trim().chars().take(100).collect();
+    }
+    if let Some(n) = short {
+        t.short_name = n.trim().chars().take(100).collect();
+    }
+    if let Some(c) = color {
+        t.color = c;
+    }
+    Ok(json!({}))
 }
 
 fn duplicate(s: &mut Session, _: &Value) -> Result<Value, EngineError> {

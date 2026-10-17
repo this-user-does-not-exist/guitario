@@ -135,19 +135,11 @@ pub fn tokens() -> &'static Tokens {
     }
 }
 
-/// Guitar Pro-like track colours, by track index.
-pub fn track_color(i: usize) -> Color32 {
-    const C: [Color32; 8] = [
-        Color32::from_rgb(0xe0, 0x4f, 0x4f),
-        Color32::from_rgb(0x3f, 0x9b, 0xe8),
-        Color32::from_rgb(0x5c, 0xbd, 0x5c),
-        Color32::from_rgb(0xe8, 0xa2, 0x3a),
-        Color32::from_rgb(0xa8, 0x6b, 0xe0),
-        Color32::from_rgb(0x3c, 0xc4, 0xb8),
-        Color32::from_rgb(0xe0, 0x6b, 0xb5),
-        Color32::from_rgb(0xc4, 0xc4, 0x48),
-    ];
-    C.get(i % C.len()).copied().unwrap_or(Color32::GRAY)
+/// The colour of track `i`: its own, or the next of Guitar Pro's track colours.
+pub fn track_color(score: &guitario_score::Score, i: usize) -> Color32 {
+    let default = || guitario_score::TRACK_COLORS.get(i % guitario_score::TRACK_COLORS.len()).copied().unwrap_or([0xe0, 0x4f, 0x4f]);
+    let rgb = score.tracks.get(i).map_or_else(default, |t| t.color_at(i));
+    Color32::from_rgb(rgb[0], rgb[1], rgb[2])
 }
 
 pub fn apply(ctx: &egui::Context) {

@@ -52,6 +52,18 @@ fn a_riff_with_every_effect_round_trips_and_nothing_is_left_out() {
 }
 
 #[test]
+fn short_names_and_colours_come_back() {
+    let mut s = riff();
+    s.tracks[0].short_name = "ld.gt.".into();
+    let (back, _, _) = round_trip(&s);
+    assert_eq!((back.tracks[0].short_name.as_str(), back.tracks[0].color), ("ld.gt.", Some([0x12, 0x34, 0x56])));
+    // A track with no colour of its own goes out with its default one.
+    s.tracks[0].color = None;
+    let (back, _, _) = round_trip(&s);
+    assert_eq!(back.tracks[0].color, Some(guitario_score::TRACK_COLORS[0]));
+}
+
+#[test]
 fn four_voices_and_the_whole_model_of_a_bar_come_back() {
     let mut s = riff();
     let note = |string: u8, fret: u8| Beat { rest: false, notes: vec![Note::new(string, fret)], ..Beat::rest(Duration::WHOLE) };

@@ -108,13 +108,25 @@ impl PageSetup {
     }
 }
 
+/// Song information, Guitar Pro's fields. Every field may be empty, and files from before a field
+/// existed load with it empty.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Meta {
     pub title: String,
     pub artist: String,
+    pub subtitle: String,
     pub album: String,
+    /// Who wrote the words, and the music. When both name the same people the title block says
+    /// "Words & Music by".
+    pub words: String,
+    pub music: String,
+    pub copyright: String,
+    /// The transcriber (Guitar Pro's "Tabber").
     pub author: String,
+    /// Guitar Pro's "Notice".
     pub notes: String,
+    pub instructions: String,
 }
 
 /// The master bar: everything shared by all tracks at one measure position.
@@ -441,7 +453,26 @@ pub struct Track {
     /// Up to [`MAX_LYRIC_LINES`] lines of lyrics, sung on the track's first voice.
     #[serde(default)]
     pub lyrics: Vec<LyricLine>,
+    /// The name at the start of each system after the first (`s.guit.`); empty lets Guitario
+    /// abbreviate the name.
+    #[serde(default)]
+    pub short_name: String,
+    /// The track's colour as red, green, blue; none takes the next of Guitar Pro's track colours.
+    #[serde(default)]
+    pub color: Option<[u8; 3]>,
 }
+
+/// The colours new tracks take in turn, as Guitar Pro gives them.
+pub const TRACK_COLORS: [[u8; 3]; 8] = [
+    [0xe0, 0x4f, 0x4f],
+    [0x3f, 0x9b, 0xe8],
+    [0x5c, 0xbd, 0x5c],
+    [0xe8, 0xa2, 0x3a],
+    [0xa8, 0x6b, 0xe0],
+    [0x3c, 0xc4, 0xb8],
+    [0xe0, 0x6b, 0xb5],
+    [0xc4, 0xc4, 0x48],
+];
 
 /// Lines of lyrics a track may hold, as in Guitar Pro.
 pub const MAX_LYRIC_LINES: usize = 5;
@@ -458,6 +489,11 @@ pub struct LyricLine {
 }
 
 impl Track {
+    /// The track's colour: its own, or the one a track at `index` takes by default.
+    pub fn color_at(&self, index: usize) -> [u8; 3] {
+        self.color.unwrap_or_else(|| TRACK_COLORS.get(index % TRACK_COLORS.len()).copied().unwrap_or([0xe0, 0x4f, 0x4f]))
+    }
+
     pub fn new(name: impl Into<String>, tuning: Tuning, headers: &[MeasureHeader]) -> Track {
         let program = if tuning.string_count() <= 4 && tuning.strings.first().is_some_and(|p| *p < 50) { 33 } else { 25 };
         Track {
@@ -472,6 +508,8 @@ impl Track {
             solo: false,
             measures: headers.iter().map(Measure::empty_for).collect(),
             lyrics: Vec::new(),
+            short_name: String::new(),
+            color: None,
         }
     }
 

@@ -196,7 +196,7 @@ impl Writer {
     fn song(&mut self, score: &Score) {
         self.fixed_string(BANNER, 30);
         let m = &score.meta;
-        for s in [m.title.as_str(), "", &m.artist, &m.album, "", "", "", &m.author, ""] {
+        for s in [m.title.as_str(), &m.subtitle, &m.artist, &m.album, &m.words, &m.music, &m.copyright, &m.author, &m.instructions] {
             self.int_byte_string(s);
         }
         let notice: Vec<&str> = if m.notes.is_empty() { Vec::new() } else { m.notes.lines().collect() };
@@ -442,8 +442,7 @@ impl Writer {
         self.i32(channel); // effect channel
         self.i32(24); // frets
         self.i32(if t.is_drums() { 0 } else { i32::from(t.capo) });
-        const COLOURS: [[u8; 3]; 6] = [[255, 0, 0], [0, 128, 255], [0, 160, 0], [255, 160, 0], [160, 0, 255], [0, 160, 160]];
-        let [r, g, b] = COLOURS.get(index % COLOURS.len()).copied().unwrap_or([255, 0, 0]);
+        let [r, g, b] = t.color_at(index);
         self.out.extend([r, g, b, 0]);
         // Display flags, auto-accentuation, MIDI bank, RSE humanize and reserved fields, the RSE
         // instrument (none) and its equalizer: the values Guitar Pro writes for a new track.
