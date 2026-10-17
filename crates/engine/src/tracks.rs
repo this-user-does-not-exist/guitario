@@ -26,6 +26,15 @@ pub fn specs() -> Vec<CommandSpec> {
             true,
             set_notation,
         ),
+        cmd(
+            "track.setInterpretation",
+            "Interpretation",
+            "Track",
+            None,
+            "style? (default|pick|fingers|picking|bassSlap), palmMute? (0..=100), accentuation? (0..=100), autoLetRing?, autoBrush?, stringed?, track? (index; default the cursor's)",
+            true,
+            set_interpretation,
+        ),
         cmd("track.duplicate", "Duplicate Track", "Track", None, "", true, duplicate),
         cmd(
             "track.transpose",
@@ -91,6 +100,46 @@ fn set_notation(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
     }
     t.notation = n;
     Ok(json!({"standard": n.standard, "tab": n.tab, "slash": n.slash, "numbered": n.numbered}))
+}
+
+fn set_interpretation(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
+    use guitario_score::PlayingStyle as P;
+    let style = match params::opt_string(p, "style") {
+        None => None,
+        Some("default") => Some(P::Default),
+        Some("pick") => Some(P::Pick),
+        Some("fingers") => Some(P::Fingers),
+        Some("picking") => Some(P::Picking),
+        Some("bassSlap") => Some(P::BassSlap),
+        Some(other) => return Err(EngineError::BadParam(format!("unknown playing style `{other}`"))),
+    };
+    if p.get("style").is_some_and(|v| !v.is_string()) {
+        return Err(EngineError::BadParam("`style` must be a string".into()));
+    }
+    let palm = params::opt_uint(p, "palmMute", 100)?;
+    let accent = params::opt_uint(p, "accentuation", 100)?;
+    let flag = |key: &str| p.get(key).map(|_| params::boolean(p, key)).transpose();
+    let (let_ring, brush, stringed) = (flag("autoLetRing")?, flag("autoBrush")?, flag("stringed")?);
+    let t = crate::commands::mixer_track(s, p)?;
+    if t.is_drums() {
+        return Err(EngineError::invalid("a drum kit has no interpretation settings"));
+    }
+    let i = &mut t.interpretation;
+    if let Some(v) = style {
+        i.style = v;
+    }
+    if let Some(v) = palm {
+        i.palm_mute = v as u8;
+    }
+    if let Some(v) = accent {
+        i.accentuation = v as u8;
+    }
+    for (field, value) in [(&mut i.auto_let_ring, let_ring), (&mut i.auto_brush, brush), (&mut i.stringed, stringed)] {
+        if let Some(v) = value {
+            *field = v;
+        }
+    }
+    Ok(json!({}))
 }
 
 fn duplicate(s: &mut Session, _: &Value) -> Result<Value, EngineError> {

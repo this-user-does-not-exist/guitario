@@ -1,7 +1,7 @@
 use crate::sfz::{Instrument, SampleVoice};
 use crate::synth::{Click, DrumVoice, Noise, Pluck, StringVoice};
 use crate::tempo::{BeatTime, TempoMap, locate};
-use guitario_score::{Fade, Score, Slide, timeline};
+use guitario_score::{Fade, PlayingStyle, Score, Slide, timeline};
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -39,6 +39,8 @@ struct NoteEvent {
     velocity: f32,
     dead: bool,
     palm_mute: bool,
+    /// How hard the track's palm mutes damp, 0 to 1 (its interpretation).
+    mute: f32,
     let_ring: bool,
     vibrato: bool,
     /// Bend height in semitones, reached over the first half of the note.
@@ -122,6 +124,8 @@ struct TrackBus {
     hp_prev: f32,
     brightness: f32,
     sustain: f32,
+    /// A new note on a string stops the one ringing there (off: notes ring on, as on a piano).
+    stringed: bool,
 }
 
 const MAX_VOICES: usize = 96;
@@ -235,6 +239,7 @@ impl Player {
                 velocity: f32::from(p.velocity) / 127.0,
                 dead: p.dead,
                 palm_mute: p.effects.palm_mute,
+                mute: score.tracks.get(p.track).map_or(0.0, |t| f32::from(t.interpretation.palm_mute.min(100)) / 100.0),
                 let_ring: p.effects.let_ring,
                 vibrato: p.effects.vibrato || p.effects.wide_vibrato,
                 wide_vibrato: p.effects.wide_vibrato,
@@ -275,7 +280,16 @@ impl Player {
                     24 | 25 => (1.0, 0.7, 0.75, 0.9985),
                     _ => (1.0, 0.55, 0.65, 0.9988),
                 };
-                TrackBus { gain_l, gain_r, target_l: gain_l, target_r: gain_r, drive, tone, lp: 0.0, hp: 0.0, hp_prev: 0.0, brightness, sustain }
+                // Fingers are warmer than a pick; a slapped bass is brighter.
+                let brightness = brightness
+                    * match t.interpretation.style {
+                        PlayingStyle::Default | PlayingStyle::Pick => 1.0,
+                        PlayingStyle::Fingers => 0.75,
+                        PlayingStyle::Picking => 0.85,
+                        PlayingStyle::BassSlap => 1.3,
+                    };
+                let stringed = t.interpretation.stringed;
+                TrackBus { gain_l, gain_r, target_l: gain_l, target_r: gain_r, drive, tone, lp: 0.0, hp: 0.0, hp_prev: 0.0, brightness, sustain, stringed }
             })
             .collect::<Vec<_>>();
         let beats = (0..score.tracks.len()).map(|ti| map.beat_times(score, ti)).collect();
@@ -498,7 +512,7 @@ impl Player {
             };
         velocity = velocity.clamp(0.0, 1.0);
         // A string sounds one note at a time: a new note stops the one ringing there.
-        if !drum {
+        if !drum && self.buses.get(n.track).is_none_or(|b| b.stringed) {
             for v in self.sampled.iter_mut().filter(|v| v.track == n.track && v.string == n.string && !v.finished()) {
                 v.damp();
             }
@@ -519,6 +533,8 @@ impl Player {
         }
         // Palm mutes and dead notes are damped quickly whatever the sample's own tail.
         let damped = n.palm_mute || n.dead;
+        // A heavier palm mute cuts the sample sooner.
+        let muted_for = 0.22 - 0.12 * n.mute.clamp(0.0, 1.0);
         for h in hits {
             let mut v = SampleVoice::new(n.track, n.string, h.region, h.sample, key, velocity, self.sr);
             v.repitch(ratio);
@@ -529,7 +545,7 @@ impl Player {
             v.fade = n.fade;
             v.gain = fade_gain(n.fade, 0.0);
             v.let_ring = n.let_ring && !damped;
-            let end = if damped { n.end.min(n.start + if n.dead { 0.08 } else { 0.22 }) } else { n.end };
+            let end = if damped { n.end.min(n.start + if n.dead { 0.08 } else { f64::from(muted_for) }) } else { n.end };
             (v.note_start, v.note_end, v.bend_to) = (n.start, end, n.bend);
             if self.sampled.len() >= MAX_SAMPLE_VOICES {
                 self.sampled.remove(0);
@@ -582,15 +598,19 @@ impl Player {
             return;
         }
         // A string sounds one note at a time: a new note stops the one ringing there (a let-ring
-        // note too); notes on other strings ring on.
-        for v in self.voices.iter_mut().filter(|v| v.track == n.track && v.string == n.string) {
-            v.damp();
+        // note too); notes on other strings ring on. Not stringed, notes ring on as on a piano.
+        if self.buses.get(n.track).is_none_or(|b| b.stringed) {
+            for v in self.voices.iter_mut().filter(|v| v.track == n.track && v.string == n.string) {
+                v.damp();
+            }
         }
         let Some(bus) = self.buses.get(n.track) else { return };
         let (brightness, sustain) = if n.dead {
             (0.9, 0.95)
         } else if n.palm_mute {
-            (bus.brightness * 0.45, 0.996)
+            // A heavier palm mute is darker and dies sooner.
+            let k = n.mute.clamp(0.0, 1.0);
+            (bus.brightness * (0.45 - 0.3 * k), 0.996 - 0.016 * k)
         } else {
             (bus.brightness, bus.sustain)
         };
@@ -1093,6 +1113,49 @@ mod tests {
         assert!((g - 0.354).abs() < 0.01, "{g}");
         assert_eq!(ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 1.5), Some(5.0));
         assert_eq!((ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 0.5), ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 9.0)), (None, Some(10.0)));
+    }
+
+    #[test]
+    fn not_stringed_a_restruck_string_lets_the_old_note_ring_on() {
+        // Two let-ring notes on the low E string, a beat apart.
+        let q = Duration::QUARTER;
+        let note = |fret: u8| {
+            let mut n = Note::new(5, fret);
+            n.effects.let_ring = true;
+            Beat { rest: false, notes: vec![n], ..Beat::rest(q) }
+        };
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices[0].beats = vec![note(0), note(3), Beat::rest(q), Beat::rest(q)];
+        let sounding = |stringed: bool| {
+            let mut s = s.clone();
+            s.tracks[0].interpretation.stringed = stringed;
+            let mut p = Player::new(&s, 22_050, Options::default());
+            p.play_from(0.0);
+            let mut buf = vec![0f32; (0.8 * 22_050.0) as usize * 2];
+            p.render(&mut buf, 2);
+            p.voices.iter().filter(|v| v.string == 5 && !v.released).count()
+        };
+        assert_eq!(sounding(true), 1, "a string sounds one note at a time");
+        assert_eq!(sounding(false), 2, "as on a piano, both ring");
+    }
+
+    #[test]
+    fn a_heavier_palm_mute_is_quieter_after_the_attack() {
+        let mut n = Note::new(5, 0);
+        n.effects.palm_mute = true;
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices[0].beats = vec![Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::WHOLE) }];
+        let tail = |weight: u8| {
+            let mut s = s.clone();
+            s.tracks[0].interpretation.palm_mute = weight;
+            let mut p = Player::new(&s, 22_050, Options::default());
+            p.play_from(0.0);
+            let mut buf = vec![0f32; 22_050 * 2];
+            p.render(&mut buf, 2);
+            rms(buf.get(22_050 / 4 * 2..).unwrap_or_default())
+        };
+        let (light, heavy) = (tail(0), tail(100));
+        assert!(heavy < light * 0.8, "light {light}, heavy {heavy}");
     }
 
     #[test]

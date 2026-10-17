@@ -52,6 +52,15 @@ fn a_riff_with_every_effect_round_trips_and_nothing_is_left_out() {
 }
 
 #[test]
+fn the_interpretation_comes_back_except_automatic_let_ring() {
+    let mut s = riff();
+    let i = Interpretation { style: PlayingStyle::Fingers, palm_mute: 30, accentuation: 34, auto_let_ring: true, auto_brush: true, stringed: false };
+    s.tracks[0].interpretation = i;
+    let (back, _, _) = round_trip(&s);
+    assert_eq!(back.tracks[0].interpretation, Interpretation { auto_let_ring: false, ..i });
+}
+
+#[test]
 fn each_tracks_notations_come_back() {
     let mut s = riff();
     s.tracks[0].notation = Notations { standard: false, tab: true, slash: true, numbered: false };

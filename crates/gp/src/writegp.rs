@@ -39,6 +39,39 @@ pub fn export_gp(score: &Score) -> Result<Export, GpError> {
     Ok(Export { bytes, warnings })
 }
 
+/// A track's interpretation in Guitar Pro's order: automatic brush, palm mute and accentuation
+/// (0 to 1), playing style, stringed instrument. Automatic let ring has no known tag and is left
+/// out.
+fn interpretation_xml(t: &Track) -> String {
+    use guitario_score::PlayingStyle as P;
+    if t.is_drums() {
+        return String::new();
+    }
+    let i = t.interpretation;
+    let share = |v: u8| f32::from(v.min(100)) / 100.0;
+    let mut out = String::new();
+    if i.auto_brush {
+        out.push_str("<AutoBrush/>");
+    }
+    out.push_str(&format!("<PalmMute>{}</PalmMute>", share(i.palm_mute)));
+    if i.accentuation > 0 {
+        out.push_str(&format!("<AutoAccentuation>{}</AutoAccentuation>", share(i.accentuation)));
+    }
+    let style = match i.style {
+        P::Default => "Default",
+        P::Pick => "StringedPick",
+        P::Fingers => "StringedFinger",
+        // Not seen in a real file; named by analogy with the others.
+        P::Picking => "StringedPicking",
+        P::BassSlap => "BassSlap",
+    };
+    out.push_str(&format!("<PlayingStyle>{style}</PlayingStyle>"));
+    if i.stringed {
+        out.push_str("<UseOneChannelPerString/>");
+    }
+    out
+}
+
 /// Text safe inside an attribute value: no control characters, and markup escaped.
 fn attr(s: &str) -> String {
     s.chars()
@@ -247,13 +280,14 @@ impl Gpif {
             "Default"
         };
         xml.push_str(&format!(
-            "<Track id=\"{ti}\"><Name>{}</Name><ShortName>{}</ShortName><Color>{}</Color><PlaybackState>{state}</PlaybackState>\n",
+            "<Track id=\"{ti}\"><Name>{}</Name><ShortName>{}</ShortName><Color>{}</Color>{}<PlaybackState>{state}</PlaybackState>\n",
             cdata(&t.name),
             cdata(&t.short_name),
             {
                 let [r, g, b] = t.color_at(ti);
                 format!("{r} {g} {b}")
-            }
+            },
+            interpretation_xml(t)
         ));
         xml.push_str(&format!(
             "<Sounds><Sound><Name>{0}</Name><Label>{0}</Label><Path>{1}</Path><Role>Factory</Role><MIDI><LSB>0</LSB><MSB>0</MSB><Program>{2}</Program></MIDI></Sound></Sounds>\n",

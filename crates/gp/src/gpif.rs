@@ -163,6 +163,9 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
             Some(mut t) => {
                 t.short_name = text(*tn, "ShortName").unwrap_or_default().trim().chars().take(100).collect();
                 t.color = text(*tn, "Color").and_then(rgb);
+                if !t.is_drums() {
+                    t.interpretation = interpretation(*tn);
+                }
                 score.tracks.push(t);
             }
             None => warnings.push(format!("track {} (`{name}`) could not be read and was skipped", ti + 1)),
@@ -766,6 +769,30 @@ fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chor
     beat.rest = beat.notes.is_empty();
     beat.tremolo = tremolo.filter(|_| !beat.rest);
     Some(beat)
+}
+
+/// A track's interpretation: `<AutoBrush/>`, `<PalmMute>` and `<AutoAccentuation>` from 0 to 1,
+/// `<PlayingStyle>`, and `<UseOneChannelPerString/>` for a stringed instrument. Guitar Pro's tag
+/// for automatic let ring has not been seen, so it is not read.
+fn interpretation(track: Node) -> guitario_score::Interpretation {
+    use guitario_score::PlayingStyle as P;
+    let share =
+        |k: &str| text(track, k).and_then(|v| v.trim().parse::<f32>().ok()).filter(|v| v.is_finite()).map_or(0, |v| (v.clamp(0.0, 1.0) * 100.0).round() as u8);
+    let style = match text(track, "PlayingStyle").map(str::trim) {
+        Some("StringedPick") => P::Pick,
+        Some("StringedFinger") => P::Fingers,
+        Some(s) if s.contains("Picking") => P::Picking,
+        Some("BassSlap") => P::BassSlap,
+        _ => P::Default,
+    };
+    guitario_score::Interpretation {
+        style,
+        palm_mute: share("PalmMute"),
+        accentuation: share("AutoAccentuation"),
+        auto_let_ring: false,
+        auto_brush: child(track, "AutoBrush").is_some(),
+        stringed: child(track, "UseOneChannelPerString").is_some(),
+    }
 }
 
 /// A colour as Guitar Pro writes it, "red green blue" from 0 to 255; anything else is none.

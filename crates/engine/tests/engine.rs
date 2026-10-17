@@ -443,3 +443,21 @@ fn notations_are_chosen_per_track_and_one_always_stays() {
     assert_eq!(s.score().tracks[0].notation.bits(), 4);
     assert!(s.run("track.setNotation", &json!({"standard": "yes"})).is_err());
 }
+
+#[test]
+fn interpretation_is_set_per_track_within_range() {
+    let mut s = Session::new();
+    run(
+        &mut s,
+        "track.setInterpretation",
+        json!({"style": "fingers", "palmMute": 30, "accentuation": 20, "autoLetRing": true, "autoBrush": true, "stringed": false}),
+    );
+    let i = s.score().tracks[0].interpretation;
+    assert_eq!(i.style, guitario_score::PlayingStyle::Fingers);
+    assert_eq!((i.palm_mute, i.accentuation, i.auto_let_ring, i.auto_brush, i.stringed), (30, 20, true, true, false));
+    for bad in [json!({"palmMute": 101}), json!({"accentuation": -1}), json!({"style": "kazoo"}), json!({"style": 3}), json!({"autoBrush": "on"})] {
+        assert!(s.run("track.setInterpretation", &bad).is_err(), "{bad}");
+    }
+    run(&mut s, "track.addDrums", json!({}));
+    assert!(s.run("track.setInterpretation", &json!({"autoBrush": true})).is_err(), "drums have none");
+}
