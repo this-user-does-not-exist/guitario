@@ -77,6 +77,7 @@ People trust Guitario with their work, and a crash loses it. A malformed file, a
 ```sh
 cargo xtask ci              # fmt --check, clippy -D warnings, tests, layers, parity --check, scorecard --check
 cargo xtask wasm            # if you touched L0–L5
+cargo xtask perf            # if you touched layout, painting, playback, sounds or file reading; keep perf/budgets.toml green
 cargo xtask parity          # if you added commands or menu items; commit docs/parity-checklist.md, raise FLOOR
 cargo xtask scorecard       # if you moved a checklist item; commit docs/scorecard.md
 cargo run -p guitario-engine --example demos   # if the engine can express something new: add it to a demo

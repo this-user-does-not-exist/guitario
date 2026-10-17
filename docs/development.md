@@ -13,6 +13,7 @@ cargo run -p guitario                        # the editor
 cargo run -p guitario -- demos/01-thrash-attack.gt
 cargo run -p guitario-cli -- commands        # every command id with its params
 cargo xtask ci                                  # fmt, clippy, tests, layers, parity, scorecard
+cargo xtask perf                                # release timings on a 400-bar score vs perf/budgets.toml
 ```
 
 ### Faster test loops
@@ -30,16 +31,17 @@ equivalents found in the system font folders, `CRAFT_FONTS_DIR` or `GUITARIO_FON
 
 | Variable | Effect |
 |---|---|
-| `GUITARIO_CONFIG_DIR` | Where `config.toml` lives; set but empty keeps preferences in memory (tests, agents) |
+| `GUITARIO_CONFIG_DIR` | Where `config.toml` lives, with `recovery/` beside it for autosaved unsaved work; set but empty keeps preferences in memory and turns autosave off (tests, agents) |
 | `GUITARIO_FONTS_DIR`, `CRAFT_FONTS_DIR` | Extra font folders |
 | `GUITARIO_MUSIC_FONT` | A SMuFL font file to use |
 | `GUITARIO_SOUNDS` | The sound-bank folder of SFZ instruments ([`sounds.md`](sounds.md)); default is the per-user data folder |
 | `GUITARIO_SFZ_DIR`, `GUITARIO_SFZ_FILE`, `GUITARIO_SFZ_RENDER`, `GUITARIO_SFZ_OUT` | Run the real-library tests in `crates/playback/tests/real_libraries.rs` (parse a folder, print a key map, render a riff to a WAV) |
+| `GUITARIO_FUZZ_CASES`, `GUITARIO_FUZZ_SEED` | Cases per reader in `crates/gp/tests/fuzz.rs` (default 400) and where its seeds start; failing inputs land in `target/fuzz-failures/` |
 | `GUITARIO_GP_CORPUS`, `GUITARIO_GP_DUMP` | Import every Guitar Pro file in a local folder (`crates/gp/tests/corpus.rs`); GP3-5 files must also come back unchanged through the `.gp5` writer. `GUITARIO_GP_DUMP=1` prints what each file imported as. Real files belong to their authors: keep the corpus local |
 
 ## Headless CLI
 
-`guitario-cli commands | info <file> | convert <in> <out> [--sounds <dir>] [--tracks 0,2] [--tab-only] | run <file|-> <script.json> [--save <path>]`. `convert` writes `.gt`, `.gp`, `.gp5`, `.pdf`, `.mid`, `.wav` or `.txt`. PDF and printing come from the `pdf` feature (on by default; `--no-default-features` builds a CLI without the UI crate and its audio libraries).
+`guitario-cli commands | info <file> | convert <in> <out> [--sounds <dir>] [--tracks 0,2] [--tab-only] [--score] | run <file|-> <script.json> [--save <path>]`. `convert` writes `.gt`, `.gp`, `.gp5`, `.pdf`, `.mid`, `.wav`, `.flac` or `.txt`. PDF and printing come from the `pdf` feature (on by default; `--no-default-features` builds a CLI without the UI crate and its audio libraries).
 Inputs are `.gt` or any Guitar Pro file (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`); outputs are `.gt`, `.gp5`, `.mid`, `.wav` or `.txt`.
 A script is a JSON array of `["command.id", {params}]` steps.
 

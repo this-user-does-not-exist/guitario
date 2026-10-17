@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (layouts and the multitrack view; menus 140/173; ready ~29%) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (live mixer, transpose dialogs, tempo, volume and pan automation, audio settings, FLAC export, performance budgets, background sample loading; menus 149/173; ready ~29%) · **Target:** Guitar Pro 8
 
 Forward-looking plan: milestones, the **Current focus** list, and what's next with estimates.
 Where we stand today is in [`target-app-parity.md`](target-app-parity.md) (headline numbers, by
@@ -54,7 +54,7 @@ in Guitar Pro 8.
 
 Ranked; each item links to its gap entry. Pick from the top unless an issue is assigned to you.
 
-1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): multivoice editing, a chord list at the top, printing the multitrack view. 25–55 h.
+1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): user-placed slurs, Guitar Pro's per-beat beam breaks, picking a voice by its notehead. 8–28 h.
 2. **Guitar Pro import depth** ([G3](gaps.md#g3-guitar-pro-exchange)): Guitar Pro 6 drums, MIDI and MusicXML import, a human check of `.gp` exports. 40–80 h.
 3. **Print depth** ([G2](gaps.md#g2-print-depth)): headers and footers, layouts, selected bars, a real-printer check. 10–20 h.
 
@@ -92,6 +92,12 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-16 | minor | FLAC export; menus 149/173 |
+| 2026-10-16 | minor | Audio settings: output device and buffer size; menus 148/173 |
+| 2026-10-16 | minor | Volume and pan automation, played and exported to MIDI; menus 147/173 |
+| 2026-10-16 | minor | Tempo automation: gradual tempo changes played, drawn, edited and exchanged; menus 145/173 |
+| 2026-10-16 | minor | Live mixer, Transpose… and Transpose Track… dialogs, performance budgets and background sample loading; menus 144/173 |
+| 2026-10-16 | minor | Chord list under the title, Multivoice Editing, full-score printing, key changes inside a system, courtesy signatures, voice heads stepping aside, transpose track; G4 left 8–28 h; menus 141/173 |
 | 2026-10-16 | minor | Page, screen and horizontal layouts and the multitrack view; G4 left 25–55 h, G8 100–170 h; ready ~29%; beta ~770–1,310 h |
 | 2026-10-16 | minor | Beaming by the signature (per bar too, kept in `.gp5`) and sloped beams; G4 left 35–70 h; ready ~28%; beta ~800–1,360 h |
 | 2026-10-16 | minor | Fingering for both hands (dialog, notation, Guitar Pro 3-8 both ways); menus 136/173; G4 left 40–80 h |

@@ -18,8 +18,8 @@ status = "done"
 [[item]]
 id = "NOTE-3"
 target = "Pitch spelling, key signatures, accidentals with bar memory, ledger lines"
-status = "partial"
-note = "notation.rs tests; key changes after the first bar of a system are not drawn"
+status = "done"
+note = "notation.rs tests; a key change inside a system is drawn at its bar (naturals for what the old key loses, then the new key, before any time signature; notation::key_cancel, layout key_w, page key_change), and a system opening on a change shows the new key in its prefix; the system before a change ends with courtesy signatures after its last bar line (the next key, with naturals, and time signature; the staff runs on to them, and the line gives up a bar when they would not fit; layout::courtesy_of, SystemBox.courtesy)"
 
 [[item]]
 id = "NOTE-4"
@@ -31,7 +31,7 @@ note = "beams slope with the outer notes (at most a staff space, flat over an in
 id = "NOTE-5"
 target = "Ties and slurs drawn between notes in standard notation"
 status = "done"
-note = "tie arcs in notation and tab, across bar lines and system breaks; slurs for hammer-ons, pull-offs and legato slides; several voices with stems up and down (page.rs, layout.rs, page::tests); user-placed slurs are not modelled"
+note = "tie arcs in notation and tab, across bar lines and system breaks; slurs for hammer-ons, pull-offs and legato slides; several voices with stems up and down, the stem-down head stepping right of a second or of a different head on one pitch (page.rs heads_clash, layout.rs, page::tests); user-placed slurs are not modelled"
 
 [[item]]
 id = "NOTE-6"
@@ -59,7 +59,7 @@ note = "alternate ending brackets and direction marks (segno, coda, Fine, D.C./D
 id = "NOTE-10"
 target = "Multitrack view and page/screen/horizontal layouts"
 status = "done"
-note = "View › Layout › Page, Screen (one sheet as wide as the window) and Horizontal (one line of bars, no title); View › Multitrack stacks every track in each system with beats lined up in time across tracks (layout.rs layout_parts, page.rs paint_systems), markers and directions over the top track, clicks on any track move the cursor there; saved in the preferences; printing and PDF stay one track at a time"
+note = "View › Layout › Page, Screen (one sheet as wide as the window) and Horizontal (one line of bars, no title); View › Multitrack stacks every track in each system with beats lined up in time across tracks (layout.rs layout_parts, page.rs paint_systems), markers and directions over the top track, clicks on any track move the cursor there; saved in the preferences; printed and exported as a full score too (file.exportPdf and file.print `together`, the print and preview dialogs' 'As a full score' option, `guitario-cli convert --score`; page.rs print_score_layout), which File › Print, Print Preview and Export PDF choose when the multitrack view is on"
 
 [[item]]
 id = "NOTE-11"
@@ -71,4 +71,4 @@ note = "percussion clef, kit-map staff positions, cross noteheads for cymbals (t
 id = "NOTE-12"
 target = "Chord diagrams and chord names above the staff"
 status = "done"
-note = "chord names and beat text drawn above the system in a lane that grows when a track has them; diagrams drawn under the names (nut or first fret, dots, open and muted marks, barres; page.rs chord_diagram, layout.rs), edited in Tools › Chord Diagrams… (a clickable diagram, named from its notes by guitario_theory::chord_name) and read and written in Guitar Pro 3-5 and GPIF; no chord list at the top of the score"
+note = "chord names and beat text drawn above the system in a lane that grows when a track has them; diagrams drawn under the names (nut or first fret, dots, open and muted marks, barres; page.rs chord_diagram, layout.rs), edited in Tools › Chord Diagrams… (a clickable diagram, named from its notes by guitario_theory::chord_name) and read and written in Guitar Pro 3-5 and GPIF; the chord list under the title on the first page (each distinct diagram once, in order of first use, at most 48, wrapping into rows; layout.rs chord_list), in the page view, print and PDF; no stylesheet switch to hide it"

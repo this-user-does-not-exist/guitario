@@ -42,7 +42,7 @@ status = "missing"
 id = "FILE-7"
 target = "PDF export and printing"
 status = "partial"
-note = "File › Export › PDF… and `guitario-cli convert in out.pdf` write A4 vector pages with embedded font subsets and selectable text, for one track or all, with or without notation, on the score's own paper (crates/ui-egui/src/pdf.rs); File › Print… (Cmd+P) sends the same pages through craft-print with printer, copies, collate, sides and black and white, on a worker thread (file.print, file.printers); every demo exports without warnings and its pages were looked at as rasters; not yet sent to a real printer (human check)"
+note = "File › Export › PDF… and `guitario-cli convert in out.pdf` write A4 vector pages with embedded font subsets and selectable text, for one track, each track in turn or all stacked as a full score (`together`, `--score`), with or without notation, on the score's own paper (crates/ui-egui/src/pdf.rs); File › Print… (Cmd+P) sends the same pages through craft-print with printer, copies, collate, sides and black and white, on a worker thread (file.print, file.printers); every demo exports without warnings and its pages were looked at as rasters; not yet sent to a real printer (human check)"
 
 [[item]]
 id = "FILE-8"

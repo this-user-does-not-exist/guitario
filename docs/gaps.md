@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: chord list under the title and Multivoice Editing; G6: transpose track; earlier G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -21,14 +21,14 @@ agent can't finish alone.
 | G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
 | G2 | Print depth: headers and footers, layouts, selected bars | file format | low-medium | 10–20 h | [file-format-parity](file-format-parity.md) |
 | G3 | Guitar Pro exchange (import depth, MusicXML, MIDI import) | file format | medium-high | 40–80 h | [file-format-parity](file-format-parity.md) |
-| G4 | Notation depth (multivoice editing, chord list, multitrack print) | features | high | 25–55 h | [scorecard](scorecard.md#notation-and-engraving) |
-| G5 | Playback realism (samples, effects, mixer, automations) | playback | high | 300–600 h | [scorecard](scorecard.md#playback) |
+| G4 | Notation depth (user slurs, beam breaks, voice picking in notation) | features | high | 8–28 h | [scorecard](scorecard.md#notation-and-engraving) |
+| G5 | Playback realism (sampled articulations, effects, MP3/OGG) | playback | high | 230–470 h | [scorecard](scorecard.md#playback) |
 | G6 | Editing depth (bend editor, tuplets, paste special, track tools) | features | medium-high | 80–140 h | [scorecard](scorecard.md#editing) |
 | G7 | Tools: tuner, chord dictionary, scales, line in | features | medium | 110–185 h | [target-app-parity](target-app-parity.md#feature-breadth-33-weighted) |
 | G8 | UI depth: keyboard view, preferences, themes, inspector tabs | UI | medium | 100–170 h | [ui-parity](ui-parity.md) |
-| G9 | Performance budgets | performance | medium | 30–60 h | [scorecard](scorecard.md) |
+| G9 | Performance: CI budgets, memory, startup | performance | medium | 15–30 h | [scorecard](scorecard.md) |
 | G10 | Automation: control channel and MCP | ecosystem | medium | 40–80 h | [scorecard](scorecard.md#automation) |
-| G11 | Reliability depth: panic guard, reader fuzzers, autosave | stability | medium | 40–80 h | [scorecard](scorecard.md#reliability) |
+| G11 | Reliability depth: `.gt` fuzzing, a guard around painting | stability | medium | 15–35 h | [scorecard](scorecard.md#reliability) |
 | G12 | Platforms and distribution | platforms | low now, blocks beta | 80–150 h + human | [scorecard](scorecard.md#distribution) |
 | G13 | Languages | localization | low now | 40–80 h + human | [ui-parity](ui-parity.md) |
 
@@ -151,22 +151,42 @@ agent can't finish alone.
   quarters in compound time, 2+2+3 in 7/8, 4+4+5 in 13/16), kept in Guitar Pro 5 files ("beam
   eighth notes by"); and sloped beams (with the outer notes, at most a staff space, flat over an
   inner peak, every stem long enough). Demo 06 beams its 7/8 as 3+2+2.
-- **Missing:** a chord list at the top of the score, a Multivoice Editing mode, user-placed slurs,
-  mid-system key changes, Guitar Pro's per-beat beam breaks, and offsetting heads where two voices
-  share a pitch.
-- **Evidence:** NOTE-5 and EDIT-9 done; NOTE-3/4/9/12 and EDIT-16 partial.
-- **Estimate:** 25–55 h.
+- **Landed 2026-10-16:** the chord list under the title (each distinct diagram once, in order of
+  first use, in the page view, print and PDF) and Edit › Multivoice Editing (voices in their own
+  colours on screen; a click on another voice's note in the tab moves the cursor into that voice).
+- **Landed 2026-10-16:** the full score on paper: every track stacked in each system in the PDF,
+  the print job and the preview (`together`, "As a full score", `convert --score`), chosen
+  by default when the multitrack view is on.
+- **Landed 2026-10-16:** key changes inside a system: naturals for what the old key loses, then
+  the new key, before any time signature (NOTE-3 done). Demo 06's change to E♭ shows.
+- **Landed 2026-10-16:** courtesy key and time signatures at the end of the system before a change.
+- **Landed 2026-10-16:** a stem-down voice's head steps right of a stem-up voice's a second away,
+  or on the same pitch with another head or dots; identical heads on one pitch are shared.
+- **Missing:** a stylesheet switch for the chord list, picking a voice by clicking its notehead in
+  notation, voice shortcuts, user-placed slurs, Guitar Pro's per-beat beam breaks, and keeping
+  column room for a head that steps aside.
+- **Evidence:** NOTE-3/4/5/9/12 and EDIT-9/16 done; their notes list what is left.
+- **Estimate:** 8–28 h.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with
   open CC0/CC-BY libraries for guitars, bass and drums (`cargo xtask sounds`).
-- **Missing:** release samples, background loading, per-track instrument choice in the UI, mixer
-  and sample-based articulations (palm mute, harmonics, slides); amp and effect
-  chains per track, a mixer panel, automations (tempo ramps, volume, pan), swing / triplet feel,
-  MP3/FLAC/OGG export.
-- **Evidence:** PLAY-3/5/7 partial, PLAY-6 missing. The synth is checked by tests (pitch within 4 Hz,
+- **Landed 2026-10-16:** Sound › Mixer…: a strip per track (instrument, pan, fader, mute, solo),
+  live while playing (faders heard while dragged, one undo step on release; mute and solo silence
+  the track's bus, so they can change mid-song); samples decode on every core in the background.
+- **Landed 2026-10-16:** tempo automation: gradual tempo changes (Guitar Pro's linear tempo
+  points), played exactly, edited in Sound › Automations › Tempo Automation… with the curve,
+  marked accel./rit., exported to MIDI and GPIF and read from Guitar Pro 7/8 files.
+- **Landed 2026-10-16:** volume and pan automation per track (Sound › Automations › Volume /
+  Pan Automation…), played over the mixer and exported to MIDI; Guitar Pro exchange of them waits
+  on a confirmed mapping of the channel-strip values.
+- **Landed 2026-10-16:** Sound › Audio Settings… (output device and buffer size, saved); FLAC
+  export (File › Export › Audio…, lossless, pure Rust).
+- **Missing:** release samples, sample-based articulations (palm mute, harmonics, slides); amp and effect
+  chains per track, MP3 and OGG export.
+- **Evidence:** PLAY-6 done; PLAY-3/5/7/8 partial. The synth is checked by tests (pitch within 4 Hz,
   clean decay, no clipping), not yet by listening on real speakers.
-- **Estimate:** 250–500 h; a library tuned to Guitar Pro's articulations needs a listening pass
+- **Estimate:** 230–470 h; a library tuned to Guitar Pro's articulations needs a listening pass
   (**human**).
 
 ### G6. Editing depth
@@ -175,8 +195,12 @@ agent can't finish alone.
   tapping, slap/pop, pick strokes, fade in/out and swell, brush, arpeggio and rasgueado (played);
   alternate endings and directions (segno, coda, Fine, D.C./D.S./To Coda) edited, played, drawn
   and imported from `.gp`.
-- **Missing:** bend-curve editor (pre-bend, release, multi-point), nested tuplets, Paste Special,
-  transpose track.
+- **Landed 2026-10-16:** `track.transpose` (±24 semitones; a note that runs off its string moves to
+  the nearest free one; trills and grace notes follow; nothing changes unless every note fits).
+  Track › Transpose Track… and Edit › Transpose… (any interval, for the selection, the track or
+  every track but drums; `edit.transpose`, `track.transpose` with `tracks`); chord diagrams are
+  not transposed.
+- **Missing:** bend-curve editor (pre-bend, release, multi-point), nested tuplets, Paste Special.
 - **Evidence:** EDIT-3/5/8/13 in the scorecard.
 - **Estimate:** 80–140 h.
 
@@ -201,10 +225,17 @@ agent can't finish alone.
 - **Estimate:** 100–170 h.
 
 ### G9. Performance budgets
-- **Missing:** any measurement. Layout and painting run every frame over the visible pages;
-  nothing has been timed on a long score (300+ bars, 6+ tracks).
-- **Plan:** `perf/budgets.toml` and `cargo xtask perf`, as another app does.
-- **Estimate:** 30–60 h.
+- **Landed 2026-10-16:** `cargo xtask perf` and `perf/budgets.toml`: a 400-bar, six-track score
+  timed in release through opening, saving, `.gp` import, layout, page-view frames (single and
+  multitrack, tessellation included), the playback timeline, the player and audio rendering, and
+  the sound bank. Everything fits: a frame takes 1-2 ms, the synth 3 % of a core. The one stall
+  found, decoding samples on the UI thread when Play was pressed (5.5 s), is gone: samples decode
+  on all cores (1.0 s) on a worker thread whenever the score needs new notes, an instrument is
+  reused for any subset of the notes it was decoded for, and Play waits ("Loading sounds…")
+  instead of freezing; Play now costs 2 ms on the UI thread.
+- **Missing:** budgets in CI (timings need a quiet machine), memory budgets, startup time, a
+  long session with a 1,000-bar score, playback-while-editing.
+- **Estimate:** 15–30 h.
 
 ### G10. Automation
 - **Missing:** a JSON control channel to drive and screenshot the running app, and an MCP server.
@@ -212,9 +243,15 @@ agent can't finish alone.
 - **Estimate:** 40–80 h.
 
 ### G11. Reliability depth
-- **Missing:** a last-resort panic guard around command dispatch and imports in the shell; fuzz
-  targets for the `.gp` and `.gt` readers; autosave and crash recovery.
-- **Estimate:** 40–80 h.
+- **Landed 2026-10-16:** a last-resort panic guard in `Session::run` (a panicking command puts
+  everything back and reports an internal error; REL-4), and autosave with crash recovery (every
+  30 s while unsaved, a heartbeat per running Guitario, a Recover / Discard / Later prompt at start,
+  `file.recover`; REL-6).
+- **Landed 2026-10-16:** mutation fuzzing of every Guitar Pro reader (`crates/gp/tests/fuzz.rs`,
+  in every test run; `GUITARIO_FUZZ_CASES` for depth; 150,000 cases found nothing).
+- **Missing:** fuzzing the `.gt` reader and Guitar Pro 3/4 in depth without a local corpus; a guard
+  around painting.
+- **Estimate:** 15–35 h.
 
 ### G12. Platforms and distribution
 - **Missing:** releases (signed and notarized macOS, signed Windows, Linux packages), an app icon,
@@ -240,6 +277,14 @@ agent can't finish alone.
 | 2026-10-16 | minor | G4: fermatas landed (50–95 h to 45–85 h) |
 | 2026-10-16 | minor | G4: fingering landed (45–85 h to 40–80 h); G3: fingering no longer dropped |
 | 2026-10-16 | minor | G4: beaming by the signature and sloped beams (40–80 h to 35–70 h) |
+| 2026-10-16 | minor | G5: FLAC export (menus 149/173) |
+| 2026-10-16 | minor | G5: audio settings (menus 148/173) |
+| 2026-10-16 | minor | G5: volume and pan automation (menus 147/173) |
+| 2026-10-16 | minor | G5: tempo automation with gradual changes (menus 145/173) |
+| 2026-10-16 | minor | G5: live mixer; G6: Transpose… and Transpose Track… dialogs (menus 144/173) |
+| 2026-10-16 | minor | G9: performance budgets measured (`cargo xtask perf`); the sample-loading stall on Play removed (30–60 h to 15–30 h). G5: samples decode in parallel and in the background |
+| 2026-10-16 | minor | G11: panic guard and autosave with crash recovery (40–80 h to 20–45 h) |
+| 2026-10-16 | minor | G4: chord list, Multivoice Editing, full-score printing, key changes inside a system and courtesy signatures, voice heads stepping aside (25–55 h to 8–28 h); G6: transpose track |
 | 2026-10-16 | minor | G4/G8: layouts and the multitrack view (G4 35–70 h to 25–55 h, G8 120–200 h to 100–170 h) |
 | 2026-10-16 | minor | G4: ties, slurs and up to four voices landed (150–250 h to 90–160 h); G1: drums' second voice (40–80 h to 30–60 h) |
 | 2026-10-16 | minor | G3: `.gp` (Guitar Pro 7/8) export landed, unverified in Guitar Pro itself (60–110 h to 40–80 h) |
