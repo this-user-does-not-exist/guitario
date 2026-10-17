@@ -61,6 +61,7 @@ pub enum UiAction {
     TempoAutomation,
     VolumeAutomation,
     PanAutomation,
+    AudioSettings,
     TogglePalette,
     ToggleInspector,
     ToggleGlobalView,
@@ -259,7 +260,7 @@ pub static CATALOG: &[MenuItem] = &[
     u("Sound/Automations", "Volume Automation…", U::VolumeAutomation, ""),
     u("Sound/Automations", "Pan Automation…", U::PanAutomation, ""),
     m("Sound", "Sound Settings…"),
-    m("Sound", "Audio Settings…"),
+    u("Sound", "Audio Settings…", U::AudioSettings, ""),
     // Tools
     m("Tools", "Tuner"),
     u("Tools", "Chord Diagrams…", U::ChordDiagrams, ""),

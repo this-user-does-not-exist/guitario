@@ -3,6 +3,7 @@
 //! along the bottom. Thin by design: every edit goes through `Session::run`, and the menus and
 //! shortcuts are generated from the engine's command registry.
 
+mod audio_settings;
 mod automation_dialog;
 mod autosave;
 mod chord_dialog;
@@ -114,6 +115,9 @@ pub struct GuitarioApp {
     mixer: mixer::Mixer,
     tempo_automation: automation_dialog::TempoAutomation,
     mix_automation: automation_dialog::MixAutomation,
+    /// The sound card to play through (Sound › Audio Settings…).
+    audio_settings: guitario_audio::AudioSettings,
+    audio_dialog: audio_settings::AudioSettingsDialog,
     /// Autosave and crash recovery; off until the persistent preferences are in use.
     autosave: autosave::Autosave,
 }
@@ -168,6 +172,8 @@ impl GuitarioApp {
             mixer: mixer::Mixer::default(),
             tempo_automation: automation_dialog::TempoAutomation::default(),
             mix_automation: automation_dialog::MixAutomation::default(),
+            audio_settings: guitario_audio::AudioSettings::default(),
+            audio_dialog: audio_settings::AudioSettingsDialog::default(),
         }
     }
 
@@ -192,6 +198,7 @@ impl GuitarioApp {
         self.panels = Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard };
         let t = &mut self.transport;
         (t.metronome, t.count_in, t.looping, t.speed) = (p.playback.metronome, p.playback.count_in, p.playback.looping, p.playback.speed);
+        self.audio_settings = guitario_audio::AudioSettings { device: p.playback.output.clone(), buffer: p.playback.buffer };
         // Unsaved work is kept beside the preferences, and what a stopped run left is offered back.
         if let Some(dir) = self.settings.dir() {
             self.autosave = autosave::Autosave::at(dir.join("recovery"));
@@ -229,7 +236,14 @@ impl GuitarioApp {
             global_view: pn.global,
             fretboard: pn.fretboard,
         };
-        let playback = prefs::PlaybackPrefs { metronome: t.metronome, count_in: t.count_in, looping: t.looping, speed: t.speed };
+        let playback = prefs::PlaybackPrefs {
+            metronome: t.metronome,
+            count_in: t.count_in,
+            looping: t.looping,
+            speed: t.speed,
+            output: self.audio_settings.device.clone(),
+            buffer: self.audio_settings.buffer,
+        };
         self.settings.update(|p| {
             p.view = view;
             p.playback = playback;
@@ -373,6 +387,7 @@ impl GuitarioApp {
             U::TempoAutomation => self.open_tempo_automation(),
             U::VolumeAutomation => self.open_mix_automation(automation_dialog::MixKind::Volume),
             U::PanAutomation => self.open_mix_automation(automation_dialog::MixKind::Pan),
+            U::AudioSettings => self.open_audio_settings(),
             U::TogglePalette => self.panels.palette = !self.panels.palette,
             U::ToggleInspector => self.panels.inspector = !self.panels.inspector,
             U::ToggleGlobalView => self.panels.global = !self.panels.global,
@@ -585,8 +600,13 @@ impl GuitarioApp {
             return;
         }
         if self.audio.is_none() {
-            match guitario_audio::AudioOut::open() {
-                Ok(a) => self.audio = Some(a),
+            match guitario_audio::AudioOut::open_with(&self.audio_settings) {
+                Ok(a) => {
+                    if a.fell_back {
+                        self.status = format!("The chosen audio output is not connected; playing through {}.", a.device);
+                    }
+                    self.audio = Some(a);
+                }
                 Err(e) => {
                     self.status = format!("Cannot play: {e}");
                     self.status_is_error = true;
@@ -682,6 +702,7 @@ impl GuitarioApp {
             || self.lyrics.open
             || !self.autosave.found.is_empty()
             || self.transpose.open
+            || self.audio_dialog.open
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
@@ -777,6 +798,7 @@ impl GuitarioApp {
         self.mixer_window(&ctx);
         self.tempo_automation_dialog(&ctx);
         self.mix_automation_dialog(&ctx);
+        self.audio_settings_dialog(&ctx);
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));
