@@ -10,7 +10,11 @@ use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
 use guitario_score::{Beat, Dynamic, Harmonic, Note, NoteKind, Slide};
 use serde_json::{Value, json};
 
-const CELL: f32 = 34.0;
+/// Guitar Pro's palette is eight buttons wide.
+pub const CELL: f32 = 26.0;
+pub const COLUMNS: f32 = 8.0;
+/// Glyph sizes below were drawn for a 34-point button.
+const K: f32 = CELL / 34.0;
 
 type DrawFn = fn(&Painter, Rect, Color32);
 
@@ -22,7 +26,7 @@ enum Art {
 
 fn cell(ui: &mut egui::Ui, fonts: FontSet, art: Art, on: bool, enabled: bool, tip: &str) -> egui::Response {
     let t = tokens();
-    let (rect, resp) = ui.allocate_exact_size(vec2(CELL, CELL - 4.0), if enabled { egui::Sense::click() } else { egui::Sense::hover() });
+    let (rect, resp) = ui.allocate_exact_size(vec2(CELL, CELL), if enabled { egui::Sense::click() } else { egui::Sense::hover() });
     let p = ui.painter();
     if on {
         p.rect_filled(rect.shrink(1.0), 3.0, t.accent.gamma_multiply(0.55));
@@ -38,15 +42,31 @@ fn cell(ui: &mut egui::Ui, fonts: FontSet, art: Art, on: bool, enabled: bool, ti
     };
     match art {
         Art::Glyph(c, space) => {
-            let pen = Pen { painter: p, fonts, space };
+            let pen = Pen { painter: p, fonts, space: space * K };
             let w = pen.width(c);
-            pen.glyph(c, pos2(rect.center().x - w / 2.0, rect.center().y + rect.height() * 0.22), color);
+            pen.glyph(c, pos2(rect.center().x - w / 2.0, rect.center().y + rect.height() * 0.26), color);
         }
         Art::Text(s) => {
-            p.text(rect.center(), egui::Align2::CENTER_CENTER, s, serif(12.5), color);
+            p.text(rect.center(), egui::Align2::CENTER_CENTER, s, serif(11.5), color);
         }
-        Art::Draw(f) => f(p, rect.shrink(8.0), color),
+        Art::Draw(f) => f(p, rect.shrink(6.0), color),
     }
+    resp.on_hover_text(tip)
+}
+
+/// A window opened from the palette.
+enum Window {
+    Lyrics,
+    Chords,
+}
+
+/// A button four cells wide with a word on it.
+fn wide_button(ui: &mut egui::Ui, text: &str, tip: &str) -> egui::Response {
+    let t = tokens();
+    let (rect, resp) = ui.allocate_exact_size(vec2(4.0 * CELL, CELL * 0.8), egui::Sense::click());
+    let fill = if resp.hovered() { t.control_hover } else { t.control };
+    ui.painter().rect_filled(rect, 4.0, fill);
+    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, text, egui::FontId::proportional(12.0), t.text);
     resp.on_hover_text(tip)
 }
 
@@ -70,12 +90,38 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let div = beat.map_or(4, |b| b.duration.value.divisor());
     let dots = beat.map_or(0, |b| b.duration.dots);
     let mut actions: Vec<(&'static str, Value)> = Vec::new();
+    let mut window: Option<Window> = None;
 
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
         let grid = |ui: &mut egui::Ui, id: &str, f: &mut dyn FnMut(&mut egui::Ui)| {
-            egui::Grid::new(id).spacing(vec2(2.0, 2.0)).min_col_width(CELL).show(ui, |ui| f(ui));
+            ui.push_id(id, |ui| {
+                ui.spacing_mut().item_spacing = vec2(1.0, 1.0);
+                ui.horizontal_wrapped(|ui| f(ui));
+            });
         };
+        // The voice being edited, then the lyrics and chord windows.
+        grid(ui, "voices", &mut |ui| {
+            for v in 0..4usize {
+                let name: &'static str = ["1", "2", "3", "4"].get(v).copied().unwrap_or("");
+                if cell(ui, fonts, Art::Text(name), c.voice == v, true, &format!("Voice {name}")).clicked() {
+                    actions.push(("edit.setVoice", json!({"voice": v + 1})));
+                }
+            }
+        });
+        ui.add_space(3.0);
+        ui.push_id("windows", |ui| {
+            ui.spacing_mut().item_spacing = vec2(1.0, 1.0);
+            ui.horizontal(|ui| {
+                if wide_button(ui, "Lyrics", "Lyrics of the track").clicked() {
+                    window = Some(Window::Lyrics);
+                }
+                if wide_button(ui, "Chords", "Chord diagram of the beat").clicked() {
+                    window = Some(Window::Chords);
+                }
+            });
+        });
+        section(ui);
         // Note values.
         grid(ui, "values", &mut |ui| {
             let values =
@@ -84,28 +130,22 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 if cell(ui, fonts, Art::Glyph(g::metronome_for(*d), 6.5), div == *d, beat.is_some(), &format!("{tip} (Alt+{})", i + 1)).clicked() {
                     actions.push(("beat.setDuration", json!({"value": d, "dots": dots})));
                 }
-                if i % 2 == 1 {
-                    ui.end_row();
-                }
             }
             if cell(ui, fonts, Art::Draw(draw_rest), beat.is_some_and(|b| b.rest), beat.is_some(), "Rest (R)").clicked() {
                 actions.push(("beat.toggleRest", Value::Null));
             }
-            ui.end_row();
             if cell(ui, fonts, Art::Draw(draw_dot), dots == 1, beat.is_some(), "Dotted (.)").clicked() {
                 actions.push(("beat.toggleDot", Value::Null));
             }
             if cell(ui, fonts, Art::Draw(draw_double_dot), dots == 2, beat.is_some(), "Double dotted").clicked() {
                 actions.push(("beat.setDuration", json!({"value": div, "dots": if dots == 2 { 0 } else { 2 }})));
             }
-            ui.end_row();
             if cell(ui, fonts, Art::Text("3"), beat.is_some_and(|b| b.duration.tuplet != (1, 1)), beat.is_some(), "Triplet (/)").clicked() {
                 actions.push(("beat.toggleTriplet", Value::Null));
             }
             if cell(ui, fonts, Art::Draw(draw_tie), note.is_some_and(|n| n.kind == NoteKind::Tie), has_note, "Tied note (L)").clicked() {
                 actions.push(("note.toggleTie", Value::Null));
             }
-            ui.end_row();
         });
         section(ui);
         // Dynamics.
@@ -120,13 +160,10 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 (Dynamic::Ff, '\u{E52F}', "ff"),
                 (Dynamic::Fff, '\u{E530}', "fff"),
             ];
-            for (i, (d, glyph, name)) in dyns.iter().enumerate() {
+            for (d, glyph, name) in &dyns {
                 let art = if fonts.smufl { Art::Glyph(*glyph, 4.2) } else { Art::Text(name) };
                 if cell(ui, fonts, art, beat.is_some_and(|b| b.dynamic == *d), beat.is_some(), name).clicked() {
                     actions.push(("beat.setDynamic", json!({"dynamic": name})));
-                }
-                if i % 2 == 1 {
-                    ui.end_row();
                 }
             }
         });
@@ -144,16 +181,13 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 (Art::Text("H/P"), e.hammer, "hammer", "Hammer-on / pull-off (H)"),
                 (Art::Text("X"), note.is_some_and(|n| n.kind == NoteKind::Dead), "", "Dead note (X)"),
             ];
-            for (i, (art, on, id, tip)) in toggles.into_iter().enumerate() {
+            for (art, on, id, tip) in toggles {
                 if cell(ui, fonts, art, on, has_note, tip).clicked() {
                     if id.is_empty() {
                         actions.push(("note.toggleDead", Value::Null));
                     } else {
                         actions.push(("note.toggleEffect", json!({"effect": id})));
                     }
-                }
-                if i % 2 == 1 {
-                    ui.end_row();
                 }
             }
             let slides: [(DrawFn, Slide, &str, &str); 4] = [
@@ -162,13 +196,10 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 (draw_slide_in, Slide::IntoFromBelow, "intoFromBelow", "Slide in from below"),
                 (draw_slide_out, Slide::OutDown, "outDown", "Slide out downwards"),
             ];
-            for (i, (f, kind, id, tip)) in slides.into_iter().enumerate() {
+            for (f, kind, id, tip) in slides {
                 let on = e.slide == Some(kind);
                 if cell(ui, fonts, Art::Draw(f), on, has_note, tip).clicked() {
                     actions.push(("note.setSlide", json!({"slide": if on { "none" } else { id }})));
-                }
-                if i % 2 == 1 {
-                    ui.end_row();
                 }
             }
             if cell(ui, fonts, Art::Draw(draw_bend), e.bend.is_some(), has_note, "Bend, full step (B)").clicked() {
@@ -177,7 +208,6 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             if cell(ui, fonts, Art::Text("N.H."), e.harmonic == Some(Harmonic::Natural), has_note, "Natural harmonic").clicked() {
                 actions.push(("note.setHarmonic", json!({"harmonic": if e.harmonic.is_some() { "none" } else { "natural" }})));
             }
-            ui.end_row();
         });
         section(ui);
         // Bar tools.
@@ -191,7 +221,6 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             if cell(ui, fonts, Art::Draw(draw_repeat_close), close > 0, true, "Repeat close").clicked() {
                 actions.push(("measure.setRepeat", json!({"close": if close > 0 { 0 } else { 1 }})));
             }
-            ui.end_row();
             let r = cell(ui, fonts, Art::Draw(draw_time_sig), false, true, "Time signature");
             egui::Popup::menu(&r).show(|ui| {
                 for (n, d) in [(2, 4), (3, 4), (4, 4), (5, 4), (6, 4), (3, 8), (6, 8), (7, 8), (9, 8), (12, 8)] {
@@ -224,7 +253,6 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     }
                 }
             });
-            ui.end_row();
             let r = cell(ui, fonts, Art::Glyph(g::MET_QUARTER_UP, 5.0), header.as_ref().is_some_and(|h| h.tempo.is_some()), true, "Tempo change at this bar");
             egui::Popup::menu(&r).show(|ui| {
                 let mut bpm = i64::from(header.as_ref().and_then(|h| h.tempo).unwrap_or(score.tempo_at(c.measure)));
@@ -252,7 +280,6 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     ui.close();
                 }
             });
-            ui.end_row();
             // A fermata over the cursor beat.
             let at: u32 = score
                 .tracks
@@ -298,18 +325,21 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     ui.close();
                 }
             });
-            ui.end_row();
             if cell(ui, fonts, Art::Text("+ |"), false, true, "Insert bar before").clicked() {
                 actions.push(("measure.insert", Value::Null));
             }
             if cell(ui, fonts, Art::Text("− |"), false, score.headers.len() > 1, "Delete bar").clicked() {
                 actions.push(("measure.delete", Value::Null));
             }
-            ui.end_row();
         });
     });
     for (id, params) in actions {
         app.run(id, params);
+    }
+    match window {
+        Some(Window::Lyrics) => app.open_lyrics(),
+        Some(Window::Chords) => app.open_chord(),
+        None => {}
     }
 }
 
