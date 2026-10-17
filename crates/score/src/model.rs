@@ -466,6 +466,19 @@ pub struct Track {
     /// How playback interprets the track (Guitar Pro's Interpretation section).
     #[serde(default)]
     pub interpretation: Interpretation,
+    /// Which engine sounds the track.
+    #[serde(default)]
+    pub engine: SoundEngine,
+}
+
+/// Guitar Pro's audio engines: RSE plays recorded samples, MIDI a lighter synthesised sound.
+/// Guitario's RSE is the sampled sound bank (the synth where the bank has no such instrument).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SoundEngine {
+    #[default]
+    Rse,
+    Midi,
 }
 
 /// How the track is played: Guitar Pro's playing styles.
@@ -592,6 +605,7 @@ impl Track {
             color: None,
             notation: Notations::default(),
             interpretation: Interpretation::default(),
+            engine: SoundEngine::Rse,
         }
     }
 

@@ -533,41 +533,116 @@ fn interpretation(ui: &mut egui::Ui, tr: &guitario_score::Track, ti: usize, acti
     }
 }
 
+/// Guitar Pro's Sounds section: the audio engine, then the track's sound with its options.
+fn sounds(app: &mut GuitarioApp, ui: &mut egui::Ui, tr: &guitario_score::Track, ti: usize, actions: &mut Vec<(&'static str, Value)>) {
+    use guitario_score::SoundEngine;
+    let t = tokens();
+    let later = " (not in Guitario yet)";
+    ui.horizontal(|ui| {
+        // RSE or MIDI, side by side.
+        for (k, (engine, name, id, tip)) in [
+            (SoundEngine::Rse, "RSE", "rse", "Realistic sound: the sampled sound bank (the synth where it has no such instrument)"),
+            (SoundEngine::Midi, "MIDI", "midi", "The lighter synthesised sound"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let (r, resp) = ui.allocate_exact_size(egui::vec2(50.0, 26.0), egui::Sense::click());
+            let on = tr.engine == engine;
+            let corners = if k == 0 { egui::CornerRadius { nw: 5, sw: 5, ne: 0, se: 0 } } else { egui::CornerRadius { nw: 0, sw: 0, ne: 5, se: 5 } };
+            let p = ui.painter();
+            p.rect_filled(
+                r,
+                corners,
+                if on {
+                    t.accent
+                } else if resp.hovered() {
+                    t.control_hover
+                } else {
+                    t.control
+                },
+            );
+            // Guitar Pro prints the engine's name in a little white plate.
+            let plate = egui::Rect::from_center_size(r.center(), egui::vec2(36.0, 16.0));
+            p.rect_filled(plate, 3.0, Color32::WHITE);
+            p.text(plate.center(), egui::Align2::CENTER_CENTER, name, crate::fonts::sans_bold(12.0), if on { t.accent } else { t.control });
+            if resp.on_hover_text(tip).clicked() && !on {
+                actions.push(("track.setEngine", json!({"engine": id, "tracks": [ti]})));
+            }
+            ui.add_space(-ui.spacing().item_spacing.x);
+        }
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.spacing_mut().item_spacing.x = 4.0;
+            ui.add_enabled(false, egui::Button::new(egui::RichText::new("A").strong()).min_size(egui::vec2(26.0, 26.0)))
+                .on_disabled_hover_text(format!("Sound automations{later}"));
+            ui.add_enabled(false, egui::Button::new(egui::RichText::new("+").strong()).min_size(egui::vec2(26.0, 26.0)))
+                .on_disabled_hover_text(format!("Several sounds on one track{later}"));
+        });
+    });
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 1.0;
+        let w = (ui.available_width() - 2.0 * 27.0 - 2.0).max(80.0);
+        let name = if tr.is_drums() { "Drum kit".to_string() } else { program_name(tr.program) };
+        let (r, resp) = ui.allocate_exact_size(egui::vec2(w, 30.0), egui::Sense::click());
+        let p = ui.painter().clone();
+        p.rect_filled(r, egui::CornerRadius { nw: 5, sw: 5, ne: 0, se: 0 }, if resp.hovered() && !tr.is_drums() { t.control_hover } else { t.control });
+        p.text(egui::pos2(r.left() + 10.0, r.center().y), egui::Align2::LEFT_CENTER, format!("1. {name}"), egui::FontId::proportional(14.0), t.text);
+        // Up and down chevrons: the sound list.
+        let cx = egui::pos2(r.right() - 14.0, r.center().y);
+        for (dy, tip) in [(-4.0, -1.0), (4.0, 1.0)] {
+            p.add(egui::Shape::line(
+                vec![cx + egui::vec2(-4.0, dy - 2.0 * tip), cx + egui::vec2(0.0, dy + 2.0 * tip), cx + egui::vec2(4.0, dy - 2.0 * tip)],
+                egui::Stroke::new(1.4, t.text),
+            ));
+        }
+        if !tr.is_drums() {
+            egui::Popup::menu(&resp).show(|ui| {
+                for (program, label) in PROGRAMS {
+                    if ui.selectable_label(tr.program == program, label).clicked() {
+                        actions.push(("track.setProgram", json!({"track": ti, "program": program})));
+                        ui.close();
+                    }
+                }
+            });
+        }
+        let (mr, mresp) = ui.allocate_exact_size(egui::vec2(27.0, 30.0), egui::Sense::click());
+        p.rect_filled(mr, 0.0, if mresp.hovered() { t.control_hover } else { t.control });
+        crate::icons::draw(&p, mr.shrink(7.0), crate::icons::Icon::More, t.text);
+        egui::Popup::menu(&mresp.on_hover_text("Options")).show(|ui| {
+            if ui.button("Mixer…").clicked() {
+                ui.close();
+                app.ui_action(crate::menu_catalog::UiAction::Mixer);
+            }
+            if ui.button("Audio Settings…").clicked() {
+                ui.close();
+                app.ui_action(crate::menu_catalog::UiAction::AudioSettings);
+            }
+        });
+        let (sr, sresp) = ui.allocate_exact_size(egui::vec2(27.0, 30.0), egui::Sense::hover());
+        p.rect_filled(sr, egui::CornerRadius { nw: 0, sw: 0, ne: 5, se: 5 }, t.control);
+        speaker(&p, sr.shrink(7.0), t.text_dim.gamma_multiply(0.6));
+        sresp.on_hover_text(format!("Lock this sound over sound automations{later}"));
+    });
+}
+
+/// A loudspeaker with sound waves.
+fn speaker(p: &egui::Painter, r: egui::Rect, c: Color32) {
+    let at = |x: f32, y: f32| egui::pos2(r.left() + x * r.width(), r.top() + y * r.height());
+    p.add(egui::Shape::convex_polygon(vec![at(0.0, 0.35), at(0.2, 0.35), at(0.45, 0.1), at(0.45, 0.9), at(0.2, 0.65), at(0.0, 0.65)], c, egui::Stroke::NONE));
+    for rad in [0.18, 0.32] {
+        let pts: Vec<_> = (0..=8).map(|i| -0.9 + 1.8 * i as f32 / 8.0).map(|a: f32| at(0.45 + rad * a.cos(), 0.5 + rad * 1.6 * a.sin())).collect();
+        p.add(egui::Shape::line(pts, egui::Stroke::new(1.3, c)));
+    }
+}
+
 fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static str, Value)>) {
     let score = app.session.score().clone();
     let c = app.session.cursor();
     let Some(tr) = score.tracks.get(c.track) else { return };
     section(ui, "Information", |ui| track_info(app, ui, &score, c.track, actions));
     section(ui, "Musical notation", |ui| notation(ui, tr, c.track, actions));
-    section(ui, "Sounds", |ui| {
-        if tr.is_drums() {
-            ui.label("Drum kit (General MIDI)");
-        } else {
-            egui::ComboBox::from_id_salt("program").width(ui.available_width()).selected_text(format!("1. {}", program_name(tr.program))).show_ui(ui, |ui| {
-                for (p, name) in PROGRAMS {
-                    if ui.selectable_label(tr.program == p, name).clicked() {
-                        actions.push(("track.setProgram", json!({"program": p})));
-                    }
-                }
-            });
-        }
-        let mut vol = i64::from(tr.volume);
-        if ui.add(egui::Slider::new(&mut vol, 0..=127).text("Volume")).drag_stopped() {
-            actions.push(("track.setMix", json!({"volume": vol})));
-        }
-        let mut pan = i64::from(tr.pan);
-        if ui.add(egui::Slider::new(&mut pan, -63..=63).text("Pan")).drag_stopped() {
-            actions.push(("track.setMix", json!({"pan": pan})));
-        }
-        ui.horizontal(|ui| {
-            if ui.selectable_label(tr.muted, "Mute").clicked() {
-                actions.push(("track.setMix", json!({"muted": !tr.muted})));
-            }
-            if ui.selectable_label(tr.solo, "Solo").clicked() {
-                actions.push(("track.setMix", json!({"solo": !tr.solo})));
-            }
-        });
-    });
+    section(ui, "Sounds", |ui| sounds(app, ui, tr, c.track, actions));
     if !tr.is_drums() {
         section(ui, "Interpretation", |ui| interpretation(ui, tr, c.track, actions));
     }

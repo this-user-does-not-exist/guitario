@@ -61,6 +61,14 @@ fn the_interpretation_comes_back_except_automatic_let_ring() {
 }
 
 #[test]
+fn the_audio_engine_comes_back() {
+    let mut s = riff();
+    s.tracks[1].engine = SoundEngine::Midi;
+    let (back, _, _) = round_trip(&s);
+    assert_eq!((back.tracks[0].engine, back.tracks[1].engine), (SoundEngine::Rse, SoundEngine::Midi));
+}
+
+#[test]
 fn each_tracks_notations_come_back() {
     let mut s = riff();
     s.tracks[0].notation = Notations { standard: false, tab: true, slash: true, numbered: false };

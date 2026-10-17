@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~770–1,310 h away
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (beam breaks and user-placed slurs, chord list, Multivoice Editing, full-score printing, key changes, courtesy signatures, transpose dialogs, panic guard, autosave and crash recovery, performance budgets, live mixer, tempo, volume and pan automation, audio settings, FLAC export; UI look pass against Guitar Pro 8's screenshots: palette, dark scheme, instrument views, inspector; per-track notations; menus 155/173) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (beam breaks and user-placed slurs, chord list, Multivoice Editing, full-score printing, key changes, courtesy signatures, transpose dialogs, panic guard, autosave and crash recovery, performance budgets, live mixer, tempo, volume and pan automation, audio settings, FLAC export; UI look pass against Guitar Pro 8's screenshots: palette, dark scheme, instrument views, inspector; per-track notations, interpretation and audio engine; menus 157/175) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [target-app parity](docs/target-app-parity.md) (methodology, weights, evidence), [gaps](docs/gaps.md)
@@ -19,7 +19,7 @@ work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~61%** | partly measured: menus 155/173, [scorecard](docs/scorecard.md) |
+| **Feature breadth** | **~61%** | partly measured: menus 157/175, [scorecard](docs/scorecard.md) |
 | **Ready for real work** | **~29%** (24–34%) | estimated: weighted by dimension below |
 | Mainstream user | ~39% (34–44%) | estimated |
 | Essentials user | ~76% (68–84%) | estimated |

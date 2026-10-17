@@ -280,14 +280,15 @@ impl Gpif {
             "Default"
         };
         xml.push_str(&format!(
-            "<Track id=\"{ti}\"><Name>{}</Name><ShortName>{}</ShortName><Color>{}</Color>{}<PlaybackState>{state}</PlaybackState>\n",
+            "<Track id=\"{ti}\"><Name>{}</Name><ShortName>{}</ShortName><Color>{}</Color>{}<PlaybackState>{state}</PlaybackState><AudioEngineState>{}</AudioEngineState>\n",
             cdata(&t.name),
             cdata(&t.short_name),
             {
                 let [r, g, b] = t.color_at(ti);
                 format!("{r} {g} {b}")
             },
-            interpretation_xml(t)
+            interpretation_xml(t),
+            if t.engine == guitario_score::SoundEngine::Midi { "MIDI" } else { "RSE" }
         ));
         xml.push_str(&format!(
             "<Sounds><Sound><Name>{0}</Name><Label>{0}</Label><Path>{1}</Path><Role>Factory</Role><MIDI><LSB>0</LSB><MSB>0</MSB><Program>{2}</Program></MIDI></Sound></Sounds>\n",

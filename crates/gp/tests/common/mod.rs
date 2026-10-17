@@ -33,7 +33,7 @@ pub fn assert_same(name: &str, expected: &Score, got: &Score) {
             (&b.name, b.kind, &b.tuning.strings, b.capo, b.program, b.volume, b.pan, b.muted, b.solo, &b.lyrics, b.color_at(ti)),
             "{name}: track {ti}"
         );
-        assert_eq!((a.notation, a.interpretation), (b.notation, b.interpretation), "{name}: track {ti} notation and interpretation");
+        assert_eq!((a.notation, a.interpretation, a.engine), (b.notation, b.interpretation, b.engine), "{name}: track {ti} notation, interpretation, engine");
         for (mi, (ma, mb)) in a.measures.iter().zip(&b.measures).enumerate() {
             assert_eq!(ma, mb, "{name}: track {ti} bar {}", mi + 1);
         }

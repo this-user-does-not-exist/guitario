@@ -144,7 +144,7 @@ impl SoundBank {
             .iter()
             .zip(keys)
             .enumerate()
-            .filter(|(_, (_, k))| !k.is_empty())
+            .filter(|(_, (track, k))| !k.is_empty() && track.engine == guitario_score::SoundEngine::Rse)
             .filter_map(|(ti, (track, k))| Some((ti, Role::of(track).and_then(|r| self.path_for(r))?.to_path_buf(), k)))
             .collect()
     }
@@ -273,6 +273,11 @@ mod tests {
         assert!(notes.is_empty(), "{notes:?}");
         let rms = (pcm.iter().map(|x| x * x).sum::<f32>() / pcm.len() as f32).sqrt();
         assert!(rms > 0.05, "rms {rms}");
+        // On the MIDI engine the track takes the synth, not the samples.
+        s.tracks[0].engine = guitario_score::SoundEngine::Midi;
+        assert!(bank.needs(&s).is_empty());
+        s.tracks[0].engine = guitario_score::SoundEngine::Rse;
+        assert_eq!(bank.needs(&s).len(), 1);
         // A bass track pointing at a missing file reports it and still plays (built-in synth).
         s.tracks[0].program = 33;
         let (pcm, notes) = bank.render(&s, 8000);

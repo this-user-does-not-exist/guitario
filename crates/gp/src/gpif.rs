@@ -166,6 +166,9 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
                 if !t.is_drums() {
                     t.interpretation = interpretation(*tn);
                 }
+                if text(*tn, "AudioEngineState").is_some_and(|e| e.trim().eq_ignore_ascii_case("midi")) {
+                    t.engine = guitario_score::SoundEngine::Midi;
+                }
                 score.tracks.push(t);
             }
             None => warnings.push(format!("track {} (`{name}`) could not be read and was skipped", ti + 1)),
