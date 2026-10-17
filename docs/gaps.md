@@ -230,6 +230,8 @@ agent can't finish alone.
 - **Landed 2026-10-17:** File › Preferences… (theme dark or light, interface scale 75–200 %, saved);
   the real app now opens the persistent preferences store (it had been running on an in-memory one,
   so nothing was saved and autosave and crash recovery were off).
+- **Landed 2026-10-17:** View › Full Screen (F11), Window › Minimize, Help › Keyboard Shortcuts (a
+  window generated from the menu catalog).
 - **Missing:** a keyboard instrument view, more preferences (defaults for new scores, key
   bindings), a polished light theme, an Interpretation section and Sound Mastering in the inspector (Guitar Pro 8's inspector has Song and Track tabs only), floating panels, several documents at once.
 - **Evidence:** [ui-parity](ui-parity.md); UI-3/5/8/9 in the scorecard.
@@ -301,3 +303,4 @@ agent can't finish alone.
 | 2026-10-16 | minor | G3: `.gp` (Guitar Pro 7/8) export landed, unverified in Guitar Pro itself (60–110 h to 40–80 h) |
 | 2026-10-17 | minor | G4: per-beat beam breaks and user-placed slurs (8–28 h to 6–22 h) |
 | 2026-10-17 | minor | G8: Preferences dialog, light theme, UI scale; persistent preferences wired into the app (menus 150/173) |
+| 2026-10-17 | minor | G8: Full Screen, Minimize, Keyboard Shortcuts (menus 153/173) |
