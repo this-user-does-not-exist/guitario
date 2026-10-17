@@ -11,7 +11,10 @@ playback cursor. Widgets read `theme::tokens()`; never hard-code a colour.
 
 ## Layout grammar (Guitar Pro)
 
-- Top bar: document buttons left, transport and LCD centre, speed and view toggles right.
+- Toolbar (`topbar.rs`), Guitar Pro 8's order: home, panel toggles, zoom and display-mode spinners,
+  undo/redo, print on the left; transport, two-row LCD, loop and speed, relative tonality in the
+  centre; audio track, instrument views, tuner, line-in, Fretlight on the right. Buttons sit in
+  rounded groups (`Group`), blue when toggled on; right-end groups drop out first when narrow.
 - Edition palette down the left edge: note values, rhythm modifiers, dynamics, articulations and
   techniques, bar tools; buttons light up for the beat and note under the cursor.
 - Score in the middle: A4 pages, notation over tab joined by a bracket, TAB clef, short track name

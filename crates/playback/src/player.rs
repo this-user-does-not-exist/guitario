@@ -11,11 +11,21 @@ pub struct Options {
     pub looping: bool,
     /// Playback speed, 1.0 = written tempo (pitch is unaffected).
     pub speed: f32,
+    /// Relative tonality: pitched tracks sound this many semitones higher (lower if negative),
+    /// clamped to an octave either way; the score is unchanged and drums are not affected.
+    pub transpose: i8,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { metronome: false, count_in: false, looping: false, speed: 1.0 }
+        Options { metronome: false, count_in: false, looping: false, speed: 1.0, transpose: 0 }
+    }
+}
+
+impl Options {
+    /// The relative tonality as a frequency ratio.
+    fn pitch_ratio(&self) -> f32 {
+        2f32.powf(f32::from(self.transpose.clamp(-12, 12)) / 12.0)
     }
 }
 
@@ -473,6 +483,9 @@ impl Player {
 
     fn start_sampled(&mut self, n: &NoteEvent, inst: &Instrument) {
         let drum = self.drum_track.get(n.track).copied().unwrap_or(false);
+        // The written key picks the sample, so the preloaded keys still cover the score; the
+        // relative tonality then re-pitches it.
+        let ratio = if drum { 1.0 } else { self.opts.pitch_ratio() };
         let key = Self::sample_key(n, drum);
         // Legato notes are softer: no new pick attack. A string sounds one note at a time.
         let mut velocity = n.velocity
@@ -508,6 +521,7 @@ impl Player {
         let damped = n.palm_mute || n.dead;
         for h in hits {
             let mut v = SampleVoice::new(n.track, n.string, h.region, h.sample, key, velocity, self.sr);
+            v.repitch(ratio);
             v.vibrato = n.vibrato;
             if n.wide_vibrato {
                 v.vibrato_depth = 0.45;
@@ -556,11 +570,12 @@ impl Player {
             self.start_drum(n);
             return;
         }
+        let freq = n.freq * self.opts.pitch_ratio();
         // A string sounds one note at a time.
         if n.legato_from_prev
             && let Some(v) = self.voices.iter_mut().find(|v| v.track == n.track && v.string == n.string && !v.released)
         {
-            v.glide_to(n.freq, if n.slide_glide { 0.06 } else { 0.0 });
+            v.glide_to(freq, if n.slide_glide { 0.06 } else { 0.0 });
             v.vibrato = n.vibrato;
             v.let_ring = n.let_ring;
             (v.note_start, v.note_end, v.bend_to) = (n.start, n.end, n.bend);
@@ -579,7 +594,7 @@ impl Player {
         } else {
             (bus.brightness, bus.sustain)
         };
-        let pluck = Pluck { freq: n.freq, velocity: n.velocity * if n.dead { 0.6 } else { 1.0 }, brightness, sustain };
+        let pluck = Pluck { freq, velocity: n.velocity * if n.dead { 0.6 } else { 1.0 }, brightness, sustain };
         let mut v = StringVoice::new(n.track, n.string, self.sr, &pluck, &mut self.noise);
         v.vibrato = n.vibrato;
         if n.wide_vibrato {
@@ -786,6 +801,37 @@ mod tests {
         assert!((hz - 329.6).abs() < 4.0, "measured {hz} Hz");
     }
 
+    /// The autocorrelation pitch of the first second of `p` (80 to 800 Hz).
+    fn measured_hz(mut p: Player) -> f32 {
+        p.play_from(0.0);
+        let mut buf = vec![0.0f32; 48_000];
+        p.render(&mut buf, 1);
+        let seg = buf.get(12_000..20_000).unwrap_or_default();
+        let ac = |lag: usize| seg.iter().zip(seg.iter().skip(lag)).map(|(a, b)| a * b).sum::<f32>();
+        let best = (60..600).max_by(|a, b| ac(*a).total_cmp(&ac(*b))).unwrap();
+        48_000.0 / best as f32
+    }
+
+    #[test]
+    fn relative_tonality_shifts_the_pitch() {
+        // Open high E (329.6 Hz) two semitones down is D (293.7 Hz), and the score is untouched.
+        let s = one_note(0);
+        let hz = measured_hz(Player::new(&s, 48_000, Options { transpose: -2, ..Options::default() }));
+        assert!((hz - 293.7).abs() < 4.0, "measured {hz} Hz");
+        assert_eq!(s, one_note(0));
+        // Out-of-range values stop at an octave.
+        let hz = measured_hz(Player::new(&one_note(0), 48_000, Options { transpose: -100, ..Options::default() }));
+        assert!((hz - 164.8).abs() < 3.0, "measured {hz} Hz");
+    }
+
+    #[test]
+    fn relative_tonality_changes_while_playing() {
+        let mut p = Player::new(&one_note(0), 48_000, Options::default());
+        p.opts.transpose = 12;
+        let hz = measured_hz(p);
+        assert!((hz - 659.3).abs() < 12.0, "measured {hz} Hz");
+    }
+
     #[test]
     fn silent_when_stopped_and_muted() {
         let mut s = one_note(5);
@@ -892,6 +938,22 @@ mod tests {
         p.render(&mut rest, 1);
         assert!(rms(rest.get(44_100 * 3..).unwrap_or_default()) < 1e-3);
         assert!(p.sampled.is_empty());
+    }
+
+    #[test]
+    fn sampled_track_follows_the_relative_tonality() {
+        // The written key (open high E) picks the sample; five semitones up it sounds A4.
+        let inst = test_instrument("<region> sample=hi.wav lokey=0 hikey=127 pitch_keycenter=69 ampeg_release=0.05", 44_100);
+        let mut p = Player::new(&one_note(0), 44_100, Options { transpose: 5, ..Options::default() });
+        p.set_instrument(0, Some(inst));
+        p.play_from(0.0);
+        let mut buf = vec![0.0f32; 44_100];
+        p.render(&mut buf, 1);
+        let seg = buf.get(8_000..16_000).unwrap_or_default();
+        let ac = |lag: usize| seg.iter().zip(seg.iter().skip(lag)).map(|(a, b)| a * b).sum::<f32>();
+        let best = (60..600).max_by(|a, b| ac(*a).total_cmp(&ac(*b))).unwrap();
+        let hz = 44_100.0 / best as f32;
+        assert!((hz - 440.0).abs() < 8.0, "measured {hz} Hz");
     }
 
     #[test]

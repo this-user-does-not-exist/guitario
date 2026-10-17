@@ -75,6 +75,8 @@ pub struct PlaybackPrefs {
     pub count_in: bool,
     pub looping: bool,
     pub speed: f32,
+    /// The toolbar's relative tonality, in semitones.
+    pub transpose: i8,
     /// Sound › Audio Settings…: the output device by name (none is the system default) and the
     /// buffer size in frames (none lets the device choose).
     pub output: Option<String>,
@@ -83,7 +85,7 @@ pub struct PlaybackPrefs {
 
 impl Default for PlaybackPrefs {
     fn default() -> Self {
-        PlaybackPrefs { metronome: false, count_in: false, looping: false, speed: 1.0, output: None, buffer: None }
+        PlaybackPrefs { metronome: false, count_in: false, looping: false, speed: 1.0, transpose: 0, output: None, buffer: None }
     }
 }
 
@@ -108,6 +110,7 @@ impl Prefs {
         let p = &mut self.playback;
         p.speed = if p.speed.is_finite() { p.speed.clamp(0.25, 2.0) } else { 1.0 };
         p.buffer = p.buffer.map(|b| b.clamp(32, 8192));
+        p.transpose = p.transpose.clamp(-12, 12);
         p.output = p.output.take().filter(|o| !o.trim().is_empty() && o.len() <= 256);
         self.files.recent.truncate(MAX_RECENT);
         self
@@ -147,11 +150,13 @@ mod tests {
         let mut p = Prefs::default();
         p.view.zoom = f32::NAN;
         p.playback.speed = 99.0;
+        p.playback.transpose = -100;
         p.ui.scale = f32::INFINITY;
         p.files.recent = (0..50).map(|i| i.to_string()).collect();
         let p = p.sanitized();
         assert_eq!(p.view.zoom, 1.25);
         assert_eq!(p.playback.speed, 2.0);
+        assert_eq!(p.playback.transpose, -12);
         assert_eq!(p.ui.scale, 1.0);
         let mut big = Prefs::default();
         big.ui.scale = 9.0;

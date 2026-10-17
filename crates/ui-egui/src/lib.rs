@@ -76,6 +76,8 @@ pub struct Transport {
     pub count_in: bool,
     pub looping: bool,
     pub speed: f32,
+    /// Relative tonality: playback sounds this many semitones away, the score unchanged.
+    pub transpose: i8,
     /// Song time in seconds while playing.
     pub position: f64,
     /// The beat (measure, beat) sounding on the selected track.
@@ -162,7 +164,7 @@ impl GuitarioApp {
             view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false, multivoice: false },
             inspector_tab: inspector::Tab::Song,
             edit_buffers: HashMap::new(),
-            transport: Transport { playing: false, metronome: false, count_in: false, looping: false, speed: 1.0, position: 0.0, beat: None },
+            transport: Transport { playing: false, metronome: false, count_in: false, looping: false, speed: 1.0, transpose: 0, position: 0.0, beat: None },
             audio: None,
             sounds: None,
             preload: None,
@@ -217,6 +219,7 @@ impl GuitarioApp {
             Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard, keyboard: p.view.keyboard };
         let t = &mut self.transport;
         (t.metronome, t.count_in, t.looping, t.speed) = (p.playback.metronome, p.playback.count_in, p.playback.looping, p.playback.speed);
+        t.transpose = p.playback.transpose;
         self.audio_settings = guitario_audio::AudioSettings { device: p.playback.output.clone(), buffer: p.playback.buffer };
         self.ui = p.ui;
         // Unsaved work is kept beside the preferences, and what a stopped run left is offered back.
@@ -262,6 +265,7 @@ impl GuitarioApp {
             count_in: t.count_in,
             looping: t.looping,
             speed: t.speed,
+            transpose: t.transpose,
             output: self.audio_settings.device.clone(),
             buffer: self.audio_settings.buffer,
         };
@@ -609,7 +613,7 @@ impl GuitarioApp {
 
     fn options(&self) -> guitario_playback::Options {
         let t = &self.transport;
-        guitario_playback::Options { metronome: t.metronome, count_in: t.count_in, looping: t.looping, speed: t.speed }
+        guitario_playback::Options { metronome: t.metronome, count_in: t.count_in, looping: t.looping, speed: t.speed, transpose: t.transpose }
     }
 
     /// Space: play from the cursor, or stop and leave the cursor where playback was.
