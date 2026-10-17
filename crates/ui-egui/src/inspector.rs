@@ -15,7 +15,7 @@ pub enum Tab {
 }
 
 /// General MIDI programs that make sense for a fretted instrument.
-const PROGRAMS: [(u8, &str); 12] = [
+pub(crate) const PROGRAMS: [(u8, &str); 20] = [
     (24, "Nylon guitar"),
     (25, "Steel guitar"),
     (26, "Jazz guitar"),
@@ -27,7 +27,15 @@ const PROGRAMS: [(u8, &str); 12] = [
     (32, "Acoustic bass"),
     (33, "Fingered bass"),
     (34, "Picked bass"),
+    (35, "Fretless bass"),
+    (36, "Slap bass"),
+    (40, "Violin"),
+    (41, "Viola"),
+    (42, "Cello"),
+    (43, "Contrabass"),
+    (104, "Sitar"),
     (105, "Banjo"),
+    (106, "Shamisen"),
 ];
 
 /// The name of a General MIDI program as the instrument lists show it.
@@ -254,7 +262,7 @@ fn track_info(app: &mut GuitarioApp, ui: &mut egui::Ui, score: &guitario_score::
 
 /// A notation button's icon.
 #[derive(Clone, Copy)]
-enum Glyph {
+pub(crate) enum Glyph {
     Tab,
     Standard,
     Slash,
@@ -306,7 +314,7 @@ fn draw_glyph(p: &egui::Painter, r: egui::Rect, glyph: Glyph, c: Color32) {
 
 /// Buttons side by side in one rounded group, as Guitar Pro groups them: (icon, lit, enabled, tip).
 /// Returns the index of the one clicked.
-fn button_group(ui: &mut egui::Ui, id: &str, buttons: &[(Glyph, bool, bool, &str)]) -> Option<usize> {
+pub(crate) fn button_group(ui: &mut egui::Ui, id: &str, buttons: &[(Glyph, bool, bool, &str)]) -> Option<usize> {
     let t = tokens();
     let size = egui::vec2(30.0, 26.0);
     let (rect, _) = ui.allocate_exact_size(egui::vec2(size.x * buttons.len() as f32, size.y), egui::Sense::hover());

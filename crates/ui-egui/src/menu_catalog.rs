@@ -57,6 +57,8 @@ pub enum UiAction {
     ToggleTablature,
     /// The Homepage, on its templates.
     NewFromTemplate,
+    /// The Add Track window.
+    AddTrack,
     Layout(crate::layout::LayoutMode),
     ToggleMultitrack,
     ToggleMultivoice,
@@ -168,7 +170,7 @@ pub static CATALOG: &[MenuItem] = &[
     c("Edit/Voice", "Voice 3", "edit.setVoice", r#"{"voice":3}"#, ""),
     c("Edit/Voice", "Voice 4", "edit.setVoice", r#"{"voice":4}"#, ""),
     // Track
-    c("Track", "Add Track", "track.add", "{}", ""),
+    u("Track", "Add Track", U::AddTrack, ""),
     c("Track", "Duplicate Track", "track.duplicate", "", ""),
     c("Track", "Delete Track", "track.remove", "", ""),
     u("Track", "Track Properties…", U::TrackProperties, ""),

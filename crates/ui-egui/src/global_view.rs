@@ -43,6 +43,7 @@ enum Act {
     ToggleHidden(usize),
     ToggleMultitrack,
     Automation(usize, MixKind),
+    AddTrack,
 }
 
 /// Whether a track's volume or pan is automated anywhere.
@@ -157,18 +158,9 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 p.rect_filled(add.rect, 3.0, t.control_hover);
             }
             p.text(add.rect.center(), egui::Align2::CENTER_CENTER, "+", egui::FontId::proportional(20.0), t.text);
-            egui::Popup::menu(&add).show(|ui| {
-                for (label, id, params) in [
-                    ("Guitar", "track.add", json!({"name": "Guitar"})),
-                    ("Bass", "track.add", json!({"name": "Bass", "tuning": "bass"})),
-                    ("Drums", "track.addDrums", json!({})),
-                ] {
-                    if ui.button(label).clicked() {
-                        acts.push(Act::Run(id, params));
-                        ui.close();
-                    }
-                }
-            });
+            if add.clicked() {
+                acts.push(Act::AddTrack);
+            }
             let label = |x: f32, text: &str, align: egui::Align2| {
                 p.text(pos2(x, cy), align, text, egui::FontId::proportional(14.0), t.text);
             };
@@ -419,6 +411,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 }
             }
             Act::ToggleMultitrack => app.ui_action(crate::menu_catalog::UiAction::ToggleMultitrack),
+            Act::AddTrack => app.open_add_track(None),
             Act::Automation(i, kind) => {
                 app.run("track.select", json!({"index": i}));
                 app.open_mix_automation(kind);

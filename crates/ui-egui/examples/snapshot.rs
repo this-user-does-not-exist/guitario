@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -209,6 +209,9 @@ fn main() {
     }
     if args.iter().any(|a| a == "--keyboard") {
         app.show_keyboard_view();
+    }
+    if args.iter().any(|a| a == "--add-track") {
+        app.open_add_track(None);
     }
     if args.iter().any(|a| a == "--home") {
         app.show_home();

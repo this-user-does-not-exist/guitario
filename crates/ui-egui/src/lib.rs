@@ -3,6 +3,7 @@
 //! along the bottom. Thin by design: every edit goes through `Session::run`, and the menus and
 //! shortcuts are generated from the engine's command registry.
 
+mod add_track;
 mod audio_settings;
 mod automation_dialog;
 mod autosave;
@@ -140,6 +141,7 @@ pub struct GuitarioApp {
     prefs_dialog: preferences::PreferencesDialog,
     /// The Homepage, shown instead of the score when open.
     pub(crate) home: home::Home,
+    add_track: add_track::AddTrack,
     shortcuts_open: bool,
     fullscreen: bool,
     /// Window commands from menu items (full screen, minimize), sent on the next frame.
@@ -213,6 +215,7 @@ impl GuitarioApp {
             ui: prefs::UiPrefs::default(),
             prefs_dialog: preferences::PreferencesDialog::default(),
             home: home::Home::default(),
+            add_track: add_track::AddTrack::default(),
             shortcuts_open: false,
             fullscreen: false,
             viewport_cmds: Vec::new(),
@@ -342,6 +345,8 @@ impl GuitarioApp {
             Pending::New => {
                 if self.run("file.new", Value::Null).is_some() {
                     self.view.hidden = 0;
+                    // As in Guitar Pro, a new file asks for its first track.
+                    self.open_add_track(Some(0));
                 }
             }
             Pending::OpenDialog => self.open_dialog_now(),
@@ -452,6 +457,7 @@ impl GuitarioApp {
                 let on = self.current_notation().standard;
                 self.run("track.setNotation", json!({"standard": !on}));
             }
+            U::AddTrack => self.open_add_track(None),
             U::NewFromTemplate => {
                 self.home.open = true;
                 self.home.tab = home::Tab::Templates;
@@ -813,6 +819,7 @@ impl GuitarioApp {
             || self.transpose.open
             || self.audio_dialog.open
             || self.prefs_dialog.open
+            || self.add_track.open
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
@@ -911,6 +918,7 @@ impl GuitarioApp {
         self.audio_settings_dialog(&ctx);
         self.preferences_dialog(&ctx);
         self.shortcuts_window(&ctx);
+        self.add_track_window(&ctx);
         for cmd in std::mem::take(&mut self.viewport_cmds) {
             ctx.send_viewport_cmd(cmd);
         }
