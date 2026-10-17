@@ -418,6 +418,23 @@ impl Player {
         }
     }
 
+    /// The song played to its end: what is held ends, but let-ring notes and cymbals ring out
+    /// on their own (unlike [`Player::stop`]).
+    fn finish(&mut self) {
+        self.playing = false;
+        for v in self.voices.iter_mut().filter(|v| !v.let_ring) {
+            v.release();
+        }
+        for v in self.sampled.iter_mut().filter(|v| !v.let_ring) {
+            v.release();
+        }
+    }
+
+    /// Whether anything still sounds (a note ringing out after the end, a cymbal decaying).
+    pub fn is_sounding(&self) -> bool {
+        !self.voices.is_empty() || !self.drums.is_empty() || !self.sampled.is_empty() || !self.active_clicks.is_empty()
+    }
+
     pub fn stop(&mut self) {
         self.playing = false;
         for v in &mut self.voices {
@@ -467,9 +484,10 @@ impl Player {
                 1.0
             };
         velocity = velocity.clamp(0.0, 1.0);
+        // A string sounds one note at a time: a new note stops the one ringing there.
         if !drum {
-            for v in self.sampled.iter_mut().filter(|v| v.track == n.track && v.string == n.string && !v.released) {
-                v.release();
+            for v in self.sampled.iter_mut().filter(|v| v.track == n.track && v.string == n.string && !v.finished()) {
+                v.damp();
             }
         }
         let counter = self.seq.get_mut(n.track).map_or(0, |c| {
@@ -548,8 +566,10 @@ impl Player {
             (v.note_start, v.note_end, v.bend_to) = (n.start, n.end, n.bend);
             return;
         }
+        // A string sounds one note at a time: a new note stops the one ringing there (a let-ring
+        // note too); notes on other strings ring on.
         for v in self.voices.iter_mut().filter(|v| v.track == n.track && v.string == n.string) {
-            v.release();
+            v.damp();
         }
         let Some(bus) = self.buses.get(n.track) else { return };
         let (brightness, sustain) = if n.dead {
@@ -652,7 +672,7 @@ impl Player {
                         self.play_from(self.start.min(self.end));
                         self.opts = opts;
                     } else {
-                        self.stop();
+                        self.finish();
                     }
                 }
             }
@@ -1011,6 +1031,82 @@ mod tests {
         assert!((g - 0.354).abs() < 0.01, "{g}");
         assert_eq!(ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 1.5), Some(5.0));
         assert_eq!((ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 0.5), ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 9.0)), (None, Some(10.0)));
+    }
+
+    #[test]
+    fn let_ring_rings_out_until_its_string_is_struck_again() {
+        // 4/4 at 120 (a beat is half a second): a let-ring low E, a plain note on the A string,
+        // a rest, then the low E string struck again (let ring too).
+        let q = Duration::QUARTER;
+        let note = |string: u8, fret: u8, ring: bool| {
+            let mut n = Note::new(string, fret);
+            n.effects.let_ring = ring;
+            Beat { rest: false, notes: vec![n], ..Beat::rest(q) }
+        };
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices[0].beats = vec![note(5, 0, true), note(4, 2, false), Beat::rest(q), note(5, 3, true)];
+        let mut p = Player::new(&s, 22_050, Options::default());
+        p.play_from(0.0);
+        let run = |p: &mut Player, secs: f64| {
+            let mut buf = vec![0f32; (secs * 22_050.0) as usize * 2];
+            p.render(&mut buf, 2);
+        };
+        let on = |p: &Player, string: u8| p.voices.iter().filter(|v| v.string == string && !v.released).count();
+        // Beat 3: the first low E rings on past its written quarter and through the A string's
+        // note; the A string's note, not let ring, has stopped.
+        run(&mut p, 1.2);
+        assert_eq!((on(&p, 5), on(&p, 4)), (1, 0));
+        let first = p.voices.iter().position(|v| v.string == 5).unwrap();
+        assert!(p.voices[first].base_freq < 83.0, "still the open E");
+        // Beat 4 strikes the low E string again: the old note stops within milliseconds, the new
+        // one rings.
+        run(&mut p, 0.4);
+        let sounding: Vec<f32> = p.voices.iter().filter(|v| v.string == 5 && !v.released).map(|v| v.base_freq).collect();
+        assert!(sounding.len() == 1 && sounding[0] > 95.0, "only the new G rings: {sounding:?}");
+        run(&mut p, 0.1);
+        assert_eq!(p.voices.iter().filter(|v| v.string == 5).count(), 1, "the old E has died away");
+        // The song ends at 2 s: the let-ring note rings on after it instead of being cut.
+        run(&mut p, 1.0);
+        assert!(!p.is_playing() && on(&p, 5) == 1 && p.is_sounding());
+        // ... and dies away on its own.
+        let mut waited = 0.0;
+        while p.is_sounding() && waited < 31.0 {
+            run(&mut p, 0.5);
+            waited += 0.5;
+        }
+        // A low G fades out over several seconds, as a real string does, not cut and not endless.
+        assert!(!p.is_sounding() && (3.0..12.0).contains(&waited), "rang {waited} s more");
+        // Pressing Stop is different: it silences a ringing note.
+        let mut p = Player::new(&s, 22_050, Options::default());
+        p.play_from(0.0);
+        run(&mut p, 0.2);
+        p.stop();
+        assert_eq!(on(&p, 5), 0);
+    }
+
+    #[test]
+    fn a_sampled_let_ring_note_stops_quickly_when_its_string_is_struck_again() {
+        // A region with a long release (2 s): restriking the string must not wait for it.
+        let inst = test_instrument("<region> sample=hi.wav lokey=0 hikey=127 pitch_keycenter=69 ampeg_release=2", 22_050);
+        let q = Duration::QUARTER;
+        let note = |string: u8, fret: u8| {
+            let mut n = Note::new(string, fret);
+            n.effects.let_ring = true;
+            Beat { rest: false, notes: vec![n], ..Beat::rest(q) }
+        };
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices[0].beats = vec![note(0, 0), note(1, 0), note(0, 3), Beat::rest(q)];
+        let mut p = Player::new(&s, 22_050, Options::default());
+        p.set_instrument(0, Some(inst));
+        p.play_from(0.0);
+        // Beats are half a second: the high E string is struck again at 1 s; look 0.5 s later.
+        let mut buf = vec![0f32; 22_050 * 3];
+        p.render(&mut buf, 2);
+        let first: Vec<(u8, f64)> = p.sampled.iter().map(|v| (v.string, v.note_start)).collect();
+        let strings: Vec<u8> = first.iter().map(|f| f.0).collect();
+        let on_e: Vec<f64> = first.iter().filter(|f| f.0 == 0).map(|f| f.1).collect();
+        assert_eq!(on_e, vec![1.0], "only the restruck note is left on the high E: {first:?}");
+        assert!(strings.contains(&1), "a let-ring note on another string rings on: {strings:?}");
     }
 
     #[test]

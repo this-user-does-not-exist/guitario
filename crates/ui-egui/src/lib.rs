@@ -647,6 +647,16 @@ impl GuitarioApp {
         {
             p.stop();
         }
+        self.end_transport();
+    }
+
+    /// The song played to its end: the transport stops, but the player is left to let its
+    /// let-ring notes and cymbals ring out (Stop silences them).
+    fn song_ended(&mut self) {
+        self.end_transport();
+    }
+
+    fn end_transport(&mut self) {
         self.transport.playing = false;
         if let Some((measure, beat)) = self.transport.beat.take() {
             self.run("cursor.set", json!({"measure": measure, "beat": beat}));
@@ -678,7 +688,7 @@ impl GuitarioApp {
                 }
                 ctx.request_repaint();
             }
-            Some(_) => self.stop(),
+            Some(_) => self.song_ended(),
             // No device (offscreen rendering): leave the transport as set.
             None => {}
         }

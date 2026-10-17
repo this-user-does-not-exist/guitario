@@ -56,9 +56,24 @@ pub struct StringVoice {
     level: f32,
     age: u32,
     sr: f32,
+    /// The string was struck again: the old vibration dies within milliseconds.
+    damped: bool,
+    damp_gain: f32,
 }
 
 const MIN_FREQ: f32 = 25.0;
+
+/// The loss per period that lets a plucked string at `freq` fade by 60 dB in about the time a
+/// real one does: some 7 s around A2, sooner up the neck, never more than 10 s.
+fn natural_loss(freq: f32) -> f32 {
+    let f = freq.max(MIN_FREQ);
+    let t60 = (7.0 * (110.0 / f).sqrt()).clamp(1.5, 10.0);
+    10f32.powf(-3.0 / (t60 * f))
+}
+/// How long a string's old vibration lasts once it is struck again, in seconds.
+const RESTRIKE: f32 = 0.015;
+/// Longest a voice may sound, whatever its decay.
+const MAX_RING: f32 = 30.0;
 
 impl StringVoice {
     pub fn new(track: usize, string: u8, sr: f32, p: &Pluck, noise: &mut Noise) -> StringVoice {
@@ -95,7 +110,7 @@ impl StringVoice {
             gain: 1.0,
             fade: None,
             vib_phase: 0.0,
-            loss: p.sustain,
+            loss: p.sustain.min(natural_loss(p.freq)),
             released: false,
             let_ring: false,
             note_start: 0.0,
@@ -104,7 +119,15 @@ impl StringVoice {
             level: 1.0,
             age: 0,
             sr,
+            damped: false,
+            damp_gain: 1.0,
         }
+    }
+
+    /// Another note on the same string: this one stops at once (a let-ring note too).
+    pub fn damp(&mut self) {
+        self.released = true;
+        self.damped = true;
     }
 
     /// Legato change of pitch (hammer-on, pull-off, slide) without a new pluck.
@@ -124,8 +147,10 @@ impl StringVoice {
         self.released = true;
     }
 
+    /// Done when released and quiet, or, ringing on, once it has decayed to silence on its own.
     pub fn finished(&self) -> bool {
-        (self.released && self.level < 1e-4) || self.age > (self.sr * 12.0) as u32
+        let settled = self.age > (self.sr * 0.2) as u32;
+        (self.released && (self.level < 1e-4 || self.damp_gain < 1e-4)) || (settled && self.level < 1e-5) || self.age > (self.sr * MAX_RING) as u32
     }
 
     #[inline]
@@ -163,7 +188,10 @@ impl StringVoice {
         self.w = (self.w + 1) % len;
         self.level = self.level * 0.999 + y.abs() * 0.001;
         self.age = self.age.saturating_add(1);
-        y * self.gain
+        if self.damped {
+            self.damp_gain *= (-1.0 / (RESTRIKE * self.sr)).exp();
+        }
+        y * self.gain * self.damp_gain
     }
 }
 

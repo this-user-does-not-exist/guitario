@@ -91,6 +91,7 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
         clock += u64::from(h.capacity());
     }
     chunk(&mut out, b"MTrk", &write_events(meta));
+    let song_end = clock;
 
     let notes = timeline(score);
     let any_solo = score.tracks.iter().any(|t| t.solo);
@@ -138,8 +139,19 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
                 };
                 let (vel, len) = if n.dead { (n.velocity / 2, 120) } else { (n.velocity, n.ticks) };
                 ev.push((n.start_tick, 3, vec![0x90 | ch, p.0, vel.max(1)]));
+                // Let ring holds the note until its string is played again (or past the end).
+                let off = if n.effects.let_ring && !n.dead {
+                    notes
+                        .iter()
+                        .filter(|m| m.track == ti && m.string == n.string && m.start_tick > n.start_tick)
+                        .map(|m| m.start_tick)
+                        .min()
+                        .unwrap_or_else(|| song_end.max(n.start_tick + u64::from(len)) + u64::from(4 * TICKS_PER_QUARTER))
+                } else {
+                    n.start_tick + u64::from(len)
+                };
                 // Offs sort before ons at the same tick, so repeated notes retrigger cleanly.
-                ev.push((n.start_tick + u64::from(len), 2, vec![0x80 | ch, p.0, 0]));
+                ev.push((off, 2, vec![0x80 | ch, p.0, 0]));
             }
         }
         chunk(&mut out, b"MTrk", &write_events(ev));
@@ -242,6 +254,58 @@ mod tests {
         // Bar 1 glides 20 -> 100 a quarter at a time (20, 40, 60, 80), then holds 100; pan hard left.
         assert!(cc(7, 20) && cc(7, 40) && cc(7, 60) && cc(7, 80) && cc(7, 100), "volume steps");
         assert!(cc(10, 1), "pan left");
+    }
+
+    #[test]
+    fn a_let_ring_note_is_held_until_its_string_is_played_again() {
+        // Absolute ticks of each event matching `bytes` in the first note track.
+        fn at(b: &[u8], bytes: [u8; 3]) -> Vec<u64> {
+            let tracks: Vec<usize> = b.windows(4).enumerate().filter(|(_, w)| *w == b"MTrk").map(|(i, _)| i).collect();
+            let start = tracks[1] + 8;
+            let mut i = start;
+            let (mut tick, mut out) = (0u64, Vec::new());
+            while i < b.len() {
+                let mut d = 0u64;
+                loop {
+                    let x = b[i];
+                    i += 1;
+                    d = (d << 7) | u64::from(x & 0x7f);
+                    if x & 0x80 == 0 {
+                        break;
+                    }
+                }
+                tick += d;
+                let len = if b[i] == 0xff {
+                    3 + usize::from(b[i + 2])
+                } else if b[i] & 0xf0 == 0xc0 {
+                    2
+                } else {
+                    3
+                };
+                if b[i..i + 3] == bytes {
+                    out.push(tick);
+                }
+                if b[i] == 0xff && b[i + 1] == 0x2f {
+                    break;
+                }
+                i += len;
+            }
+            out
+        }
+        let q = u64::from(TICKS_PER_QUARTER);
+        let note = |string: u8, fret: u8, ring: bool| {
+            let mut n = Note::new(string, fret);
+            n.effects.let_ring = ring;
+            Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::QUARTER) }
+        };
+        let mut s = Score::new();
+        // Low E rings through the A string's note until the low E string plays G.
+        s.tracks[0].measures[0].voices[0].beats = vec![note(5, 0, true), note(4, 2, false), Beat::rest(Duration::QUARTER), note(5, 3, true)];
+        let b = export(&s).unwrap();
+        assert_eq!(at(&b, [0x80, 40, 0]), vec![3 * q], "the open E ends when its string plays again");
+        assert_eq!(at(&b, [0x80, 47, 0]), vec![2 * q], "the plain B ends with its beat");
+        // The last let-ring note rings a bar past the end of the song.
+        assert_eq!(at(&b, [0x80, 43, 0]), vec![8 * q]);
     }
 
     #[test]

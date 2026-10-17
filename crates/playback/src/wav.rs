@@ -6,13 +6,25 @@ pub fn render_wav(score: &Score, sample_rate: u32) -> Vec<f32> {
     render_player(&mut Player::new(score, sample_rate, Options::default()))
 }
 
-/// Renders a prepared player (for instance one with sampled instruments set) from the start.
+/// Renders a prepared player (for instance one with sampled instruments set) from the start, and
+/// on past the end until the last let-ring note or cymbal has died away (at most 30 s more).
 pub fn render_player(p: &mut Player) -> Vec<f32> {
-    let secs = (p.duration() + 2.0).min(60.0 * 30.0);
-    let frames = (secs * f64::from(p.sample_rate())) as usize;
-    let mut out = vec![0.0f32; frames * 2];
+    let rate = f64::from(p.sample_rate());
+    let secs = p.duration().min(60.0 * 30.0);
+    let mut out = vec![0.0f32; (secs * rate) as usize * 2];
     p.play_from(0.0);
     p.render(&mut out, 2);
+    // Tails, a tenth of a second at a time, with at least a short ring-out.
+    let tenth = (rate / 10.0) as usize * 2;
+    let mut extra = 0;
+    while extra < 300 && (extra < 5 || p.is_sounding()) {
+        let start = out.len();
+        out.resize(start + tenth, 0.0);
+        if let Some(tail) = out.get_mut(start..) {
+            p.render(tail, 2);
+        }
+        extra += 1;
+    }
     out
 }
 
@@ -84,7 +96,7 @@ mod tests {
         assert_eq!(&b[0..4], b"RIFF");
         assert_eq!(&b[8..12], b"WAVE");
         assert_eq!(b.len(), 44 + pcm.len() * 2);
-        // 2 s of 4/4 at 120 plus 2 s ring-out, stereo.
-        assert_eq!(pcm.len(), 4 * 22_050 * 2);
+        // 2 s of 4/4 at 120 and a ring-out of whole tenths of a second, stereo.
+        assert!(pcm.len() >= (2 * 22_050 + 5 * 2_205) * 2 && pcm.len().is_multiple_of(2), "{}", pcm.len());
     }
 }
