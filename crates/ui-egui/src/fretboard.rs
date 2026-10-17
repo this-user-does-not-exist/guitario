@@ -1,12 +1,16 @@
-//! The instrument view: a fretboard showing the notes of the beat under the cursor. Clicking a
-//! fret enters that note, as in Guitar Pro.
+//! The fretboard instrument view, drawn as Guitar Pro 8's: the notes of the beat under the cursor
+//! as yellow marks with their names, and the display mode's other notes dimmed. Clicking a fret
+//! enters that note; hovering names its pitch.
 
-use crate::GuitarioApp;
 use crate::theme::tokens;
+use crate::{GuitarioApp, instrument};
 use egui::{Color32, Rect, Stroke, pos2, vec2};
 use serde_json::json;
 
 const FRETS: u8 = 24;
+/// The open-string strip before the nut, and the nut.
+const OPEN: Color32 = Color32::from_rgb(0x60, 0x6b, 0x7e);
+const NUT: Color32 = Color32::from_rgb(0xd9, 0xe1, 0xea);
 
 /// x of fret `n` (0 = nut) on a neck from `x0` to `x1`, spaced like a real scale length.
 fn fret_x(n: u8, x0: f32, x1: f32) -> f32 {
@@ -27,74 +31,89 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
         drum_pad(app, ui, track, c);
         return;
     }
-    let beat = track.measures.get(c.measure).and_then(|m| m.voices.get(c.voice)).and_then(|v| v.beats.get(c.beat));
+    let (beat, others) = instrument::beats(track, c, app.view.instrument);
     let strings = track.string_count();
     let avail = ui.available_size();
     let (rect, resp) = ui.allocate_exact_size(vec2(avail.x, avail.y.clamp(90.0, 170.0)), egui::Sense::click());
+    let board = instrument::side(app, ui, rect, true);
     let p = ui.painter();
-    p.rect_filled(rect, 0.0, t.chrome_dark);
+    p.rect_filled(board, 0.0, t.neck);
 
-    let label_w = 34.0;
-    let open_w = 34.0;
-    let neck = Rect::from_min_max(pos2(rect.left() + label_w + open_w, rect.top() + 12.0), pos2(rect.right() - 16.0, rect.bottom() - 22.0));
-    p.rect_filled(neck, 2.0, t.neck);
-    let sy = |s: usize| neck.top() + neck.height() * (s as f32 + 0.5) / strings.max(1) as f32;
+    // Guitar Pro's neck: a pale strip for the open strings, the nut, then the frets. Left-handed,
+    // the same mirrored.
+    let nut_w = 30.0;
+    let neck = Rect::from_min_max(pos2(board.left() + nut_w, board.top()), pos2(board.right() - 6.0, board.bottom()));
+    let lefty = app.view.left_handed;
+    let mx = |x: f32| if lefty { board.left() + board.right() - x } else { x };
+    let span = |x0: f32, x1: f32| (mx(x0).min(mx(x1)), mx(x0).max(mx(x1)));
+    let (o0, o1) = span(board.left(), neck.left());
+    p.rect_filled(Rect::from_x_y_ranges(o0..=o1, board.y_range()), 0.0, OPEN);
+    let sy = |s: usize| board.top() + board.height() * (s as f32 + 0.5) / strings.max(1) as f32;
     let fx = |n: u8| fret_x(n, neck.left(), neck.right());
+    let space = board.height() / strings.max(1) as f32;
 
     // Inlays.
+    let inlay = |x: f32, y: f32| p.circle_filled(pos2(mx(x), y), (space * 0.22).clamp(3.0, 6.0), t.inlay);
     for f in [3u8, 5, 7, 9, 15, 17, 19, 21] {
-        p.circle_filled(pos2((fx(f - 1) + fx(f)) / 2.0, neck.center().y), 5.0, t.inlay.gamma_multiply(0.85));
+        inlay((fx(f - 1) + fx(f)) / 2.0, board.center().y);
     }
     for f in [12u8, 24] {
         let x = (fx(f - 1) + fx(f)) / 2.0;
-        p.circle_filled(pos2(x, neck.top() + neck.height() * 0.3), 5.0, t.inlay.gamma_multiply(0.85));
-        p.circle_filled(pos2(x, neck.top() + neck.height() * 0.7), 5.0, t.inlay.gamma_multiply(0.85));
+        inlay(x, sy(1).min(board.center().y));
+        inlay(x, sy(strings.saturating_sub(2)).max(board.center().y));
     }
     // Nut and frets.
-    p.rect_filled(Rect::from_min_size(pos2(neck.left() - 5.0, neck.top()), vec2(5.0, neck.height())), 1.0, Color32::from_rgb(0xee, 0xe8, 0xd8));
+    p.line_segment([pos2(mx(neck.left()), board.top()), pos2(mx(neck.left()), board.bottom())], Stroke::new(3.0, NUT));
     for f in 1..=FRETS {
-        let x = fx(f);
-        p.line_segment([pos2(x, neck.top()), pos2(x, neck.bottom())], Stroke::new(2.0, t.fret_wire));
-        if [3, 5, 7, 9, 12, 15, 17, 19, 21, 24].contains(&f) {
-            p.text(pos2((fx(f - 1) + x) / 2.0, neck.bottom() + 10.0), egui::Align2::CENTER_CENTER, f.to_string(), egui::FontId::proportional(10.0), t.text_dim);
-        }
+        let x = mx(fx(f));
+        p.line_segment([pos2(x, board.top()), pos2(x, board.bottom())], Stroke::new(2.0, t.fret_wire));
     }
-    // Strings, thicker toward the bass, with their open-note names.
+    // Strings, a little thicker toward the bass.
     for s in 0..strings {
         let y = sy(s);
-        let w = 0.8 + 1.8 * s as f32 / strings.max(2).saturating_sub(1) as f32;
-        p.line_segment([pos2(rect.left() + label_w, y), pos2(neck.right(), y)], Stroke::new(w, t.string));
-        let name = track.tuning.strings.get(s).map_or("", |p| guitario_theory::note_name(*p));
-        let col = if s == c.string { t.accent } else { t.text_dim };
-        p.text(pos2(rect.left() + label_w / 2.0, y), egui::Align2::CENTER_CENTER, name, egui::FontId::proportional(11.0), col);
+        let w = 1.0 + 0.8 * s as f32 / strings.max(2).saturating_sub(1) as f32;
+        p.line_segment([pos2(board.left(), y), pos2(board.right(), y)], Stroke::new(w, t.string));
     }
 
-    // Hover: where a click would put a note.
+    // Where a click would put a note.
     let hit = |pos: egui::Pos2| -> Option<(usize, u8)> {
-        if pos.x < rect.left() + label_w || !rect.contains(pos) {
+        if !board.contains(pos) {
             return None;
         }
-        let s = ((pos.y - neck.top()) / neck.height() * strings as f32).floor();
+        let s = ((pos.y - board.top()) / board.height() * strings as f32).floor();
         if s < 0.0 || s >= strings as f32 {
             return None;
         }
-        let fret = if pos.x < neck.left() { 0 } else { (1..=FRETS).find(|f| pos.x <= fx(*f)).unwrap_or(FRETS) };
+        let x = mx(pos.x);
+        let fret = if x < neck.left() { 0 } else { (1..=FRETS).find(|f| x <= fx(*f)).unwrap_or(FRETS) };
         Some((s as usize, fret))
     };
-    let mark_x = |f: u8| if f == 0 { neck.left() - open_w / 2.0 } else { (fx(f - 1) + fx(f)) / 2.0 };
+    let mark_x = |f: u8| mx(if f == 0 { board.left() + nut_w / 2.0 } else { (fx(f - 1) + fx(f)) / 2.0 });
+    let radius = (space * 0.42).clamp(5.0, 10.0);
+    let pitch = |s: u8, f: u8| track.tuning.strings.get(usize::from(s)).and_then(|o| o.checked_add(track.capo)?.checked_add(f));
+    let mark = |s: u8, f: u8, fill: Color32| {
+        let center = pos2(mark_x(f.min(FRETS)), sy(usize::from(s)));
+        p.circle_filled(center, radius, fill);
+        if let Some(m) = pitch(s, f) {
+            p.text(center, egui::Align2::CENTER_CENTER, guitario_theory::note_name(m), crate::fonts::sans_bold(radius * 1.1), instrument::NOTE_INK);
+        }
+    };
     if let Some(pos) = resp.hover_pos()
         && let Some((s, f)) = hit(pos)
     {
-        p.circle_stroke(pos2(mark_x(f), sy(s)), 8.0, Stroke::new(1.5, t.accent.gamma_multiply(0.8)));
+        p.circle_stroke(pos2(mark_x(f), sy(s)), radius, Stroke::new(1.5, instrument::NOTE));
+        if let Some(m) = pitch(s as u8, f) {
+            resp.clone().on_hover_text(format!("{} (string {}, fret {f})", instrument::pitch_label(m), s + 1));
+        }
     }
-    // Notes of the current beat.
+    for b in &others {
+        for n in &b.notes {
+            mark(n.string, n.fret, instrument::NOTE_SOFT);
+        }
+    }
     if let Some(b) = beat.filter(|b| !b.rest) {
         for n in &b.notes {
-            let s = usize::from(n.string);
-            let center = pos2(mark_x(n.fret.min(FRETS)), sy(s));
-            let fill = if s == c.string { t.accent } else { Color32::from_rgb(0xe0, 0x4f, 0x4f) };
-            p.circle_filled(center, 9.0, fill);
-            p.text(center, egui::Align2::CENTER_CENTER, n.fret.to_string(), egui::FontId::proportional(10.0), Color32::WHITE);
+            mark(n.string, n.fret, instrument::NOTE);
         }
     }
     if resp.clicked()
@@ -114,7 +133,8 @@ fn drum_pad(app: &mut GuitarioApp, ui: &mut egui::Ui, track: &guitario_score::Tr
     let beat = track.measures.get(c.measure).and_then(|m| m.voices.get(c.voice)).and_then(|v| v.beats.get(c.beat));
     let lit = |midi: u8| beat.is_some_and(|b| !b.rest && b.notes.iter().any(|n| n.fret == midi));
     let avail = ui.available_size();
-    let (rect, _) = ui.allocate_exact_size(vec2(avail.x, avail.y.clamp(90.0, 170.0)), egui::Sense::hover());
+    let (whole, _) = ui.allocate_exact_size(vec2(avail.x, avail.y.clamp(90.0, 170.0)), egui::Sense::hover());
+    let rect = instrument::side(app, ui, whole, false);
     ui.painter().rect_filled(rect, 0.0, t.chrome_dark);
     let cols = KIT.len().div_ceil(2);
     let gap = 6.0;

@@ -13,6 +13,7 @@ mod global_view;
 mod glyphs;
 mod icons;
 mod inspector;
+mod instrument;
 mod keyboard;
 mod keys;
 mod layout;
@@ -71,6 +72,10 @@ pub struct ViewState {
     /// Tracks hidden from the multitrack view by the global view's eye (one bit per track); not
     /// saved, and cleared when another document opens.
     pub hidden: u64,
+    /// What the fretboard and keyboard views show besides the beat (their gear menu).
+    pub instrument: instrument::Display,
+    /// The fretboard drawn for a left-handed player, the nut at the right.
+    pub left_handed: bool,
 }
 
 /// Transport state. The player itself lives in the audio slot; this mirrors what the UI shows.
@@ -165,7 +170,16 @@ impl GuitarioApp {
             fonts: fonts::FontSet::default(),
             fonts_ready: false,
             panels: Panels { palette: true, inspector: true, global: true, fretboard: true, keyboard: false },
-            view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false, multivoice: false, hidden: 0 },
+            view: ViewState {
+                zoom: 1.25,
+                notation: true,
+                layout: layout::LayoutMode::Page,
+                multitrack: false,
+                multivoice: false,
+                hidden: 0,
+                instrument: instrument::Display::Beat,
+                left_handed: false,
+            },
             inspector_tab: inspector::Tab::Song,
             edit_buffers: HashMap::new(),
             transport: Transport { playing: false, metronome: false, count_in: false, looping: false, speed: 1.0, transpose: 0, position: 0.0, beat: None },
@@ -224,6 +238,8 @@ impl GuitarioApp {
             multitrack: p.view.multitrack,
             multivoice: p.view.multivoice,
             hidden: 0,
+            instrument: p.view.instrument,
+            left_handed: p.view.left_handed,
         };
         self.panels =
             Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard, keyboard: p.view.keyboard };
@@ -269,6 +285,8 @@ impl GuitarioApp {
             global_view: pn.global,
             fretboard: pn.fretboard,
             keyboard: pn.keyboard,
+            instrument: v.instrument,
+            left_handed: v.left_handed,
         };
         let playback = prefs::PlaybackPrefs {
             metronome: t.metronome,

@@ -42,6 +42,9 @@ pub enum Icon {
     Equalizer,
     Bookmark,
     Multitrack,
+    Gear,
+    ChevronLeft,
+    ChevronRight,
 }
 
 /// The icon for a track's instrument: drums, a bass (a bass program, or tuned down to G1 or
@@ -282,6 +285,20 @@ pub fn draw(p: &Painter, r: Rect, icon: Icon, color: Color32) {
             p.circle_filled(at(-1.5, -2.8), 1.2 * u, color);
             p.circle_filled(at(1.5, 2.8), 1.2 * u, color);
         }
+        Icon::Gear => {
+            // Eight teeth round a ring with a hole.
+            for i in 0..8 {
+                let a = i as f32 * PI / 4.0;
+                let d = vec2(a.cos(), a.sin());
+                p.line_segment([c + d * 4.0 * u, c + d * 6.8 * u], Stroke::new(2.6 * u, color));
+            }
+            p.circle_filled(c, 5.0 * u, color);
+            p.circle_filled(c, 2.0 * u, Color32::from_black_alpha(170));
+        }
+        Icon::ChevronLeft | Icon::ChevronRight => {
+            let f = if icon == Icon::ChevronLeft { 1.0 } else { -1.0 };
+            p.add(Shape::line(vec![at(f * 2.5, -6.0), at(-f * 3.0, 0.0), at(f * 2.5, 6.0)], Stroke::new(2.0 * u.max(0.8), color)));
+        }
     }
 }
 
@@ -300,7 +317,7 @@ mod tests {
         assert_eq!(instrument(&t[2]), Icon::Drums);
     }
 
-    const ALL: [Icon; 37] = [
+    const ALL: [Icon; 40] = [
         Icon::Home,
         Icon::Save,
         Icon::Print,
@@ -338,6 +355,9 @@ mod tests {
         Icon::Equalizer,
         Icon::Bookmark,
         Icon::Multitrack,
+        Icon::Gear,
+        Icon::ChevronLeft,
+        Icon::ChevronRight,
     ];
 
     /// Every icon draws something, inside its box, at any size (even a degenerate one).
