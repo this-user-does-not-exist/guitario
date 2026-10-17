@@ -6,6 +6,7 @@ use egui::{Color32, Painter, Rect, Shape, Stroke, pos2, vec2};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Icon {
     Home,
+    Save,
     Print,
     Undo,
     Redo,
@@ -79,6 +80,11 @@ pub fn draw(p: &Painter, r: Rect, icon: Icon, color: Color32) {
             p.add(Shape::convex_polygon(vec![at(0.0, -6.5), at(7.0, 0.0), at(-7.0, 0.0)], color, Stroke::NONE));
             p.rect_filled(Rect::from_min_max(at(-4.8, -0.5), at(4.8, 6.0)), 0.5, color);
             p.rect_filled(Rect::from_min_max(at(-1.4, 2.0), at(1.4, 6.0)), 0.0, Color32::from_black_alpha(140));
+        }
+        Icon::Save => {
+            p.rect_stroke(Rect::from_min_max(at(-5.5, -5.5), at(5.5, 5.5)), 1.0, st, egui::StrokeKind::Middle);
+            p.rect_stroke(Rect::from_min_max(at(-3.0, -5.5), at(3.0, -1.5)), 0.0, st, egui::StrokeKind::Middle);
+            p.rect_filled(Rect::from_min_max(at(-3.0, 1.5), at(3.0, 5.5)), 0.0, color);
         }
         Icon::Print => {
             // Paper in, the printer body, paper out.
@@ -294,8 +300,9 @@ mod tests {
         assert_eq!(instrument(&t[2]), Icon::Drums);
     }
 
-    const ALL: [Icon; 36] = [
+    const ALL: [Icon; 37] = [
         Icon::Home,
+        Icon::Save,
         Icon::Print,
         Icon::Undo,
         Icon::Redo,

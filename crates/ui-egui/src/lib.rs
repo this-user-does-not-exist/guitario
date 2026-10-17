@@ -35,6 +35,7 @@ mod print_dialog;
 mod shortcuts;
 mod sounds;
 mod spool;
+mod tabbar;
 mod theme;
 mod topbar;
 mod transpose_dialog;
@@ -743,7 +744,7 @@ impl GuitarioApp {
         }
     }
 
-    fn doc_name(&self) -> String {
+    pub(crate) fn doc_name(&self) -> String {
         self.session.path().and_then(|p| p.file_name()).map_or_else(|| "Untitled".to_string(), |n| n.to_string_lossy().into_owned())
     }
 
@@ -873,15 +874,7 @@ impl GuitarioApp {
             egui::MenuBar::new().ui(ui, |ui| menus::menu_bar(self, ui));
         });
         egui::Panel::top("topbar").exact_size(54.0).frame(bar(t.chrome)).show(ui, |ui| topbar::show(self, ui));
-        egui::Panel::top("doctabs").exact_size(26.0).frame(bar(t.chrome_dark)).show(ui, |ui| {
-            ui.horizontal_centered(|ui| {
-                let name = format!("{}{}", self.doc_name(), if self.session.is_dirty() { " *" } else { "" });
-                let (r, _) = ui.allocate_exact_size(egui::vec2(180.0, 24.0), egui::Sense::hover());
-                ui.painter().rect_filled(r.with_min_y(r.min.y + 2.0), egui::CornerRadius { nw: 4, ne: 4, sw: 0, se: 0 }, t.panel);
-                ui.painter().rect_filled(egui::Rect::from_min_size(r.min + egui::vec2(0.0, 2.0), egui::vec2(r.width(), 2.0)), 0.0, t.accent);
-                ui.painter().text(r.left_center() + egui::vec2(10.0, 1.0), egui::Align2::LEFT_CENTER, name, egui::FontId::proportional(12.0), t.text);
-            });
-        });
+        egui::Panel::top("doctabs").exact_size(tabbar::HEIGHT).frame(egui::Frame::NONE.fill(t.chrome_dark)).show(ui, |ui| tabbar::show(self, ui));
         egui::Panel::bottom("status").exact_size(22.0).frame(bar(t.chrome_dark)).show(ui, |ui| {
             ui.horizontal_centered(|ui| {
                 let c = self.session.cursor();

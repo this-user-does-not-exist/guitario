@@ -1,6 +1,6 @@
 # UI parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (global view in Guitar Pro 8's columns with a Master row; earlier: toolbar in Guitar Pro 8's order) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (tab bar as in Guitar Pro 8; earlier: global view columns, toolbar order) · **Target:** Guitar Pro 8
 
 Guitar Pro 8's workspace, element by element. Part of [target-app parity](target-app-parity.md);
 gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
@@ -9,7 +9,7 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Element | Guitar Pro 8 | Guitario | Status |
 |---|---|---|---|
 | Toolbar | home, panels, zoom, display modes, undo/redo, print, transport, LCD, loop and speed, global tonality, audio track, instrument views, tuner, line-in, Fretlight | the same order in rounded groups, toggles blue when on, right-end groups drop out on narrow windows; LCD in two rows (track colour, icon and name, count-in, metronome and settings, note under the cursor; bar, bar check, time, triplet feel, tempo, time signature, progress line); relative tonality ±12 semitones for playback; audio track, tuner, line-in and Fretlight greyed out | partial |
-| Document tabs | several open documents | one document, one tab | partial |
+| Document tabs | several open documents; full-width tabs, modified dot, save and close on hover, context menu, + for a new score | the same look and buttons for the one document Guitario holds; no second document, no lock icon | partial |
 | Edition palette | voice 1-4, Lyrics and Chords buttons, then note values, rhythm, dynamics, articulations, effects, bar tools in eight columns | the same, eight columns wide with voice 1-4, Lyrics and Chords, live state, fermatas, beam and slur; no tapping, slap/pop, fingering, grace notes, and no dimmed unavailable symbols or sections for the lower groups | partial |
 | Score view | page, screen, horizontal layouts; multitrack | page, screen and horizontal layouts; multitrack with beats lined up across tracks | done |
 | Engraving | standard, tab, slash, drums, chord diagrams, lyrics | standard, tab, drums, chord diagrams, lyrics (see [scorecard](scorecard.md#notation-and-engraving)); no slash notation | partial |
@@ -36,5 +36,6 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | 2026-10-17 | minor | Inspector look: full-width tabs and capital section headings (GP8 has Song and Track only; the Bar and Note tabs listed as missing were not in GP8) |
 | 2026-10-17 | minor | Full Screen, Minimize and Keyboard Shortcuts (menus 153/173) |
 | 2026-10-17 | minor | Keyboard instrument view (menus 154/173) |
+| 2026-10-17 | minor | Tab bar: full-width tab with centred name, modified dot, save/close on hover, context menu, + |
 | 2026-10-17 | minor | Global view in Guitar Pro 8's columns: eye, mute/solo icons, fader, pan knob, automation flags, equalizer, Master row with sections |
 | 2026-10-17 | minor | Toolbar rebuilt in Guitar Pro 8's order and groups; two-row LCD with bar check and current note; relative tonality; undo/redo icons the right way round |
