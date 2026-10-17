@@ -13,7 +13,7 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Edition palette | voice 1-4, Lyrics and Chords buttons, then note values, rhythm, dynamics, articulations, effects, bar tools in eight columns | the same, eight columns wide with voice 1-4, Lyrics and Chords, live state, fermatas, beam and slur; no tapping, slap/pop, fingering, grace notes, and no dimmed unavailable symbols or sections for the lower groups | partial |
 | Score view | page, screen, horizontal layouts; multitrack | page, screen and horizontal layouts; multitrack with beats lined up across tracks | done |
 | Engraving | standard, tab, slash, drums, chord diagrams, lyrics | standard, tab, drums, chord diagrams, lyrics (see [scorecard](scorecard.md#notation-and-engraving)); no slash notation | partial |
-| Inspector | Song, Track, Bar, Note/Beat | Song and Track | partial |
+| Inspector | Song and Track tabs: Information, Musical Notation, Sounds, Interpretation (Song: Sound Mastering) | Song and Track in the same look (full-width tabs, capital headings); sections Information, Musical notation, Sounds, Bar; no Interpretation, Sound Mastering, stylesheet or notation toggles | partial |
 | Global view | track list with mixer controls and bar grid | taller track rows with mute, solo and a draggable volume slider (heard live), bar blocks in the track's colour (empty bars tinted), a + to add a track, Vol. heading, section markers boxed in a row under the grid, selection and playback; no pan, eq, eye or master row | partial |
 | Instrument views | fretboard, keyboard, drum pad | fretboard (click to enter notes) and drum pad (click to toggle hits) | partial |
 | Mixer | per-track volume, pan, effects; master | volume/pan/mute/solo in inspector and global view | partial |
@@ -33,3 +33,4 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | 2026-10-17 | minor | Preferences dialog, light theme and interface scale |
 | 2026-10-17 | minor | Look pass: palette eight columns wide with voices, Lyrics and Chords; global view rows with a volume slider |
 | 2026-10-17 | minor | Global view: add-track button, column heading, markers row under the grid |
+| 2026-10-17 | minor | Inspector look: full-width tabs and capital section headings (GP8 has Song and Track only; the Bar and Note tabs listed as missing were not in GP8) |
