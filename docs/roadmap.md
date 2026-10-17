@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (live mixer, transpose dialogs, tempo, volume and pan automation, audio settings, FLAC export, performance budgets, background sample loading; menus 149/173; ready ~29%) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (beam breaks and user-placed slurs, live mixer, transpose dialogs, tempo, volume and pan automation, audio settings, FLAC export, performance budgets, background sample loading; menus 149/173; ready ~29%) · **Target:** Guitar Pro 8
 
 Forward-looking plan: milestones, the **Current focus** list, and what's next with estimates.
 Where we stand today is in [`target-app-parity.md`](target-app-parity.md) (headline numbers, by
@@ -54,7 +54,7 @@ in Guitar Pro 8.
 
 Ranked; each item links to its gap entry. Pick from the top unless an issue is assigned to you.
 
-1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): user-placed slurs, Guitar Pro's per-beat beam breaks, picking a voice by its notehead. 8–28 h.
+1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): picking a voice by its notehead, voice shortcuts, menu access and tab slurs for the new beam and slur commands. 6–22 h.
 2. **Guitar Pro import depth** ([G3](gaps.md#g3-guitar-pro-exchange)): Guitar Pro 6 drums, MIDI and MusicXML import, a human check of `.gp` exports. 40–80 h.
 3. **Print depth** ([G2](gaps.md#g2-print-depth)): headers and footers, layouts, selected bars, a real-printer check. 10–20 h.
 

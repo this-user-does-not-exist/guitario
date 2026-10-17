@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (G4: chord list under the title and Multivoice Editing; G6: transpose track; earlier G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G4: beam breaks and user-placed slurs; earlier G4: chord list under the title and Multivoice Editing; G6: transpose track; earlier G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -21,7 +21,7 @@ agent can't finish alone.
 | G1 | Drums: depth (step editor, articulations) | features, playback | medium | 30–60 h | [scorecard](scorecard.md#editing) |
 | G2 | Print depth: headers and footers, layouts, selected bars | file format | low-medium | 10–20 h | [file-format-parity](file-format-parity.md) |
 | G3 | Guitar Pro exchange (import depth, MusicXML, MIDI import) | file format | medium-high | 40–80 h | [file-format-parity](file-format-parity.md) |
-| G4 | Notation depth (user slurs, beam breaks, voice picking in notation) | features | high | 8–28 h | [scorecard](scorecard.md#notation-and-engraving) |
+| G4 | Notation depth (voice picking in notation, slurs in the tab) | features | high | 6–22 h | [scorecard](scorecard.md#notation-and-engraving) |
 | G5 | Playback realism (sampled articulations, effects, MP3/OGG) | playback | high | 230–470 h | [scorecard](scorecard.md#playback) |
 | G6 | Editing depth (bend editor, tuplets, paste special, track tools) | features | medium-high | 80–140 h | [scorecard](scorecard.md#editing) |
 | G7 | Tools: tuner, chord dictionary, scales, line in | features | medium | 110–185 h | [target-app-parity](target-app-parity.md#feature-breadth-33-weighted) |
@@ -162,11 +162,17 @@ agent can't finish alone.
 - **Landed 2026-10-16:** courtesy key and time signatures at the end of the system before a change.
 - **Landed 2026-10-16:** a stem-down voice's head steps right of a stem-up voice's a second away,
   or on the same pitch with another head or dots; identical heads on one pitch are shared.
+- **Landed 2026-10-17:** per-beat beam breaks and joins (`beat.setBeam` with `break`, `join` or
+  `auto`; `Beat::beam`, honoured by `notation::beam_groups`, so beamed stems, flags and the tab-only
+  rhythm follow) and user-placed slurs (`beat.setSlur`: from the cursor beat to a later note in the
+  same bar and voice; `Beat::slur`, an arc over the outer heads on the side away from the stems,
+  notation only; a stale one after an edit is skipped, not a panic).
 - **Missing:** a stylesheet switch for the chord list, picking a voice by clicking its notehead in
-  notation, voice shortcuts, user-placed slurs, Guitar Pro's per-beat beam breaks, and keeping
-  column room for a head that steps aside.
+  notation, voice shortcuts, menu or palette access to beam and slur (commands only so far), slurs
+  across bars and in the tab, slurs and beam overrides in Guitar Pro files (neither format keeps
+  them in a way the importers read), and keeping column room for a head that steps aside.
 - **Evidence:** NOTE-3/4/5/9/12 and EDIT-9/16 done; their notes list what is left.
-- **Estimate:** 8–28 h.
+- **Estimate:** 6–22 h.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with
@@ -288,3 +294,4 @@ agent can't finish alone.
 | 2026-10-16 | minor | G4/G8: layouts and the multitrack view (G4 35–70 h to 25–55 h, G8 120–200 h to 100–170 h) |
 | 2026-10-16 | minor | G4: ties, slurs and up to four voices landed (150–250 h to 90–160 h); G1: drums' second voice (40–80 h to 30–60 h) |
 | 2026-10-16 | minor | G3: `.gp` (Guitar Pro 7/8) export landed, unverified in Guitar Pro itself (60–110 h to 40–80 h) |
+| 2026-10-17 | minor | G4: per-beat beam breaks and user-placed slurs (8–28 h to 6–22 h) |

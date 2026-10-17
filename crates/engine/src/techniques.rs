@@ -4,7 +4,8 @@
 use crate::commands::{CommandSpec, cmd};
 use crate::{EngineError, Session, params as p};
 use guitario_score::{
-    Beat, BeatTechnique, Brush, BrushKind, Fade, Finger, Grace, GraceDuration, GraceTransition, NoteKind, StrokeDirection, TremoloSpeed, Trill, TrillSpeed,
+    BeamOverride, Beat, BeatTechnique, Brush, BrushKind, Fade, Finger, Grace, GraceDuration, GraceTransition, NoteKind, StrokeDirection, TremoloSpeed, Trill,
+    TrillSpeed,
 };
 use guitario_theory::{Duration, TICKS_PER_QUARTER};
 use serde_json::{Value, json};
@@ -40,6 +41,24 @@ pub fn specs() -> Vec<CommandSpec> {
             "speed: eighth|sixteenth|thirty_second|none (the notes of the beat, or the selection, are picked again and again at that speed)",
             true,
             set_tremolo,
+        ),
+        cmd(
+            "beat.setBeam",
+            "Beam",
+            "Note/Duration",
+            None,
+            "mode: break|join|auto (break starts a new beam at the beat, join beams it to the beat before across the bar's grouping, auto follows the bar; the beat or the selection)",
+            true,
+            set_beam,
+        ),
+        cmd(
+            "beat.setSlur",
+            "Slur",
+            "Note/Duration",
+            None,
+            "beats (1..=32: the slur runs from the cursor beat to the beat that many beats later in the bar; 0 or null clears)",
+            true,
+            set_slur,
         ),
         cmd(
             "note.setTrill",
@@ -190,6 +209,38 @@ fn set_tremolo(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     each_beat(s, |b| b.tremolo = if b.rest { None } else { speed })
 }
 
+fn set_beam(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let name = p::string(params, "mode")?;
+    let mode = if name == "auto" {
+        None
+    } else {
+        Some(BeamOverride::from_name(name).ok_or_else(|| EngineError::BadParam(format!("`mode` must be break, join or auto, not `{name}`")))?)
+    };
+    each_beat(s, |b| b.beam = mode)
+}
+
+fn set_slur(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let beats = p::opt_uint(params, "beats", 32)?.unwrap_or(0) as u8;
+    if beats == 0 {
+        s.beat_mut()?.slur = None;
+        return ok_json();
+    }
+    let at = s.cursor.beat;
+    let voice = s.voice_in(s.cursor.measure).ok_or_else(|| EngineError::invalid("the cursor is not in a measure"))?;
+    let to = at + usize::from(beats);
+    match voice.beats.get(to) {
+        None => return Err(EngineError::invalid("a slur ends in the same bar: there is no beat that far on")),
+        Some(end) if end.rest => return Err(EngineError::invalid("a slur ends on a note, not a rest")),
+        Some(_) => {}
+    }
+    let start = s.beat_mut()?;
+    if start.rest {
+        return Err(EngineError::invalid("a slur starts on a note, not a rest"));
+    }
+    start.slur = Some(beats);
+    ok_json()
+}
+
 fn set_trill(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let max = {
         let track = s.score.tracks.get(s.cursor.track).ok_or_else(|| EngineError::invalid("the cursor is not on a track"))?;
@@ -288,6 +339,38 @@ mod tests {
         assert_eq!(s.score().tracks[0].measures[0].voices[0].beats[0].duration.tuplet, (1, 1));
         // 11 is not exact at this resolution.
         assert!(s.run("beat.setTuplet", &json!({"enters": 11})).is_err());
+    }
+
+    #[test]
+    fn beam_overrides_are_set_per_beat_or_selection_and_reject_unknown_modes() {
+        let mut s = Session::new();
+        s.run("beat.setBeam", &json!({"mode": "break"})).unwrap();
+        assert_eq!(s.beat_mut().unwrap().beam, Some(BeamOverride::Break));
+        s.run("beat.setBeam", &json!({"mode": "join"})).unwrap();
+        assert_eq!(s.beat_mut().unwrap().beam, Some(BeamOverride::Join));
+        s.run("beat.setBeam", &json!({"mode": "auto"})).unwrap();
+        assert_eq!(s.beat_mut().unwrap().beam, None);
+        assert!(s.run("beat.setBeam", &json!({"mode": "sideways"})).is_err());
+        assert!(s.run("beat.setBeam", &json!({})).is_err());
+    }
+
+    #[test]
+    fn a_slur_spans_notes_of_one_bar_and_never_starts_or_ends_on_a_rest() {
+        let mut s = Session::new();
+        s.run("beat.setDuration", &json!({"value": 4})).unwrap();
+        for fret in [0, 2, 3] {
+            s.run("note.setFret", &json!({"fret": fret})).unwrap();
+            s.move_right().unwrap();
+        }
+        s.cursor.beat = 0;
+        s.run("beat.setSlur", &json!({"beats": 2})).unwrap();
+        assert_eq!(s.beat_mut().unwrap().slur, Some(2));
+        assert!(s.run("beat.setSlur", &json!({"beats": 9})).is_err(), "past the last beat");
+        assert!(s.run("beat.setSlur", &json!({"beats": 33})).is_err());
+        s.run("beat.setSlur", &json!({"beats": null})).unwrap();
+        assert_eq!(s.beat_mut().unwrap().slur, None);
+        s.cursor.beat = 3;
+        assert!(s.run("beat.setSlur", &json!({"beats": 1})).is_err(), "a rest cannot start one");
     }
 
     #[test]

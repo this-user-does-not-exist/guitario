@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~770–1,310 h away
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (chord list, Multivoice Editing, full-score printing, key changes, courtesy signatures, transpose dialogs, panic guard, autosave and crash recovery, performance budgets, live mixer, tempo, volume and pan automation, audio settings, FLAC export; menus 149/173) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (beam breaks and user-placed slurs, chord list, Multivoice Editing, full-score printing, key changes, courtesy signatures, transpose dialogs, panic guard, autosave and crash recovery, performance budgets, live mixer, tempo, volume and pan automation, audio settings, FLAC export; menus 149/173) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [target-app parity](docs/target-app-parity.md) (methodology, weights, evidence), [gaps](docs/gaps.md)
@@ -63,7 +63,7 @@ English only. Guitar Pro ships in about a dozen languages ([gaps G13](docs/gaps.
 
 | Rank | Milestone | Estimate |
 |---|---|---:|
-| 1 | Notation depth: user-placed slurs, per-beat beam breaks, picking voices in notation | 8–28 h |
+| 1 | Notation depth: picking voices in notation, voice shortcuts, slurs in the tab | 6–22 h |
 | 2 | Guitar Pro import depth, MIDI and MusicXML import, a human check of `.gp` exports | 40–80 h |
 | 3 | Print depth: headers and footers, layouts, selected bars, a real-printer check | 10–20 h |
 | 4 | Performance budgets and a control channel | 70–140 h |
