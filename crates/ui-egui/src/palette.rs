@@ -274,6 +274,30 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     ui.close();
                 }
             });
+            // Beam and slur for the cursor beat.
+            let here = score.tracks.get(c.track).and_then(|t| t.measures.get(c.measure)).and_then(|m| m.voices.get(c.voice)).and_then(|v| v.beats.get(c.beat));
+            let r = cell(ui, fonts, Art::Draw(draw_beam), here.is_some_and(|b| b.beam.is_some()), true, "Beam");
+            egui::Popup::menu(&r).show(|ui| {
+                for (mode, label) in [("break", "Break the beam here"), ("join", "Join to the beat before"), ("auto", "Follow the bar")] {
+                    if ui.button(label).clicked() {
+                        actions.push(("beat.setBeam", json!({"mode": mode})));
+                        ui.close();
+                    }
+                }
+            });
+            let r = cell(ui, fonts, Art::Draw(draw_slur), here.is_some_and(|b| b.slur.is_some()), true, "Slur");
+            egui::Popup::menu(&r).show(|ui| {
+                for (beats, label) in [(1, "Slur to the next beat"), (2, "Slur over two beats"), (3, "Slur over three beats"), (4, "Slur over four beats")] {
+                    if ui.button(label).clicked() {
+                        actions.push(("beat.setSlur", json!({"beats": beats})));
+                        ui.close();
+                    }
+                }
+                if ui.add_enabled(here.is_some_and(|b| b.slur.is_some()), egui::Button::new("Remove slur")).clicked() {
+                    actions.push(("beat.setSlur", json!({"beats": null})));
+                    ui.close();
+                }
+            });
             ui.end_row();
             if cell(ui, fonts, Art::Text("+ |"), false, true, "Insert bar before").clicked() {
                 actions.push(("measure.insert", Value::Null));
@@ -353,6 +377,23 @@ fn draw_repeat_close(p: &Painter, r: Rect, c: Color32) {
     p.line_segment([pos2(r.right() - 5.0, r.top()), pos2(r.right() - 5.0, r.bottom())], st(c));
     p.circle_filled(pos2(r.right() - 10.0, r.center().y - 3.5), 1.8, c);
     p.circle_filled(pos2(r.right() - 10.0, r.center().y + 3.5), 1.8, c);
+}
+
+/// Two stems joined by a beam.
+fn draw_beam(p: &Painter, r: Rect, c: Color32) {
+    let at = |x: f32, y: f32| pos2(r.left() + x * r.width(), r.top() + y * r.height());
+    p.line_segment([at(0.3, 0.2), at(0.3, 0.8)], Stroke::new(1.5, c));
+    p.line_segment([at(0.7, 0.2), at(0.7, 0.8)], Stroke::new(1.5, c));
+    p.line_segment([at(0.3, 0.2), at(0.7, 0.2)], Stroke::new(4.0, c));
+}
+
+/// An arc over two dots.
+fn draw_slur(p: &Painter, r: Rect, c: Color32) {
+    let at = |x: f32, y: f32| pos2(r.left() + x * r.width(), r.top() + y * r.height());
+    let pts: Vec<_> = (0..=12).map(|i| i as f32 / 12.0).map(|t| at(0.2 + 0.6 * t, 0.65 - 0.4 * (1.0 - (2.0 * t - 1.0).powi(2)))).collect();
+    p.add(egui::Shape::line(pts, Stroke::new(1.5, c)));
+    p.circle_filled(at(0.2, 0.75), 2.0, c);
+    p.circle_filled(at(0.8, 0.75), 2.0, c);
 }
 
 fn draw_time_sig(p: &Painter, r: Rect, c: Color32) {
