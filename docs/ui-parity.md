@@ -1,6 +1,6 @@
 # UI parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (toolbar in Guitar Pro 8's order with a two-row LCD and relative tonality) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (global view in Guitar Pro 8's columns with a Master row; earlier: toolbar in Guitar Pro 8's order) · **Target:** Guitar Pro 8
 
 Guitar Pro 8's workspace, element by element. Part of [target-app parity](target-app-parity.md);
 gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
@@ -14,7 +14,7 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Score view | page, screen, horizontal layouts; multitrack | page, screen and horizontal layouts; multitrack with beats lined up across tracks | done |
 | Engraving | standard, tab, slash, drums, chord diagrams, lyrics | standard, tab, drums, chord diagrams, lyrics (see [scorecard](scorecard.md#notation-and-engraving)); no slash notation | partial |
 | Inspector | Song and Track tabs: Information, Musical Notation, Sounds, Interpretation (Song: Sound Mastering) | Song and Track in the same look (full-width tabs, capital headings); sections Information, Musical notation, Sounds, Bar; no Interpretation, Sound Mastering, stylesheet or notation toggles | partial |
-| Global view | track list with mixer controls and bar grid | taller track rows with mute, solo and a draggable volume slider (heard live), bar blocks in the track's colour (empty bars tinted), a + to add a track, Vol. heading, section markers boxed in a row under the grid, selection and playback; no pan, eq, eye or master row | partial |
+| Global view | track list with mixer controls and bar grid | Guitar Pro 8's columns: header with add, track menu, move down/up, multitrack, mute, solo, Vol., Pan., Eq.; rows with colour, instrument icon, number and name, eye (hides the track from the multitrack view), yellow mute, red solo, fader, volume automation A, pan knob (drag, double-click to centre), pan automation A (green when automated, opens the editor), equalizer; Master row carrying the sections with a bookmark; square bar cells in the track colour, grey when empty, the cursor's bar marked dark, numbers at 1, 4, 8 …; no equalizer, master volume, pan or focus (greyed), visibility not saved | partial |
 | Instrument views | fretboard, keyboard, drum pad | fretboard and keyboard (C2-C7; click a key to enter that pitch on the best string; lit for the beat's notes) and drum pad, each with its toolbar button; no key labels for the notes | partial |
 | Mixer | per-track volume, pan, effects; master | volume/pan/mute/solo in inspector and global view | partial |
 | Tools | tuner, chord engine, scales, line in | chord diagram editor and namer | partial |
@@ -36,4 +36,5 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | 2026-10-17 | minor | Inspector look: full-width tabs and capital section headings (GP8 has Song and Track only; the Bar and Note tabs listed as missing were not in GP8) |
 | 2026-10-17 | minor | Full Screen, Minimize and Keyboard Shortcuts (menus 153/173) |
 | 2026-10-17 | minor | Keyboard instrument view (menus 154/173) |
+| 2026-10-17 | minor | Global view in Guitar Pro 8's columns: eye, mute/solo icons, fader, pan knob, automation flags, equalizer, Master row with sections |
 | 2026-10-17 | minor | Toolbar rebuilt in Guitar Pro 8's order and groups; two-row LCD with bar check and current note; relative tonality; undo/redo icons the right way round |

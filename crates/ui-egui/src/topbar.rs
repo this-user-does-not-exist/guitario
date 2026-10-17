@@ -515,11 +515,7 @@ impl LcdInfo {
         let unit = f64::from(4 * guitario_theory::TICKS_PER_QUARTER) / f64::from(signature.1.max(1));
         let filled = f64::from(voice.map_or(0, guitario_score::Voice::ticks)) / unit;
         let capacity = f64::from(header.map_or(0, guitario_score::MeasureHeader::capacity)) / unit;
-        let icon = match track {
-            Some(t) if t.is_drums() => Icon::Drums,
-            Some(t) if (32..=39).contains(&t.program) => Icon::Bass,
-            _ => Icon::Guitar,
-        };
+        let icon = track.map_or(Icon::Guitar, crate::icons::instrument);
         let note = track.filter(|t| !t.is_drums()).and_then(|t| {
             let beat = voice?.beats.get(c.beat)?;
             let n = beat.notes.iter().find(|n| usize::from(n.string) == c.string)?;

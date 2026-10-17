@@ -35,6 +35,25 @@ pub enum Icon {
     Fretlight,
     Guitar,
     Bass,
+    Eye,
+    Mute,
+    Solo,
+    Equalizer,
+    Bookmark,
+    Multitrack,
+}
+
+/// The icon for a track's instrument: drums, a bass (a bass program, or tuned down to G1 or
+/// lower, which no guitar tuning reaches), or a guitar.
+pub fn instrument(track: &guitario_score::Track) -> Icon {
+    let lowest = track.tuning.strings.iter().copied().min().unwrap_or(u8::MAX);
+    if track.is_drums() {
+        Icon::Drums
+    } else if (32..=39).contains(&track.program) || lowest <= 31 {
+        Icon::Bass
+    } else {
+        Icon::Guitar
+    }
 }
 
 /// Points on an ellipse arc from `a0` to `a1` (radians, y down), for strokes.
@@ -207,6 +226,42 @@ pub fn draw(p: &Painter, r: Rect, icon: Icon, color: Color32) {
             p.add(Shape::convex_polygon(vec![at(1.2, -4.8), at(3.2, -2.8), at(0.2, 0.2), at(-1.8, -1.8)], color, Stroke::NONE));
             p.add(Shape::line(vec![at(-0.8, -0.8), at(-3.5, 2.5), at(-2.0, 5.0), at(-5.0, 7.0)], st));
         }
+        Icon::Eye => {
+            let top = arc(c, 7.0 * u, 5.0 * u, PI, 2.0 * PI, 14);
+            let bottom = arc(c, 7.0 * u, 5.0 * u, 0.0, PI, 14);
+            let mut outline = top;
+            outline.extend(bottom.into_iter().skip(1));
+            p.add(Shape::closed_line(outline, st));
+            p.circle_filled(c, 2.6 * u, color);
+        }
+        Icon::Mute => {
+            // A speaker, struck through.
+            p.add(Shape::convex_polygon(vec![at(-6.0, -2.5), at(-3.0, -2.5), at(1.5, -6.5), at(1.5, 6.5), at(-3.0, 2.5), at(-6.0, 2.5)], color, Stroke::NONE));
+            p.line_segment([at(-6.5, 6.5), at(6.5, -6.5)], st);
+        }
+        Icon::Solo => {
+            // Headphones.
+            p.add(Shape::line(arc(at(0.0, 1.0), 6.0 * u, 6.5 * u, PI, 2.0 * PI, 16), st));
+            p.rect_filled(Rect::from_min_max(at(-7.0, 1.0), at(-3.5, 7.0)), 1.2 * u, color);
+            p.rect_filled(Rect::from_min_max(at(3.5, 1.0), at(7.0, 7.0)), 1.2 * u, color);
+        }
+        Icon::Equalizer => {
+            for (x, knob) in [(-4.5, 2.0), (0.0, -3.0), (4.5, 1.0)] {
+                p.line_segment([at(x, -7.0), at(x, 7.0)], st);
+                p.rect_filled(Rect::from_center_size(at(x, knob), vec2(3.6 * u, 2.2 * u)), 0.5, color);
+            }
+        }
+        Icon::Bookmark => {
+            p.add(Shape::convex_polygon(vec![at(-4.0, -7.0), at(4.0, -7.0), at(4.0, 7.0), at(0.0, 3.5)], color, Stroke::NONE));
+            p.add(Shape::convex_polygon(vec![at(-4.0, -7.0), at(0.0, 3.5), at(-4.0, 7.0)], color, Stroke::NONE));
+        }
+        Icon::Multitrack => {
+            // A system bracket beside stacked staves.
+            p.add(Shape::line(vec![at(-4.0, -7.0), at(-6.0, -7.0), at(-6.0, 7.0), at(-4.0, 7.0)], st));
+            for y in [-4.0, 0.0, 4.0] {
+                p.line_segment([at(-3.0, y), at(7.0, y)], Stroke::new(2.2 * u, color));
+            }
+        }
         Icon::Fretlight => {
             let frame = Rect::from_min_max(at(-4.5, -7.0), at(4.5, 7.0));
             p.rect_stroke(frame, 0.5, thin, egui::StrokeKind::Middle);
@@ -228,7 +283,18 @@ pub fn draw(p: &Painter, r: Rect, icon: Icon, color: Color32) {
 mod tests {
     use super::*;
 
-    const ALL: [Icon; 30] = [
+    #[test]
+    fn instrument_icons_tell_bass_from_guitar() {
+        let mut s = guitario_engine::Session::new();
+        s.run("track.add", &serde_json::json!({"name": "Bass", "tuning": "bass"})).unwrap();
+        s.run("track.addDrums", &serde_json::json!({})).unwrap();
+        let t = &s.score().tracks;
+        assert_eq!(instrument(&t[0]), Icon::Guitar);
+        assert_eq!(instrument(&t[1]), Icon::Bass);
+        assert_eq!(instrument(&t[2]), Icon::Drums);
+    }
+
+    const ALL: [Icon; 36] = [
         Icon::Home,
         Icon::Print,
         Icon::Undo,
@@ -259,6 +325,12 @@ mod tests {
         Icon::Fretlight,
         Icon::Guitar,
         Icon::Bass,
+        Icon::Eye,
+        Icon::Mute,
+        Icon::Solo,
+        Icon::Equalizer,
+        Icon::Bookmark,
+        Icon::Multitrack,
     ];
 
     /// Every icon draws something, inside its box, at any size (even a degenerate one).

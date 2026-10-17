@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G8: toolbar in Guitar Pro 8's order, two-row LCD, relative tonality; earlier G8: Preferences, light theme; G4: beam breaks and user-placed slurs; earlier G4: chord list under the title and Multivoice Editing; G6: transpose track; earlier G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G8: global view in Guitar Pro 8's columns with a Master row; earlier G8: toolbar in Guitar Pro 8's order, two-row LCD, relative tonality; earlier G8: Preferences, light theme; G4: beam breaks and user-placed slurs; earlier G4: chord list under the title and Multivoice Editing; G6: transpose track; earlier G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -242,7 +242,14 @@ agent can't finish alone.
   check (written against expected beats, green, orange or red), time, triplet feel, tempo (click
   for the tempo automation) and time signature over a progress line. Relative tonality shifts
   playback ±12 semitones (synth and samples, live) without touching the score.
-- **Missing:** the audio track, tuner, line-in and Fretlight behind their greyed toolbar buttons, a
+- **Landed 2026-10-17:** the global view in Guitar Pro 8's columns: a header (add track, track
+  menu, move down/up, multitrack, mute, solo, Vol., Pan., Eq.), rows with the instrument icon, an
+  eye that hides the track from the multitrack view, yellow mute and red solo, a fader, a pan knob
+  (drag; double-click centres), volume and pan automation flags (green when automated; a click
+  opens the editor) and the equalizer; a Master row carrying the sections; square bar cells with
+  the cursor's bar marked as in Guitar Pro.
+- **Missing:** a track equalizer, master volume and pan, focus/unfocus (greyed in the global
+  view), saved track visibility, the audio track, tuner, line-in and Fretlight behind their greyed toolbar buttons, a
   home page behind the Home button (it opens a New/Open/recent menu), more preferences (defaults for new scores, key
   bindings), a polished light theme, an Interpretation section and Sound Mastering in the inspector (Guitar Pro 8's inspector has Song and Track tabs only), floating panels, several documents at once.
 - **Evidence:** [ui-parity](ui-parity.md); UI-3/5/8/9 in the scorecard.
