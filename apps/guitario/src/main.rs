@@ -18,7 +18,9 @@ fn main() -> eframe::Result {
         "Guitario",
         options,
         Box::new(move |cc| {
-            let mut app = GuitarioApp::new(session, startup_error).with_default_sounds();
+            // Preferences, recent files, autosave and crash recovery all live behind the store.
+            let (store, report) = GuitarioApp::open_settings();
+            let mut app = GuitarioApp::new(session, startup_error).with_default_sounds().with_settings(store, &report);
             app.setup(&cc.egui_ctx);
             Ok(Box::new(app))
         }),

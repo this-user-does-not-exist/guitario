@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G4: beam breaks and user-placed slurs; earlier G4: chord list under the title and Multivoice Editing; G6: transpose track; earlier G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G8: Preferences, light theme; G4: beam breaks and user-placed slurs; earlier G4: chord list under the title and Multivoice Editing; G6: transpose track; earlier G4/G8: page, screen and horizontal layouts and the multitrack view landed; earlier G4: beaming and sloped beams; earlier G4: fingering; earlier G4: fermatas; earlier G4: lyrics; earlier G4: chord diagrams; G7: chord diagram editor and namer; earlier G4: grace notes; earlier G4: tremolo picking and trills; G2: PDF export, printing, print preview and page setup landed; G3: `.gp` (Guitar Pro 7/8) export landed; earlier G4: ties, slurs and multiple voices; G1: drums' second voice) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by user impact on the way to
 alpha and beta. This is the work list agents pick from: take the highest-ranked entry that nobody
@@ -227,7 +227,11 @@ agent can't finish alone.
   track stacked in each system with its beats lined up in time across tracks, the bar's markers and
   directions over the top track, a system line joining the tracks, and clicks on any track moving
   the cursor there. Both are saved in the preferences. Printing and PDF stay one track at a time.
-- **Missing:** a keyboard instrument view, a Preferences dialog, light theme and UI scale, Bar and
+- **Landed 2026-10-17:** File › Preferences… (theme dark or light, interface scale 75–200 %, saved);
+  the real app now opens the persistent preferences store (it had been running on an in-memory one,
+  so nothing was saved and autosave and crash recovery were off).
+- **Missing:** a keyboard instrument view, more preferences (defaults for new scores, key
+  bindings), a polished light theme, Bar and
   Note tabs in the inspector, floating panels, several documents at once.
 - **Evidence:** [ui-parity](ui-parity.md); UI-3/5/8/9 in the scorecard.
 - **Estimate:** 100–170 h.
@@ -297,3 +301,4 @@ agent can't finish alone.
 | 2026-10-16 | minor | G4: ties, slurs and up to four voices landed (150–250 h to 90–160 h); G1: drums' second voice (40–80 h to 30–60 h) |
 | 2026-10-16 | minor | G3: `.gp` (Guitar Pro 7/8) export landed, unverified in Guitar Pro itself (60–110 h to 40–80 h) |
 | 2026-10-17 | minor | G4: per-beat beam breaks and user-placed slurs (8–28 h to 6–22 h) |
+| 2026-10-17 | minor | G8: Preferences dialog, light theme, UI scale; persistent preferences wired into the app (menus 150/173) |

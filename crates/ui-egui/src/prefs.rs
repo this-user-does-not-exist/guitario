@@ -13,7 +13,26 @@ pub struct Prefs {
     pub view: ViewPrefs,
     pub playback: PlaybackPrefs,
     pub files: FilePrefs,
+    pub ui: UiPrefs,
 }
+
+/// File › Preferences…: how the app looks.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
+#[serde(default)]
+pub struct UiPrefs {
+    pub theme: crate::theme::Theme,
+    /// Scale of every menu, panel and dialog (the score has its own zoom).
+    pub scale: f32,
+}
+
+impl Default for UiPrefs {
+    fn default() -> Self {
+        UiPrefs { theme: crate::theme::Theme::Dark, scale: 1.0 }
+    }
+}
+
+pub const MIN_UI_SCALE: f32 = 0.75;
+pub const MAX_UI_SCALE: f32 = 2.0;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(default)]
@@ -82,6 +101,7 @@ impl Prefs {
     pub fn sanitized(mut self) -> Prefs {
         let v = &mut self.view;
         v.zoom = if v.zoom.is_finite() { v.zoom.clamp(0.25, 4.0) } else { 1.25 };
+        self.ui.scale = if self.ui.scale.is_finite() { self.ui.scale.clamp(MIN_UI_SCALE, MAX_UI_SCALE) } else { 1.0 };
         let p = &mut self.playback;
         p.speed = if p.speed.is_finite() { p.speed.clamp(0.25, 2.0) } else { 1.0 };
         p.buffer = p.buffer.map(|b| b.clamp(32, 8192));
@@ -124,10 +144,15 @@ mod tests {
         let mut p = Prefs::default();
         p.view.zoom = f32::NAN;
         p.playback.speed = 99.0;
+        p.ui.scale = f32::INFINITY;
         p.files.recent = (0..50).map(|i| i.to_string()).collect();
         let p = p.sanitized();
         assert_eq!(p.view.zoom, 1.25);
         assert_eq!(p.playback.speed, 2.0);
+        assert_eq!(p.ui.scale, 1.0);
+        let mut big = Prefs::default();
+        big.ui.scale = 9.0;
+        assert_eq!(big.sanitized().ui.scale, MAX_UI_SCALE);
         assert_eq!(p.files.recent.len(), MAX_RECENT);
     }
 

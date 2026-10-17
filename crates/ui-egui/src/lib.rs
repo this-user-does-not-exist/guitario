@@ -27,6 +27,7 @@ mod palette;
 pub mod parity;
 mod pdf;
 mod perf;
+mod preferences;
 mod prefs;
 mod preview;
 mod print_dialog;
@@ -38,7 +39,9 @@ mod transpose_dialog;
 
 pub use layout::LayoutMode;
 pub use pdf::PdfRenderer;
+pub use prefs::UiPrefs;
 pub use spool::SystemSpooler;
+pub use theme::Theme;
 
 use guitario_engine::Session;
 use serde_json::{Value, json};
@@ -118,6 +121,9 @@ pub struct GuitarioApp {
     /// The sound card to play through (Sound › Audio Settings…).
     audio_settings: guitario_audio::AudioSettings,
     audio_dialog: audio_settings::AudioSettingsDialog,
+    /// How the interface looks (File › Preferences…).
+    ui: prefs::UiPrefs,
+    prefs_dialog: preferences::PreferencesDialog,
     /// Autosave and crash recovery; off until the persistent preferences are in use.
     autosave: autosave::Autosave,
 }
@@ -174,6 +180,8 @@ impl GuitarioApp {
             mix_automation: automation_dialog::MixAutomation::default(),
             audio_settings: guitario_audio::AudioSettings::default(),
             audio_dialog: audio_settings::AudioSettingsDialog::default(),
+            ui: prefs::UiPrefs::default(),
+            prefs_dialog: preferences::PreferencesDialog::default(),
         }
     }
 
@@ -199,6 +207,7 @@ impl GuitarioApp {
         let t = &mut self.transport;
         (t.metronome, t.count_in, t.looping, t.speed) = (p.playback.metronome, p.playback.count_in, p.playback.looping, p.playback.speed);
         self.audio_settings = guitario_audio::AudioSettings { device: p.playback.output.clone(), buffer: p.playback.buffer };
+        self.ui = p.ui;
         // Unsaved work is kept beside the preferences, and what a stopped run left is offered back.
         if let Some(dir) = self.settings.dir() {
             self.autosave = autosave::Autosave::at(dir.join("recovery"));
@@ -244,9 +253,11 @@ impl GuitarioApp {
             output: self.audio_settings.device.clone(),
             buffer: self.audio_settings.buffer,
         };
+        let ui = self.ui;
         self.settings.update(|p| {
             p.view = view;
             p.playback = playback;
+            p.ui = ui;
         });
         let tick = self.settings.tick(Instant::now());
         if let craft_settings::SaveStatus::Failed(err) = &tick.status {
@@ -389,6 +400,7 @@ impl GuitarioApp {
             U::VolumeAutomation => self.open_mix_automation(automation_dialog::MixKind::Volume),
             U::PanAutomation => self.open_mix_automation(automation_dialog::MixKind::Pan),
             U::AudioSettings => self.open_audio_settings(),
+            U::Preferences => self.open_preferences(),
             U::TogglePalette => self.panels.palette = !self.panels.palette,
             U::ToggleInspector => self.panels.inspector = !self.panels.inspector,
             U::ToggleGlobalView => self.panels.global = !self.panels.global,
@@ -515,7 +527,9 @@ impl GuitarioApp {
     /// Installs the theme and fonts. Call once before the first frame (the app does it from the
     /// eframe creation callback); `show` also does it lazily and skips that one frame.
     pub fn setup(&mut self, ctx: &egui::Context) {
+        theme::set_theme(self.ui.theme);
         theme::apply(ctx);
+        ctx.set_zoom_factor(self.ui.scale);
         self.fonts = fonts::install(ctx);
         self.fonts_ready = true;
     }
@@ -714,6 +728,7 @@ impl GuitarioApp {
             || !self.autosave.found.is_empty()
             || self.transpose.open
             || self.audio_dialog.open
+            || self.prefs_dialog.open
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
@@ -810,6 +825,7 @@ impl GuitarioApp {
         self.tempo_automation_dialog(&ctx);
         self.mix_automation_dialog(&ctx);
         self.audio_settings_dialog(&ctx);
+        self.preferences_dialog(&ctx);
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));

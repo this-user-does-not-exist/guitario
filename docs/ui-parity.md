@@ -1,6 +1,6 @@
 # UI parity
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (layouts and the multitrack view) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (Preferences, light theme, UI scale; layouts and the multitrack view) · **Target:** Guitar Pro 8
 
 Guitar Pro 8's workspace, element by element. Part of [target-app parity](target-app-parity.md);
 gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
@@ -18,8 +18,8 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Instrument views | fretboard, keyboard, drum pad | fretboard (click to enter notes) and drum pad (click to toggle hits) | partial |
 | Mixer | per-track volume, pan, effects; master | volume/pan/mute/solo in inspector and global view | partial |
 | Tools | tuner, chord engine, scales, line in | chord diagram editor and namer | partial |
-| Preferences | dialog | persisted view and transport settings, no dialog | partial |
-| Themes | light and dark | dark | partial |
+| Preferences | dialog | File › Preferences… (theme, interface scale) over persisted view, transport and audio settings | partial |
+| Themes | light and dark | dark and light (File › Preferences…); the light one has had one pass | partial |
 | Keyboard | Guitar Pro shortcuts | digits, arrows, + − . / R L X G A I P H V S B, ⌘ shortcuts | partial |
 | Unsaved changes | prompt on close, New and Open | prompt (craft-quit on macOS) | done |
 | Languages | about a dozen | English | missing |
@@ -30,3 +30,4 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 |---|---|---|
 | 2026-10-15 | major | First list |
 | 2026-10-16 | minor | Score view done (page, screen, horizontal, multitrack); engraving and tools updated |
+| 2026-10-17 | minor | Preferences dialog, light theme and interface scale |
