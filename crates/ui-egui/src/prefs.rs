@@ -22,6 +22,8 @@ pub struct ViewPrefs {
     pub notation: bool,
     pub layout: crate::layout::LayoutMode,
     pub multitrack: bool,
+    /// Edit › Multivoice Editing.
+    pub multivoice: bool,
     pub palette: bool,
     pub inspector: bool,
     pub global_view: bool,
@@ -35,6 +37,7 @@ impl Default for ViewPrefs {
             notation: true,
             layout: crate::layout::LayoutMode::Page,
             multitrack: false,
+            multivoice: false,
             palette: true,
             inspector: true,
             global_view: true,

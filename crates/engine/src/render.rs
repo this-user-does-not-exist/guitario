@@ -14,6 +14,8 @@ pub struct PdfRequest {
     pub tracks: Vec<usize>,
     /// Standard notation above the tab (Guitar Pro's default), or tab alone.
     pub notation: bool,
+    /// A full score: the tracks stacked in every system, instead of one after another.
+    pub together: bool,
 }
 
 /// A finished document.
@@ -47,7 +49,8 @@ pub fn specs() -> Vec<CommandSpec> {
         "Export PDF…",
         "File/Export",
         None,
-        "path, tracks? (indexes, default every track), notation? (default true: notation over tab; false for tab only)",
+        "path, tracks? (indexes, default every track), notation? (default true: notation over tab; false for tab only), \
+         together? (default false: each track on its own pages; true stacks them in every system as a full score)",
         false,
         export_pdf,
     )]
@@ -73,12 +76,17 @@ pub(crate) fn tracks_param(score: &Score, params: &Value) -> Result<Vec<usize>, 
     if out.is_empty() { Err(EngineError::BadParam("`tracks` is empty".into())) } else { Ok(out) }
 }
 
+/// An optional true/false param, `default` when it is absent or null.
+pub(crate) fn flag(params: &Value, key: &str, default: bool) -> Result<bool, EngineError> {
+    match params.get(key).filter(|v| !v.is_null()) {
+        None => Ok(default),
+        Some(v) => v.as_bool().ok_or_else(|| EngineError::BadParam(format!("`{key}` must be true or false"))),
+    }
+}
+
 fn export_pdf(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let path = p::string(params, "path")?;
-    let request = PdfRequest {
-        tracks: tracks_param(&s.score, params)?,
-        notation: params.get("notation").map_or(Ok(true), |v| v.as_bool().ok_or_else(|| EngineError::BadParam("`notation` must be true or false".into())))?,
-    };
+    let request = PdfRequest { tracks: tracks_param(&s.score, params)?, notation: flag(params, "notation", true)?, together: flag(params, "together", false)? };
     let renderer = s.renderer.clone().ok_or_else(|| EngineError::invalid("this build has no page renderer, so it cannot make PDFs"))?;
     let doc = renderer.render_pdf(&s.score, &request).map_err(EngineError::invalid)?;
     std::fs::write(path, &doc.bytes)?;
@@ -97,7 +105,7 @@ mod tests {
                 return Err("bad track".into());
             }
             Ok(PdfDocument {
-                bytes: format!("%PDF fake tracks={:?} notation={}", request.tracks, request.notation).into_bytes(),
+                bytes: format!("%PDF fake tracks={:?} notation={} together={}", request.tracks, request.notation, request.together).into_bytes(),
                 pages: request.tracks.len(),
                 warnings: vec!["w".into()],
             })
@@ -124,10 +132,12 @@ mod tests {
         let path = tmp("ok.pdf");
         let r = s.run("file.exportPdf", &json!({"path": path})).unwrap();
         assert_eq!((r["pages"].clone(), r["warnings"][0].clone()), (json!(2), json!("w")));
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "%PDF fake tracks=[0, 1] notation=true");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "%PDF fake tracks=[0, 1] notation=true together=false");
         let r = s.run("file.exportPdf", &json!({"path": path, "tracks": [1], "notation": false})).unwrap();
         assert_eq!(r["pages"], 1);
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "%PDF fake tracks=[1] notation=false");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "%PDF fake tracks=[1] notation=false together=false");
+        s.run("file.exportPdf", &json!({"path": path, "together": true})).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "%PDF fake tracks=[0, 1] notation=true together=true");
         std::fs::remove_file(path).ok();
     }
 
@@ -144,6 +154,7 @@ mod tests {
             json!({"path": path, "tracks": "all"}),
             json!({"path": path, "tracks": [1.5]}),
             json!({"path": path, "notation": "yes"}),
+            json!({"path": path, "together": 1}),
             json!({}),
             json!({"path": 3}),
         ] {

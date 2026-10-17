@@ -4,7 +4,7 @@
 //! needs, so a UI can run it on a worker thread while the editor stays responsive.
 
 use crate::commands::{CommandSpec, cmd};
-use crate::render::tracks_param;
+use crate::render::{flag, tracks_param};
 use crate::{EngineError, PageRenderer, PdfRequest, Session, params as p};
 use guitario_score::Score;
 use serde_json::{Value, json};
@@ -95,13 +95,8 @@ impl Session {
     pub fn prepare_print(&self, params: &Value) -> Result<PrintTask, EngineError> {
         let renderer = self.renderer.clone().ok_or_else(|| EngineError::invalid("this build has no page renderer, so it cannot print"))?;
         let spooler = self.spooler.clone().ok_or_else(|| EngineError::invalid("this build cannot reach a printer; export a PDF instead"))?;
-        let request = PdfRequest {
-            tracks: tracks_param(&self.score, params)?,
-            notation: match params.get("notation") {
-                None | Some(Value::Null) => true,
-                Some(v) => v.as_bool().ok_or_else(|| EngineError::BadParam("`notation` must be true or false".into()))?,
-            },
-        };
+        let request =
+            PdfRequest { tracks: tracks_param(&self.score, params)?, notation: flag(params, "notation", true)?, together: flag(params, "together", false)? };
         let printer = match p::opt_string(params, "printer") {
             None => None,
             Some(name) if name.is_empty() || name.chars().count() > 256 || name.chars().any(char::is_control) => {
@@ -153,7 +148,7 @@ pub fn specs() -> Vec<CommandSpec> {
             None,
             "printer? (name from file.printers; default the system default), copies? (1..=999), collate? (default true), \
              duplex? (\"default\", \"off\", \"long\", \"short\"), grayscale? (default false), tracks? (indexes, default every track), \
-             notation? (default true)",
+             notation? (default true), together? (default false; true stacks the tracks in every system as a full score)",
             false,
             print,
         ),
@@ -271,6 +266,7 @@ mod tests {
             json!({"tracks": [3]}),
             json!({"tracks": []}),
             json!({"notation": 0}),
+            json!({"together": "yes"}),
         ] {
             assert!(s.run("file.print", &bad).is_err(), "{bad}");
         }

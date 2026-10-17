@@ -13,7 +13,8 @@ const USAGE: &str = "guitario-cli <command>
                                  .gt or Guitar Pro in; .gt, .gp, .gp5, .pdf, .mid, .wav or .txt (ASCII
                                  tab) out. For .wav, --sounds renders drums, bass and guitars from the
                                  SFZ bank in <dir>. For .pdf, --tracks picks tracks by index (default
-                                 every track) and --tab-only leaves out the standard notation
+                                 every track), --tab-only leaves out the standard notation and
+                                 --score stacks the tracks in every system as a full score
   run <file|-> <script.json>     run [[\"command.id\", {params}], ...] on a score; `-` starts a new one;
                                  prints each result as JSON. Add --save <path> to write the result.
 ";
@@ -85,6 +86,9 @@ fn real_main(args: &[String]) -> Result<(), String> {
                 }
                 if args.iter().any(|x| x == "--tab-only") {
                     params.insert("notation".into(), json!(false));
+                }
+                if args.iter().any(|x| x == "--score") {
+                    params.insert("together".into(), json!(true));
                 }
             }
             let params = Value::Object(params);

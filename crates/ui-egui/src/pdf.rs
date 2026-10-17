@@ -56,7 +56,7 @@ impl From<WriteError> for ExportError {
 }
 
 fn export(score: &Score, request: &PdfRequest) -> Result<PdfDocument, ExportError> {
-    let pages = PrintSet::new(score, &request.tracks, request.notation).map_err(ExportError)?;
+    let pages = PrintSet::new(score, &request.tracks, request.notation, request.together).map_err(ExportError)?;
     let total = pages.pages();
     if total > MAX_PAGES {
         return Err(ExportError(format!("the score would take {total} pages; print fewer tracks (the limit is {MAX_PAGES} pages)")));
@@ -82,7 +82,7 @@ fn export(score: &Score, request: &PdfRequest) -> Result<PdfDocument, ExportErro
     let mut bank = FontBank::new(defs);
     let mut warnings = BTreeSet::new();
     for n in 0..total {
-        let Some((_, layout, _)) = pages.page(n) else { continue };
+        let Some((layout, _)) = pages.page(n) else { continue };
         let m = layout.metrics;
         let raw = RawInput { screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(m.page_w, m.page_h))), ..RawInput::default() };
         ctx.begin_pass(raw);
@@ -351,7 +351,7 @@ mod tests {
     use std::path::Path;
 
     fn render(score: &Score, tracks: Vec<usize>, notation: bool) -> Result<PdfDocument, String> {
-        PdfRenderer.render_pdf(score, &PdfRequest { tracks, notation })
+        PdfRenderer.render_pdf(score, &PdfRequest { tracks, notation, together: false })
     }
 
     /// A short two-track score typed in through commands.
@@ -423,6 +423,22 @@ mod tests {
         let swapped = render(s.score(), vec![1, 0], true).unwrap();
         assert_eq!(swapped.pages, both.pages);
         assert_ne!(swapped.bytes, both.bytes);
+    }
+
+    #[test]
+    fn a_full_score_stacks_the_tracks_in_every_system() {
+        let s = two_tracks();
+        let together = |tracks: Vec<usize>| PdfRenderer.render_pdf(s.score(), &PdfRequest { tracks, notation: true, together: true }).unwrap();
+        let parts = render(s.score(), vec![0, 1], true).unwrap();
+        let score = together(vec![0, 1]);
+        // One short page holds both staves, where the parts take a page each.
+        assert_eq!((score.pages, parts.pages), (1, 2));
+        assert_eq!(pages_of(&score.bytes).len(), 1);
+        assert!(score.warnings.is_empty(), "{:?}", score.warnings);
+        // The order is the request's, and one track alone is the same as its part.
+        assert_ne!(together(vec![1, 0]).bytes, score.bytes);
+        assert_eq!(together(vec![0]).bytes, render(s.score(), vec![0], true).unwrap().bytes);
+        assert!(PdfRenderer.render_pdf(s.score(), &PdfRequest { tracks: vec![0, 9], notation: true, together: true }).is_err());
     }
 
     #[test]

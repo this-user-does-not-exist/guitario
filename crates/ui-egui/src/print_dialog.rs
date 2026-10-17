@@ -24,6 +24,8 @@ pub(crate) struct PrintDialog {
     duplex: DuplexMode,
     grayscale: bool,
     all_tracks: bool,
+    /// All tracks stacked in every system, as a full score.
+    together: bool,
     notation: bool,
     sending: Option<Receiver<Result<PrintReceipt, String>>>,
     error: Option<String>,
@@ -41,6 +43,7 @@ impl Default for PrintDialog {
             duplex: DuplexMode::Default,
             grayscale: false,
             all_tracks: false,
+            together: false,
             notation: true,
             sending: None,
             error: None,
@@ -66,6 +69,7 @@ impl PrintDialog {
             "grayscale": self.grayscale,
             "tracks": tracks,
             "notation": self.notation,
+            "together": self.all_tracks && self.together,
         })
     }
 
@@ -98,14 +102,16 @@ impl GuitarioApp {
     /// File › Print…: opens the dialog and starts looking for printers.
     pub fn open_print(&mut self) {
         let notation = self.view.notation;
-        self.open_print_with(false, notation);
+        let score = self.view.multitrack;
+        self.open_print_with(score, score, notation);
     }
 
     /// The dialog with the track choice and notation setting already made (the preview's).
-    pub(crate) fn open_print_with(&mut self, all_tracks: bool, notation: bool) {
+    pub(crate) fn open_print_with(&mut self, all_tracks: bool, together: bool, notation: bool) {
         let spooler = self.session.spooler().cloned();
         self.print.start(notation, spooler);
         self.print.all_tracks = all_tracks && self.session.score().tracks.len() > 1;
+        self.print.together = together && self.print.all_tracks;
     }
 
     /// Hands the chosen job to a worker thread.
@@ -227,6 +233,7 @@ impl GuitarioApp {
                     ui.vertical(|ui| {
                         ui.radio_value(&mut d.all_tracks, false, format!("This track ({current})"));
                         ui.add_enabled_ui(tracks > 1, |ui| ui.radio_value(&mut d.all_tracks, true, format!("All tracks ({tracks})")));
+                        ui.add_enabled(d.all_tracks, egui::Checkbox::new(&mut d.together, "As a full score (tracks stacked in each system)"));
                     });
                 });
                 ui.end_row();
@@ -328,12 +335,15 @@ mod tests {
             PrintDialog { printer: Some("Office".into()), copies: 3, collate: false, duplex: DuplexMode::ShortEdge, grayscale: true, ..PrintDialog::default() };
         assert_eq!(
             d.params(1),
-            json!({"printer": "Office", "copies": 3, "collate": false, "duplex": "short", "grayscale": true, "tracks": [1], "notation": true})
+            json!({"printer": "Office", "copies": 3, "collate": false, "duplex": "short", "grayscale": true, "tracks": [1], "notation": true, "together": false})
         );
+        // A full score only with all tracks.
+        d.together = true;
+        assert_eq!(d.params(1)["together"], false);
         d.all_tracks = true;
         d.printer = None;
         let p = d.params(1);
-        assert_eq!((p["tracks"].clone(), p["printer"].clone()), (Value::Null, Value::Null));
+        assert_eq!((p["tracks"].clone(), p["printer"].clone(), p["together"].clone()), (Value::Null, Value::Null, json!(true)));
     }
 
     #[test]

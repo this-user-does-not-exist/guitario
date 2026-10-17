@@ -53,6 +53,8 @@ pub struct ViewState {
     pub layout: layout::LayoutMode,
     /// View › Multitrack: every track in each system.
     pub multitrack: bool,
+    /// Edit › Multivoice Editing: voices in colour, and a click picks a note of any voice.
+    pub multivoice: bool,
 }
 
 /// Transport state. The player itself lives in the audio slot; this mirrors what the UI shows.
@@ -124,7 +126,7 @@ impl GuitarioApp {
             fonts: fonts::FontSet::default(),
             fonts_ready: false,
             panels: Panels { palette: true, inspector: true, global: true, fretboard: true },
-            view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false },
+            view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false, multivoice: false },
             inspector_tab: inspector::Tab::Song,
             edit_buffers: HashMap::new(),
             transport: Transport { playing: false, metronome: false, count_in: false, looping: false, speed: 1.0, position: 0.0, beat: None },
@@ -162,7 +164,8 @@ impl GuitarioApp {
     pub fn with_settings(mut self, store: prefs::Store, report: &craft_settings::LoadReport) -> Self {
         self.settings = store;
         let p = self.settings.get().clone().sanitized();
-        self.view = ViewState { zoom: p.view.zoom, notation: p.view.notation, layout: p.view.layout, multitrack: p.view.multitrack };
+        self.view =
+            ViewState { zoom: p.view.zoom, notation: p.view.notation, layout: p.view.layout, multitrack: p.view.multitrack, multivoice: p.view.multivoice };
         self.panels = Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard };
         let t = &mut self.transport;
         (t.metronome, t.count_in, t.looping, t.speed) = (p.playback.metronome, p.playback.count_in, p.playback.looping, p.playback.speed);
@@ -186,6 +189,7 @@ impl GuitarioApp {
             notation: v.notation,
             layout: v.layout,
             multitrack: v.multitrack,
+            multivoice: v.multivoice,
             palette: pn.palette,
             inspector: pn.inspector,
             global_view: pn.global,
@@ -328,6 +332,7 @@ impl GuitarioApp {
                 self.view.multitrack = !self.view.multitrack;
                 self.follow_cursor = true;
             }
+            U::ToggleMultivoice => self.view.multivoice = !self.view.multivoice,
             U::Transpose => self.open_transpose(transpose_dialog::Scope::Selection),
             U::TransposeTrack => self.open_transpose(transpose_dialog::Scope::Track),
             U::TogglePalette => self.panels.palette = !self.panels.palette,
@@ -361,12 +366,14 @@ impl GuitarioApp {
         }
     }
 
-    /// Exports the track on screen as PDF, with the notation setting the page view has.
+    /// Exports what the page view shows as PDF: the track on screen, or in the multitrack view
+    /// every track as a full score; with the page view's notation setting.
     fn export_pdf_dialog(&mut self) {
         let stem = self.session.path().and_then(|p| p.file_stem()).map_or_else(|| "score".to_string(), |s| s.to_string_lossy().into_owned());
         if let Some(p) = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_file_name(format!("{stem}.pdf")).save_file() {
-            let tracks = [self.session.cursor().track];
-            self.run("file.exportPdf", json!({"path": p.display().to_string(), "tracks": tracks, "notation": self.view.notation}));
+            let together = self.view.multitrack;
+            let tracks = if together { Value::Null } else { json!([self.session.cursor().track]) };
+            self.run("file.exportPdf", json!({"path": p.display().to_string(), "tracks": tracks, "notation": self.view.notation, "together": together}));
         }
     }
 
@@ -792,6 +799,7 @@ impl GuitarioApp {
                 selection,
                 layout: self.view.layout,
                 multitrack: self.view.multitrack,
+                multivoice: self.view.multivoice,
             };
             let score = self.session.score().clone();
             let cursor = self.session.cursor();
@@ -806,14 +814,15 @@ impl GuitarioApp {
                 out
             });
             self.follow_cursor = false;
-            if let Some(page::Click::Beat { track, measure, beat, string, shift }) = out.inner.click {
+            if let Some(page::Click::Beat { track, measure, beat, string, voice, shift }) = out.inner.click {
                 if shift && track == self.session.cursor().track {
                     // Shift+click extends from the selection's anchor (or the cursor).
                     let c = self.session.cursor();
                     let anchor = self.session.selection().map_or((c.measure, c.beat), |s| s.anchor);
                     self.run("select.set", json!({"fromMeasure": anchor.0, "fromBeat": anchor.1, "toMeasure": measure, "toBeat": beat}));
                 } else {
-                    self.run("cursor.set", json!({"track": track, "measure": measure, "beat": beat, "string": string}));
+                    // A null voice keeps the cursor's.
+                    self.run("cursor.set", json!({"track": track, "measure": measure, "beat": beat, "string": string, "voice": voice}));
                 }
                 self.follow_cursor = false;
             }
