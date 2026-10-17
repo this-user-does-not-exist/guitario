@@ -463,6 +463,49 @@ pub struct Track {
     /// The notations the track shows.
     #[serde(default)]
     pub notation: Notations,
+    /// How playback interprets the track (Guitar Pro's Interpretation section).
+    #[serde(default)]
+    pub interpretation: Interpretation,
+}
+
+/// How the track is played: Guitar Pro's playing styles.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PlayingStyle {
+    /// The instrument's own (a pick for a guitar).
+    #[default]
+    Default,
+    Pick,
+    Fingers,
+    /// Fingerpicking.
+    Picking,
+    BassSlap,
+}
+
+/// Guitar Pro's track interpretation: the playing style, how hard palm mutes damp, how much the
+/// strong beats are stressed, and whether every note rings, chords are strummed and the strings
+/// are kept apart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Interpretation {
+    pub style: PlayingStyle,
+    /// 0..=100: 0 is a light mute, 100 a dead thud.
+    pub palm_mute: u8,
+    /// 0..=100: how much louder the first beat of a bar, and the other beats, are played.
+    pub accentuation: u8,
+    /// Every note rings until a rest (or its string is played again).
+    pub auto_let_ring: bool,
+    /// Chords are strummed slightly, low string first (high first after an upstroke).
+    pub auto_brush: bool,
+    /// A stringed instrument: a new note on a string stops the one ringing there. Off, notes ring
+    /// on as on a piano.
+    pub stringed: bool,
+}
+
+impl Default for Interpretation {
+    fn default() -> Self {
+        Interpretation { style: PlayingStyle::Default, palm_mute: 0, accentuation: 0, auto_let_ring: false, auto_brush: false, stringed: true }
+    }
 }
 
 /// The notations a track shows, any together, as Guitar Pro's notation buttons choose them.
@@ -548,6 +591,7 @@ impl Track {
             short_name: String::new(),
             color: None,
             notation: Notations::default(),
+            interpretation: Interpretation::default(),
         }
     }
 

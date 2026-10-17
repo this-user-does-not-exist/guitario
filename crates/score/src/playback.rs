@@ -1,4 +1,8 @@
 use crate::{Fade, NoteKind, Score};
+use guitario_theory::TICKS_PER_QUARTER;
+
+/// How long an automatic brush takes across a chord: a 64th note, about 30 ms at 120 bpm.
+const AUTO_BRUSH: u32 = TICKS_PER_QUARTER / 16;
 
 /// The order measures are played in, following repeats, alternate endings and directions.
 ///
@@ -161,13 +165,21 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
         let mut clock: u64 = 0;
         // The attack a tied note extends, per voice and string.
         let mut open_tie: Vec<Vec<Option<usize>>> = Vec::new();
+        let feel_of = track.interpretation;
+        // Automatic let ring: the notes of each voice still ringing, until a rest stops them.
+        let mut ringing: Vec<Vec<usize>> = Vec::new();
         for &mi in &order {
             let Some(measure) = track.measures.get(mi) else { continue };
             let capacity = score.headers.get(mi).map_or(0, |h| h.capacity());
             let feel = score.headers.get(mi).map_or(crate::TripletFeel::None, |h| h.triplet_feel);
+            // The beat the accentuation stresses: a quarter in 4/4, an eighth in 6/8.
+            let unit = score.headers.get(mi).map_or(TICKS_PER_QUARTER, |h| TICKS_PER_QUARTER * 4 / u32::from(h.time_signature.denominator.max(1)));
             for (vi, voice) in measure.voices.iter().enumerate() {
                 if open_tie.len() <= vi {
                     open_tie.resize_with(vi + 1, || vec![None; track.string_count()]);
+                }
+                if ringing.len() <= vi {
+                    ringing.resize_with(vi + 1, Vec::new);
                 }
                 let Some(ties) = open_tie.get_mut(vi) else { continue };
                 let mut at = clock;
@@ -176,6 +188,16 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                     // Swung start and end of this beat.
                     let (s0, s1) = (clock + feel.warp(at - clock), clock + feel.warp(at - clock + u64::from(ticks)));
                     let ticks_swung = u32::try_from(s1.saturating_sub(s0)).unwrap_or(ticks).max(1);
+                    // A rest stops what the automatic let ring holds.
+                    if beat.rest
+                        && let Some(held) = ringing.get_mut(vi)
+                    {
+                        for idx in held.drain(..) {
+                            if let Some(n) = out.get_mut(idx) {
+                                n.ticks = n.ticks.max(u32::try_from(s0.saturating_sub(n.start_tick)).unwrap_or(u32::MAX));
+                            }
+                        }
+                    }
                     if !beat.rest {
                         // Strings in strum order: a downstroke starts on the lowest string.
                         let count = beat.notes.len();
@@ -204,7 +226,23 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                             if beat.technique.is_some() {
                                 velocity = velocity.saturating_add(10).min(127);
                             }
-                            let offset = match beat.brush {
+                            // Accentuation stresses the bar's first beat, and less the others.
+                            let pos = at - clock;
+                            let stress = if pos == 0 {
+                                25
+                            } else if unit > 0 && pos.is_multiple_of(u64::from(unit)) {
+                                12
+                            } else {
+                                0
+                            };
+                            velocity = velocity.saturating_add(u8::try_from(u32::from(feel_of.accentuation) * stress / 100).unwrap_or(0)).min(127);
+                            // An automatic brush strums a chord quickly, low string first unless it is an upstroke.
+                            let auto = (feel_of.auto_brush && beat.brush.is_none()).then(|| crate::Brush {
+                                kind: crate::BrushKind::Brush,
+                                down: beat.stroke != Some(crate::StrokeDirection::Up),
+                                ticks: AUTO_BRUSH,
+                            });
+                            let offset = match beat.brush.or(auto) {
                                 Some(b) if count > 1 => {
                                     let rank = beat.notes.iter().filter(|o| if b.down { o.string > note.string } else { o.string < note.string }).count();
                                     let span = u64::from(b.ticks.min(ticks_swung.saturating_sub(1)));
@@ -279,6 +317,14 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                 {
                                     *slot = Some(out.len());
                                 }
+                                if k + 1 == picks
+                                    && feel_of.auto_let_ring
+                                    && !dead
+                                    && !note.effects.palm_mute
+                                    && let Some(held) = ringing.get_mut(vi)
+                                {
+                                    held.push(out.len());
+                                }
                                 out.push(PlayedBeat {
                                     track: ti,
                                     measure: mi,
@@ -298,6 +344,12 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                 }
             }
             clock += u64::from(capacity);
+        }
+        // What the automatic let ring still holds rings to the end of the track.
+        for idx in ringing.into_iter().flatten() {
+            if let Some(n) = out.get_mut(idx) {
+                n.ticks = n.ticks.max(u32::try_from(clock.saturating_sub(n.start_tick)).unwrap_or(u32::MAX));
+            }
         }
     }
     out.sort_by_key(|p| (p.start_tick, p.track, p.string));
@@ -480,6 +532,67 @@ mod tests {
         assert_eq!(t.len(), 1);
         assert_eq!(t[0].ticks, 2 * guitario_theory::TICKS_PER_QUARTER);
         assert_eq!(t[0].pitch.map(|p| p.0), Some(69));
+    }
+
+    /// Quarter notes on the top string: `frets`, `None` for a rest.
+    fn quarters(s: &mut Score, frets: &[Option<u8>]) {
+        use crate::{Beat, Note};
+        use guitario_theory::Duration;
+        let q = Duration::QUARTER;
+        s.tracks[0].measures[0].voices[0].beats =
+            frets.iter().map(|f| f.map_or_else(|| Beat::rest(q), |f| Beat { rest: false, notes: vec![Note::new(0, f)], ..Beat::rest(q) })).collect();
+    }
+
+    #[test]
+    fn accentuation_stresses_the_downbeat_most_and_the_other_beats_less() {
+        let mut s = score_with(1);
+        quarters(&mut s, &[Some(1), Some(2), Some(3), Some(4)]);
+        let plain: Vec<u8> = timeline(&s).iter().map(|p| p.velocity).collect();
+        s.tracks[0].interpretation.accentuation = 100;
+        let stressed: Vec<u8> = timeline(&s).iter().map(|p| p.velocity).collect();
+        assert_eq!(stressed[0], plain[0] + 25);
+        assert_eq!(stressed[1], plain[1] + 12);
+        // An off-beat eighth is not stressed.
+        let mut e = score_with(1);
+        eighths(&mut e);
+        e.tracks[0].interpretation.accentuation = 100;
+        let v: Vec<u8> = timeline(&e).iter().map(|p| p.velocity).collect();
+        assert!(v[0] > v[2] && v[2] > v[1], "{v:?}");
+    }
+
+    #[test]
+    fn an_automatic_brush_strums_chords_low_string_first_and_leaves_single_notes() {
+        use crate::{Beat, Note, StrokeDirection};
+        use guitario_theory::Duration;
+        let mut s = score_with(1);
+        let chord = Beat { rest: false, notes: vec![Note::new(0, 0), Note::new(1, 0), Note::new(2, 0)], ..Beat::rest(Duration::WHOLE) };
+        s.tracks[0].measures[0].voices[0].beats = vec![chord.clone()];
+        assert!(timeline(&s).iter().all(|p| p.start_tick == 0));
+        s.tracks[0].interpretation.auto_brush = true;
+        let start = |t: &[PlayedBeat], string: u8| t.iter().find(|p| p.string == string).map(|p| p.start_tick);
+        let t = timeline(&s);
+        assert_eq!(start(&t, 2), Some(0), "the lowest string first");
+        assert!(start(&t, 0) > start(&t, 1) && start(&t, 0) <= Some(u64::from(AUTO_BRUSH)));
+        // After an upstroke the high string leads.
+        s.tracks[0].measures[0].voices[0].beats = vec![Beat { stroke: Some(StrokeDirection::Up), ..chord }];
+        assert_eq!(start(&timeline(&s), 0), Some(0));
+        // One note is not strummed.
+        quarters(&mut s, &[Some(5), None, None, None]);
+        assert_eq!(timeline(&s)[0].start_tick, 0);
+    }
+
+    #[test]
+    fn automatic_let_ring_holds_notes_until_a_rest_or_the_end() {
+        let q = TICKS_PER_QUARTER;
+        let mut s = score_with(1);
+        quarters(&mut s, &[Some(1), Some(2), None, Some(3)]);
+        s.tracks[0].interpretation.auto_let_ring = true;
+        let t = timeline(&s);
+        // The first two ring up to the rest, the last to the end of the bar.
+        assert_eq!(t.iter().map(|p| (p.start_tick, p.ticks)).collect::<Vec<_>>(), vec![(0, 2 * q), (u64::from(q), q), (3 * u64::from(q), q)]);
+        // Palm-muted notes stay short.
+        s.tracks[0].measures[0].voices[0].beats[0].notes[0].effects.palm_mute = true;
+        assert_eq!(timeline(&s)[0].ticks, q);
     }
 
     fn eighths(s: &mut Score) {

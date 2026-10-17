@@ -444,6 +444,95 @@ fn notation(ui: &mut egui::Ui, tr: &guitario_score::Track, ti: usize, actions: &
     });
 }
 
+/// Guitar Pro's slider for 0 to 100: a thin dark track, the travelled part in the accent colour,
+/// a white knob. Click or drag to set it.
+fn slider(ui: &mut egui::Ui, value: &mut f32) -> egui::Response {
+    let t = tokens();
+    let w = ui.available_width().max(60.0);
+    let (r, mut resp) = ui.allocate_exact_size(egui::vec2(w, 22.0), egui::Sense::click_and_drag());
+    let (x0, x1) = (r.left() + 8.0, r.right() - 8.0);
+    if (resp.dragged() || resp.clicked())
+        && let Some(pos) = resp.interact_pointer_pos()
+    {
+        let v = ((pos.x - x0) / (x1 - x0).max(1.0)).clamp(0.0, 1.0) * 100.0;
+        if (v - *value).abs() > f32::EPSILON {
+            *value = v;
+            resp.mark_changed();
+        }
+    }
+    let p = ui.painter();
+    let y = r.center().y;
+    let knob = x0 + (x1 - x0) * (*value / 100.0).clamp(0.0, 1.0);
+    p.rect_filled(egui::Rect::from_min_max(egui::pos2(x0, y - 2.0), egui::pos2(x1, y + 2.0)), 2.0, t.lcd_bg);
+    p.rect_filled(egui::Rect::from_min_max(egui::pos2(x0, y - 2.0), egui::pos2(knob, y + 2.0)), 2.0, t.accent);
+    p.circle_filled(egui::pos2(knob, y), 8.0, Color32::WHITE);
+    resp
+}
+
+/// Guitar Pro's on/off switch with its word beside it. Returns true when clicked.
+fn switch(ui: &mut egui::Ui, on: bool) -> bool {
+    let t = tokens();
+    let (r, resp) = ui.allocate_exact_size(egui::vec2(40.0, 22.0), egui::Sense::click());
+    let p = ui.painter();
+    p.rect_filled(r, 11.0, if on { t.accent } else { t.control });
+    let knob = if on { r.right() - 11.0 } else { r.left() + 11.0 };
+    p.circle_filled(egui::pos2(knob, r.center().y), 7.0, Color32::WHITE);
+    ui.label(if on { "On" } else { "Off" });
+    resp.clicked()
+}
+
+/// Guitar Pro's Interpretation section: playing style, palm mute and accentuation, then automatic
+/// let ring, automatic brush and stringed instrument.
+fn interpretation(ui: &mut egui::Ui, tr: &guitario_score::Track, ti: usize, actions: &mut Vec<(&'static str, Value)>) {
+    use guitario_score::PlayingStyle as P;
+    let i = tr.interpretation;
+    let label = |ui: &mut egui::Ui, text: &str| {
+        ui.allocate_ui_with_layout(egui::vec2(104.0, 22.0), egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label(text));
+    };
+    let styles = [(P::Pick, "pick", "Pick"), (P::Fingers, "fingers", "Fingers"), (P::Picking, "picking", "Picking"), (P::BassSlap, "bassSlap", "Bass Slap")];
+    ui.horizontal(|ui| {
+        label(ui, "Playing style:");
+        // The instrument's own style is a pick.
+        let shown = styles.iter().find(|s| s.0 == i.style).map_or("Pick", |s| s.2);
+        egui::ComboBox::from_id_salt("playing-style").width(110.0).selected_text(shown).show_ui(ui, |ui| {
+            for (style, id, name) in styles {
+                if ui.selectable_label(i.style == style || (i.style == P::Default && style == P::Pick), name).clicked() {
+                    actions.push(("track.setInterpretation", json!({"track": ti, "style": id})));
+                }
+            }
+        });
+    });
+    for (name, key, value) in [("Palm mute:", "palmMute", i.palm_mute), ("Accentuation:", "accentuation", i.accentuation)] {
+        ui.horizontal(|ui| {
+            label(ui, name);
+            // Dragging shows the value live; letting go makes one undo step.
+            let id = ui.id().with(("interpretation", key, ti));
+            let mut v: f32 = ui.data(|d| d.get_temp(id)).unwrap_or(f32::from(value));
+            let resp = slider(ui, &mut v).on_hover_text(format!("{}%", v.round()));
+            if resp.dragged() || resp.changed() {
+                ui.data_mut(|d| d.insert_temp(id, v));
+            }
+            if resp.drag_stopped() || (resp.changed() && !resp.dragged()) {
+                ui.data_mut(|d| d.remove::<f32>(id));
+                let n = v.round().clamp(0.0, 100.0) as u8;
+                if n != value {
+                    actions.push(("track.setInterpretation", json!({"track": ti, key: n})));
+                }
+            }
+        });
+    }
+    for (name, key, on) in
+        [("Auto let ring:", "autoLetRing", i.auto_let_ring), ("Auto brush:", "autoBrush", i.auto_brush), ("Stringed:", "stringed", i.stringed)]
+    {
+        ui.horizontal(|ui| {
+            label(ui, name);
+            if switch(ui, on) {
+                actions.push(("track.setInterpretation", json!({"track": ti, key: !on})));
+            }
+        });
+    }
+}
+
 fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static str, Value)>) {
     let score = app.session.score().clone();
     let c = app.session.cursor();
@@ -479,4 +568,7 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
             }
         });
     });
+    if !tr.is_drums() {
+        section(ui, "Interpretation", |ui| interpretation(ui, tr, c.track, actions));
+    }
 }
