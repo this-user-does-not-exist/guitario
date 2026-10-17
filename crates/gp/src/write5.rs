@@ -446,7 +446,8 @@ impl Writer {
         self.out.extend([r, g, b, 0]);
         // Display flags, auto-accentuation, MIDI bank, RSE humanize and reserved fields, the RSE
         // instrument (none) and its equalizer: the values Guitar Pro writes for a new track.
-        self.i16(0x0143);
+        // Bit 1 shows the tablature, bit 2 the standard notation.
+        self.i16(0x0140 | i16::from(t.notation.tab) | i16::from(t.notation.standard) << 1);
         self.fill(0, 3);
         self.i32(0);
         self.i32(0);

@@ -52,7 +52,9 @@ pub enum UiAction {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    /// The current track's standard notation, and its tablature.
     ToggleNotation,
+    ToggleTablature,
     Layout(crate::layout::LayoutMode),
     ToggleMultitrack,
     ToggleMultivoice,
@@ -282,7 +284,7 @@ pub static CATALOG: &[MenuItem] = &[
     u("View", "Zoom 100%", U::ZoomReset, "Cmd+0"),
     u("View", "Multitrack", U::ToggleMultitrack, ""),
     u("View/Notation", "Standard Notation", U::ToggleNotation, ""),
-    m("View/Notation", "Tablature (hide)"),
+    u("View/Notation", "Tablature (hide)", U::ToggleTablature, ""),
     m("View/Notation", "Slash Notation"),
     u("View", "Edition Palette", U::TogglePalette, ""),
     u("View", "Inspector", U::ToggleInspector, ""),

@@ -38,7 +38,6 @@ pub const MAX_UI_SCALE: f32 = 2.0;
 #[serde(default)]
 pub struct ViewPrefs {
     pub zoom: f32,
-    pub notation: bool,
     pub layout: crate::layout::LayoutMode,
     pub multitrack: bool,
     /// Edit › Multivoice Editing.
@@ -58,7 +57,6 @@ impl Default for ViewPrefs {
     fn default() -> Self {
         ViewPrefs {
             zoom: 1.25,
-            notation: true,
             layout: crate::layout::LayoutMode::Page,
             multitrack: false,
             multivoice: false,

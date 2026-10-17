@@ -62,7 +62,6 @@ pub struct Panels {
 
 pub struct ViewState {
     pub zoom: f32,
-    pub notation: bool,
     /// View › Layout: pages, one screen-wide sheet, or one line of bars.
     pub layout: layout::LayoutMode,
     /// View › Multitrack: every track in each system.
@@ -172,7 +171,6 @@ impl GuitarioApp {
             panels: Panels { palette: true, inspector: true, global: true, fretboard: true, keyboard: false },
             view: ViewState {
                 zoom: 1.25,
-                notation: true,
                 layout: layout::LayoutMode::Page,
                 multitrack: false,
                 multivoice: false,
@@ -226,6 +224,11 @@ impl GuitarioApp {
         self.with_sounds(guitario_playback::SoundBank::open_default())
     }
 
+    /// The notations of the track under the cursor.
+    pub fn current_notation(&self) -> guitario_score::Notations {
+        self.session.score().tracks.get(self.session.cursor().track).map(|t| t.notation).unwrap_or_default()
+    }
+
     /// Uses the persistent preferences (the app opens them with `Location::Auto`) and applies
     /// what they hold: view, panels, transport toggles and recent files.
     pub fn with_settings(mut self, store: prefs::Store, report: &craft_settings::LoadReport) -> Self {
@@ -233,7 +236,6 @@ impl GuitarioApp {
         let p = self.settings.get().clone().sanitized();
         self.view = ViewState {
             zoom: p.view.zoom,
-            notation: p.view.notation,
             layout: p.view.layout,
             multitrack: p.view.multitrack,
             multivoice: p.view.multivoice,
@@ -276,7 +278,6 @@ impl GuitarioApp {
         let (v, pn, t) = (&self.view, &self.panels, &self.transport);
         let view = prefs::ViewPrefs {
             zoom: v.zoom,
-            notation: v.notation,
             layout: v.layout,
             multitrack: v.multitrack,
             multivoice: v.multivoice,
@@ -430,7 +431,14 @@ impl GuitarioApp {
             U::ZoomIn => self.view.zoom = (self.view.zoom * 1.25).min(4.0),
             U::ZoomOut => self.view.zoom = (self.view.zoom / 1.25).max(0.25),
             U::ZoomReset => self.view.zoom = 1.0,
-            U::ToggleNotation => self.view.notation = !self.view.notation,
+            U::ToggleNotation => {
+                let on = self.current_notation().standard;
+                self.run("track.setNotation", json!({"standard": !on}));
+            }
+            U::ToggleTablature => {
+                let on = self.current_notation().tab;
+                self.run("track.setNotation", json!({"tab": !on}));
+            }
             U::Layout(mode) => {
                 self.view.layout = mode;
                 self.follow_cursor = true;
@@ -493,7 +501,7 @@ impl GuitarioApp {
         if let Some(p) = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_file_name(format!("{stem}.pdf")).save_file() {
             let together = self.view.multitrack;
             let tracks = if together { Value::Null } else { json!([self.session.cursor().track]) };
-            self.run("file.exportPdf", json!({"path": p.display().to_string(), "tracks": tracks, "notation": self.view.notation, "together": together}));
+            self.run("file.exportPdf", json!({"path": p.display().to_string(), "tracks": tracks, "notation": true, "together": together}));
         }
     }
 
@@ -958,7 +966,6 @@ impl GuitarioApp {
             let selection = self.session.selection().filter(|s| s.track == self.session.cursor().track).map(|s| s.ordered());
             let view = page::View {
                 zoom: self.view.zoom,
-                notation: self.view.notation,
                 fonts: self.fonts,
                 play,
                 selection,

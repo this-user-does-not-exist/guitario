@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -148,12 +148,19 @@ fn main() {
     if args.iter().any(|a| a == "--landscape") {
         run(&mut session, "score.setPage", json!({"landscape": true}));
     }
+    if args.iter().any(|a| a == "--standard-only") {
+        for track in 0..session.score().tracks.len() {
+            run(&mut session, "track.setNotation", json!({"track": track, "tab": false}));
+        }
+    }
+    if args.iter().any(|a| a == "--tab-only") {
+        for track in 0..session.score().tracks.len() {
+            run(&mut session, "track.setNotation", json!({"track": track, "standard": false}));
+        }
+    }
     let mut app = GuitarioApp::new(session, None);
     if let Some(z) = value("--zoom").and_then(|z| z.parse::<f32>().ok()) {
         app.view.zoom = z;
-    }
-    if args.iter().any(|a| a == "--tab-only") {
-        app.view.notation = false;
     }
     match value("--layout").as_deref() {
         Some("screen") => app.view.layout = guitario_ui_egui::LayoutMode::Screen,

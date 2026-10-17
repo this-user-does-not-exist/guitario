@@ -101,7 +101,7 @@ impl PrintDialog {
 impl GuitarioApp {
     /// File › Print…: opens the dialog and starts looking for printers.
     pub fn open_print(&mut self) {
-        let notation = self.view.notation;
+        let notation = true;
         let score = self.view.multitrack;
         self.open_print_with(score, score, notation);
     }

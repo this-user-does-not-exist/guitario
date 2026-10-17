@@ -33,6 +33,8 @@ pub struct Metrics {
     pub margin_top: f32,
     pub margin_bottom: f32,
     pub notation: bool,
+    /// The tablature is drawn (a string track can show standard notation alone).
+    pub tab: bool,
     pub strings: usize,
     /// A drum track: one percussion staff, no tablature.
     pub drums: bool,
@@ -68,6 +70,7 @@ impl Metrics {
             margin_top: 15.0 * MM * z,
             margin_bottom: 12.0 * MM * z,
             notation,
+            tab: true,
             strings: strings.max(1),
             drums: false,
             annotations: false,
@@ -198,6 +201,9 @@ impl Metrics {
     pub fn lyrics_top(&self) -> f32 {
         let below = if self.drums {
             4.0
+        } else if !self.tab {
+            // Standard notation alone: the effect lanes under the staff come first.
+            1.0
         } else if self.notation {
             2.6
         } else {
@@ -213,7 +219,16 @@ impl Metrics {
 
     /// Metrics for a drum track: a five-line percussion staff only.
     pub fn for_drums(zoom: f32) -> Metrics {
-        Metrics { drums: true, ..Metrics::new(zoom, true, 1) }
+        Metrics { drums: true, tab: false, ..Metrics::new(zoom, true, 1) }
+    }
+
+    /// Standard notation and tablature as shown: at least one of them, and no tablature on a drum
+    /// track.
+    pub fn with_notations(self, standard: bool, tab: bool) -> Metrics {
+        if self.drums {
+            return self;
+        }
+        Metrics { notation: standard, tab: tab || !standard, ..self }
     }
 
     /// Room left of every system for the short track name.
@@ -250,7 +265,7 @@ impl Metrics {
     }
 
     pub fn tab_h(&self) -> f32 {
-        if self.drums { 0.0 } else { self.tab_gap * self.strings.saturating_sub(1) as f32 }
+        if self.tab { self.tab_gap * self.strings.saturating_sub(1) as f32 } else { 0.0 }
     }
 
     /// Offset of the notation staff's top line from the system top.
@@ -272,6 +287,8 @@ impl Metrics {
     pub fn system_h(&self) -> f32 {
         let below = if self.drums {
             5.0
+        } else if !self.tab {
+            1.5
         } else if self.notation {
             3.5
         } else {
@@ -1047,6 +1064,22 @@ mod tests {
         assert!(d.system_h() < g.system_h() * 0.7, "{} vs {}", d.system_h(), g.system_h());
         let pages = layout(&score(40), 0, &d);
         assert!(pages.iter().flat_map(|p| &p.systems).all(|s| s.y + d.system_h() <= d.page_h));
+    }
+
+    #[test]
+    fn standard_notation_alone_keeps_room_for_the_effects_under_the_staff() {
+        let both = Metrics::new(1.0, true, 6);
+        let alone = both.with_notations(true, false);
+        assert_eq!((alone.notation, alone.tab, alone.tab_h()), (true, false, 0.0));
+        // The effect lanes (P.M., let ring, vibrato) sit over `tab_top`, under the staff.
+        assert!(alone.tab_top() >= alone.notation_top() + alone.staff_h() + 8.0 * alone.space);
+        assert!(alone.system_h() < both.system_h());
+        assert!(alone.lyrics_top() > alone.notation_top() + alone.staff_h());
+        // Nothing chosen shows the tablature; a drum staff stays a drum staff.
+        let none = both.with_notations(false, false);
+        assert_eq!((none.notation, none.tab), (false, true));
+        let d = Metrics::for_drums(1.0).with_notations(false, true);
+        assert_eq!((d.notation, d.tab), (true, false));
     }
 
     fn voiced_score() -> Score {

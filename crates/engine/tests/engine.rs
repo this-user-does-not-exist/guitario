@@ -429,3 +429,17 @@ fn track_information_sets_name_short_name_and_colour() {
     }
     assert_eq!(s.score().tracks[0].name, "Rhythm Guitar", "a refused change leaves the track as it was");
 }
+
+#[test]
+fn notations_are_chosen_per_track_and_one_always_stays() {
+    let mut s = Session::new();
+    run(&mut s, "track.add", json!({"name": "Bass", "tuning": "bass"}));
+    run(&mut s, "track.setNotation", json!({"track": 0, "tab": false}));
+    let n = s.score().tracks[0].notation;
+    assert_eq!((n.standard, n.tab), (true, false));
+    assert_eq!(s.score().tracks[1].notation, guitario_score::Notations::default(), "the other track keeps its own");
+    assert!(s.run("track.setNotation", &json!({"track": 0, "standard": false})).is_err(), "nothing left to show");
+    run(&mut s, "track.setNotation", json!({"track": 0, "standard": false, "slash": true}));
+    assert_eq!(s.score().tracks[0].notation.bits(), 4);
+    assert!(s.run("track.setNotation", &json!({"standard": "yes"})).is_err());
+}

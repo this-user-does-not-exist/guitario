@@ -110,6 +110,16 @@ fn every_demo_survives_guitar_pro_5() {
 }
 
 #[test]
+fn standard_notation_and_tablature_flags_come_back() {
+    let mut s = riff();
+    s.headers[0].fermatas.clear();
+    s.tracks[0].notation = Notations { standard: true, tab: false, ..Notations::default() };
+    let (back, _, _) = round_trip(&s);
+    let n = back.tracks[0].notation;
+    assert_eq!((n.standard, n.tab), (true, false));
+}
+
+#[test]
 fn a_riff_with_every_effect_round_trips() {
     // Guitar Pro 5 has no fermatas; that is reported in its own test.
     let mut s = riff();

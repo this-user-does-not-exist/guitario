@@ -32,6 +32,9 @@ pub fn export_gp(score: &Score) -> Result<Export, GpError> {
     zip.add_directory("Content/", opts).map_err(|e| io(&e))?;
     zip.start_file("Content/score.gpif", opts).map_err(|e| io(&e))?;
     zip.write_all(xml.as_bytes()).map_err(|e| io(&e))?;
+    zip.start_file("Content/PartConfiguration", opts).map_err(|e| io(&e))?;
+    let flags: Vec<u8> = score.tracks.iter().map(|t| t.notation.bits()).collect();
+    zip.write_all(&crate::parts::write(&flags)).map_err(|e| io(&e))?;
     let bytes = zip.finish().map_err(|e| io(&e))?.into_inner();
     Ok(Export { bytes, warnings })
 }
