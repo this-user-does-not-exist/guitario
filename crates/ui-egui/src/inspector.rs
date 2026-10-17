@@ -3,6 +3,7 @@
 
 use crate::GuitarioApp;
 use crate::theme::{tokens, track_color};
+use egui::Color32;
 use guitario_theory::Tuning;
 use serde_json::{Value, json};
 
@@ -36,23 +37,43 @@ pub(crate) fn program_name(program: u8) -> String {
 
 pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let t = tokens();
-    ui.horizontal(|ui| {
-        for (tab, name) in [(Tab::Song, "Song"), (Tab::Track, "Track")] {
-            if ui.selectable_label(app.inspector_tab == tab, egui::RichText::new(name).strong()).clicked() {
-                app.inspector_tab = tab;
-            }
+    // Two equal tabs across the panel, the open one in the accent colour.
+    let (strip, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 28.0), egui::Sense::hover());
+    for (i, (tab, name)) in [(Tab::Song, "SONG"), (Tab::Track, "TRACK")].into_iter().enumerate() {
+        let half = strip.width() / 2.0;
+        let r = egui::Rect::from_min_size(strip.min + egui::vec2(half * i as f32, 0.0), egui::vec2(half, strip.height()));
+        let resp = ui.interact(r, egui::Id::new(("inspector-tab", i)), egui::Sense::click());
+        let open = app.inspector_tab == tab;
+        let fill = if open {
+            t.accent
+        } else if resp.hovered() {
+            t.control_hover
+        } else {
+            t.control
+        };
+        ui.painter().rect_filled(r, 0.0, fill);
+        ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, name, egui::FontId::proportional(12.5), if open { Color32::WHITE } else { t.text_dim });
+        if resp.clicked() {
+            app.inspector_tab = tab;
         }
-    });
-    ui.separator();
+    }
+    ui.add_space(6.0);
     let mut actions: Vec<(&'static str, Value)> = Vec::new();
     egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| match app.inspector_tab {
         Tab::Song => song(app, ui, &mut actions),
         Tab::Track => track(app, ui, &mut actions),
     });
-    let _ = t;
     for (id, p) in actions {
         app.run(id, p);
     }
+}
+
+/// A section: its name in large capitals, then the body (Guitar Pro's inspector has no folding).
+fn section(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
+    ui.add_space(8.0);
+    ui.label(egui::RichText::new(title.to_uppercase()).size(15.0).strong());
+    ui.add_space(4.0);
+    body(ui);
 }
 
 fn field(
@@ -82,13 +103,13 @@ fn field(
 fn song(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static str, Value)>) {
     let score = app.session.score().clone();
     let meta = &score.meta;
-    egui::CollapsingHeader::new("Information").default_open(true).show(ui, |ui| {
+    section(ui, "Information", |ui| {
         field(app, ui, "Title", "title", &meta.title, |v| ("score.setMeta", json!({"title": v})), actions);
         field(app, ui, "Artist", "artist", &meta.artist, |v| ("score.setMeta", json!({"artist": v})), actions);
         field(app, ui, "Album", "album", &meta.album, |v| ("score.setMeta", json!({"album": v})), actions);
         field(app, ui, "Tab author", "author", &meta.author, |v| ("score.setMeta", json!({"author": v})), actions);
     });
-    egui::CollapsingHeader::new("Tempo").default_open(true).show(ui, |ui| {
+    section(ui, "Tempo", |ui| {
         let mut bpm = i64::from(score.tempo);
         ui.horizontal(|ui| {
             ui.label("♩ =");
@@ -97,7 +118,7 @@ fn song(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static st
             }
         });
     });
-    egui::CollapsingHeader::new("Notes").default_open(false).show(ui, |ui| {
+    section(ui, "Notes", |ui| {
         field(app, ui, "Notes", "notes", &meta.notes, |v| ("score.setMeta", json!({"notes": v})), actions);
     });
 }
@@ -106,7 +127,7 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
     let score = app.session.score().clone();
     let c = app.session.cursor();
     let Some(tr) = score.tracks.get(c.track) else { return };
-    egui::CollapsingHeader::new("Track").default_open(true).show(ui, |ui| {
+    section(ui, "Information", |ui| {
         ui.horizontal(|ui| {
             let (r, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
             ui.painter().rect_filled(r, 2.0, track_color(c.track));
@@ -129,7 +150,7 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
         });
     });
     if tr.is_drums() {
-        egui::CollapsingHeader::new("Kit").default_open(true).show(ui, |ui| {
+        section(ui, "Kit", |ui| {
             ui.label(egui::RichText::new("Type a General MIDI number (36 kick, 38 snare, 42 hi-hat, 49 crash) or click the drum pad.").small());
             for lane in guitario_theory::drums::LANES {
                 ui.label(egui::RichText::new(lane).small().color(tokens().text_dim));
@@ -138,7 +159,7 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
     }
     // Kit lanes have no tuning or capo.
     if !tr.is_drums() {
-        egui::CollapsingHeader::new("Tuning").default_open(true).show(ui, |ui| {
+        section(ui, "Musical notation", |ui| {
             egui::ComboBox::from_id_salt("tuning").width(ui.available_width()).selected_text(&tr.tuning.name).show_ui(ui, |ui| {
                 for preset in Tuning::presets() {
                     if ui.selectable_label(preset.strings == tr.tuning.strings, &preset.name).clicked() {
@@ -157,7 +178,7 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
             });
         });
     }
-    egui::CollapsingHeader::new("Mixer").default_open(true).show(ui, |ui| {
+    section(ui, "Sounds", |ui| {
         let mut vol = i64::from(tr.volume);
         if ui.add(egui::Slider::new(&mut vol, 0..=127).text("Volume")).drag_stopped() {
             actions.push(("track.setMix", json!({"volume": vol})));
@@ -176,7 +197,7 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
         });
     });
     if let Some(h) = score.headers.get(c.measure) {
-        egui::CollapsingHeader::new(format!("Bar {}", c.measure + 1)).default_open(true).show(ui, |ui| {
+        section(ui, &format!("Bar {}", c.measure + 1), |ui| {
             ui.label(format!("Time signature  {}/{}", h.time_signature.numerator, h.time_signature.denominator));
             ui.label(format!(
                 "Key  {}",
