@@ -20,7 +20,7 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Tools | tuner, chord engine, scales, line in | chord diagram editor and namer | partial |
 | Preferences | dialog | File › Preferences… (theme, interface scale) over persisted view, transport and audio settings | partial |
 | Themes | light and dark | dark and light (File › Preferences…); the light one has had one pass | partial |
-| Keyboard | Guitar Pro shortcuts | digits, arrows, + − . / R L X G A I P H V S B, ⌘ shortcuts | partial |
+| Keyboard | Guitar Pro shortcuts | digits, arrows, + − . / R L X G A I P H V S B, ⌘ shortcuts; Help › Keyboard Shortcuts lists them from the menu catalog; F11 full screen | partial |
 | Unsaved changes | prompt on close, New and Open | prompt (craft-quit on macOS) | done |
 | Languages | about a dozen | English | missing |
 
@@ -34,3 +34,4 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | 2026-10-17 | minor | Look pass: palette eight columns wide with voices, Lyrics and Chords; global view rows with a volume slider |
 | 2026-10-17 | minor | Global view: add-track button, column heading, markers row under the grid |
 | 2026-10-17 | minor | Inspector look: full-width tabs and capital section headings (GP8 has Song and Track only; the Bar and Note tabs listed as missing were not in GP8) |
+| 2026-10-17 | minor | Full Screen, Minimize and Keyboard Shortcuts (menus 153/173) |

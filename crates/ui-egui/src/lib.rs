@@ -31,6 +31,7 @@ mod preferences;
 mod prefs;
 mod preview;
 mod print_dialog;
+mod shortcuts;
 mod sounds;
 mod spool;
 mod theme;
@@ -124,6 +125,10 @@ pub struct GuitarioApp {
     /// How the interface looks (File › Preferences…).
     ui: prefs::UiPrefs,
     prefs_dialog: preferences::PreferencesDialog,
+    shortcuts_open: bool,
+    fullscreen: bool,
+    /// Window commands from menu items (full screen, minimize), sent on the next frame.
+    viewport_cmds: Vec<egui::ViewportCommand>,
     /// Autosave and crash recovery; off until the persistent preferences are in use.
     autosave: autosave::Autosave,
 }
@@ -182,6 +187,9 @@ impl GuitarioApp {
             audio_dialog: audio_settings::AudioSettingsDialog::default(),
             ui: prefs::UiPrefs::default(),
             prefs_dialog: preferences::PreferencesDialog::default(),
+            shortcuts_open: false,
+            fullscreen: false,
+            viewport_cmds: Vec::new(),
         }
     }
 
@@ -401,6 +409,12 @@ impl GuitarioApp {
             U::PanAutomation => self.open_mix_automation(automation_dialog::MixKind::Pan),
             U::AudioSettings => self.open_audio_settings(),
             U::Preferences => self.open_preferences(),
+            U::KeyboardShortcuts => self.shortcuts_open = true,
+            U::FullScreen => {
+                self.fullscreen = !self.fullscreen;
+                self.viewport_cmds.push(egui::ViewportCommand::Fullscreen(self.fullscreen));
+            }
+            U::Minimize => self.viewport_cmds.push(egui::ViewportCommand::Minimized(true)),
             U::TogglePalette => self.panels.palette = !self.panels.palette,
             U::ToggleInspector => self.panels.inspector = !self.panels.inspector,
             U::ToggleGlobalView => self.panels.global = !self.panels.global,
@@ -826,6 +840,10 @@ impl GuitarioApp {
         self.mix_automation_dialog(&ctx);
         self.audio_settings_dialog(&ctx);
         self.preferences_dialog(&ctx);
+        self.shortcuts_window(&ctx);
+        for cmd in std::mem::take(&mut self.viewport_cmds) {
+            ctx.send_viewport_cmd(cmd);
+        }
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));

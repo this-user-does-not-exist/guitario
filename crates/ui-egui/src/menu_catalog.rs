@@ -64,6 +64,9 @@ pub enum UiAction {
     PanAutomation,
     AudioSettings,
     Preferences,
+    KeyboardShortcuts,
+    FullScreen,
+    Minimize,
     TogglePalette,
     ToggleInspector,
     ToggleGlobalView,
@@ -287,13 +290,13 @@ pub static CATALOG: &[MenuItem] = &[
     m("View/Instrument View", "Keyboard"),
     // The instrument view shows the drum pad on a drum track.
     u("View/Instrument View", "Drums", U::ToggleFretboard, ""),
-    m("View", "Full Screen"),
+    u("View", "Full Screen", U::FullScreen, "F11"),
     // Window
-    m("Window", "Minimize"),
+    u("Window", "Minimize", U::Minimize, "Cmd+M"),
     m("Window", "Next Document"),
     // Help
     m("Help", "Guitario Help"),
-    m("Help", "Keyboard Shortcuts"),
+    u("Help", "Keyboard Shortcuts", U::KeyboardShortcuts, ""),
     u("Help", "About Guitario", U::About, ""),
 ];
 

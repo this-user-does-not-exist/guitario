@@ -6,7 +6,7 @@ use crate::GuitarioApp;
 use crate::menu_catalog::{Action, CATALOG, MenuItem, TOP, UiAction};
 use serde_json::{Value, json};
 
-fn shortcut_text(s: &str) -> String {
+pub(crate) fn shortcut_text(s: &str) -> String {
     let cmd = if cfg!(target_os = "macos") { "⌘" } else { "Ctrl+" };
     s.replace("Cmd+", cmd)
         .replace("Shift+", "⇧")
@@ -217,6 +217,7 @@ fn entry(app: &mut GuitarioApp, ui: &mut egui::Ui, item: &MenuItem) {
                 Action::Ui(UiAction::ToggleMultivoice) => Some(app.view.multivoice),
                 Action::Ui(UiAction::Mixer) => Some(app.mixer.open),
                 Action::Ui(UiAction::ToggleNotation) => Some(app.view.notation),
+                Action::Ui(UiAction::FullScreen) => Some(app.fullscreen),
                 _ => None,
             };
             if let Some(on) = on {
