@@ -52,6 +52,15 @@ fn a_riff_with_every_effect_round_trips_and_nothing_is_left_out() {
 }
 
 #[test]
+fn each_tracks_notations_come_back() {
+    let mut s = riff();
+    s.tracks[0].notation = Notations { standard: false, tab: true, slash: true, numbered: false };
+    let (back, _, _) = round_trip(&s);
+    assert_eq!(back.tracks[0].notation, s.tracks[0].notation);
+    assert_eq!(back.tracks[1].notation, Notations { tab: false, ..Notations::default() }, "a drum kit shows its staff only");
+}
+
+#[test]
 fn short_names_and_colours_come_back() {
     let mut s = riff();
     s.tracks[0].short_name = "ld.gt.".into();

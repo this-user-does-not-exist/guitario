@@ -460,6 +460,43 @@ pub struct Track {
     /// The track's colour as red, green, blue; none takes the next of Guitar Pro's track colours.
     #[serde(default)]
     pub color: Option<[u8; 3]>,
+    /// The notations the track shows.
+    #[serde(default)]
+    pub notation: Notations,
+}
+
+/// The notations a track shows, any together, as Guitar Pro's notation buttons choose them.
+/// Slash and numbered are kept for exchange; Guitario draws standard notation and tablature.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Notations {
+    pub standard: bool,
+    pub tab: bool,
+    pub slash: bool,
+    pub numbered: bool,
+}
+
+impl Default for Notations {
+    fn default() -> Self {
+        Notations { standard: true, tab: true, slash: false, numbered: false }
+    }
+}
+
+impl Notations {
+    /// Guitar Pro's flags: 1 standard, 2 tablature, 4 slash, 8 numbered.
+    pub fn bits(self) -> u8 {
+        u8::from(self.standard) | u8::from(self.tab) << 1 | u8::from(self.slash) << 2 | u8::from(self.numbered) << 3
+    }
+
+    pub fn from_bits(bits: u8) -> Notations {
+        Notations { standard: bits & 1 != 0, tab: bits & 2 != 0, slash: bits & 4 != 0, numbered: bits & 8 != 0 }
+    }
+
+    /// What Guitario draws: standard notation and tablature as chosen, and the tablature when
+    /// neither is (a track always shows something).
+    pub fn drawn(self) -> (bool, bool) {
+        (self.standard, self.tab || !self.standard)
+    }
 }
 
 /// The colours new tracks take in turn, as Guitar Pro gives them.
@@ -510,12 +547,14 @@ impl Track {
             lyrics: Vec::new(),
             short_name: String::new(),
             color: None,
+            notation: Notations::default(),
         }
     }
 
     /// A drum-kit track: eight kit lanes, General MIDI drums, the GM percussion program.
     pub fn drums(name: impl Into<String>, headers: &[MeasureHeader]) -> Track {
-        Track { kind: TrackKind::Drums, program: 0, ..Track::new(name, Tuning::drum_kit(), headers) }
+        let notation = Notations { tab: false, ..Notations::default() };
+        Track { kind: TrackKind::Drums, program: 0, notation, ..Track::new(name, Tuning::drum_kit(), headers) }
     }
 
     pub fn string_count(&self) -> usize {

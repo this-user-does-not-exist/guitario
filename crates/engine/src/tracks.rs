@@ -17,6 +17,15 @@ pub fn specs() -> Vec<CommandSpec> {
             true,
             set_info,
         ),
+        cmd(
+            "track.setNotation",
+            "Notation",
+            "Track",
+            None,
+            "standard?, tab?, slash?, numbered? (booleans), track? (index; default the cursor's); at least one stays on",
+            true,
+            set_notation,
+        ),
         cmd("track.duplicate", "Duplicate Track", "Track", None, "", true, duplicate),
         cmd(
             "track.transpose",
@@ -65,6 +74,23 @@ fn set_info(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
         t.color = c;
     }
     Ok(json!({}))
+}
+
+fn set_notation(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
+    let flag = |key: &str| p.get(key).map(|_| params::boolean(p, key)).transpose();
+    let (standard, tab, slash, numbered) = (flag("standard")?, flag("tab")?, flag("slash")?, flag("numbered")?);
+    let t = crate::commands::mixer_track(s, p)?;
+    let mut n = t.notation;
+    for (field, value) in [(&mut n.standard, standard), (&mut n.tab, tab), (&mut n.slash, slash), (&mut n.numbered, numbered)] {
+        if let Some(v) = value {
+            *field = v;
+        }
+    }
+    if n.bits() == 0 {
+        return Err(EngineError::invalid("a track shows at least one notation"));
+    }
+    t.notation = n;
+    Ok(json!({"standard": n.standard, "tab": n.tab, "slash": n.slash, "numbered": n.numbered}))
 }
 
 fn duplicate(s: &mut Session, _: &Value) -> Result<Value, EngineError> {

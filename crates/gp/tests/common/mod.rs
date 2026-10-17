@@ -29,8 +29,8 @@ pub fn assert_same(name: &str, expected: &Score, got: &Score) {
     assert_eq!(expected.tracks.len(), got.tracks.len(), "{name}: track count");
     for (ti, (a, b)) in expected.tracks.iter().zip(&got.tracks).enumerate() {
         assert_eq!(
-            (&a.name, a.kind, &a.tuning.strings, a.capo, a.program, a.volume, a.pan, a.muted, a.solo, &a.lyrics, a.color_at(ti)),
-            (&b.name, b.kind, &b.tuning.strings, b.capo, b.program, b.volume, b.pan, b.muted, b.solo, &b.lyrics, b.color_at(ti)),
+            (&a.name, a.kind, &a.tuning.strings, a.capo, a.program, a.volume, a.pan, a.muted, a.solo, &a.lyrics, a.color_at(ti), a.notation),
+            (&b.name, b.kind, &b.tuning.strings, b.capo, b.program, b.volume, b.pan, b.muted, b.solo, &b.lyrics, b.color_at(ti), b.notation),
             "{name}: track {ti}"
         );
         for (mi, (ma, mb)) in a.measures.iter().zip(&b.measures).enumerate() {

@@ -505,11 +505,14 @@ impl Parser<'_> {
         let channel = self.r.i32()?;
         self.r.skip(4 + 4)?; // effect channel, fret count
         let capo = self.r.i32()?;
+        let mut display = None;
         let color = [self.r.u8()?, self.r.u8()?, self.r.u8()?];
         self.r.skip(1)?;
         if v >= Version::V5 {
-            // Display flags, auto-accentuation, MIDI bank and the RSE instrument and equalizer.
-            self.r.skip(if v == Version::V5 { 44 } else { 49 })?;
+            // Display flags (bit 1 tablature, bit 2 standard notation), then auto-accentuation,
+            // MIDI bank and the RSE instrument and equalizer.
+            display = Some(self.r.i16()?);
+            self.r.skip(if v == Version::V5 { 42 } else { 47 })?;
             if v >= Version::V5_1 {
                 self.r.int_byte_string()?; // RSE effect
                 self.r.int_byte_string()?; // RSE effect category
@@ -541,6 +544,10 @@ impl Parser<'_> {
             t
         };
         track.color = Some(color);
+        if let Some(d) = display.filter(|d| d & 3 != 0) {
+            track.notation.tab = d & 1 != 0;
+            track.notation.standard = d & 2 != 0;
+        }
         // Volume and balance are stored in steps of 8 (0..=16).
         track.volume = u8::try_from((u16::from(ch.volume) * 8).min(127)).unwrap_or(127);
         track.pan = i8::try_from((i16::from(ch.balance) * 8 - 64).clamp(-63, 63)).unwrap_or(0);

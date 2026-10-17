@@ -28,7 +28,6 @@ pub type Range = ((usize, usize), (usize, usize));
 
 pub struct View {
     pub zoom: f32,
-    pub notation: bool,
     pub fonts: FontSet,
     /// The beat being played, shown as Guitar Pro's moving playback cursor.
     pub play: Option<(usize, usize)>,
@@ -65,8 +64,11 @@ pub struct Output {
 }
 
 /// The layout metrics for `track`: a drum staff or notation over tab, with room for chord names.
+/// `notation` false leaves standard notation out of every track (a print option); otherwise each
+/// track shows its own notations.
 fn metrics_for(track: &Track, page: &PageSetup, zoom: f32, notation: bool, voice: usize) -> Metrics {
-    let m = if track.is_drums() { Metrics::for_drums(zoom) } else { Metrics::new(zoom, notation, track.string_count()) };
+    let (standard, tab) = track.notation.drawn();
+    let m = if track.is_drums() { Metrics::for_drums(zoom) } else { Metrics::new(zoom, true, track.string_count()).with_notations(standard && notation, tab) };
     m.with_page(page).with_annotations(track).with_voice(voice)
 }
 
@@ -212,7 +214,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
         .filter_map(|(k, &ti)| {
             let track = score.tracks.get(ti)?;
             let voice = if ti == cursor.track { cursor.voice } else { 0 };
-            let m = metrics_for(track, &score.page, view.zoom, view.notation, voice).with_mode(view.layout, window);
+            let m = metrics_for(track, &score.page, view.zoom, true, voice).with_mode(view.layout, window);
             Some(Part { index: ti, track, metrics: if k == 0 { m } else { m.below() } })
         })
         .collect();
@@ -297,7 +299,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
         && let Some((cx, h)) = ctxs.iter().find_map(|cx| cx.hits.iter().find(|h| h.rect.contains(pos)).map(|h| (cx, h)))
     {
         let m = cx.m;
-        let string = (!m.drums && pos.y >= h.tab_top - m.tab_gap / 2.0 && pos.y <= h.tab_top + m.tab_h() + m.tab_gap / 2.0)
+        let string = (m.tab && pos.y >= h.tab_top - m.tab_gap / 2.0 && pos.y <= h.tab_top + m.tab_h() + m.tab_gap / 2.0)
             .then(|| (((pos.y - h.tab_top) / m.tab_gap).round().max(0.0) as usize).min(cx.track.string_count().saturating_sub(1)));
         let h = pick(&cx.hits, pos, string).unwrap_or(h);
         let voice = (cx.multivoice && !h.edit).then_some(h.voice);
@@ -543,7 +545,7 @@ impl<'a> Ctx<'a> {
     fn staff_span(&self, top: f32) -> (f32, f32) {
         let m = &self.m;
         let first = if m.notation { top + m.notation_top() } else { top + m.tab_top() };
-        let last = if m.drums { top + m.notation_top() + m.staff_h() } else { top + m.tab_top() + m.tab_h() };
+        let last = if m.tab { top + m.tab_top() + m.tab_h() } else { top + m.notation_top() + m.staff_h() };
         (first, last)
     }
 
@@ -597,7 +599,7 @@ impl<'a> Ctx<'a> {
                 self.p().line_segment([pos2(x0, y), pos2(staff_end, y)], line);
             }
         }
-        if !m.drums {
+        if m.tab {
             for st in 0..strings {
                 let y = self.tab_y(tt, st);
                 self.p().line_segment([pos2(x0, y), pos2(staff_end, y)], line);
@@ -605,8 +607,8 @@ impl<'a> Ctx<'a> {
         }
         // System line and the bracket joining notation and tab.
         let sys_top = if m.notation { nt } else { tt };
-        self.p().line_segment([pos2(x0, sys_top), pos2(x0, if m.drums { nt + 4.0 * s } else { tb })], bar);
-        if m.notation && !m.drums {
+        self.p().line_segment([pos2(x0, sys_top), pos2(x0, if m.tab { tb } else { nt + 4.0 * s })], bar);
+        if m.notation && m.tab {
             let bx = x0 - 0.9 * s;
             self.p().line_segment([pos2(bx, nt - 0.3 * s), pos2(bx, tb + 0.3 * s)], Stroke::new(0.5 * s, t.ink));
             g::arc(self.p(), pos2(bx, nt - 0.5 * s), pos2(bx + 1.6 * s, nt - 1.0 * s), -0.2 * s, Stroke::new(0.25 * s, t.ink));
@@ -615,7 +617,7 @@ impl<'a> Ctx<'a> {
 
         // Short track name in the left margin.
         let short = short_name(self.track);
-        let name_y = if m.drums {
+        let name_y = if !m.tab {
             nt + 2.0 * s
         } else if m.notation {
             (nt + tb) / 2.0
@@ -642,7 +644,7 @@ impl<'a> Ctx<'a> {
             }
         }
         let tab_clef = if strings <= 4 { g::TAB_CLEF_4 } else { g::TAB_CLEF_6 };
-        if !m.drums {
+        if m.tab {
             self.pen.glyph_scaled(tab_clef, pos2(x0 + 0.8 * s, (tt + tb) / 2.0), (m.tab_h() / (4.0 * s)).clamp(0.8, 1.8), t.ink);
         }
 
@@ -714,7 +716,9 @@ impl<'a> Ctx<'a> {
                 if m.notation {
                     self.p().line_segment([pos2(end, nt), pos2(end, nt + 4.0 * s)], bar);
                 }
-                self.p().line_segment([pos2(end, tt), pos2(end, tb)], bar);
+                if m.tab {
+                    self.p().line_segment([pos2(end, tt), pos2(end, tb)], bar);
+                }
                 if h.double_bar {
                     self.staves_lines(end - 0.6 * s, nt, tt, tb, bar);
                 }
@@ -786,7 +790,7 @@ impl<'a> Ctx<'a> {
                     let (col, w) = (band(l, r), r - l);
                     if vc.voice == edit_voice && self.cursor.measure == mb.index && self.cursor.beat == bi {
                         self.p().rect_filled(col, 2.0, t.cursor_fill);
-                        if !m.drums {
+                        if m.tab {
                             let cy = self.tab_y(tt, self.cursor.string.min(strings.saturating_sub(1)));
                             let r = Rect::from_center_size(pos2(x, cy), vec2((1.6 * m.tab_gap).min(w - 2.0).max(m.tab_gap), m.tab_gap));
                             self.p().rect_stroke(r, 2.0, Stroke::new(1.5, t.cursor_stroke), egui::StrokeKind::Outside);
@@ -822,9 +826,12 @@ impl<'a> Ctx<'a> {
         if !m.drums {
             for (voice, list) in &placed {
                 let ink = self.voice_ink(*voice);
-                for (i, pb) in list.iter().enumerate() {
-                    self.tab_beat(pb, list.get(..i).unwrap_or_default(), list.get(i + 1..).unwrap_or_default(), tt, ink);
+                if m.tab {
+                    for (i, pb) in list.iter().enumerate() {
+                        self.tab_beat(pb, list.get(..i).unwrap_or_default(), list.get(i + 1..).unwrap_or_default(), tt, ink);
+                    }
                 }
+                // Over the tablature, or under the staff when it shows alone.
                 self.effect_lanes(list, tt);
             }
         }
@@ -1057,7 +1064,7 @@ impl<'a> Ctx<'a> {
             draw(ts.numerator, cx, nt + s, 1.0);
             draw(ts.denominator, cx, nt + 3.0 * s, 1.0);
         }
-        if self.m.drums {
+        if !self.m.tab {
             return;
         }
         let tab_scale = ((tb - tt) / (4.0 * s)).clamp(0.8, 1.6);
@@ -1070,7 +1077,7 @@ impl<'a> Ctx<'a> {
         if self.m.notation {
             self.p().line_segment([pos2(x, nt), pos2(x, nt + 4.0 * self.m.space)], stroke);
         }
-        if !self.m.drums {
+        if self.m.tab {
             self.p().line_segment([pos2(x, tt), pos2(x, tb)], stroke);
         }
     }
@@ -1089,7 +1096,7 @@ impl<'a> Ctx<'a> {
             }
         }
         let mid = (tt + tb) / 2.0;
-        if !self.m.drums {
+        if self.m.tab {
             for dy in [-0.5, 0.5] {
                 self.p().circle_filled(pos2(xd, mid + dy * self.m.tab_gap * 1.2), r, self.t.ink);
             }
@@ -1981,7 +1988,11 @@ mod tests {
                 other => usize::from(is(other)),
             }
         }
-        let score = score.clone();
+        // Without notation every track shows its tablature alone.
+        let mut score = score.clone();
+        for t in score.tracks.iter_mut().filter(|_| !notation) {
+            t.notation.standard = false;
+        }
         let mut fonts = None;
         let mut harness = egui_kittest::Harness::builder().with_size(vec2(1400.0, 800.0)).build_ui(move |ui| {
             // Fonts take effect on the frame after they are installed.
@@ -1989,12 +2000,7 @@ mod tests {
                 fonts = Some(crate::fonts::install(ui.ctx()));
                 return;
             };
-            show(
-                ui,
-                &score,
-                Cursor::default(),
-                &View { zoom: 1.0, notation, fonts, play: None, selection: None, layout, multitrack, multivoice: false, hidden: 0 },
-            );
+            show(ui, &score, Cursor::default(), &View { zoom: 1.0, fonts, play: None, selection: None, layout, multitrack, multivoice: false, hidden: 0 });
         });
         harness.run_steps(3);
         harness.output().shapes.iter().map(|s| count(&s.shape, &is)).sum()
@@ -2002,6 +2008,21 @@ mod tests {
 
     fn lines(score: &Score, notation: bool) -> usize {
         painted(score, notation, |s| matches!(s, egui::Shape::LineSegment { .. }))
+    }
+
+    #[test]
+    fn a_track_can_show_standard_notation_alone() {
+        let both = Score::new();
+        let mut standard = Score::new();
+        standard.tracks[0].notation.tab = false;
+        // One empty system: the six tab lines, the tab's bar lines and the bracket go.
+        let (with_tab, without) = (lines(&both, true), lines(&standard, true));
+        assert!(without + 6 <= with_tab, "{without} vs {with_tab}");
+        assert!(without > 5, "the five staff lines stay");
+        // Neither chosen still shows the tablature, as the engine never allows.
+        let mut none = Score::new();
+        none.tracks[0].notation = guitario_score::Notations { standard: false, tab: false, slash: true, numbered: false };
+        assert_eq!(lines(&none, true), lines(&both, false));
     }
 
     /// Whether a SMuFL music font is installed. Without one, symbols are painted as shapes, so
@@ -2076,17 +2097,7 @@ mod tests {
                     ui,
                     &score,
                     Cursor::default(),
-                    &View {
-                        zoom: 1.0,
-                        notation: true,
-                        fonts,
-                        play: None,
-                        selection: None,
-                        layout: LayoutMode::Page,
-                        multitrack: false,
-                        multivoice: false,
-                        hidden: 0,
-                    },
+                    &View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice: false, hidden: 0 },
                 );
             });
             harness.run_steps(3);
@@ -2154,7 +2165,8 @@ mod tests {
         }
         // Paints the page view (or, with `paper`, the first printed page) and counts frets in `color`.
         let inked = |multivoice: bool, paper: bool, color: Color32| {
-            let score = s.clone();
+            let mut score = s.clone();
+            score.tracks[0].notation.standard = false;
             let mut fonts = None;
             let mut harness = egui_kittest::Harness::builder().with_size(vec2(1400.0, 800.0)).build_ui(move |ui| {
                 let Some(fonts) = fonts else {
@@ -2166,17 +2178,7 @@ mod tests {
                         paint_print_page(ui.painter(), &score, &pl, 0, (1, 1), fonts);
                     }
                 } else {
-                    let view = View {
-                        zoom: 1.0,
-                        notation: false,
-                        fonts,
-                        play: None,
-                        selection: None,
-                        layout: LayoutMode::Page,
-                        multitrack: false,
-                        multivoice,
-                        hidden: 0,
-                    };
+                    let view = View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice, hidden: 0 };
                     show(ui, &score, Cursor::default(), &view);
                 }
             });

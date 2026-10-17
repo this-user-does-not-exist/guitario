@@ -13,6 +13,7 @@ mod gpif;
 mod gpx;
 mod legacy;
 mod page;
+mod parts;
 mod write5;
 mod writegp;
 
@@ -22,6 +23,9 @@ use std::io::Read;
 pub use gpif::parse_gpif;
 pub use write5::{Export, export_gp5};
 pub use writegp::export_gp;
+
+/// Largest `PartConfiguration` read.
+const MAX_PARTS: u64 = 64 * 1024;
 
 /// Largest `score.gpif` accepted after decompression.
 const MAX_GPIF: u64 = 128 * 1024 * 1024;
@@ -90,7 +94,22 @@ fn import_gp7(bytes: &[u8]) -> Result<Import, GpError> {
     if xml.len() as u64 > MAX_GPIF {
         return Err(GpError::TooLarge);
     }
-    parse_gpif(&xml)
+    let mut import = parse_gpif(&xml)?;
+    // Which notations each track shows, when the file says and every track was read.
+    if let Ok(file) = zip.by_name("Content/PartConfiguration") {
+        let mut bytes = Vec::new();
+        if file.take(MAX_PARTS).read_to_end(&mut bytes).is_ok()
+            && let Some(flags) = parts::read(&bytes).filter(|f| f.len() == import.score.tracks.len())
+        {
+            for (track, bits) in import.score.tracks.iter_mut().zip(flags) {
+                let n = guitario_score::Notations::from_bits(bits);
+                if n.bits() != 0 {
+                    track.notation = n;
+                }
+            }
+        }
+    }
+    Ok(import)
 }
 
 #[cfg(not(target_arch = "wasm32"))]

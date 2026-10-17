@@ -58,7 +58,7 @@ impl GuitarioApp {
     /// full score in the multitrack view; with the page view's notation setting.
     pub fn open_preview(&mut self) {
         let score = self.view.multitrack && self.session.score().tracks.len() > 1;
-        self.preview = Preview { open: true, all_tracks: score, together: score, notation: self.view.notation, ..Preview::default() };
+        self.preview = Preview { open: true, all_tracks: score, together: score, notation: true, ..Preview::default() };
     }
 
     pub(crate) fn preview_dialog(&mut self, ctx: &egui::Context) {

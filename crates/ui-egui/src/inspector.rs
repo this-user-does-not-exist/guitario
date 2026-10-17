@@ -252,40 +252,204 @@ fn track_info(app: &mut GuitarioApp, ui: &mut egui::Ui, score: &guitario_score::
     });
 }
 
+/// A notation button's icon.
+#[derive(Clone, Copy)]
+enum Glyph {
+    Tab,
+    Standard,
+    Slash,
+    Numbered,
+    SingleStaff,
+    GrandStaff,
+}
+
+fn draw_glyph(p: &egui::Painter, r: egui::Rect, glyph: Glyph, c: Color32) {
+    let at = |x: f32, y: f32| egui::pos2(r.left() + x * r.width(), r.top() + y * r.height());
+    let line = egui::Stroke::new(1.2, c);
+    match glyph {
+        Glyph::Tab => {
+            for y in [0.3, 0.7] {
+                p.line_segment([at(0.0, y), at(0.3, y)], line);
+                p.line_segment([at(0.7, y), at(1.0, y)], line);
+            }
+            p.text(at(0.5, 0.5), egui::Align2::CENTER_CENTER, "5", crate::fonts::sans_bold(r.height() * 0.8), c);
+        }
+        Glyph::Standard => {
+            for k in 0..5 {
+                let y = 0.1 + 0.2 * k as f32;
+                p.line_segment([at(0.0, y), at(1.0, y)], egui::Stroke::new(0.8, c));
+            }
+            p.add(egui::Shape::ellipse_filled(at(0.45, 0.7), egui::vec2(r.width() * 0.14, r.height() * 0.11), c));
+            p.line_segment([at(0.58, 0.68), at(0.58, 0.0)], line);
+            p.line_segment([at(0.58, 0.0), at(0.8, 0.2)], line);
+        }
+        Glyph::Slash => {
+            p.add(egui::Shape::convex_polygon(vec![at(0.1, 0.95), at(0.3, 0.95), at(0.55, 0.65), at(0.35, 0.65)], c, egui::Stroke::NONE));
+            p.line_segment([at(0.53, 0.68), at(0.53, 0.0)], line);
+            p.line_segment([at(0.0, 0.8), at(1.0, 0.8)], egui::Stroke::new(0.8, c));
+        }
+        Glyph::Numbered => {
+            p.text(at(0.5, 0.6), egui::Align2::CENTER_CENTER, "2", egui::FontId::proportional(r.height() * 0.85), c);
+            p.circle_filled(at(0.5, 0.05), 1.3, c);
+        }
+        Glyph::SingleStaff => {
+            p.rect_stroke(egui::Rect::from_min_max(at(0.05, 0.3), at(0.95, 0.7)), 1.0, egui::Stroke::new(1.5, c), egui::StrokeKind::Middle);
+        }
+        Glyph::GrandStaff => {
+            p.text(at(0.15, 0.5), egui::Align2::CENTER_CENTER, "{", egui::FontId::proportional(r.height() * 1.1), c);
+            for (y0, y1) in [(0.05, 0.42), (0.58, 0.95)] {
+                p.rect_stroke(egui::Rect::from_min_max(at(0.4, y0), at(0.95, y1)), 1.0, egui::Stroke::new(1.2, c), egui::StrokeKind::Middle);
+            }
+        }
+    }
+}
+
+/// Buttons side by side in one rounded group, as Guitar Pro groups them: (icon, lit, enabled, tip).
+/// Returns the index of the one clicked.
+fn button_group(ui: &mut egui::Ui, id: &str, buttons: &[(Glyph, bool, bool, &str)]) -> Option<usize> {
+    let t = tokens();
+    let size = egui::vec2(30.0, 26.0);
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(size.x * buttons.len() as f32, size.y), egui::Sense::hover());
+    let mut clicked = None;
+    let last = buttons.len().saturating_sub(1);
+    for (k, (glyph, on, enabled, tip)) in buttons.iter().enumerate() {
+        let r = egui::Rect::from_min_size(rect.min + egui::vec2(size.x * k as f32, 0.0), size);
+        let sense = if *enabled { egui::Sense::click() } else { egui::Sense::hover() };
+        let resp = ui.interact(r, ui.id().with((id, k)), sense).on_hover_text(*tip);
+        let corners = egui::CornerRadius {
+            nw: if k == 0 { 5 } else { 0 },
+            sw: if k == 0 { 5 } else { 0 },
+            ne: if k == last { 5 } else { 0 },
+            se: if k == last { 5 } else { 0 },
+        };
+        let fill = if *on {
+            t.accent
+        } else if resp.hovered() && *enabled {
+            t.control_hover
+        } else {
+            t.control
+        };
+        let p = ui.painter();
+        p.rect_filled(r, corners, fill);
+        if k > 0 {
+            p.line_segment([r.left_top(), r.left_bottom()], egui::Stroke::new(1.0, t.panel));
+        }
+        let ink = if !*enabled {
+            t.text_dim.gamma_multiply(0.5)
+        } else if *on {
+            Color32::WHITE
+        } else {
+            t.text
+        };
+        draw_glyph(p, r.shrink2(egui::vec2(7.0, 6.0)), *glyph, ink);
+        if resp.clicked() {
+            clicked = Some(k);
+        }
+    }
+    clicked
+}
+
+/// Guitar Pro's Musical Notation section: the notations and staff, the tuning, and under More the
+/// capo and transposition.
+fn notation(ui: &mut egui::Ui, tr: &guitario_score::Track, ti: usize, actions: &mut Vec<(&'static str, Value)>) {
+    let n = tr.notation;
+    let drums = tr.is_drums();
+    let later = " (not in Guitario yet)";
+    let label = |ui: &mut egui::Ui, text: &str| {
+        ui.allocate_ui_with_layout(egui::vec2(72.0, 26.0), egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label(text));
+    };
+    ui.horizontal(|ui| {
+        label(ui, "Notation:");
+        let tab_tip = if drums { format!("Drum tablature{later}") } else { "Tablature".to_string() };
+        let slash_tip = format!("Slash notation{later}");
+        let numbered_tip = format!("Numbered notation (jianpu){later}");
+        let buttons = [
+            (Glyph::Tab, n.tab && !drums, !drums, tab_tip.as_str()),
+            (Glyph::Standard, n.standard || drums, !drums, "Standard notation"),
+            (Glyph::Slash, n.slash, false, slash_tip.as_str()),
+            (Glyph::Numbered, n.numbered, false, numbered_tip.as_str()),
+        ];
+        match button_group(ui, "notations", &buttons) {
+            Some(0) => actions.push(("track.setNotation", json!({"track": ti, "tab": !n.tab}))),
+            Some(1) => actions.push(("track.setNotation", json!({"track": ti, "standard": !n.standard}))),
+            _ => {}
+        }
+        ui.add_space(10.0);
+        let grand_tip = format!("Two staves (grand staff){later}");
+        button_group(ui, "staves", &[(Glyph::SingleStaff, true, true, "One staff"), (Glyph::GrandStaff, false, false, grand_tip.as_str())]);
+    });
+    if drums {
+        ui.add_space(4.0);
+        ui.label(
+            egui::RichText::new("Type a General MIDI number (36 kick, 38 snare, 42 hi-hat, 49 crash) or click the drum pad.").small().color(tokens().text_dim),
+        );
+        return;
+    }
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        label(ui, "Tuning:");
+        let names: Vec<&str> = tr.tuning.strings.iter().rev().map(|p| guitario_theory::note_name(*p)).collect();
+        let t = tokens();
+        let w = (ui.available_width() - 30.0).max(80.0);
+        let (r, resp) = ui.allocate_exact_size(egui::vec2(w, 26.0), egui::Sense::click());
+        let p = ui.painter().clone();
+        p.rect_filled(r, egui::CornerRadius { nw: 5, sw: 5, ne: 0, se: 0 }, if resp.hovered() { t.control_hover } else { t.control });
+        crate::icons::draw(
+            &p,
+            egui::Rect::from_center_size(egui::pos2(r.left() + 14.0, r.center().y), egui::vec2(14.0, 14.0)),
+            crate::icons::Icon::Gear,
+            t.text,
+        );
+        p.text(egui::pos2(r.left() + 28.0, r.center().y), egui::Align2::LEFT_CENTER, names.join(" "), egui::FontId::proportional(14.0), t.text);
+        let resp = resp.on_hover_text(format!("{} — click to change", tr.tuning.name));
+        egui::Popup::menu(&resp).show(|ui| {
+            for preset in Tuning::presets() {
+                if ui.selectable_label(preset.strings == tr.tuning.strings, &preset.name).clicked() {
+                    actions.push(("track.setTuning", json!({"preset": preset.name})));
+                    ui.close();
+                }
+            }
+        });
+        let (pr, presp) = ui.allocate_exact_size(egui::vec2(28.0, 26.0), egui::Sense::hover());
+        p.rect_filled(pr, egui::CornerRadius { nw: 0, sw: 0, ne: 5, se: 5 }, t.control);
+        let c = pr.center();
+        p.add(egui::Shape::convex_polygon(
+            vec![c + egui::vec2(-4.0, -6.0), c + egui::vec2(6.0, 0.0), c + egui::vec2(-4.0, 6.0)],
+            t.text_dim.gamma_multiply(0.5),
+            egui::Stroke::NONE,
+        ));
+        presp.on_hover_text(format!("Play the open strings{later}"));
+    });
+    let more_id = egui::Id::new("inspector-notation-more");
+    let more = ui.data(|d| d.get_temp::<bool>(more_id)).unwrap_or(false);
+    if more {
+        ui.add_space(6.0);
+        ui.horizontal(|ui| {
+            label(ui, "Capo:");
+            let mut capo = i64::from(tr.capo);
+            if ui.add(egui::DragValue::new(&mut capo).range(0..=24)).changed() {
+                actions.push(("track.setCapo", json!({"fret": capo})));
+            }
+        });
+        ui.label("Transposition tonality");
+        ui.horizontal(|ui| {
+            label(ui, "C played as:");
+            ui.add_enabled(false, egui::Button::new("C")).on_disabled_hover_text(format!("Transposing instruments{later}"));
+        });
+    }
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+        if more_button(ui, more).clicked() {
+            ui.data_mut(|d| d.insert_temp(more_id, !more));
+        }
+    });
+}
+
 fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static str, Value)>) {
     let score = app.session.score().clone();
     let c = app.session.cursor();
     let Some(tr) = score.tracks.get(c.track) else { return };
     section(ui, "Information", |ui| track_info(app, ui, &score, c.track, actions));
-    if tr.is_drums() {
-        section(ui, "Kit", |ui| {
-            ui.label(egui::RichText::new("Type a General MIDI number (36 kick, 38 snare, 42 hi-hat, 49 crash) or click the drum pad.").small());
-            for lane in guitario_theory::drums::LANES {
-                ui.label(egui::RichText::new(lane).small().color(tokens().text_dim));
-            }
-        });
-    }
-    // Kit lanes have no tuning or capo.
-    if !tr.is_drums() {
-        section(ui, "Musical notation", |ui| {
-            egui::ComboBox::from_id_salt("tuning").width(ui.available_width()).selected_text(&tr.tuning.name).show_ui(ui, |ui| {
-                for preset in Tuning::presets() {
-                    if ui.selectable_label(preset.strings == tr.tuning.strings, &preset.name).clicked() {
-                        actions.push(("track.setTuning", json!({"preset": preset.name})));
-                    }
-                }
-            });
-            let names: Vec<String> = tr.tuning.strings.iter().map(|p| guitario_theory::Pitch(*p).name()).collect();
-            ui.label(egui::RichText::new(names.join("  ")).monospace().small());
-            let mut capo = i64::from(tr.capo);
-            ui.horizontal(|ui| {
-                ui.label("Capo");
-                if ui.add(egui::DragValue::new(&mut capo).range(0..=24)).changed() {
-                    actions.push(("track.setCapo", json!({"fret": capo})));
-                }
-            });
-        });
-    }
+    section(ui, "Musical notation", |ui| notation(ui, tr, c.track, actions));
     section(ui, "Sounds", |ui| {
         if tr.is_drums() {
             ui.label("Drum kit (General MIDI)");
