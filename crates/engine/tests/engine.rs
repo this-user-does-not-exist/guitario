@@ -387,3 +387,45 @@ fn audio_exports_as_wav_or_flac_by_name_or_format() {
     assert!(s.run("file.exportAudio", &json!({"path": path("e.wav"), "format": 3})).is_ok(), "an odd format falls back to the name");
     std::fs::remove_dir_all(dir).ok();
 }
+
+#[test]
+fn song_information_holds_every_guitar_pro_field() {
+    let mut s = Session::new();
+    let fields = ["title", "artist", "subtitle", "album", "words", "music", "copyright", "author", "notes", "instructions"];
+    let mut p = serde_json::Map::new();
+    for f in fields {
+        p.insert(f.into(), json!(format!("{f} value")));
+    }
+    run(&mut s, "score.setMeta", Value::Object(p));
+    let m = &s.score().meta;
+    let got = [&m.title, &m.artist, &m.subtitle, &m.album, &m.words, &m.music, &m.copyright, &m.author, &m.notes, &m.instructions];
+    for (f, v) in fields.iter().zip(got) {
+        assert_eq!(v, &format!("{f} value"));
+    }
+    // Only the fields given change.
+    run(&mut s, "score.setMeta", json!({"subtitle": ""}));
+    assert_eq!((s.score().meta.subtitle.as_str(), s.score().meta.title.as_str()), ("", "title value"));
+    assert!(s.run("score.setMeta", &json!({"words": 3})).is_err());
+}
+
+#[test]
+fn track_information_sets_name_short_name_and_colour() {
+    let mut s = Session::new();
+    run(&mut s, "track.setInfo", json!({"name": " Rhythm Guitar ", "shortName": "r.gt.", "color": "#1a2B3c"}));
+    let t = &s.score().tracks[0];
+    assert_eq!((t.name.as_str(), t.short_name.as_str(), t.color), ("Rhythm Guitar", "r.gt.", Some([0x1a, 0x2b, 0x3c])));
+    run(&mut s, "track.setInfo", json!({"color": null}));
+    assert_eq!(s.score().tracks[0].color, None);
+    assert_eq!(s.score().tracks[0].color_at(1), guitario_score::TRACK_COLORS[1]);
+    for bad in [
+        json!({"color": "red"}),
+        json!({"color": "#12345"}),
+        json!({"color": "#ééé"}),
+        json!({"color": 7}),
+        json!({"name": "  "}),
+        json!({"track": 9, "name": "x"}),
+    ] {
+        assert!(s.run("track.setInfo", &bad).is_err(), "{bad}");
+    }
+    assert_eq!(s.score().tracks[0].name, "Rhythm Guitar", "a refused change leaves the track as it was");
+}

@@ -584,7 +584,11 @@ fn lcd(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let row = rect.top() + 26.0;
     p.line_segment([pos2(rect.left() + 6.0, row), pos2(rect.right(), row)], line);
     // Track colour strip.
-    p.rect_filled(Rect::from_min_max(rect.min, pos2(rect.left() + 5.0, rect.bottom())), CornerRadius { nw: 4, sw: 4, ne: 0, se: 0 }, track_color(info.track));
+    p.rect_filled(
+        Rect::from_min_max(rect.min, pos2(rect.left() + 5.0, rect.bottom())),
+        CornerRadius { nw: 4, sw: 4, ne: 0, se: 0 },
+        track_color(app.session.score(), info.track),
+    );
 
     // Row 1: the note box at the right, the three toggles before it, the track name in the rest.
     let note_w = 54.0;

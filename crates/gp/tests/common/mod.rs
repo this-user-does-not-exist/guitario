@@ -29,8 +29,8 @@ pub fn assert_same(name: &str, expected: &Score, got: &Score) {
     assert_eq!(expected.tracks.len(), got.tracks.len(), "{name}: track count");
     for (ti, (a, b)) in expected.tracks.iter().zip(&got.tracks).enumerate() {
         assert_eq!(
-            (&a.name, a.kind, &a.tuning.strings, a.capo, a.program, a.volume, a.pan, a.muted, a.solo, &a.lyrics),
-            (&b.name, b.kind, &b.tuning.strings, b.capo, b.program, b.volume, b.pan, b.muted, b.solo, &b.lyrics),
+            (&a.name, a.kind, &a.tuning.strings, a.capo, a.program, a.volume, a.pan, a.muted, a.solo, &a.lyrics, a.color_at(ti)),
+            (&b.name, b.kind, &b.tuning.strings, b.capo, b.program, b.volume, b.pan, b.muted, b.solo, &b.lyrics, b.color_at(ti)),
             "{name}: track {ti}"
         );
         for (mi, (ma, mb)) in a.measures.iter().zip(&b.measures).enumerate() {
@@ -42,10 +42,18 @@ pub fn assert_same(name: &str, expected: &Score, got: &Score) {
 /// A short riff that uses every effect the model carries.
 pub fn riff() -> Score {
     let mut s = Score::new();
-    s.meta =
-        Meta {
-            title: "Ünïcode – riff".into(), artist: "Guitario".into(), album: "Tests".into(), author: "Tabber".into(), notes: "line one\nline two".into()
-        };
+    s.meta = Meta {
+        title: "Ünïcode – riff".into(),
+        artist: "Guitario".into(),
+        subtitle: "Second take".into(),
+        album: "Tests".into(),
+        words: "A Lyricist".into(),
+        music: "A Composer".into(),
+        copyright: "2026 Guitario contributors".into(),
+        author: "Tabber".into(),
+        notes: "line one\nline two".into(),
+        instructions: "Play it loud".into(),
+    };
     s.tempo = 152;
     let e = Duration::EIGHTH;
     let mut h = MeasureHeader::new(TimeSignature::COMMON);
@@ -114,6 +122,8 @@ pub fn riff() -> Score {
     let hit = |midi: u8| Note::new(guitario_theory::drums::lane_for(midi), midi);
     drums.measures[0].voices[0].beats =
         vec![note(vec![hit(49), hit(38), hit(36)], Duration::new(NoteValue::Half)), note(vec![hit(42)], Duration::new(NoteValue::Half))];
+    t.color = Some([0x12, 0x34, 0x56]);
+    drums.color = Some(guitario_score::TRACK_COLORS[1]);
     s.tracks = vec![t, drums];
     s.validate().unwrap();
     s

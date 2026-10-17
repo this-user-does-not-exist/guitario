@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -39,7 +39,11 @@ fn enter(s: &mut Session, beats: &[DemoBeat]) {
 
 fn demo() -> Session {
     let mut s = Session::new();
-    run(&mut s, "score.setMeta", json!({"title": "Demo Riff", "artist": "Guitario", "author": "Guitario contributors"}));
+    run(
+        &mut s,
+        "score.setMeta",
+        json!({"title": "Demo Riff", "subtitle": "A study in E", "artist": "Guitario", "author": "Guitario contributors", "words": "Guitario contributors", "music": "Guitario contributors", "copyright": "2026 Guitario contributors"}),
+    );
     run(&mut s, "score.setTempo", json!({"bpm": 104}));
     run(&mut s, "track.rename", json!({"name": "Electric Guitar"}));
     run(&mut s, "track.setProgram", json!({"program": 29}));
@@ -198,6 +202,9 @@ fn main() {
     }
     if args.iter().any(|a| a == "--keyboard") {
         app.show_keyboard_view();
+    }
+    if args.iter().any(|a| a == "--track-tab") {
+        app.show_track_inspector();
     }
     if args.iter().any(|a| a == "--preferences") {
         app.open_preferences();

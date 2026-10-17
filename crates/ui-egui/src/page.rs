@@ -466,8 +466,39 @@ impl<'a> Ctx<'a> {
         let center = page.left() + m.center_x();
         self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, title, serif(33.0 * m.zoom), self.t.ink);
         y += 10.0 * m.space;
-        if !meta.artist.is_empty() {
-            self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, &meta.artist, serif(16.0 * m.zoom), self.t.ink);
+        let left = page.left() + m.margin_left;
+        let right = page.right() - m.margin_right;
+        for line in crate::layout::title_lines(meta) {
+            use crate::layout::TitleLine as L;
+            let size = |pt: f32| serif(pt * m.zoom);
+            match &line {
+                L::Subtitle(s) => {
+                    self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, s, size(20.0), self.t.ink);
+                }
+                L::Artist(s) => {
+                    self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, s, size(16.0), self.t.ink);
+                }
+                L::Album(s) => {
+                    self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, s, size(13.0), self.t.ink);
+                }
+                L::WordsAndMusic(s) => {
+                    self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, format!("Words & Music by {s}"), size(11.0), self.t.ink);
+                }
+                L::Credits { words, music } => {
+                    if !words.is_empty() {
+                        self.p().text(pos2(left, y), egui::Align2::LEFT_TOP, format!("Words by {words}"), size(11.0), self.t.ink);
+                    }
+                    if !music.is_empty() {
+                        self.p().text(pos2(right, y), egui::Align2::RIGHT_TOP, format!("Music by {music}"), size(11.0), self.t.ink);
+                    }
+                }
+            }
+            y += line.height() * m.space;
+        }
+        // The copyright sits at the foot of the first page, as Guitar Pro prints it.
+        if !meta.copyright.trim().is_empty() {
+            let foot = page.bottom() - m.margin_bottom * 0.5;
+            self.p().text(pos2(center, foot), egui::Align2::CENTER_CENTER, meta.copyright.trim(), serif(9.0 * m.zoom), self.t.ink);
         }
         if !meta.author.is_empty() {
             self.p().text(pos2(page.right() - m.margin_right, y), egui::Align2::RIGHT_TOP, format!("Tab: {}", meta.author), serif(10.0 * m.zoom), self.t.ink);
@@ -1900,8 +1931,12 @@ impl<'a> Ctx<'a> {
     }
 }
 
-/// Guitar Pro-style abbreviated track name for the left margin (`od.guit.`, `bass` …).
+/// The name at the left of each system after the first: the track's short name, or a Guitar
+/// Pro-style abbreviation of its name (`od.guit.`, `bass` …).
 pub fn short_name(track: &Track) -> String {
+    if !track.short_name.trim().is_empty() {
+        return track.short_name.trim().to_string();
+    }
     if track.is_drums() {
         return "drms".to_string();
     }

@@ -17,8 +17,6 @@ use std::io::Write;
 const GP_BRUSH_SCALE: u32 = TICKS_PER_QUARTER / 960;
 
 /// Track colours, cycled.
-const COLOURS: [&str; 6] = ["255 0 0", "0 128 255", "0 160 0", "255 160 0", "160 0 255", "0 160 160"];
-
 /// Writes `score` as a Guitar Pro 7/8 file.
 pub fn export_gp(score: &Score) -> Result<Export, GpError> {
     let mut w = Gpif::default();
@@ -178,15 +176,15 @@ impl Gpif {
         xml.push_str(&format!(
             "<Score><Title>{}</Title><SubTitle>{}</SubTitle><Artist>{}</Artist><Album>{}</Album><Words>{}</Words><Music>{}</Music><WordsAndMusic>{}</WordsAndMusic><Copyright>{}</Copyright><Tabber>{}</Tabber><Instructions>{}</Instructions><Notices>{}</Notices>{}</Score>\n",
             cdata(&m.title),
-            cdata(""),
+            cdata(&m.subtitle),
             cdata(&m.artist),
             cdata(&m.album),
-            cdata(""),
-            cdata(""),
-            cdata(""),
-            cdata(""),
+            cdata(&m.words),
+            cdata(&m.music),
+            cdata(if !m.words.is_empty() && m.words == m.music { &m.words } else { "" }),
+            cdata(&m.copyright),
             cdata(&m.author),
-            cdata(""),
+            cdata(&m.instructions),
             cdata(&m.notes),
             page_setup(&score.page),
         ));
@@ -248,8 +246,11 @@ impl Gpif {
         xml.push_str(&format!(
             "<Track id=\"{ti}\"><Name>{}</Name><ShortName>{}</ShortName><Color>{}</Color><PlaybackState>{state}</PlaybackState>\n",
             cdata(&t.name),
-            cdata(&t.name.chars().take(8).collect::<String>()),
-            COLOURS.get(ti % COLOURS.len()).copied().unwrap_or("255 0 0")
+            cdata(&t.short_name),
+            {
+                let [r, g, b] = t.color_at(ti);
+                format!("{r} {g} {b}")
+            }
         ));
         xml.push_str(&format!(
             "<Sounds><Sound><Name>{0}</Name><Label>{0}</Label><Path>{1}</Path><Role>Factory</Role><MIDI><LSB>0</LSB><MSB>0</MSB><Program>{2}</Program></MIDI></Sound></Sounds>\n",
