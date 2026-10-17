@@ -124,6 +124,13 @@ impl SampleVoice {
         }
     }
 
+    /// Plays the sample `ratio` times higher (the relative tonality); 1.0 leaves it as it is.
+    pub fn repitch(&mut self, ratio: f32) {
+        if ratio.is_finite() && ratio > 0.0 {
+            self.step *= f64::from(ratio);
+        }
+    }
+
     /// Note off. One-shot regions play out unless forced.
     pub fn release(&mut self) {
         self.released = true;

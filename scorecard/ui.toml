@@ -1,13 +1,14 @@
-# Scorecard checklist: workspace and UI against Guitar Pro 8's layout. Verified 2026-10-15 by
-# offscreen renders.
+# Scorecard checklist: workspace and UI against Guitar Pro 8's layout. Verified 2026-10-17 by
+# offscreen renders compared with the Guitar Pro 8 manual's screenshots.
 area = "ui"
 title = "Workspace and UI"
 order = 5
 
 [[item]]
 id = "UI-1"
-target = "Top bar with transport buttons and LCD (track, bar, beat, signature, time, tempo)"
+target = "Toolbar in Guitar Pro 8's order and groups: home, panels, zoom, display mode, undo/redo, print, transport, two-row LCD, loop and speed, relative tonality, instrument views"
 status = "done"
+note = "audio track, tuner, line-in and Fretlight buttons are shown greyed out (features not built)"
 
 [[item]]
 id = "UI-2"
@@ -29,7 +30,7 @@ status = "done"
 id = "UI-5"
 target = "Instrument views: fretboard (click to enter), keyboard, drum pad"
 status = "partial"
-note = "fretboard and drum pad; no keyboard"
+note = "all three, with toolbar buttons; no hover note names, scales or left-handed fretboard"
 
 [[item]]
 id = "UI-6"
@@ -46,7 +47,8 @@ note = "prefs.rs on craft-settings"
 [[item]]
 id = "UI-8"
 target = "Preferences dialog, themes (light and dark), UI scale"
-status = "missing"
+status = "partial"
+note = "theme and interface scale only; the light theme has had one pass"
 
 [[item]]
 id = "UI-9"
