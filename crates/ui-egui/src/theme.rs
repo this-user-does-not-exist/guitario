@@ -3,6 +3,28 @@
 //! hard-coding colours.
 
 use egui::Color32;
+use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU8, Ordering};
+
+/// Guitar Pro's dark editor, or a light one; chosen in Preferences and saved.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Theme {
+    #[default]
+    Dark,
+    Light,
+}
+
+static CURRENT: AtomicU8 = AtomicU8::new(0);
+
+/// Switches the tokens every widget reads; call `apply` after it so egui's own widgets follow.
+pub fn set_theme(theme: Theme) {
+    CURRENT.store(theme as u8, Ordering::Relaxed);
+}
+
+pub fn theme() -> Theme {
+    if CURRENT.load(Ordering::Relaxed) == Theme::Light as u8 { Theme::Light } else { Theme::Dark }
+}
 
 pub struct Tokens {
     pub chrome: Color32,
@@ -76,8 +98,27 @@ pub const GP: Tokens = Tokens {
     inlay: Color32::from_rgb(0xe8, 0xe2, 0xd2),
 };
 
+/// The light editor: pale chrome and panels around the same white pages. The transport display
+/// stays dark, as Guitar Pro's does.
+pub const LIGHT: Tokens = Tokens {
+    chrome: Color32::from_rgb(0xe9, 0xe9, 0xec),
+    chrome_dark: Color32::from_rgb(0xdb, 0xdb, 0xdf),
+    panel: Color32::from_rgb(0xf1, 0xf1, 0xf3),
+    panel_header: Color32::from_rgb(0xe3, 0xe3, 0xe7),
+    border: Color32::from_rgb(0xb4, 0xb4, 0xba),
+    control: Color32::from_rgb(0xdd, 0xdd, 0xe2),
+    control_hover: Color32::from_rgb(0xcd, 0xcd, 0xd4),
+    text: Color32::from_rgb(0x1f, 0x1f, 0x22),
+    text_dim: Color32::from_rgb(0x66, 0x66, 0x6e),
+    workspace: Color32::from_rgb(0xb6, 0xb6, 0xbb),
+    ..GP
+};
+
 pub fn tokens() -> &'static Tokens {
-    &GP
+    match theme() {
+        Theme::Dark => &GP,
+        Theme::Light => &LIGHT,
+    }
 }
 
 /// Guitar Pro-like track colours, by track index.
@@ -97,14 +138,14 @@ pub fn track_color(i: usize) -> Color32 {
 
 pub fn apply(ctx: &egui::Context) {
     let t = tokens();
-    let mut v = egui::Visuals::dark();
+    let mut v = if theme() == Theme::Light { egui::Visuals::light() } else { egui::Visuals::dark() };
     v.panel_fill = t.panel;
     v.window_fill = t.panel;
     v.extreme_bg_color = t.chrome_dark;
     v.faint_bg_color = t.panel_header;
     v.override_text_color = Some(t.text);
     v.selection.bg_fill = t.accent;
-    v.selection.stroke = egui::Stroke::new(1.0, Color32::WHITE);
+    v.selection.stroke = egui::Stroke::new(1.0, if theme() == Theme::Light { t.ink } else { Color32::WHITE });
     v.window_stroke = egui::Stroke::new(1.0, t.border);
     v.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, t.border);
     v.widgets.noninteractive.bg_fill = t.panel;

@@ -63,6 +63,7 @@ pub enum UiAction {
     VolumeAutomation,
     PanAutomation,
     AudioSettings,
+    Preferences,
     TogglePalette,
     ToggleInspector,
     ToggleGlobalView,
@@ -136,7 +137,7 @@ pub static CATALOG: &[MenuItem] = &[
     u("File", "Print Preview…", U::PrintPreview, ""),
     u("File", "Print…", U::Print, "Cmd+P"),
     u("File", "Score Information…", U::SongInfo, ""),
-    m("File", "Preferences…"),
+    u("File", "Preferences…", U::Preferences, ""),
     u("File", "Quit", U::Quit, "Cmd+Q"),
     // Edit
     c("Edit", "Undo", "edit.undo", "", "Cmd+Z"),

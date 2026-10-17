@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--light] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -195,6 +195,12 @@ fn main() {
     }
     if args.iter().any(|a| a == "--preview") {
         app.open_preview();
+    }
+    if args.iter().any(|a| a == "--preferences") {
+        app.open_preferences();
+    }
+    if args.iter().any(|a| a == "--light") {
+        app.set_ui_prefs(guitario_ui_egui::UiPrefs { theme: guitario_ui_egui::Theme::Light, scale: 1.0 });
     }
     if args.iter().any(|a| a == "--page-setup") {
         app.open_page_setup();
