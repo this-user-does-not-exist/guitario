@@ -125,6 +125,9 @@ pub const LIGHT: Tokens = Tokens {
     ..GP
 };
 
+/// What prints and exports use whatever the theme: the score's own inks on white paper.
+pub const PAPER: Tokens = Tokens { page: Color32::WHITE, ..GP };
+
 pub fn tokens() -> &'static Tokens {
     match theme() {
         Theme::Dark => &GP,
