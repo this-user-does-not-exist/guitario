@@ -250,30 +250,11 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
 fn left(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     ui.add_space(4.0);
     let mut g = Group::begin(ui);
-    let home = g.icon(ui, Icon::Home, Place::Only, false, true, "Home");
+    let home = g.icon(ui, Icon::Home, Place::Only, app.home.open, true, "Homepage");
     g.finish(ui);
-    egui::Popup::menu(&home).show(|ui| {
-        if ui.button("New").clicked() {
-            ui.close();
-            app.new_document();
-        }
-        if ui.button("Open…").clicked() {
-            ui.close();
-            app.open_dialog();
-        }
-        let recent = app.recent_files();
-        if !recent.is_empty() {
-            ui.separator();
-            ui.label(egui::RichText::new("Recent files").small().color(tokens().text_dim));
-            for path in recent.into_iter().take(10) {
-                let name = std::path::Path::new(&path).file_name().map_or_else(|| path.clone(), |n| n.to_string_lossy().into_owned());
-                if ui.button(name).on_hover_text(&path).clicked() {
-                    ui.close();
-                    app.open_path(&path);
-                }
-            }
-        }
-    });
+    if home.clicked() {
+        app.home.open = !app.home.open;
+    }
 
     ui.add_space(GAP);
     let mut g = Group::begin(ui);

@@ -12,6 +12,7 @@ mod commands;
 mod drums;
 mod error;
 mod exchange;
+pub mod library;
 mod lyrics;
 mod pagesetup;
 mod params;

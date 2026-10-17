@@ -5,7 +5,8 @@ use serde_json::json;
 fn main() -> eframe::Result {
     let mut session = Session::new();
     let mut startup_error = None;
-    if let Some(path) = std::env::args().nth(1)
+    let file = std::env::args().nth(1);
+    if let Some(path) = file.clone()
         && let Err(e) = session.run("file.open", &json!({"path": path}))
     {
         startup_error = Some(e.to_string());
@@ -22,6 +23,10 @@ fn main() -> eframe::Result {
             let (store, report) = GuitarioApp::open_settings();
             let mut app = GuitarioApp::new(session, startup_error).with_default_sounds().with_settings(store, &report);
             app.setup(&cc.egui_ctx);
+            // Without a file to open, Guitario starts on its Homepage, as Guitar Pro does.
+            if file.is_none() {
+                app.show_home();
+            }
             Ok(Box::new(app))
         }),
     )

@@ -11,6 +11,7 @@ mod fonts;
 mod fretboard;
 mod global_view;
 mod glyphs;
+mod home;
 mod icons;
 mod inspector;
 mod instrument;
@@ -137,6 +138,8 @@ pub struct GuitarioApp {
     /// How the interface looks (File › Preferences…).
     ui: prefs::UiPrefs,
     prefs_dialog: preferences::PreferencesDialog,
+    /// The Homepage, shown instead of the score when open.
+    pub(crate) home: home::Home,
     shortcuts_open: bool,
     fullscreen: bool,
     /// Window commands from menu items (full screen, minimize), sent on the next frame.
@@ -152,6 +155,8 @@ enum Pending {
     New,
     OpenDialog,
     OpenPath(String),
+    /// A command that replaces the document (a template, an example).
+    Start(&'static str, Value),
 }
 
 impl GuitarioApp {
@@ -207,6 +212,7 @@ impl GuitarioApp {
             audio_dialog: audio_settings::AudioSettingsDialog::default(),
             ui: prefs::UiPrefs::default(),
             prefs_dialog: preferences::PreferencesDialog::default(),
+            home: home::Home::default(),
             shortcuts_open: false,
             fullscreen: false,
             viewport_cmds: Vec::new(),
@@ -340,8 +346,19 @@ impl GuitarioApp {
             }
             Pending::OpenDialog => self.open_dialog_now(),
             Pending::OpenPath(p) => self.open_path_now(&p),
+            Pending::Start(id, params) => {
+                if self.run(id, params).is_some() {
+                    self.view.hidden = 0;
+                }
+            }
             Pending::Close => {}
         }
+    }
+
+    /// Replaces the document through `id` (a template or an example), asking about unsaved
+    /// changes first.
+    pub(crate) fn start_document(&mut self, id: &'static str, params: Value) {
+        self.guard(Pending::Start(id, params));
     }
 
     pub(crate) fn open_path(&mut self, path: &str) {
@@ -434,6 +451,10 @@ impl GuitarioApp {
             U::ToggleNotation => {
                 let on = self.current_notation().standard;
                 self.run("track.setNotation", json!({"standard": !on}));
+            }
+            U::NewFromTemplate => {
+                self.home.open = true;
+                self.home.tab = home::Tab::Templates;
             }
             U::ToggleTablature => {
                 let on = self.current_notation().tab;
@@ -780,7 +801,8 @@ impl GuitarioApp {
 
     /// A dialog has the window: keys must not reach the score behind it.
     fn modal_open(&self) -> bool {
-        self.pending.is_some()
+        self.home.open
+            || self.pending.is_some()
             || self.print.open
             || self.preview.open
             || self.page_setup.open
@@ -901,6 +923,10 @@ impl GuitarioApp {
         });
         egui::Panel::top("topbar").exact_size(54.0).frame(bar(t.chrome)).show(ui, |ui| topbar::show(self, ui));
         egui::Panel::top("doctabs").exact_size(tabbar::HEIGHT).frame(egui::Frame::NONE.fill(t.chrome_dark)).show(ui, |ui| tabbar::show(self, ui));
+        if self.home.open {
+            egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.panel)).show(ui, |ui| home::show(self, ui));
+            return;
+        }
         egui::Panel::bottom("status").exact_size(22.0).frame(bar(t.chrome_dark)).show(ui, |ui| {
             ui.horizontal_centered(|ui| {
                 let c = self.session.cursor();
