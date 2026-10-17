@@ -19,4 +19,4 @@ mod wav;
 pub use bank::{BANK_FILE, Role, SoundBank};
 pub use player::{Mix, Options, Player, used_keys, used_keys_by_track};
 pub use tempo::{BeatTime, TempoMap};
-pub use wav::{render_player, render_wav, wav_bytes};
+pub use wav::{flac_bytes, render_player, render_wav, wav_bytes};

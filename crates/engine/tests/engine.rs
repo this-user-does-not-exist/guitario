@@ -363,3 +363,27 @@ fn tempo_points_glide_or_jump_and_are_set_on_any_bar() {
         assert!(s.run("measure.setTempo", &bad).is_err(), "{bad}");
     }
 }
+
+#[test]
+fn audio_exports_as_wav_or_flac_by_name_or_format() {
+    let mut s = Session::new();
+    run(&mut s, "note.setFret", json!({"fret": 5}));
+    let dir = std::env::temp_dir().join(format!("gt-audio-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = |n: &str| dir.join(n).display().to_string();
+    let flac = s.run("file.exportAudio", &json!({"path": path("a.flac"), "sampleRate": 22050})).unwrap();
+    let wav = s.run("file.exportAudio", &json!({"path": path("a.wav"), "sampleRate": 22050})).unwrap();
+    assert!(std::fs::read(path("a.flac")).unwrap().starts_with(b"fLaC"));
+    assert!(std::fs::read(path("a.wav")).unwrap().starts_with(b"RIFF"));
+    assert!(flac["bytes"].as_u64() < wav["bytes"].as_u64());
+    // `format` wins over the name; the old command still writes WAV.
+    s.run("file.exportAudio", &json!({"path": path("b.audio"), "format": "flac", "sampleRate": 8000})).unwrap();
+    assert!(std::fs::read(path("b.audio")).unwrap().starts_with(b"fLaC"));
+    s.run("file.exportWav", &json!({"path": path("c.flac"), "sampleRate": 8000})).unwrap();
+    assert!(std::fs::read(path("c.flac")).unwrap().starts_with(b"RIFF"));
+    // MP3 and OGG say what to use instead.
+    let e = s.run("file.exportAudio", &json!({"path": path("d.mp3")})).unwrap_err().to_string();
+    assert!(e.contains("FLAC"), "{e}");
+    assert!(s.run("file.exportAudio", &json!({"path": path("e.wav"), "format": 3})).is_ok(), "an odd format falls back to the name");
+    std::fs::remove_dir_all(dir).ok();
+}

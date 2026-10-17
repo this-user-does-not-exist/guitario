@@ -60,7 +60,7 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .collect()
 });
 
-const CORE: [CommandSpec; 54] = [
+const CORE: [CommandSpec; 55] = [
     cmd("file.new", "New", "File", Some("Cmd+N"), "", false, file_new),
     cmd("file.open", "Open…", "File", Some("Cmd+O"), "path (.gt, or a Guitar Pro .gp/.gpx/.gp5/.gp4/.gp3 to import)", false, file_open),
     cmd("file.importGp", "Import Guitar Pro…", "File/Import", None, "path (.gp, .gpx, .gp5, .gp4 or .gp3)", false, import_gp),
@@ -74,6 +74,15 @@ const CORE: [CommandSpec; 54] = [
         "path, sampleRate? (8000..=192000, default 44100), sounds? (a sound bank folder with bank.json: SFZ instruments for drums, bass and guitars)",
         false,
         export_wav,
+    ),
+    cmd(
+        "file.exportAudio",
+        "Export Audio…",
+        "File/Export",
+        None,
+        "path, format? (\"wav\" or \"flac\"; default the path's extension, else wav), sampleRate? (8000..=192000, default 44100), sounds? (a sound bank folder)",
+        false,
+        export_audio_cmd,
     ),
     cmd("file.exportAscii", "Export ASCII Tab", "File/Export", None, "path?", false, export_ascii),
     cmd("edit.undo", "Undo", "Edit", Some("Cmd+Z"), "", false, undo),
@@ -278,7 +287,22 @@ fn export_midi(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 }
 
 fn export_wav(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    export_audio(s, params, Some("wav"))
+}
+
+/// Renders the score and writes it as WAV or FLAC: `format`, or the path's extension.
+fn export_audio_cmd(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    export_audio(s, params, None)
+}
+
+fn export_audio(s: &mut Session, params: &Value, forced: Option<&str>) -> Result<Value, EngineError> {
     let path = p::string(params, "path")?.to_string();
+    let by_extension = std::path::Path::new(&path).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase);
+    let format = match forced.map(str::to_string).or_else(|| p::opt_string(params, "format").map(str::to_ascii_lowercase)).or(by_extension) {
+        Some(f) if f == "wav" || f == "flac" => f,
+        Some(f) if f == "mp3" || f == "ogg" => return Err(EngineError::BadParam(format!("{f} export is not available yet; use FLAC (lossless) or WAV"))),
+        _ => "wav".to_string(),
+    };
     let rate = p::opt_uint(params, "sampleRate", 192_000)?.unwrap_or(44_100);
     if rate < 8_000 {
         return Err(EngineError::BadParam("`sampleRate` must be at least 8000".into()));
@@ -293,7 +317,11 @@ fn export_wav(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         Some(_) => return Err(EngineError::BadParam("`sounds` is not supported in the browser build".into())),
         None => (guitario_playback::render_wav(&s.score, rate as u32), Vec::new()),
     };
-    let bytes = guitario_playback::wav_bytes(&pcm, rate as u32);
+    let bytes = if format == "flac" {
+        guitario_playback::flac_bytes(&pcm, rate as u32).map_err(EngineError::invalid)?
+    } else {
+        guitario_playback::wav_bytes(&pcm, rate as u32)
+    };
     std::fs::write(&path, &bytes)?;
     Ok(json!({"bytes": bytes.len(), "seconds": pcm.len() as f64 / 2.0 / rate as f64, "warnings": warnings}))
 }

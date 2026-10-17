@@ -39,9 +39,42 @@ pub fn wav_bytes(samples: &[f32], sample_rate: u32) -> Vec<u8> {
     b
 }
 
+/// 16-bit FLAC bytes for interleaved stereo samples: lossless, about half the size of a WAV.
+pub fn flac_bytes(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, String> {
+    use flacenc::component::BitRepr;
+    use flacenc::error::Verify;
+    let pcm: Vec<i32> = samples.iter().map(|s| (s.clamp(-1.0, 1.0) * 32767.0) as i32).collect();
+    let config = flacenc::config::Encoder::default().into_verified().map_err(|(_, e)| format!("FLAC settings: {e:?}"))?;
+    let source = flacenc::source::MemSource::from_samples(&pcm, 2, 16, sample_rate as usize);
+    let stream = flacenc::encode_with_fixed_block_size(&config, source, config.block_size).map_err(|e| format!("FLAC encoding: {e:?}"))?;
+    let mut sink = flacenc::bitsink::ByteSink::new();
+    stream.write(&mut sink).map_err(|e| format!("FLAC writing: {e:?}"))?;
+    Ok(sink.as_slice().to_vec())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn flac_is_lossless_and_smaller_than_wav() {
+        let s = guitario_score::Score::new();
+        let mut pcm = render_wav(&s, 22_050);
+        // A tone, so there is something to compress.
+        for (i, x) in pcm.iter_mut().enumerate() {
+            *x = ((i / 2) as f32 * 0.05).sin() * 0.5;
+        }
+        let flac = flac_bytes(&pcm, 22_050).unwrap();
+        assert!(flac.starts_with(b"fLaC"));
+        assert!(flac.len() < wav_bytes(&pcm, 22_050).len());
+        let mut reader = claxon::FlacReader::new(std::io::Cursor::new(&flac)).unwrap();
+        assert_eq!((reader.streaminfo().sample_rate, reader.streaminfo().channels, reader.streaminfo().bits_per_sample), (22_050, 2, 16));
+        let back: Vec<i32> = reader.samples().map(Result::unwrap).collect();
+        let want: Vec<i32> = pcm.iter().map(|s| (s.clamp(-1.0, 1.0) * 32767.0) as i32).collect();
+        assert_eq!(back, want, "every sample comes back exactly");
+        // Silence and an empty render are fine too.
+        assert!(flac_bytes(&[], 44_100).is_ok());
+    }
 
     #[test]
     fn header_is_valid() {

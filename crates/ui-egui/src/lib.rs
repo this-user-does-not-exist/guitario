@@ -320,6 +320,7 @@ impl GuitarioApp {
             U::SaveAs => self.save_dialog(true),
             U::ExportMidi => self.export_dialog("MIDI", "mid", "file.exportMidi"),
             U::ExportWav => self.export_dialog("WAV audio", "wav", "file.exportWav"),
+            U::ExportAudio => self.export_dialog("FLAC audio (lossless)", "flac", "file.exportAudio"),
             U::ExportAscii => self.export_dialog("Text", "txt", "file.exportAscii"),
             U::ExportGp5 => self.export_dialog("Guitar Pro 5", "gp5", "file.exportGp5"),
             U::ExportGp => self.export_dialog("Guitar Pro 8", "gp", "file.exportGp"),
