@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -223,7 +223,9 @@ fn main() {
     if args.iter().any(|a| a == "--lyrics") {
         app.open_lyrics();
     }
-    let mut harness = egui_kittest::Harness::builder().with_size(egui::vec2(w, h)).build_ui(move |ui| app.show(ui));
+    // Pixels per point: 2 renders as a Retina screen does, for comparing with 2x screenshots.
+    let ppp = value("--ppp").and_then(|v| v.parse::<f32>().ok()).filter(|p| (0.5..=4.0).contains(p)).unwrap_or(1.0);
+    let mut harness = egui_kittest::Harness::builder().with_size(egui::vec2(w, h)).with_pixels_per_point(ppp).build_ui(move |ui| app.show(ui));
     harness.run_steps(4);
     if print {
         // Give the printer lookup a moment to answer.
