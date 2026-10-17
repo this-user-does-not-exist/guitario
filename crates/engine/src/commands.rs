@@ -55,6 +55,7 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .chain(crate::pagesetup::specs())
         .chain(crate::render::specs())
         .chain(crate::print::specs())
+        .chain(crate::recover::specs())
         .collect()
 });
 
@@ -141,9 +142,33 @@ const CORE: [CommandSpec; 54] = [
 
 impl Session {
     /// Runs a command by id. Mutating commands become one undo step; on error the score and
-    /// cursor are exactly as before. Never panics on any params.
+    /// cursor are exactly as before. Never panics on any params: a command that panics anyway (a
+    /// bug) is caught, the session is put back as it was, and the error says so.
     pub fn run(&mut self, id: &str, params: &Value) -> Result<Value, EngineError> {
         let spec = REGISTRY.iter().find(|c| c.id == id).ok_or_else(|| EngineError::UnknownCommand(id.to_string()))?;
+        self.run_guarded(spec, params)
+    }
+
+    /// The last-resort guard around one command: what it changed is undone if it panics.
+    pub(crate) fn run_guarded(&mut self, spec: &CommandSpec, params: &Value) -> Result<Value, EngineError> {
+        let saved = (self.snapshot(), self.undo.clone(), self.redo.clone(), self.path.clone(), self.dirty, self.selection);
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.dispatch(spec, params))) {
+            Ok(result) => result,
+            Err(payload) => {
+                let what = payload
+                    .downcast_ref::<&str>()
+                    .map(|s| (*s).to_string())
+                    .or_else(|| payload.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| "no message".into());
+                let (snap, undo, redo, path, dirty, selection) = saved;
+                (self.undo, self.redo, self.path, self.dirty, self.selection) = (undo, redo, path, dirty, selection);
+                self.restore(snap);
+                Err(EngineError::Internal { command: spec.id.to_string(), what: what.chars().take(300).collect() })
+            }
+        }
+    }
+
+    fn dispatch(&mut self, spec: &CommandSpec, params: &Value) -> Result<Value, EngineError> {
         if !spec.mutates {
             return (spec.run)(self, params);
         }
@@ -780,4 +805,39 @@ fn info(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
 fn timeline_cmd(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     let t = guitario_score::timeline(&s.score);
     Ok(json!(t.iter().take(100_000).map(|n| json!({"track": n.track, "measure": n.measure, "tick": n.start_tick, "ticks": n.ticks, "string": n.string, "pitch": n.pitch.map(|p| p.0), "velocity": n.velocity, "dead": n.dead})).collect::<Vec<_>>()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A command with a bug: it wrecks the score and the history, then panics.
+    fn broken(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
+        Arc::make_mut(&mut s.score).tracks.clear();
+        s.undo.clear();
+        s.path = None;
+        s.cursor.measure = 99;
+        panic!("index out of bounds: the len is 0 but the index is 3");
+    }
+
+    #[test]
+    fn a_panicking_command_is_caught_and_changes_nothing() {
+        let mut s = Session::new();
+        s.run("note.setFret", &json!({"fret": 5})).unwrap();
+        s.path = Some("riff.gt".into());
+        let (score, cursor, undo, dirty) = ((**s.score()).clone(), s.cursor(), s.undo.len(), s.dirty);
+        for mutates in [true, false] {
+            let spec = cmd("test.broken", "Broken", "", None, "", mutates, broken);
+            let e = s.run_guarded(&spec, &Value::Null).unwrap_err();
+            assert!(matches!(&e, EngineError::Internal { command, .. } if command == "test.broken"), "{e}");
+            assert!(e.to_string().contains("index out of bounds") && e.to_string().contains("changed nothing"), "{e}");
+            assert_eq!(**s.score(), score);
+            assert_eq!((s.cursor(), s.undo.len(), s.dirty, s.path.clone()), (cursor, undo, dirty, Some("riff.gt".into())));
+        }
+        // The session still works, and undo still reaches the edit before the panic.
+        s.run("note.setFret", &json!({"fret": 7})).unwrap();
+        s.run("edit.undo", &Value::Null).unwrap();
+        s.run("edit.undo", &Value::Null).unwrap();
+        assert!(s.score().tracks[0].measures[0].voices[0].beats[0].notes.is_empty());
+    }
 }

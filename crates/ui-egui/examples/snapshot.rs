@@ -162,6 +162,9 @@ fn main() {
     if args.iter().any(|a| a == "--multivoice") {
         app.view.multivoice = true;
     }
+    if let Some(dir) = value("--recovery") {
+        app = app.with_autosave_dir(dir.into());
+    }
     if args.iter().any(|a| a == "--selection") {
         let mut s = demo();
         run(&mut s, "select.set", json!({"fromMeasure": 0, "fromBeat": 3, "toMeasure": 1, "toBeat": 3}));

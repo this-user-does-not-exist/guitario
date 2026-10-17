@@ -11,6 +11,7 @@ workspace = true
 guitario-theory = { workspace = true }
 guitario-score = { workspace = true }
 guitario-engine = { workspace = true }
+guitario-format = { workspace = true }
 guitario-playback = { workspace = true }
 guitario-audio = { workspace = true }
 egui = { workspace = true }

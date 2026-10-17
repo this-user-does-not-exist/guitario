@@ -15,6 +15,7 @@ mod lyrics;
 mod pagesetup;
 mod params;
 mod print;
+mod recover;
 mod render;
 mod selection;
 mod session;

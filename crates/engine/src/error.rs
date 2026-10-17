@@ -14,6 +14,9 @@ pub enum EngineError {
     Gp(#[from] guitario_gp::GpError),
     #[error("i/o error: {0}")]
     Io(#[from] std::io::Error),
+    /// A bug: the command panicked. The session was put back as it was before the command.
+    #[error("`{command}` stopped on an internal error and changed nothing ({what}); please report it")]
+    Internal { command: String, what: String },
 }
 
 impl EngineError {

@@ -3,6 +3,7 @@
 //! along the bottom. Thin by design: every edit goes through `Session::run`, and the menus and
 //! shortcuts are generated from the engine's command registry.
 
+mod autosave;
 mod chord_dialog;
 mod fonts;
 mod fretboard;
@@ -100,6 +101,8 @@ pub struct GuitarioApp {
     chord: chord_dialog::ChordDialog,
     lyrics: lyrics_dialog::LyricsDialog,
     transpose: transpose_dialog::TransposeDialog,
+    /// Autosave and crash recovery; off until the persistent preferences are in use.
+    autosave: autosave::Autosave,
 }
 
 /// What the unsaved-changes prompt will do once the user answers.
@@ -144,6 +147,7 @@ impl GuitarioApp {
             ornaments: ornaments::OrnamentDialog::default(),
             chord: chord_dialog::ChordDialog::default(),
             lyrics: lyrics_dialog::LyricsDialog::default(),
+            autosave: autosave::Autosave::off(),
             transpose: transpose_dialog::TransposeDialog::default(),
         }
     }
@@ -169,9 +173,20 @@ impl GuitarioApp {
         self.panels = Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard };
         let t = &mut self.transport;
         (t.metronome, t.count_in, t.looping, t.speed) = (p.playback.metronome, p.playback.count_in, p.playback.looping, p.playback.speed);
+        // Unsaved work is kept beside the preferences, and what a stopped run left is offered back.
+        if let Some(dir) = self.settings.dir() {
+            self.autosave = autosave::Autosave::at(dir.join("recovery"));
+        }
         if report.has_problems() && !self.status_is_error {
             self.status = "Preferences could not all be read; defaults were used where needed.".into();
         }
+        self
+    }
+
+    /// Autosaves into `dir` instead of beside the preferences, and offers back what stopped runs
+    /// left there (agents, tests and the snapshot example).
+    pub fn with_autosave_dir(mut self, dir: std::path::PathBuf) -> Self {
+        self.autosave = autosave::Autosave::at(dir);
         self
     }
 
@@ -624,6 +639,7 @@ impl GuitarioApp {
             || self.ornaments.is_open()
             || self.chord.open
             || self.lyrics.open
+            || !self.autosave.found.is_empty()
             || self.transpose.open
     }
 
@@ -706,6 +722,8 @@ impl GuitarioApp {
         }
         self.poll_playback(&ctx);
         self.sync_settings(&ctx);
+        self.autosave_tick(&ctx);
+        self.recovery_dialog(&ctx);
         self.prompt(&ctx);
         self.about(&ctx);
         self.preview_dialog(&ctx);
@@ -864,6 +882,10 @@ impl eframe::App for GuitarioApp {
 
     fn on_exit(&mut self) {
         self.stop();
+        // Saved, or Don't Save was chosen: nothing to recover. Otherwise the copy stays.
+        if !self.session.is_dirty() || self.discard_confirmed {
+            self.autosave.finish();
+        }
         let _ = self.settings.flush();
     }
 }
