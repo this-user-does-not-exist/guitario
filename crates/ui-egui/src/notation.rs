@@ -119,8 +119,13 @@ pub fn beam_groups(beats: &[guitario_score::Beat], header: &guitario_score::Meas
             continue;
         }
         let u = starts.partition_point(|s| *s <= start);
+        let same_unit = match b.beam {
+            Some(guitario_score::BeamOverride::Break) => false,
+            Some(guitario_score::BeamOverride::Join) => true,
+            None => prev_unit == Some(u),
+        };
         match groups.last_mut() {
-            Some(g) if prev_unit == Some(u) && g.last().is_some_and(|&j| j + 1 == i) => g.push(i),
+            Some(g) if same_unit && g.last().is_some_and(|&j| j + 1 == i) => g.push(i),
             _ => groups.push(vec![i]),
         }
         prev_unit = Some(u);
@@ -193,6 +198,27 @@ mod tests {
         let mut three_first = bar(7, 8);
         three_first.beams = vec![3, 2, 2];
         assert_eq!(beam_groups(&seven, &three_first), vec![vec![0, 1, 2], vec![3, 4], vec![5, 6]]);
+    }
+
+    #[test]
+    fn a_beat_can_break_or_join_the_beam_whatever_the_bar_says() {
+        use guitario_score::{BeamOverride, Beat, Note};
+        use guitario_theory::{Duration, TimeSignature};
+        let n = || Beat { rest: false, notes: vec![Note::new(0, 0)], ..Beat::rest(Duration::EIGHTH) };
+        let bar = guitario_score::MeasureHeader::new(TimeSignature::new(4, 4).unwrap());
+        let mut beats: Vec<Beat> = (0..4).map(|_| n()).collect();
+        // Four eighths beam two and two by the beat; a join welds them, a break splits a pair.
+        assert_eq!(beam_groups(&beats, &bar), vec![vec![0, 1], vec![2, 3]]);
+        beats[2].beam = Some(BeamOverride::Join);
+        assert_eq!(beam_groups(&beats, &bar), vec![vec![0, 1, 2, 3]]);
+        beats[2].beam = None;
+        beats[1].beam = Some(BeamOverride::Break);
+        assert_eq!(beam_groups(&beats, &bar), vec![vec![2, 3]]);
+        // A join never reaches over a rest.
+        beats[1].beam = None;
+        beats[2] = Beat::rest(Duration::EIGHTH);
+        beats[3].beam = Some(BeamOverride::Join);
+        assert!(beam_groups(&beats, &bar).iter().all(|g| !g.contains(&3)));
     }
 
     #[test]

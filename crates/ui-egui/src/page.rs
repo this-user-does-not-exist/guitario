@@ -1368,6 +1368,21 @@ impl<'a> Ctx<'a> {
                             .unwrap_or(info.x - 3.2 * s);
                         g::arc(self.p(), pos2(from + 0.6 * head_w, y), pos2(info.x - 0.6 * head_w, y), dir * 0.9 * s, arc);
                     }
+                }
+                // A slur the user placed: from the outer head of this beat to that of a later one.
+                if let Some(to) = beat.slur.and_then(|k| xs.get(bi + usize::from(k))).filter(|_| !beat.rest) {
+                    let end = bi + usize::from(beat.slur.unwrap_or(0));
+                    if let Some(Some(end_info)) = infos.get(end) {
+                        let outer = |i: &Info| if above { i.pos.last() } else { i.pos.first() }.map_or(4, |h| h.0);
+                        let lift = if above { -1.0 } else { 1.0 };
+                        let (y0, y1) = (self.nota_y(nt, outer(info)) + lift * 0.9 * s, self.nota_y(nt, outer(end_info)) + lift * 0.9 * s);
+                        let y = if above { y0.min(y1) } else { y0.max(y1) };
+                        g::arc(self.p(), pos2(info.x + 0.3 * head_w, y), pos2(mx + to - 0.3 * head_w, y), dir * 1.4 * s, arc);
+                    }
+                }
+                for n in &beat.notes {
+                    let Some(&(_, pos)) = info.by_string.iter().find(|(st, _)| *st == n.string) else { continue };
+                    let y = self.nota_y(nt, pos) + dir * 0.7 * s;
                     // A hammer-on, pull-off or legato slide is a slur to the next note on the string.
                     if n.effects.hammer || n.effects.slide == Some(Slide::Legato) {
                         let to = (bi + 1..beats.len()).find(|&j| beats.get(j).is_some_and(|b| !b.rest && b.note_on(n.string).is_some()));
@@ -2389,5 +2404,21 @@ mod tests {
             assert_eq!(curves(score, false), curves(&plain, false) + 1, "{name}: the tab arc");
             assert_eq!(curves(score, true), curves(&plain, true) + 2, "{name}: and the notation slur");
         }
+    }
+
+    #[test]
+    fn a_placed_slur_is_one_arc_in_notation_and_nothing_in_the_tab() {
+        let plain = two_notes(|_| {}, |_| {});
+        let mut slurred = plain.clone();
+        if let Some(b) = slurred.tracks[0].measures[0].voices[0].beats.first_mut() {
+            b.slur = Some(1);
+        }
+        assert_eq!(curves(&slurred, true), curves(&plain, true) + 1);
+        assert_eq!(curves(&slurred, false), curves(&plain, false));
+        // One that runs off the bar (a stale value after an edit) is skipped, not a panic.
+        if let Some(b) = slurred.tracks[0].measures[0].voices[0].beats.first_mut() {
+            b.slur = Some(30);
+        }
+        assert_eq!(curves(&slurred, true), curves(&plain, true));
     }
 }

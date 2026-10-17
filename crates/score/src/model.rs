@@ -636,6 +636,33 @@ pub struct Beat {
     /// Tremolo picking: every note of the beat is picked again and again at this speed (slashes on the stem).
     #[serde(default)]
     pub tremolo: Option<TremoloSpeed>,
+    /// Overrides the bar's beaming at this beat: start a new beam here, or join the one before.
+    #[serde(default)]
+    pub beam: Option<BeamOverride>,
+    /// A slur drawn from this beat to the one this many beats later in the same bar and voice
+    /// (notation only; it does not change how the notes play).
+    #[serde(default)]
+    pub slur: Option<u8>,
+}
+
+/// A per-beat beam choice that beats the bar's grouping (Guitar Pro's beam break and join).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BeamOverride {
+    /// Never beamed to the beat before.
+    Break,
+    /// Beamed to the beat before even across the bar's group boundary.
+    Join,
+}
+
+impl BeamOverride {
+    pub fn from_name(name: &str) -> Option<BeamOverride> {
+        match name {
+            "break" => Some(BeamOverride::Break),
+            "join" => Some(BeamOverride::Join),
+            _ => None,
+        }
+    }
 }
 
 /// How fast a tremolo-picked beat repeats its notes; the slashes drawn on the stem are the same count.
@@ -902,6 +929,8 @@ impl Beat {
             brush: None,
             chord: None,
             tremolo: None,
+            beam: None,
+            slur: None,
         }
     }
 
