@@ -5,6 +5,7 @@
 //! GUI.
 
 mod ascii;
+mod automation;
 mod bars;
 mod chords;
 mod commands;
@@ -15,6 +16,7 @@ mod lyrics;
 mod pagesetup;
 mod params;
 mod print;
+mod recover;
 mod render;
 mod selection;
 mod session;

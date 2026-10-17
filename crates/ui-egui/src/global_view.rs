@@ -63,13 +63,14 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 if resp.clicked()
                     && let Some(pos) = resp.interact_pointer_pos()
                 {
-                    if mr.contains(pos) {
-                        actions.push(("track.setMix", json!({"muted": !tr.muted})));
+                    let part = if mr.contains(pos) {
+                        RowPart::Mute
                     } else if sr.contains(pos) {
-                        actions.push(("track.setMix", json!({"solo": !tr.solo})));
+                        RowPart::Solo
                     } else {
-                        actions.push(("track.select", json!({"index": i})));
-                    }
+                        RowPart::Name
+                    };
+                    actions.push(row_click(i, tr, part));
                 }
             }
         });
@@ -135,5 +136,50 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     });
     for (id, p) in actions {
         app.run(id, p);
+    }
+}
+
+/// Where a click on a track row landed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RowPart {
+    Name,
+    Mute,
+    Solo,
+}
+
+/// The command a click on row `i` runs. Mute and solo name their track, so any track can be
+/// muted or soloed (while playing too) without moving the cursor to it.
+fn row_click(i: usize, tr: &guitario_score::Track, part: RowPart) -> (&'static str, serde_json::Value) {
+    match part {
+        RowPart::Mute => ("track.setMix", json!({"track": i, "muted": !tr.muted})),
+        RowPart::Solo => ("track.setMix", json!({"track": i, "solo": !tr.solo})),
+        RowPart::Name => ("track.select", json!({"index": i})),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use guitario_engine::Session;
+
+    #[test]
+    fn mute_and_solo_act_on_their_own_row_not_the_cursor_track() {
+        let mut s = Session::new();
+        s.run("track.add", &json!({"name": "Bass", "tuning": "bass"})).unwrap();
+        s.run("track.addDrums", &json!({})).unwrap();
+        s.run("track.select", &json!({"index": 0})).unwrap();
+        for (row, part) in [(1, RowPart::Mute), (2, RowPart::Solo)] {
+            let (id, p) = row_click(row, &s.score().tracks[row].clone(), part);
+            s.run(id, &p).unwrap();
+        }
+        let t = &s.score().tracks;
+        assert!(!t[0].muted && !t[0].solo, "the cursor's track is untouched");
+        assert!(t[1].muted && t[2].solo);
+        assert_eq!(s.cursor().track, 0, "the cursor stays");
+        // A second click turns it back off.
+        let (id, p) = row_click(1, &s.score().tracks[1].clone(), RowPart::Mute);
+        s.run(id, &p).unwrap();
+        assert!(!s.score().tracks[1].muted);
+        assert_eq!(row_click(2, &s.score().tracks[2], RowPart::Name).0, "track.select");
     }
 }

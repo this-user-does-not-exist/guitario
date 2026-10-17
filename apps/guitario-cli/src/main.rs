@@ -9,11 +9,12 @@ const USAGE: &str = "guitario-cli <command>
 
   commands                       list every command id with its parameters (JSON)
   info <file>                    summarise a .gt or Guitar Pro (.gp, .gpx, .gp5, .gp4, .gp3) file
-  convert <in> <out> [--sounds <dir>] [--tracks 0,2] [--tab-only]
-                                 .gt or Guitar Pro in; .gt, .gp, .gp5, .pdf, .mid, .wav or .txt (ASCII
-                                 tab) out. For .wav, --sounds renders drums, bass and guitars from the
+  convert <in> <out> [--sounds <dir>] [--tracks 0,2] [--tab-only] [--score]
+                                 .gt or Guitar Pro in; .gt, .gp, .gp5, .pdf, .mid, .wav, .flac or .txt
+                                 (ASCII tab) out. For .wav and .flac, --sounds renders drums, bass and guitars from the
                                  SFZ bank in <dir>. For .pdf, --tracks picks tracks by index (default
-                                 every track) and --tab-only leaves out the standard notation
+                                 every track), --tab-only leaves out the standard notation and
+                                 --score stacks the tracks in every system as a full score
   run <file|-> <script.json>     run [[\"command.id\", {params}], ...] on a score; `-` starts a new one;
                                  prints each result as JSON. Add --save <path> to write the result.
 ";
@@ -58,8 +59,8 @@ fn real_main(args: &[String]) -> Result<(), String> {
             let lower = out.to_lowercase();
             let id = if lower.ends_with(".mid") || lower.ends_with(".midi") {
                 "file.exportMidi"
-            } else if lower.ends_with(".wav") {
-                "file.exportWav"
+            } else if lower.ends_with(".wav") || lower.ends_with(".flac") {
+                "file.exportAudio"
             } else if lower.ends_with(".txt") {
                 "file.exportAscii"
             } else if lower.ends_with(".pdf") {
@@ -71,7 +72,7 @@ fn real_main(args: &[String]) -> Result<(), String> {
             } else if lower.ends_with(".gt") {
                 "file.save"
             } else {
-                return Err("output must end in .gt, .gp, .gp5, .pdf, .mid, .wav or .txt".into());
+                return Err("output must end in .gt, .gp, .gp5, .pdf, .mid, .wav, .flac or .txt".into());
             };
             let mut params = serde_json::Map::new();
             params.insert("path".into(), json!(out));
@@ -85,6 +86,9 @@ fn real_main(args: &[String]) -> Result<(), String> {
                 }
                 if args.iter().any(|x| x == "--tab-only") {
                     params.insert("notation".into(), json!(false));
+                }
+                if args.iter().any(|x| x == "--score") {
+                    params.insert("together".into(), json!(true));
                 }
             }
             let params = Value::Object(params);

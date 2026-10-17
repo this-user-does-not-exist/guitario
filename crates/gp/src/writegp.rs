@@ -193,15 +193,15 @@ impl Gpif {
         // Tempo changes live on the master track.
         let track_ids: Vec<String> = (0..score.tracks.len()).map(|i| i.to_string()).collect();
         xml.push_str(&format!("<MasterTrack><Tracks>{}</Tracks><Automations>", track_ids.join(" ")));
-        let tempo = |bar: usize, bpm: u16| {
+        let tempo = |bar: usize, bpm: u16, linear: bool| {
             format!(
-                "<Automation><Type>Tempo</Type><Linear>false</Linear><Bar>{bar}</Bar><Position>0</Position><Visible>true</Visible><Value>{bpm} 2</Value></Automation>"
+                "<Automation><Type>Tempo</Type><Linear>{linear}</Linear><Bar>{bar}</Bar><Position>0</Position><Visible>true</Visible><Value>{bpm} 2</Value></Automation>"
             )
         };
-        xml.push_str(&tempo(0, headers.first().and_then(|h| h.tempo).unwrap_or(score.tempo)));
+        xml.push_str(&tempo(0, headers.first().and_then(|h| h.tempo).unwrap_or(score.tempo), false));
         for (i, h) in headers.iter().enumerate().skip(1) {
             if let Some(bpm) = h.tempo {
-                xml.push_str(&tempo(i, bpm));
+                xml.push_str(&tempo(i, bpm, h.tempo_linear));
             }
         }
         xml.push_str("</Automations></MasterTrack>\n<Tracks>\n");
@@ -290,6 +290,9 @@ impl Gpif {
             ));
         }
         xml.push_str("</Track>\n");
+        if t.measures.iter().any(|m| m.volume.is_some() || m.pan.is_some()) {
+            self.drop("volume and pan automation");
+        }
         if t.volume != 100 || t.pan != 0 {
             self.drop("track volume and pan settings");
         }

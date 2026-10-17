@@ -1,0 +1,22 @@
+# Performance budgets, in milliseconds, checked by `cargo xtask perf` (crates/ui-egui/src/perf.rs)
+# on a 400-bar, six-track band score in a release build. A frame must fit a 60 Hz display (16 ms);
+# what the user waits on after a click must feel immediate (100 ms).
+open_gt = 100
+save_gt = 100
+import_gp = 300
+layout_one_track = 8
+layout_multitrack = 16
+frame_page_start = 16
+frame_page_middle = 16
+frame_multitrack = 16
+timeline = 50
+player_new = 100
+# Work per second of sound: 50 ms is 5 % of one core.
+render_per_second = 50
+# With the sampled sound bank installed (skipped without it). Decoding runs in the background
+# when a score opens or gains new notes, so its budget is how long until Play is instant; the
+# window itself only checks readiness after an edit and hands instruments over on Play.
+sounds_preload = 3000
+sounds_ready_check = 5
+sounds_play = 10
+render_sampled_per_second = 100

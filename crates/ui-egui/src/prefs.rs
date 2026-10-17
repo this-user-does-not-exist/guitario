@@ -22,6 +22,8 @@ pub struct ViewPrefs {
     pub notation: bool,
     pub layout: crate::layout::LayoutMode,
     pub multitrack: bool,
+    /// Edit › Multivoice Editing.
+    pub multivoice: bool,
     pub palette: bool,
     pub inspector: bool,
     pub global_view: bool,
@@ -35,6 +37,7 @@ impl Default for ViewPrefs {
             notation: true,
             layout: crate::layout::LayoutMode::Page,
             multitrack: false,
+            multivoice: false,
             palette: true,
             inspector: true,
             global_view: true,
@@ -50,11 +53,15 @@ pub struct PlaybackPrefs {
     pub count_in: bool,
     pub looping: bool,
     pub speed: f32,
+    /// Sound › Audio Settings…: the output device by name (none is the system default) and the
+    /// buffer size in frames (none lets the device choose).
+    pub output: Option<String>,
+    pub buffer: Option<u32>,
 }
 
 impl Default for PlaybackPrefs {
     fn default() -> Self {
-        PlaybackPrefs { metronome: false, count_in: false, looping: false, speed: 1.0 }
+        PlaybackPrefs { metronome: false, count_in: false, looping: false, speed: 1.0, output: None, buffer: None }
     }
 }
 
@@ -77,6 +84,8 @@ impl Prefs {
         v.zoom = if v.zoom.is_finite() { v.zoom.clamp(0.25, 4.0) } else { 1.25 };
         let p = &mut self.playback;
         p.speed = if p.speed.is_finite() { p.speed.clamp(0.25, 2.0) } else { 1.0 };
+        p.buffer = p.buffer.map(|b| b.clamp(32, 8192));
+        p.output = p.output.take().filter(|o| !o.trim().is_empty() && o.len() <= 256);
         self.files.recent.truncate(MAX_RECENT);
         self
     }

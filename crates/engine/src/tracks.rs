@@ -1,6 +1,7 @@
-//! Track tools: duplicate and reorder.
+//! Track tools: duplicate, reorder and transpose.
 
 use crate::commands::{CommandSpec, cmd};
+use crate::params;
 use crate::{EngineError, Session};
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -8,6 +9,15 @@ use std::sync::Arc;
 pub fn specs() -> Vec<CommandSpec> {
     vec![
         cmd("track.duplicate", "Duplicate Track", "Track", None, "", true, duplicate),
+        cmd(
+            "track.transpose",
+            "Transpose Track…",
+            "Track",
+            None,
+            "semitones (-24..=24), tracks? (indexes, or \"all\" for every track but drums; default the cursor's)",
+            true,
+            transpose,
+        ),
         cmd("track.moveUp", "Move Track Up", "Track", None, "", true, |s, _| shift(s, -1)),
         cmd("track.moveDown", "Move Track Down", "Track", None, "", true, |s, _| shift(s, 1)),
     ]
@@ -39,4 +49,91 @@ fn shift(s: &mut Session, d: i64) -> Result<Value, EngineError> {
     s.cursor.track = j as usize;
     s.selection = None;
     Ok(json!({"track": j}))
+}
+
+/// Moves every note of the chosen tracks by `semitones`. A note keeps its string while its fret
+/// stays in range; otherwise it moves to the free string nearest its own that can play the pitch.
+/// A trill or grace note keeps its distance in frets from its note. Nothing changes unless every
+/// note of every track fits.
+fn transpose(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
+    let semitones = params::int(p, "semitones", -24, 24)?;
+    let count = s.score.tracks.len();
+    let chosen: Vec<usize> = match p.get("tracks") {
+        None | Some(Value::Null) => vec![s.cursor.track],
+        Some(Value::String(all)) if all == "all" => (0..count).filter(|i| s.score.tracks.get(*i).is_some_and(|t| !t.is_drums())).collect(),
+        Some(Value::Array(list)) => list
+            .iter()
+            .map(|v| {
+                v.as_u64()
+                    .and_then(|i| usize::try_from(i).ok())
+                    .filter(|i| *i < count)
+                    .ok_or_else(|| EngineError::BadParam(format!("`tracks` has {v}: no such track")))
+            })
+            .collect::<Result<_, _>>()?,
+        Some(_) => return Err(EngineError::BadParam("`tracks` must be track indexes or \"all\"".into())),
+    };
+    if chosen.is_empty() {
+        return Err(EngineError::invalid("no track to transpose"));
+    }
+    let mut done = Vec::with_capacity(chosen.len());
+    let mut notes = 0;
+    for &i in &chosen {
+        let track = s.score.tracks.get(i).ok_or_else(|| EngineError::invalid("no such track"))?;
+        let (copy, n) = transposed(track, semitones).map_err(|e| EngineError::invalid(format!("{}: {e}", track.name)))?;
+        notes += n;
+        done.push((i, copy));
+    }
+    let score = Arc::make_mut(&mut s.score);
+    for (i, copy) in done {
+        if let Some(t) = score.tracks.get_mut(i) {
+            *t = copy;
+        }
+    }
+    Ok(json!({"notes": notes, "semitones": semitones, "tracks": chosen}))
+}
+
+/// `track` with every note `semitones` away, and how many notes moved; why not, when one cannot.
+fn transposed(track: &guitario_score::Track, semitones: i64) -> Result<(guitario_score::Track, usize), String> {
+    if track.is_drums() {
+        return Err("a drum track cannot be transposed".into());
+    }
+    let mut copy = track.clone();
+    let (max, capo) = (i64::from(copy.max_fret()), i64::from(copy.capo));
+    let open: Vec<i64> = copy.tuning.strings.iter().map(|p| i64::from(*p)).collect();
+    let place = |pitch: i64, string: usize| -> Option<i64> {
+        let fret = pitch - open.get(string).copied()? - capo;
+        (0..=max).contains(&fret).then_some(fret)
+    };
+    let off = || "a note would leave the fretboard".to_string();
+    let mut count = 0usize;
+    for beat in copy.measures.iter_mut().flat_map(|m| m.voices.iter_mut()).flat_map(|v| v.beats.iter_mut()) {
+        let pitches: Vec<i64> =
+            beat.notes.iter().map(|n| open.get(usize::from(n.string)).copied().unwrap_or(0) + i64::from(n.fret) + capo + semitones).collect();
+        // Pass 1: notes that stay on their string. Pass 2: the others find a free string.
+        let mut targets: Vec<Option<(usize, i64)>> =
+            beat.notes.iter().zip(&pitches).map(|(n, pitch)| place(*pitch, usize::from(n.string)).map(|f| (usize::from(n.string), f))).collect();
+        let mut taken: Vec<usize> = targets.iter().flatten().map(|(s, _)| *s).collect();
+        for ((note, pitch), target) in beat.notes.iter().zip(&pitches).zip(&mut targets) {
+            if target.is_none() {
+                let mut order: Vec<usize> = (0..open.len()).filter(|s| !taken.contains(s)).collect();
+                order.sort_by_key(|s| (*s as i64 - i64::from(note.string)).abs());
+                let found = order.into_iter().find_map(|s| place(*pitch, s).map(|f| (s, f))).ok_or_else(off)?;
+                taken.push(found.0);
+                *target = Some(found);
+            }
+        }
+        for (note, target) in beat.notes.iter_mut().zip(targets) {
+            let (string, fret) = target.ok_or_else(off)?;
+            let shift = fret - i64::from(note.fret);
+            let ornaments = note.effects.trill.iter_mut().map(|t| &mut t.fret).chain(note.effects.grace.iter_mut().map(|g| &mut g.fret));
+            for f in ornaments {
+                let moved = i64::from(*f) + shift;
+                *f = u8::try_from(moved).ok().filter(|m| i64::from(*m) <= max).ok_or_else(off)?;
+            }
+            note.string = u8::try_from(string).map_err(|_| off())?;
+            note.fret = u8::try_from(fret).map_err(|_| off())?;
+            count += 1;
+        }
+    }
+    Ok((copy, count))
 }

@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~770–1,310 h away
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (page, screen and horizontal layouts, multitrack view; menus 140/173) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (chord list, Multivoice Editing, full-score printing, key changes, courtesy signatures, transpose dialogs, panic guard, autosave and crash recovery, performance budgets, live mixer, tempo, volume and pan automation, audio settings, FLAC export; menus 149/173) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [target-app parity](docs/target-app-parity.md) (methodology, weights, evidence), [gaps](docs/gaps.md)
@@ -19,7 +19,7 @@ work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~56%** | partly measured: menus 140/173, [scorecard](docs/scorecard.md) |
+| **Feature breadth** | **~61%** | partly measured: menus 149/173, [scorecard](docs/scorecard.md) |
 | **Ready for real work** | **~29%** (24–34%) | estimated: weighted by dimension below |
 | Mainstream user | ~39% (34–44%) | estimated |
 | Essentials user | ~76% (68–84%) | estimated |
@@ -46,13 +46,13 @@ Pro 8. Beta needs sampled sound, notation depth, tools and releases on three pla
 | Dimension | % ready | Hours to full | Doc |
 |---|---:|---:|---|
 | Editing | 55% | 110–200 | [scorecard](docs/scorecard.md#editing) |
-| Notation | 64% | 45–110 | [scorecard](docs/scorecard.md#notation-and-engraving) |
-| Playback | 30% | 380–750 | [scorecard](docs/scorecard.md#playback) |
+| Notation | 68% | 30–80 | [scorecard](docs/scorecard.md#notation-and-engraving) |
+| Playback | 38% | 320–650 | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 56% | 130–250 | [file-format-parity](docs/file-format-parity.md) |
 | UI/UX fidelity | 50% | 180–320 | [ui-parity](docs/ui-parity.md) |
 | Tools | 5% | 110–185 | [gaps G7](docs/gaps.md#g7-tools) |
-| Stability | 50% | 60–120 | [scorecard](docs/scorecard.md#reliability) |
-| Performance | not measured | 30–60 | [gaps G9](docs/gaps.md#g9-performance-budgets) |
+| Stability | 60% | 45–90 | [scorecard](docs/scorecard.md#reliability) |
+| Performance | 70% | 15–30 | [gaps G9](docs/gaps.md#g9-performance-budgets) |
 | Platforms | 15% | 80–150 + human | [scorecard](docs/scorecard.md#distribution) |
 
 ## Languages
@@ -63,7 +63,7 @@ English only. Guitar Pro ships in about a dozen languages ([gaps G13](docs/gaps.
 
 | Rank | Milestone | Estimate |
 |---|---|---:|
-| 1 | Notation depth: multivoice editing, a chord list, notation-only view, multitrack print | 25–55 h |
+| 1 | Notation depth: user-placed slurs, per-beat beam breaks, picking voices in notation | 8–28 h |
 | 2 | Guitar Pro import depth, MIDI and MusicXML import, a human check of `.gp` exports | 40–80 h |
 | 3 | Print depth: headers and footers, layouts, selected bars, a real-printer check | 10–20 h |
 | 4 | Performance budgets and a control channel | 70–140 h |

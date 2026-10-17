@@ -9,6 +9,8 @@ use egui::{Color32, Pos2, Rect, emath::TSTransform, vec2};
 pub(crate) struct Preview {
     pub open: bool,
     all_tracks: bool,
+    /// All tracks stacked in every system, as a full score.
+    together: bool,
     notation: bool,
     /// The page on show, 0-based.
     page: usize,
@@ -18,7 +20,7 @@ pub(crate) struct Preview {
 
 impl Default for Preview {
     fn default() -> Self {
-        Preview { open: false, all_tracks: false, notation: true, page: 0, set: None }
+        Preview { open: false, all_tracks: false, together: false, notation: true, page: 0, set: None }
     }
 }
 
@@ -52,9 +54,11 @@ struct Wants {
 }
 
 impl GuitarioApp {
-    /// File › Print Preview…: the track on screen, with the notation setting the page view has.
+    /// File › Print Preview…: what the page view shows: the track on screen, or every track as a
+    /// full score in the multitrack view; with the page view's notation setting.
     pub fn open_preview(&mut self) {
-        self.preview = Preview { open: true, notation: self.view.notation, ..Preview::default() };
+        let score = self.view.multitrack && self.session.score().tracks.len() > 1;
+        self.preview = Preview { open: true, all_tracks: score, together: score, notation: self.view.notation, ..Preview::default() };
     }
 
     pub(crate) fn preview_dialog(&mut self, ctx: &egui::Context) {
@@ -64,7 +68,7 @@ impl GuitarioApp {
         if self.preview.set.is_none() {
             let count = self.session.score().tracks.len();
             let tracks: Vec<usize> = if self.preview.all_tracks { (0..count).collect() } else { vec![self.session.cursor().track] };
-            let built = PrintSet::new(self.session.score(), &tracks, self.preview.notation);
+            let built = PrintSet::new(self.session.score(), &tracks, self.preview.notation, self.preview.together);
             self.preview.set = Some(built);
             self.preview.go(self.preview.page);
         }
@@ -74,6 +78,7 @@ impl GuitarioApp {
         let tracks = score.tracks.len();
         let this_track = score.tracks.get(self.session.cursor().track).map(|t| t.name.clone()).unwrap_or_default();
         let mut all = self.preview.all_tracks;
+        let mut together = self.preview.together;
         let mut notation = self.preview.notation;
         let (page, pages) = (self.preview.page, self.preview.pages());
         let mut wants = Wants::default();
@@ -89,6 +94,7 @@ impl GuitarioApp {
             ui.horizontal(|ui| {
                 ui.radio_value(&mut all, false, format!("This track ({this_track})"));
                 ui.add_enabled_ui(tracks > 1, |ui| ui.radio_value(&mut all, true, format!("All tracks ({tracks})")));
+                ui.add_enabled(all, egui::Checkbox::new(&mut together, "As a full score"));
                 ui.separator();
                 ui.checkbox(&mut notation, "Standard notation");
             });
@@ -130,7 +136,7 @@ impl GuitarioApp {
             ui.painter().rect_filled(area, 4.0, crate::theme::tokens().workspace);
             match set {
                 Some(Ok(set)) => {
-                    if let Some((_, layout, _)) = set.page(page) {
+                    if let Some((layout, _)) = set.page(page) {
                         let m = layout.metrics;
                         let avail = area.shrink(14.0);
                         let scale = (avail.width() / m.page_w).min(avail.height() / m.page_h).clamp(0.05, 2.0);
@@ -154,8 +160,9 @@ impl GuitarioApp {
             }
         });
 
-        if all != self.preview.all_tracks || notation != self.preview.notation {
+        if all != self.preview.all_tracks || together != self.preview.together || notation != self.preview.notation {
             self.preview.all_tracks = all;
+            self.preview.together = together;
             self.preview.notation = notation;
             wants.rebuild = true;
         }
@@ -169,9 +176,9 @@ impl GuitarioApp {
             self.open_page_setup();
         }
         if wants.print {
-            let (all, notation) = (self.preview.all_tracks, self.preview.notation);
+            let (all, together, notation) = (self.preview.all_tracks, self.preview.together, self.preview.notation);
             self.preview.open = false;
-            self.open_print_with(all, notation);
+            self.open_print_with(all, together, notation);
         } else if wants.close {
             self.preview.open = false;
         }
@@ -230,6 +237,15 @@ mod tests {
         app.preview.invalidate();
         frames(&mut app, 2);
         assert!(app.preview.pages() > one, "two tracks take more pages than one");
+        // Stacked as a full score they share their systems: fewer pages than one after the other.
+        let parts = app.preview.pages();
+        app.preview.together = true;
+        app.preview.invalidate();
+        frames(&mut app, 2);
+        assert!(app.preview.pages() < parts && app.preview.pages() >= one, "{} vs {parts}", app.preview.pages());
+        app.preview.together = false;
+        app.preview.invalidate();
+        frames(&mut app, 2);
         // The same bars on small landscape paper take more pages than on A4.
         let a4 = app.preview.pages();
         app.session.run("score.setPage", &json!({"paper": "a5", "landscape": true})).unwrap();
@@ -242,7 +258,7 @@ mod tests {
     fn a_score_with_no_such_track_shows_the_reason_not_a_crash() {
         let mut app = app();
         app.open_preview();
-        app.preview.set = Some(PrintSet::new(app.session.score(), &[9], true));
+        app.preview.set = Some(PrintSet::new(app.session.score(), &[9], true, false));
         frames(&mut app, 2);
         assert!(matches!(app.preview.set, Some(Err(_))) && app.preview.pages() == 0);
         app.preview.go(5);

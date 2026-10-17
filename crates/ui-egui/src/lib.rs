@@ -3,6 +3,9 @@
 //! along the bottom. Thin by design: every edit goes through `Session::run`, and the menus and
 //! shortcuts are generated from the engine's command registry.
 
+mod audio_settings;
+mod automation_dialog;
+mod autosave;
 mod chord_dialog;
 mod fonts;
 mod fretboard;
@@ -15,6 +18,7 @@ mod layout;
 mod lyrics_dialog;
 mod menu_catalog;
 mod menus;
+mod mixer;
 mod notation;
 mod ornaments;
 mod page;
@@ -22,12 +26,15 @@ mod page_setup;
 mod palette;
 pub mod parity;
 mod pdf;
+mod perf;
 mod prefs;
 mod preview;
 mod print_dialog;
+mod sounds;
 mod spool;
 mod theme;
 mod topbar;
+mod transpose_dialog;
 
 pub use layout::LayoutMode;
 pub use pdf::PdfRenderer;
@@ -52,6 +59,8 @@ pub struct ViewState {
     pub layout: layout::LayoutMode,
     /// View › Multitrack: every track in each system.
     pub multitrack: bool,
+    /// Edit › Multivoice Editing: voices in colour, and a click picks a note of any voice.
+    pub multivoice: bool,
 }
 
 /// Transport state. The player itself lives in the audio slot; this mirrors what the UI shows.
@@ -83,7 +92,13 @@ pub struct GuitarioApp {
     pub transport: Transport,
     audio: Option<guitario_audio::AudioOut>,
     /// Sampled SFZ instruments for drums, bass and guitars; None plays the built-in synth.
-    sounds: Option<guitario_playback::SoundBank>,
+    sounds: Option<std::sync::Arc<guitario_playback::SoundBank>>,
+    /// Instruments decoding on a worker thread for the score as it is, so Play never waits on them.
+    preload: Option<std::thread::JoinHandle<Vec<String>>>,
+    /// The score version last checked against the bank.
+    preloaded: Option<std::sync::Arc<guitario_score::Score>>,
+    /// Play was pressed while sounds were loading: it starts when they are ready.
+    play_when_ready: bool,
     settings: prefs::Store,
     /// A New/Open/Close waiting on the unsaved-changes prompt.
     pending: Option<Pending>,
@@ -96,6 +111,15 @@ pub struct GuitarioApp {
     ornaments: ornaments::OrnamentDialog,
     chord: chord_dialog::ChordDialog,
     lyrics: lyrics_dialog::LyricsDialog,
+    transpose: transpose_dialog::TransposeDialog,
+    mixer: mixer::Mixer,
+    tempo_automation: automation_dialog::TempoAutomation,
+    mix_automation: automation_dialog::MixAutomation,
+    /// The sound card to play through (Sound › Audio Settings…).
+    audio_settings: guitario_audio::AudioSettings,
+    audio_dialog: audio_settings::AudioSettingsDialog,
+    /// Autosave and crash recovery; off until the persistent preferences are in use.
+    autosave: autosave::Autosave,
 }
 
 /// What the unsaved-changes prompt will do once the user answers.
@@ -122,12 +146,15 @@ impl GuitarioApp {
             fonts: fonts::FontSet::default(),
             fonts_ready: false,
             panels: Panels { palette: true, inspector: true, global: true, fretboard: true },
-            view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false },
+            view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false, multivoice: false },
             inspector_tab: inspector::Tab::Song,
             edit_buffers: HashMap::new(),
             transport: Transport { playing: false, metronome: false, count_in: false, looping: false, speed: 1.0, position: 0.0, beat: None },
             audio: None,
             sounds: None,
+            preload: None,
+            preloaded: None,
+            play_when_ready: false,
             // In memory until the app hands over the real store, so tests and offscreen renders
             // never touch the user's profile.
             settings: prefs::Store::open(craft_settings::Location::Memory).0,
@@ -140,12 +167,19 @@ impl GuitarioApp {
             ornaments: ornaments::OrnamentDialog::default(),
             chord: chord_dialog::ChordDialog::default(),
             lyrics: lyrics_dialog::LyricsDialog::default(),
+            autosave: autosave::Autosave::off(),
+            transpose: transpose_dialog::TransposeDialog::default(),
+            mixer: mixer::Mixer::default(),
+            tempo_automation: automation_dialog::TempoAutomation::default(),
+            mix_automation: automation_dialog::MixAutomation::default(),
+            audio_settings: guitario_audio::AudioSettings::default(),
+            audio_dialog: audio_settings::AudioSettingsDialog::default(),
         }
     }
 
     /// Plays drums, bass and guitars from this sound bank (see `guitario_playback::SoundBank`).
     pub fn with_sounds(mut self, bank: Option<guitario_playback::SoundBank>) -> Self {
-        self.sounds = bank;
+        self.sounds = bank.map(std::sync::Arc::new);
         self
     }
 
@@ -159,13 +193,26 @@ impl GuitarioApp {
     pub fn with_settings(mut self, store: prefs::Store, report: &craft_settings::LoadReport) -> Self {
         self.settings = store;
         let p = self.settings.get().clone().sanitized();
-        self.view = ViewState { zoom: p.view.zoom, notation: p.view.notation, layout: p.view.layout, multitrack: p.view.multitrack };
+        self.view =
+            ViewState { zoom: p.view.zoom, notation: p.view.notation, layout: p.view.layout, multitrack: p.view.multitrack, multivoice: p.view.multivoice };
         self.panels = Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard };
         let t = &mut self.transport;
         (t.metronome, t.count_in, t.looping, t.speed) = (p.playback.metronome, p.playback.count_in, p.playback.looping, p.playback.speed);
+        self.audio_settings = guitario_audio::AudioSettings { device: p.playback.output.clone(), buffer: p.playback.buffer };
+        // Unsaved work is kept beside the preferences, and what a stopped run left is offered back.
+        if let Some(dir) = self.settings.dir() {
+            self.autosave = autosave::Autosave::at(dir.join("recovery"));
+        }
         if report.has_problems() && !self.status_is_error {
             self.status = "Preferences could not all be read; defaults were used where needed.".into();
         }
+        self
+    }
+
+    /// Autosaves into `dir` instead of beside the preferences, and offers back what stopped runs
+    /// left there (agents, tests and the snapshot example).
+    pub fn with_autosave_dir(mut self, dir: std::path::PathBuf) -> Self {
+        self.autosave = autosave::Autosave::at(dir);
         self
     }
 
@@ -183,12 +230,20 @@ impl GuitarioApp {
             notation: v.notation,
             layout: v.layout,
             multitrack: v.multitrack,
+            multivoice: v.multivoice,
             palette: pn.palette,
             inspector: pn.inspector,
             global_view: pn.global,
             fretboard: pn.fretboard,
         };
-        let playback = prefs::PlaybackPrefs { metronome: t.metronome, count_in: t.count_in, looping: t.looping, speed: t.speed };
+        let playback = prefs::PlaybackPrefs {
+            metronome: t.metronome,
+            count_in: t.count_in,
+            looping: t.looping,
+            speed: t.speed,
+            output: self.audio_settings.device.clone(),
+            buffer: self.audio_settings.buffer,
+        };
         self.settings.update(|p| {
             p.view = view;
             p.playback = playback;
@@ -265,6 +320,7 @@ impl GuitarioApp {
             U::SaveAs => self.save_dialog(true),
             U::ExportMidi => self.export_dialog("MIDI", "mid", "file.exportMidi"),
             U::ExportWav => self.export_dialog("WAV audio", "wav", "file.exportWav"),
+            U::ExportAudio => self.export_dialog("FLAC audio (lossless)", "flac", "file.exportAudio"),
             U::ExportAscii => self.export_dialog("Text", "txt", "file.exportAscii"),
             U::ExportGp5 => self.export_dialog("Guitar Pro 5", "gp5", "file.exportGp5"),
             U::ExportGp => self.export_dialog("Guitar Pro 8", "gp", "file.exportGp"),
@@ -325,6 +381,14 @@ impl GuitarioApp {
                 self.view.multitrack = !self.view.multitrack;
                 self.follow_cursor = true;
             }
+            U::ToggleMultivoice => self.view.multivoice = !self.view.multivoice,
+            U::Transpose => self.open_transpose(transpose_dialog::Scope::Selection),
+            U::TransposeTrack => self.open_transpose(transpose_dialog::Scope::Track),
+            U::Mixer => self.mixer.open = !self.mixer.open,
+            U::TempoAutomation => self.open_tempo_automation(),
+            U::VolumeAutomation => self.open_mix_automation(automation_dialog::MixKind::Volume),
+            U::PanAutomation => self.open_mix_automation(automation_dialog::MixKind::Pan),
+            U::AudioSettings => self.open_audio_settings(),
             U::TogglePalette => self.panels.palette = !self.panels.palette,
             U::ToggleInspector => self.panels.inspector = !self.panels.inspector,
             U::ToggleGlobalView => self.panels.global = !self.panels.global,
@@ -356,12 +420,14 @@ impl GuitarioApp {
         }
     }
 
-    /// Exports the track on screen as PDF, with the notation setting the page view has.
+    /// Exports what the page view shows as PDF: the track on screen, or in the multitrack view
+    /// every track as a full score; with the page view's notation setting.
     fn export_pdf_dialog(&mut self) {
         let stem = self.session.path().and_then(|p| p.file_stem()).map_or_else(|| "score".to_string(), |s| s.to_string_lossy().into_owned());
         if let Some(p) = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_file_name(format!("{stem}.pdf")).save_file() {
-            let tracks = [self.session.cursor().track];
-            self.run("file.exportPdf", json!({"path": p.display().to_string(), "tracks": tracks, "notation": self.view.notation}));
+            let together = self.view.multitrack;
+            let tracks = if together { Value::Null } else { json!([self.session.cursor().track]) };
+            self.run("file.exportPdf", json!({"path": p.display().to_string(), "tracks": tracks, "notation": self.view.notation, "together": together}));
         }
     }
 
@@ -519,9 +585,29 @@ impl GuitarioApp {
             self.stop();
             return;
         }
+        if self.play_when_ready {
+            self.play_when_ready = false;
+            self.status = "Playback cancelled.".into();
+            return;
+        }
+        // Sampled instruments still decoding: start once they are ready instead of freezing.
+        if let Some(bank) = &self.sounds
+            && !bank.ready(self.session.score())
+        {
+            self.play_when_ready = true;
+            self.preloaded = None;
+            self.status = "Loading sounds\u{2026}".into();
+            self.status_is_error = false;
+            return;
+        }
         if self.audio.is_none() {
-            match guitario_audio::AudioOut::open() {
-                Ok(a) => self.audio = Some(a),
+            match guitario_audio::AudioOut::open_with(&self.audio_settings) {
+                Ok(a) => {
+                    if a.fell_back {
+                        self.status = format!("The chosen audio output is not connected; playing through {}.", a.device);
+                    }
+                    self.audio = Some(a);
+                }
                 Err(e) => {
                     self.status = format!("Cannot play: {e}");
                     self.status_is_error = true;
@@ -561,6 +647,16 @@ impl GuitarioApp {
         {
             p.stop();
         }
+        self.end_transport();
+    }
+
+    /// The song played to its end: the transport stops, but the player is left to let its
+    /// let-ring notes and cymbals ring out (Stop silences them).
+    fn song_ended(&mut self) {
+        self.end_transport();
+    }
+
+    fn end_transport(&mut self) {
         self.transport.playing = false;
         if let Some((measure, beat)) = self.transport.beat.take() {
             self.run("cursor.set", json!({"measure": measure, "beat": beat}));
@@ -574,10 +670,13 @@ impl GuitarioApp {
         }
         let track = self.session.cursor().track;
         let opts = self.options();
+        // The mixer is live: volume, pan, mute and solo changes (and a fader being dragged) are heard.
+        let mix = self.live_mix();
         let state = self.audio.as_ref().map(|a| {
             let mut guard = a.slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             guard.as_mut().map(|p| {
                 p.opts = opts;
+                p.set_mix(&mix);
                 (p.is_playing(), p.position(), p.current_beat(track).map(|b| (b.measure, b.beat)))
             })
         });
@@ -589,7 +688,7 @@ impl GuitarioApp {
                 }
                 ctx.request_repaint();
             }
-            Some(_) => self.stop(),
+            Some(_) => self.song_ended(),
             // No device (offscreen rendering): leave the transport as set.
             None => {}
         }
@@ -612,6 +711,9 @@ impl GuitarioApp {
             || self.ornaments.is_open()
             || self.chord.open
             || self.lyrics.open
+            || !self.autosave.found.is_empty()
+            || self.transpose.open
+            || self.audio_dialog.open
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
@@ -691,8 +793,11 @@ impl GuitarioApp {
         if !self.modal_open() {
             self.handle_keys(&ctx);
         }
+        self.sounds_tick(&ctx);
         self.poll_playback(&ctx);
         self.sync_settings(&ctx);
+        self.autosave_tick(&ctx);
+        self.recovery_dialog(&ctx);
         self.prompt(&ctx);
         self.about(&ctx);
         self.preview_dialog(&ctx);
@@ -700,6 +805,11 @@ impl GuitarioApp {
         self.ornament_dialog(&ctx);
         self.chord_dialog(&ctx);
         self.lyrics_dialog(&ctx);
+        self.transpose_dialog(&ctx);
+        self.mixer_window(&ctx);
+        self.tempo_automation_dialog(&ctx);
+        self.mix_automation_dialog(&ctx);
+        self.audio_settings_dialog(&ctx);
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));
@@ -785,6 +895,7 @@ impl GuitarioApp {
                 selection,
                 layout: self.view.layout,
                 multitrack: self.view.multitrack,
+                multivoice: self.view.multivoice,
             };
             let score = self.session.score().clone();
             let cursor = self.session.cursor();
@@ -799,14 +910,15 @@ impl GuitarioApp {
                 out
             });
             self.follow_cursor = false;
-            if let Some(page::Click::Beat { track, measure, beat, string, shift }) = out.inner.click {
+            if let Some(page::Click::Beat { track, measure, beat, string, voice, shift }) = out.inner.click {
                 if shift && track == self.session.cursor().track {
                     // Shift+click extends from the selection's anchor (or the cursor).
                     let c = self.session.cursor();
                     let anchor = self.session.selection().map_or((c.measure, c.beat), |s| s.anchor);
                     self.run("select.set", json!({"fromMeasure": anchor.0, "fromBeat": anchor.1, "toMeasure": measure, "toBeat": beat}));
                 } else {
-                    self.run("cursor.set", json!({"track": track, "measure": measure, "beat": beat, "string": string}));
+                    // A null voice keeps the cursor's.
+                    self.run("cursor.set", json!({"track": track, "measure": measure, "beat": beat, "string": string, "voice": voice}));
                 }
                 self.follow_cursor = false;
             }
@@ -848,6 +960,10 @@ impl eframe::App for GuitarioApp {
 
     fn on_exit(&mut self) {
         self.stop();
+        // Saved, or Don't Save was chosen: nothing to recover. Otherwise the copy stays.
+        if !self.session.is_dirty() || self.discard_confirmed {
+            self.autosave.finish();
+        }
         let _ = self.settings.flush();
     }
 }

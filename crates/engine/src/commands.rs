@@ -55,10 +55,12 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .chain(crate::pagesetup::specs())
         .chain(crate::render::specs())
         .chain(crate::print::specs())
+        .chain(crate::recover::specs())
+        .chain(crate::automation::specs())
         .collect()
 });
 
-const CORE: [CommandSpec; 54] = [
+const CORE: [CommandSpec; 55] = [
     cmd("file.new", "New", "File", Some("Cmd+N"), "", false, file_new),
     cmd("file.open", "Open…", "File", Some("Cmd+O"), "path (.gt, or a Guitar Pro .gp/.gpx/.gp5/.gp4/.gp3 to import)", false, file_open),
     cmd("file.importGp", "Import Guitar Pro…", "File/Import", None, "path (.gp, .gpx, .gp5, .gp4 or .gp3)", false, import_gp),
@@ -72,6 +74,15 @@ const CORE: [CommandSpec; 54] = [
         "path, sampleRate? (8000..=192000, default 44100), sounds? (a sound bank folder with bank.json: SFZ instruments for drums, bass and guitars)",
         false,
         export_wav,
+    ),
+    cmd(
+        "file.exportAudio",
+        "Export Audio…",
+        "File/Export",
+        None,
+        "path, format? (\"wav\" or \"flac\"; default the path's extension, else wav), sampleRate? (8000..=192000, default 44100), sounds? (a sound bank folder)",
+        false,
+        export_audio_cmd,
     ),
     cmd("file.exportAscii", "Export ASCII Tab", "File/Export", None, "path?", false, export_ascii),
     cmd("edit.undo", "Undo", "Edit", Some("Cmd+Z"), "", false, undo),
@@ -119,7 +130,15 @@ const CORE: [CommandSpec; 54] = [
     cmd("measure.delete", "Delete Measure", "Measure", None, "", true, measure_delete),
     cmd("measure.setTimeSignature", "Time Signature", "Measure", None, "numerator, denominator", true, set_time),
     cmd("measure.setKey", "Key Signature", "Measure", None, "key (-7..=7 sharps)", true, set_key),
-    cmd("measure.setTempo", "Tempo Change", "Measure", None, "bpm (null clears)", true, measure_tempo),
+    cmd(
+        "measure.setTempo",
+        "Tempo Change",
+        "Measure",
+        None,
+        "bpm (20..=400, null clears), linear? (glide from the previous tempo point; default false), measure? (0-based; default the cursor's)",
+        true,
+        measure_tempo,
+    ),
     cmd("measure.setRepeat", "Repeat", "Measure", None, "open?, close? (extra passes)", true, set_repeat),
     cmd("measure.setMarker", "Section Marker", "Measure", None, "text (empty clears)", true, set_marker),
     cmd("track.add", "Add Track", "Track", None, "name?, tuning? (preset name)", true, track_add),
@@ -127,8 +146,8 @@ const CORE: [CommandSpec; 54] = [
     cmd("track.rename", "Rename Track", "Track", None, "name", true, track_rename),
     cmd("track.setTuning", "Tuning", "Track", None, "preset | strings (highest first)", true, track_tuning),
     cmd("track.setCapo", "Capo", "Track", None, "fret (0..=24)", true, track_capo),
-    cmd("track.setProgram", "Instrument", "Track", None, "program (0..=127)", true, track_program),
-    cmd("track.setMix", "Mix", "Track", None, "volume?, pan?, muted?, solo?", true, track_mix),
+    cmd("track.setProgram", "Instrument", "Track", None, "program (0..=127), track? (index; default the cursor's)", true, track_program),
+    cmd("track.setMix", "Mix", "Track", None, "volume? (0..=127), pan? (-63..=63), muted?, solo?, track? (index; default the cursor's)", true, track_mix),
     cmd("track.select", "Select Track", "Track", None, "index", false, track_select),
     cmd("score.setMeta", "Song Information", "File", None, "title?, artist?, album?, author?, notes?", true, set_meta),
     cmd("score.setTempo", "Tempo", "Measure", None, "bpm (20..=400)", true, set_tempo),
@@ -141,9 +160,33 @@ const CORE: [CommandSpec; 54] = [
 
 impl Session {
     /// Runs a command by id. Mutating commands become one undo step; on error the score and
-    /// cursor are exactly as before. Never panics on any params.
+    /// cursor are exactly as before. Never panics on any params: a command that panics anyway (a
+    /// bug) is caught, the session is put back as it was, and the error says so.
     pub fn run(&mut self, id: &str, params: &Value) -> Result<Value, EngineError> {
         let spec = REGISTRY.iter().find(|c| c.id == id).ok_or_else(|| EngineError::UnknownCommand(id.to_string()))?;
+        self.run_guarded(spec, params)
+    }
+
+    /// The last-resort guard around one command: what it changed is undone if it panics.
+    pub(crate) fn run_guarded(&mut self, spec: &CommandSpec, params: &Value) -> Result<Value, EngineError> {
+        let saved = (self.snapshot(), self.undo.clone(), self.redo.clone(), self.path.clone(), self.dirty, self.selection);
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.dispatch(spec, params))) {
+            Ok(result) => result,
+            Err(payload) => {
+                let what = payload
+                    .downcast_ref::<&str>()
+                    .map(|s| (*s).to_string())
+                    .or_else(|| payload.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| "no message".into());
+                let (snap, undo, redo, path, dirty, selection) = saved;
+                (self.undo, self.redo, self.path, self.dirty, self.selection) = (undo, redo, path, dirty, selection);
+                self.restore(snap);
+                Err(EngineError::Internal { command: spec.id.to_string(), what: what.chars().take(300).collect() })
+            }
+        }
+    }
+
+    fn dispatch(&mut self, spec: &CommandSpec, params: &Value) -> Result<Value, EngineError> {
         if !spec.mutates {
             return (spec.run)(self, params);
         }
@@ -244,7 +287,22 @@ fn export_midi(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 }
 
 fn export_wav(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    export_audio(s, params, Some("wav"))
+}
+
+/// Renders the score and writes it as WAV or FLAC: `format`, or the path's extension.
+fn export_audio_cmd(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    export_audio(s, params, None)
+}
+
+fn export_audio(s: &mut Session, params: &Value, forced: Option<&str>) -> Result<Value, EngineError> {
     let path = p::string(params, "path")?.to_string();
+    let by_extension = std::path::Path::new(&path).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase);
+    let format = match forced.map(str::to_string).or_else(|| p::opt_string(params, "format").map(str::to_ascii_lowercase)).or(by_extension) {
+        Some(f) if f == "wav" || f == "flac" => f,
+        Some(f) if f == "mp3" || f == "ogg" => return Err(EngineError::BadParam(format!("{f} export is not available yet; use FLAC (lossless) or WAV"))),
+        _ => "wav".to_string(),
+    };
     let rate = p::opt_uint(params, "sampleRate", 192_000)?.unwrap_or(44_100);
     if rate < 8_000 {
         return Err(EngineError::BadParam("`sampleRate` must be at least 8000".into()));
@@ -259,7 +317,11 @@ fn export_wav(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         Some(_) => return Err(EngineError::BadParam("`sounds` is not supported in the browser build".into())),
         None => (guitario_playback::render_wav(&s.score, rate as u32), Vec::new()),
     };
-    let bytes = guitario_playback::wav_bytes(&pcm, rate as u32);
+    let bytes = if format == "flac" {
+        guitario_playback::flac_bytes(&pcm, rate as u32).map_err(EngineError::invalid)?
+    } else {
+        guitario_playback::wav_bytes(&pcm, rate as u32)
+    };
     std::fs::write(&path, &bytes)?;
     Ok(json!({"bytes": bytes.len(), "seconds": pcm.len() as f64 / 2.0 / rate as f64, "warnings": warnings}))
 }
@@ -559,6 +621,7 @@ fn measure_insert(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     let template = score.headers.get(at).cloned().ok_or_else(|| EngineError::invalid("no such measure"))?;
     let fresh = MeasureHeader {
         tempo: None,
+        tempo_linear: false,
         repeat_open: false,
         repeat_close: 0,
         marker: None,
@@ -629,7 +692,13 @@ fn measure_tempo(s: &mut Session, params: &Value) -> Result<Value, EngineError> 
     if bpm.is_some_and(|b| b < 20) {
         return Err(EngineError::BadParam("`bpm` must be 20..=400".into()));
     }
-    s.header_mut()?.tempo = bpm.map(|b| b as u16);
+    let linear = params.get("linear").filter(|v| !v.is_null()).map(|_| p::boolean(params, "linear")).transpose()?.unwrap_or(false);
+    let h = match p::opt_uint(params, "measure", 1_000_000)? {
+        None => s.header_mut()?,
+        Some(m) => Arc::make_mut(&mut s.score).headers.get_mut(m as usize).ok_or_else(|| EngineError::BadParam(format!("`measure` {m}: no such bar")))?,
+    };
+    h.tempo = bpm.map(|b| b as u16);
+    h.tempo_linear = linear && h.tempo.is_some();
     ok()
 }
 
@@ -718,8 +787,17 @@ fn track_capo(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     ok()
 }
 
+/// The track a mixer command names (`track`, an index), else the cursor's.
+fn mixer_track<'a>(s: &'a mut Session, params: &Value) -> Result<&'a mut Track, EngineError> {
+    match p::opt_uint(params, "track", 10_000)? {
+        None => s.track_mut(),
+        Some(i) => Arc::make_mut(&mut s.score).tracks.get_mut(i as usize).ok_or_else(|| EngineError::BadParam(format!("`track` {i}: no such track"))),
+    }
+}
+
 fn track_program(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
-    s.track_mut()?.program = p::uint(params, "program", 127)? as u8;
+    let program = p::uint(params, "program", 127)? as u8;
+    mixer_track(s, params)?.program = program;
     ok()
 }
 
@@ -728,7 +806,7 @@ fn track_mix(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let pan = params.get("pan").map(|_| p::int(params, "pan", -63, 63)).transpose()?;
     let muted = params.get("muted").map(|_| p::boolean(params, "muted")).transpose()?;
     let solo = params.get("solo").map(|_| p::boolean(params, "solo")).transpose()?;
-    let t = s.track_mut()?;
+    let t = mixer_track(s, params)?;
     if let Some(v) = volume {
         t.volume = v as u8;
     }
@@ -780,4 +858,39 @@ fn info(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
 fn timeline_cmd(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     let t = guitario_score::timeline(&s.score);
     Ok(json!(t.iter().take(100_000).map(|n| json!({"track": n.track, "measure": n.measure, "tick": n.start_tick, "ticks": n.ticks, "string": n.string, "pitch": n.pitch.map(|p| p.0), "velocity": n.velocity, "dead": n.dead})).collect::<Vec<_>>()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A command with a bug: it wrecks the score and the history, then panics.
+    fn broken(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
+        Arc::make_mut(&mut s.score).tracks.clear();
+        s.undo.clear();
+        s.path = None;
+        s.cursor.measure = 99;
+        panic!("index out of bounds: the len is 0 but the index is 3");
+    }
+
+    #[test]
+    fn a_panicking_command_is_caught_and_changes_nothing() {
+        let mut s = Session::new();
+        s.run("note.setFret", &json!({"fret": 5})).unwrap();
+        s.path = Some("riff.gt".into());
+        let (score, cursor, undo, dirty) = ((**s.score()).clone(), s.cursor(), s.undo.len(), s.dirty);
+        for mutates in [true, false] {
+            let spec = cmd("test.broken", "Broken", "", None, "", mutates, broken);
+            let e = s.run_guarded(&spec, &Value::Null).unwrap_err();
+            assert!(matches!(&e, EngineError::Internal { command, .. } if command == "test.broken"), "{e}");
+            assert!(e.to_string().contains("index out of bounds") && e.to_string().contains("changed nothing"), "{e}");
+            assert_eq!(**s.score(), score);
+            assert_eq!((s.cursor(), s.undo.len(), s.dirty, s.path.clone()), (cursor, undo, dirty, Some("riff.gt".into())));
+        }
+        // The session still works, and undo still reaches the edit before the panic.
+        s.run("note.setFret", &json!({"fret": 7})).unwrap();
+        s.run("edit.undo", &Value::Null).unwrap();
+        s.run("edit.undo", &Value::Null).unwrap();
+        assert!(s.score().tracks[0].measures[0].voices[0].beats[0].notes.is_empty());
+    }
 }

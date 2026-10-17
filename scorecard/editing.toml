@@ -55,7 +55,7 @@ status = "missing"
 id = "EDIT-9"
 target = "Multiple voices per bar (up to 4)"
 status = "done"
-note = "edit.setVoice and Edit › Voice 1-4 (crates/engine/src/voices.rs): every beat command, the clipboard and selection work on the cursor's voice; all voices play, export to MIDI and ASCII tab, and show in notation and tab; no Multivoice Editing mode (all voices at once) or voice shortcuts yet"
+note = "edit.setVoice and Edit › Voice 1-4 (crates/engine/src/voices.rs): every beat command, the clipboard and selection work on the cursor's voice; all voices play, export to MIDI and ASCII tab, and show in notation and tab; Edit › Multivoice Editing (a saved toggle) draws each voice in its own colour on screen, never on paper, and a click on another voice's note (the one on the clicked string) moves the cursor into that voice; in notation a click keeps the voice being edited; no voice shortcuts yet"
 
 [[item]]
 id = "EDIT-10"
@@ -78,8 +78,8 @@ note = "track.* commands; inspector; theory tuning presets (12)"
 [[item]]
 id = "EDIT-13"
 target = "Duplicate, reorder and transpose tracks"
-status = "partial"
-note = "tracks.rs: duplicate, move up/down; transpose track missing"
+status = "done"
+note = "tracks.rs: duplicate, move up/down, track.transpose (±24 semitones, this track, a list or all but drums; notes that leave a string move to a free one, trills and graces follow; all or nothing) behind Track › Transpose Track… and Edit › Transpose… (transpose_dialog.rs); chord diagrams are not transposed"
 
 [[item]]
 id = "EDIT-14"

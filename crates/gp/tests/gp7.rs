@@ -337,3 +337,37 @@ fn a_real_letter_page_setup_is_read() {
         assert!(p.check().is_ok(), "{odd}: {p:?}");
     }
 }
+
+#[test]
+fn tempo_ramps_go_out_and_come_back_and_points_inside_bars_move_to_a_bar_line() {
+    let mut s = riff();
+    while s.headers.len() < 4 {
+        let h = s.headers[0].clone();
+        s.headers.push(MeasureHeader { fermatas: vec![], ..h });
+        for t in &mut s.tracks {
+            let m = guitario_score::Measure::empty_for(&s.headers[0]);
+            t.measures.push(m);
+        }
+    }
+    for h in &mut s.headers {
+        h.tempo = None;
+        h.tempo_linear = false;
+    }
+    s.headers[3].tempo = Some(160);
+    s.headers[3].tempo_linear = true;
+    let (back, _, warnings) = round_trip(&s);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert_eq!((back.headers[3].tempo, back.headers[3].tempo_linear), (Some(160), true));
+    assert!(score_gpif(&export_gp(&s).unwrap().bytes).contains("<Linear>true</Linear><Bar>3</Bar>"));
+    // Guitar Pro 5 cannot glide: the tempo arrives as a jump, and the export says so.
+    let gp5 = guitario_gp::export_gp5(&s);
+    assert!(gp5.warnings.iter().any(|w| w.contains("gradual tempo")), "{:?}", gp5.warnings);
+    // A point three quarters into bar 2 lands on bar 3's line; one a quarter in stays on bar 2.
+    let xml = score_gpif(&export_gp(&s).unwrap().bytes)
+        .replace("<Linear>true</Linear><Bar>3</Bar><Position>0</Position>", "<Linear>true</Linear><Bar>1</Bar><Position>0.75</Position>");
+    let imp = guitario_gp::parse_gpif(&xml).unwrap();
+    assert_eq!((imp.score.headers[2].tempo, imp.score.headers[2].tempo_linear), (Some(160), true));
+    assert!(imp.warnings.iter().any(|w| w.contains("moved to the nearest bar line")), "{:?}", imp.warnings);
+    let xml = xml.replace("<Position>0.75</Position>", "<Position>0.25</Position>");
+    assert_eq!(guitario_gp::parse_gpif(&xml).unwrap().score.headers[1].tempo, Some(160));
+}

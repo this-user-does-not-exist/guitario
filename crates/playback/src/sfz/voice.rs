@@ -132,6 +132,13 @@ impl SampleVoice {
         }
     }
 
+    /// Another note on the same string: the old one stops within milliseconds, whatever the
+    /// region's own release (a let-ring note too).
+    pub fn damp(&mut self) {
+        self.released = true;
+        self.begin_release(0.025);
+    }
+
     /// Cuts the voice (choke group, `off_by`): releases even a one-shot.
     pub fn choke(&mut self, fast: bool) {
         self.released = true;

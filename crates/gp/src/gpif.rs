@@ -95,18 +95,31 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
     score.headers = masters.iter().map(|m| header_of(*m)).collect();
 
     // Tempo automations live on the master track.
+    let mut moved_tempo = 0;
     if let Some(autos) = child(root, "MasterTrack").and_then(|m| child(m, "Automations")) {
         for a in autos.children().filter(|c| c.has_tag_name("Automation") && text(*c, "Type") == Some("Tempo")) {
             let bpm =
                 text(a, "Value").and_then(|v| v.split_whitespace().next()).and_then(|v| v.parse::<f64>().ok()).map(|v| v.round().clamp(20.0, 400.0) as u16);
-            let bar = text(a, "Bar").and_then(|v| v.parse::<usize>().ok()).unwrap_or(0);
+            let written = text(a, "Bar").and_then(|v| v.parse::<usize>().ok()).unwrap_or(0);
             let Some(bpm) = bpm else { continue };
+            // A point inside a bar (a fraction of it) goes to the nearest bar line.
+            let position = text(a, "Position").and_then(|v| v.parse::<f64>().ok()).filter(|p| p.is_finite()).unwrap_or(0.0).clamp(0.0, 1.0);
+            let bar = written.saturating_add(usize::from(position >= 0.5));
+            if position > 0.0 && position < 1.0 {
+                moved_tempo += 1;
+            }
+            let linear = text(a, "Linear") == Some("true");
             if bar == 0 {
                 score.tempo = bpm;
             } else if let Some(h) = score.headers.get_mut(bar) {
                 h.tempo = Some(bpm);
+                h.tempo_linear = linear;
             }
         }
+    }
+
+    if moved_tempo > 0 {
+        warnings.push(format!("{moved_tempo} tempo change(s) inside a bar were moved to the nearest bar line"));
     }
 
     // ---- tracks ------------------------------------------------------------------------

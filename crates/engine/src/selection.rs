@@ -54,6 +54,10 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd("edit.paste", "Paste", "Edit", Some("Cmd+V"), "", true, paste),
         cmd("edit.transposeUp", "Transpose Up a Semitone", "Edit", Some("Cmd+Up"), "", true, |s, _| transpose(s, 1)),
         cmd("edit.transposeDown", "Transpose Down a Semitone", "Edit", Some("Cmd+Down"), "", true, |s, _| transpose(s, -1)),
+        cmd("edit.transpose", "Transpose…", "Edit", None, "semitones (-24..=24): the selection, or the note at the cursor", true, |s, p| {
+            let n = p::int(p, "semitones", -24, 24)?;
+            transpose(s, i16::try_from(n).unwrap_or(0))
+        }),
     ]
 }
 

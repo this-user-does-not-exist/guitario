@@ -22,14 +22,17 @@ note = "Score::validate, gp import caps, ZIP size limits"
 [[item]]
 id = "REL-4"
 target = "Last-resort panic guard around command dispatch and file import in the shell"
-status = "missing"
+status = "done"
+note = "Session::run catches a panicking command (every command, file import included, from the UI, the CLI and scripts), puts back the score, cursor, selection, history, path and saved state, and returns EngineError::Internal naming the command (commands.rs run_guarded, a_panicking_command_is_caught_and_changes_nothing); a panic while painting the screen is not caught"
 
 [[item]]
 id = "REL-5"
 target = "Fuzz targets for the .gp and .gt readers"
-status = "missing"
+status = "partial"
+note = "crates/gp/tests/fuzz.rs: seeded mutation fuzzing on stable Rust of the .gp5, .gp (archive and bare score.gpif XML), .gpx (BCFS and BCFZ) readers, 400 cases each in every test run, deeper with GUITARIO_FUZZ_CASES (150,000 cases clean); failures saved with their seed; Guitar Pro 3 and 4 only reach depth with a local corpus (GUITARIO_GP_CORPUS); the .gt reader is not fuzzed yet"
 
 [[item]]
 id = "REL-6"
 target = "Autosave and crash recovery"
-status = "missing"
+status = "done"
+note = "unsaved work is written every 30 s to recovery/ beside the preferences on a worker thread with the atomic .gt save, removed on save or a clean close; a heartbeat tells a stopped run from one still open; at start a dialog offers each left-behind score (Recover, Discard, Later) and file.recover reopens it unsaved, to be saved where it came from (ui-egui autosave.rs, engine recover.rs); off when the preferences are in memory (tests, agents) unless with_autosave_dir is used"

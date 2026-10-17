@@ -2,7 +2,7 @@
 //! Dimensions follow Guitar Pro's default stylesheet: A4 portrait, 10 mm side margins, 15 mm top,
 //! a 1.5875 mm staff space.
 
-use guitario_score::{Beat, Measure, PageSetup, Score, Track};
+use guitario_score::{Beat, Chord, Measure, PageSetup, Score, Track};
 use std::collections::HashMap;
 
 const MM: f32 = 96.0 / 25.4;
@@ -42,6 +42,9 @@ pub struct Metrics {
     pub diagrams: bool,
     /// Lines of lyrics under every system.
     pub lyric_lines: usize,
+    /// Chord diagrams listed under the title on the first page, and the strings each has.
+    pub chord_list: usize,
+    pub chord_strings: usize,
     /// The voice being edited, 0-based. A voice with only rests is drawn when it is this one.
     pub voice: usize,
     pub mode: LayoutMode,
@@ -70,6 +73,8 @@ impl Metrics {
             annotations: false,
             diagrams: false,
             lyric_lines: 0,
+            chord_list: 0,
+            chord_strings: 6,
             voice: 0,
             mode: LayoutMode::Page,
             top: true,
@@ -151,7 +156,36 @@ impl Metrics {
         let annotations = beats().any(|b| b.chord.is_some() || b.text.is_some());
         let diagrams = !track.is_drums() && beats().any(|b| b.chord.as_ref().is_some_and(|c| !c.frets.is_empty()));
         let lyric_lines = track.lyrics.iter().rposition(|l| !l.text.trim().is_empty()).map_or(0, |i| i + 1);
-        Metrics { annotations, diagrams, lyric_lines, ..self }
+        let listed = chord_list(track);
+        let chord_strings = listed.iter().map(|c| c.frets.len()).max().unwrap_or(6);
+        Metrics { annotations, diagrams, lyric_lines, chord_list: listed.len(), chord_strings, ..self }
+    }
+
+    /// Takes the chord list (and its strings) of another part: the header shows the cursor's track.
+    pub fn with_chord_list_of(self, other: &Metrics) -> Metrics {
+        Metrics { chord_list: other.chord_list, chord_strings: other.chord_strings, ..self }
+    }
+
+    /// Width of one diagram's cell in the chord list, and the diagrams one row holds.
+    pub fn chord_cell(&self) -> (f32, usize) {
+        let w = diagram_width(self.chord_strings, self.space) + 3.4 * self.space;
+        let width = self.page_w - self.margin_left - self.margin_right;
+        (w, ((width / w).floor() as usize).max(1))
+    }
+
+    /// Height of one row of the chord list: the name, the open and muted marks and a grid of up
+    /// to seven frets, with a gap under it.
+    pub fn chord_row_h(&self) -> f32 {
+        12.0 * self.space
+    }
+
+    /// Height of the chord list under the title, zero without one.
+    pub fn chord_list_h(&self) -> f32 {
+        if self.chord_list == 0 {
+            return 0.0;
+        }
+        let per_row = self.chord_cell().1;
+        self.chord_list.div_ceil(per_row) as f32 * self.chord_row_h() + 1.0 * self.space
     }
 
     /// Height of one line of lyrics.
@@ -255,7 +289,12 @@ impl Metrics {
         if !score.meta.artist.is_empty() {
             h += 4.0 * self.space;
         }
-        h
+        h + self.chord_list_h()
+    }
+
+    /// Where the chord list starts below the top margin.
+    pub fn chord_list_top(&self, score: &Score) -> f32 {
+        self.header_h(score) - self.chord_list_h()
     }
 }
 
@@ -282,6 +321,9 @@ pub struct MeasureBox {
     /// The voices drawn in this bar, Voice 1 first. Beats that start together share a column.
     pub voices: Vec<VoiceCols>,
     pub show_time: bool,
+    /// Room at the bar's start for a key change inside the system (naturals and the new key),
+    /// before any time signature; zero when the key does not change here or the bar opens a system.
+    pub key_w: f32,
 }
 
 impl MeasureBox {
@@ -303,6 +345,9 @@ pub struct SystemBox {
     pub y: f32,
     /// Width of the clef + key signature prefix.
     pub prefix: f32,
+    /// Room after the last bar line for courtesy signatures: the key or time signature the next
+    /// system opens with, when it changes there. Zero without.
+    pub courtesy: f32,
 }
 
 impl SystemBox {
@@ -311,9 +356,9 @@ impl SystemBox {
         SystemBox { measures: self.measures.iter().map(|m| m.of_track(track)).collect(), ..self.clone() }
     }
 
-    /// How wide the system is, prefix included.
+    /// How wide the system is, prefix and courtesy signatures included.
     pub fn width(&self) -> f32 {
-        self.prefix + self.measures.iter().map(|m| m.width).sum::<f32>()
+        self.prefix + self.measures.iter().map(|m| m.width).sum::<f32>() + self.courtesy
     }
 }
 
@@ -332,6 +377,28 @@ pub fn drawn_voices(measure: &Measure, active: usize) -> Vec<usize> {
         .filter(|(i, v)| !v.beats.is_empty() && (*i == 0 || *i == active || v.beats.iter().any(|b| !b.rest)))
         .map(|(i, _)| i)
         .collect()
+}
+
+/// Most diagrams the chord list at the top of the score shows.
+pub const MAX_CHORD_LIST: usize = 48;
+
+/// The chord list Guitar Pro draws under the title: each distinct chord diagram of `track` once, in
+/// the order the chords first appear. A drum track has none.
+pub fn chord_list(track: &Track) -> Vec<&Chord> {
+    let mut out: Vec<&Chord> = Vec::new();
+    if track.is_drums() {
+        return out;
+    }
+    let chords = track.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).filter_map(|b| b.chord.as_ref());
+    for c in chords.filter(|c| !c.frets.is_empty()) {
+        if !out.contains(&c) {
+            out.push(c);
+            if out.len() == MAX_CHORD_LIST {
+                break;
+            }
+        }
+    }
+    out
 }
 
 /// Width of a chord diagram's grid for `strings` strings.
@@ -372,6 +439,8 @@ struct Natural {
     voices: Vec<VoiceNat>,
     show_time: bool,
     lead: f32,
+    /// Room for a key change, inside `lead` and `fixed`; given back when the bar opens a system.
+    key_w: f32,
 }
 
 /// The longest syllable sung on each beat of the first voice, in characters, by (measure, beat).
@@ -478,7 +547,16 @@ fn natural(score: &Score, parts: &[Part], mi: usize, s: f32, sung: &[HashMap<(us
             col_of: tv.beats.iter().filter_map(|(t, _)| onsets.binary_search(t).ok()).collect(),
         })
         .collect();
-    let mut lead = 1.8 * s;
+    // A key change, where any part shows standard notation.
+    let keyed = parts.iter().any(|p| p.metrics.notation && !p.metrics.drums);
+    let key_w = match (header, prev) {
+        (Some(h), Some(p)) if keyed && h.key != p.key => {
+            let glyphs = crate::notation::key_cancel(p.key, h.key).len() + usize::from(h.key.unsigned_abs().min(7));
+            (glyphs as f32 + 0.8) * s
+        }
+        _ => 0.0,
+    };
+    let mut lead = 1.8 * s + key_w;
     if show_time {
         lead += 3.0 * s;
     }
@@ -489,7 +567,31 @@ fn natural(score: &Score, parts: &[Part], mi: usize, s: f32, sung: &[HashMap<(us
     if header.is_some_and(|h| h.repeat_close > 0) {
         fixed += 1.4 * s;
     }
-    Natural { fixed, cols, pads, voices, show_time, lead }
+    Natural { fixed, cols, pads, voices, show_time, lead, key_w }
+}
+
+/// What a system ending at bar `last` warns of: the key change (`(old, new)`) and the time
+/// signature the next bar brings, when it changes there.
+pub fn courtesy_of(score: &Score, last: usize) -> (Option<(i8, i8)>, Option<guitario_theory::TimeSignature>) {
+    let (Some(h), Some(next)) = (score.headers.get(last), last.checked_add(1).and_then(|n| score.headers.get(n))) else { return (None, None) };
+    let key = (next.key != h.key).then_some((h.key, next.key));
+    let time = (next.time_signature != h.time_signature && !next.free_time).then_some(next.time_signature);
+    (key, time)
+}
+
+/// Room for the courtesy signatures after a system ending at bar `last`. Key signatures show only
+/// where some part has standard notation.
+fn courtesy_w(score: &Score, parts: &[Part], last: usize, s: f32) -> f32 {
+    let (key, time) = courtesy_of(score, last);
+    let keyed = parts.iter().any(|p| p.metrics.notation && !p.metrics.drums);
+    let key_w = match key {
+        Some((old, new)) if keyed => (crate::notation::key_cancel(old, new).len() + usize::from(new.unsigned_abs().min(7))) as f32 * s,
+        _ => 0.0,
+    };
+    // A digit is about 1.3 spaces wide; 13/16 needs room for two.
+    let digits = |n: u8| if n >= 10 { 2.0 } else { 1.0 };
+    let time_w = time.map_or(0.0, |ts| (digits(ts.numerator.max(ts.denominator)) * 1.3 + 0.8) * s);
+    if key_w + time_w > 0.0 { key_w + time_w + 1.2 * s } else { 0.0 }
 }
 
 /// The clef + key signature prefix at the start of every system.
@@ -504,6 +606,8 @@ pub fn system_prefix(score: &Score, first_measure: usize, m: &Metrics) -> f32 {
     }
 }
 
+/// One track on its own (the tests' shorthand for [`layout_parts`]).
+#[cfg(test)]
 pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
     let Some(track) = score.tracks.get(track_index) else { return vec![] };
     layout_parts(score, &[Part { index: track_index, track, metrics: *m }], m)
@@ -540,6 +644,15 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
             row.push(i);
             i += 1;
         }
+        // Courtesy signatures for the next system must fit too: give up bars until they do.
+        if !horizontal {
+            while row.len() > 1 && row.last().is_some_and(|&l| used + courtesy_w(score, parts, l, s) > avail) {
+                if let Some(l) = row.pop() {
+                    used -= naturals.get(l).map_or(0.0, total);
+                    i = l;
+                }
+            }
+        }
         systems.push((row, prefix));
     }
 
@@ -548,7 +661,8 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
     let mut y = page.margin_top + page.header_h(score);
     let count = systems.len();
     for (si, (row, prefix)) in systems.into_iter().enumerate() {
-        let avail = page.content_w() - prefix;
+        let courtesy = if horizontal || si + 1 == count { 0.0 } else { row.last().map_or(0.0, |&l| courtesy_w(score, parts, l, s)) };
+        let avail = page.content_w() - prefix - courtesy;
         let used: f32 = row.iter().filter_map(|i| naturals.get(*i)).map(total).sum();
         let beats_sum: f32 = row.iter().filter_map(|i| naturals.get(*i)).map(|n| n.cols.iter().sum::<f32>()).sum();
         let last_and_short = si + 1 == count && used < avail * 0.7;
@@ -556,12 +670,15 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
         let stretch = if beats_sum > 0.0 { 1.0 + extra / beats_sum } else { 1.0 };
         let mut x = 0.0;
         let mut measures = Vec::new();
-        for mi in row {
+        for (k, mi) in row.into_iter().enumerate() {
             let Some(n) = naturals.get(mi) else { continue };
+            // The system's own key signature stands for a change in its first bar.
+            let key_w = if k == 0 { 0.0 } else { n.key_w };
+            let given_back = n.key_w - key_w;
             let col_w: Vec<f32> = n.cols.iter().map(|w| w * stretch).collect();
             // Left edge of each column, with one more entry for the right edge of the last.
             let mut edges = Vec::with_capacity(col_w.len() + 1);
-            let mut bx = n.lead;
+            let mut bx = n.lead - given_back;
             edges.push(bx);
             for w in &col_w {
                 bx += w;
@@ -579,8 +696,8 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
                     VoiceCols { track: v.track, voice: v.voice, beats, spans }
                 })
                 .collect();
-            let width = n.fixed + col_w.iter().sum::<f32>();
-            measures.push(MeasureBox { index: mi, x, width, voices, show_time: n.show_time });
+            let width = n.fixed - given_back + col_w.iter().sum::<f32>();
+            measures.push(MeasureBox { index: mi, x, width, voices, show_time: n.show_time, key_w });
             x += width;
         }
         if y + system_h > page.page_h - page.margin_bottom && pages.last().is_some_and(|p| !p.systems.is_empty()) {
@@ -588,7 +705,7 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
             y = page.margin_top;
         }
         if let Some(pg) = pages.last_mut() {
-            pg.systems.push(SystemBox { measures, y, prefix });
+            pg.systems.push(SystemBox { measures, y, prefix, courtesy });
         }
         y += system_h;
     }
@@ -639,6 +756,89 @@ mod tests {
         let after = room(&s);
         assert!(after[2] >= before[2] + GRACE_ROOM * m.space * 0.99, "{before:?} {after:?}");
         assert!((after[1] - before[1]).abs() < 0.01, "other beats are not moved off-centre");
+    }
+
+    #[test]
+    fn a_key_change_takes_room_inside_a_system_but_not_at_its_start() {
+        let mut s = score(40);
+        let m = Metrics::new(1.0, true, 6);
+        let boxes = |s: &Score, m: &Metrics| -> Vec<MeasureBox> { layout(s, 0, m).into_iter().flat_map(|p| p.systems).flat_map(|sys| sys.measures).collect() };
+        let plain = boxes(&s, &m);
+        // From bar 3 (index 2) in A major; the second system opens on another change, to C.
+        for h in s.headers.iter_mut().skip(2) {
+            h.key = 3;
+        }
+        let opener = layout(&s, 0, &m).into_iter().flat_map(|p| p.systems).nth(1).and_then(|sys| sys.measures.first().map(|b| b.index)).unwrap();
+        for h in s.headers.iter_mut().skip(opener) {
+            h.key = 0;
+        }
+        let keyed = boxes(&s, &m);
+        let at = |i: usize| keyed.iter().find(|b| b.index == i).unwrap();
+        assert!((at(2).key_w - (3.0 + 0.8) * m.space).abs() < 0.01, "three sharps: {}", at(2).key_w);
+        assert!(at(2).voices[0].beats[0] > plain[2].voices[0].beats[0], "the notes move right of the key");
+        // A bar opening a system never keeps room: the system's own key signature shows it.
+        let openers: Vec<MeasureBox> = layout(&s, 0, &m).into_iter().flat_map(|p| p.systems).filter_map(|sys| sys.measures.into_iter().next()).collect();
+        assert!(openers.iter().all(|b| b.key_w == 0.0));
+        // The change back to C either opens a system or, moved by a courtesy, keeps room inside one.
+        let opens = openers.iter().any(|b| b.index == opener);
+        assert_eq!(at(opener).key_w > 0.0, !opens);
+        assert_eq!(at(1).key_w, 0.0);
+        // Tab alone shows no key signatures, so it keeps no room.
+        let tab = Metrics::new(1.0, false, 6);
+        assert!(boxes(&s, &tab).iter().all(|b| b.key_w == 0.0));
+    }
+
+    #[test]
+    fn courtesy_signatures_take_room_after_the_system_before_a_change() {
+        let mut s = score(40);
+        let m = Metrics::new(1.0, true, 6);
+        let systems = |s: &Score| -> Vec<SystemBox> { layout(s, 0, &m).into_iter().flat_map(|p| p.systems).collect() };
+        let plain = systems(&s);
+        assert!(plain.iter().all(|sys| sys.courtesy == 0.0));
+        let opener = plain.get(1).and_then(|sys| sys.measures.first()).unwrap().index;
+        for h in s.headers.iter_mut().skip(opener) {
+            h.time_signature = guitario_theory::TimeSignature::new(3, 4).unwrap();
+        }
+        let changed = systems(&s);
+        let first = changed.first().unwrap();
+        assert!(first.courtesy > 0.0, "the first system warns of 3/4");
+        // The bars and the courtesy still fit the line, and no other system warns.
+        assert!(first.width() <= m.content_w() + 0.01, "{} > {}", first.width(), m.content_w());
+        let next = first.measures.last().unwrap().index + 1;
+        assert!(changed.iter().skip(1).all(|sys| sys.courtesy == 0.0 || sys.measures.last().is_some_and(|b| b.index + 1 == next)));
+        // The horizontal layout is one line: nothing to warn of.
+        let h = Metrics::new(1.0, true, 6).with_horizontal();
+        assert!(layout(&s, 0, &h).iter().flat_map(|p| &p.systems).all(|sys| sys.courtesy == 0.0));
+    }
+
+    #[test]
+    fn the_chord_list_takes_room_under_the_title_and_pushes_the_systems_down() {
+        use guitario_score::{Beat, Chord, Note};
+        use guitario_theory::Duration;
+        let mut s = score(4);
+        let base = Metrics::new(1.0, true, 6).with_annotations(&s.tracks[0]);
+        let first_y = |s: &Score, m: &Metrics| layout(s, 0, m).first().and_then(|p| p.systems.first()).map(|sys| sys.y);
+        let before = first_y(&s, &base);
+        assert_eq!(base.chord_list_h(), 0.0);
+        // Sixty distinct diagrams: the list stops at MAX_CHORD_LIST and wraps into rows.
+        let chord = |i: u8| Chord { name: format!("C{i}"), frets: vec![Some(i % 20), None, None, None, None, None], first_fret: 1 };
+        s.tracks[0].measures[0].voices[0].beats =
+            (0..60).map(|i| Beat { rest: false, notes: vec![Note::new(0, 0)], chord: Some(chord(i)), ..Beat::rest(Duration::QUARTER) }).collect();
+        let listed = chord_list(&s.tracks[0]);
+        assert_eq!(listed.len(), MAX_CHORD_LIST);
+        let m = Metrics::new(1.0, true, 6).with_annotations(&s.tracks[0]);
+        assert_eq!(m.chord_list, MAX_CHORD_LIST);
+        let rows = MAX_CHORD_LIST.div_ceil(m.chord_cell().1);
+        assert!(rows >= 2, "{rows} rows");
+        assert!((m.chord_list_h() - (rows as f32 * m.chord_row_h() + m.space)).abs() < 0.01);
+        assert!(m.chord_list_top(&s) >= 14.0 * m.space - 0.01, "under the title");
+        // Diagrams also widen the lane above each system, so the first system starts lower still.
+        let after = first_y(&s, &m);
+        assert!(after.zip(before).is_some_and(|(a, b)| a >= b + m.chord_list_h()), "{before:?} -> {after:?}");
+        // The horizontal layout has no header at all.
+        assert_eq!(m.with_horizontal().header_h(&s), 0.0);
+        // A drum track never lists chords.
+        assert!(chord_list(&guitario_score::Track::drums("d", &s.headers)).is_empty());
     }
 
     #[test]

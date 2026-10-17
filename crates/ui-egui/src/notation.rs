@@ -36,6 +36,15 @@ impl Clef {
     }
 }
 
+/// A key change inside a system, as engraved: which accidentals of the old key `old` get a
+/// natural (indexes into its [`Clef::key_positions`]), before the new key `new` is written. Going to
+/// C or to the other kind of key cancels every old one; going to fewer of the same kind cancels
+/// the ones dropped; going to more cancels none.
+pub fn key_cancel(old: i8, new: i8) -> std::ops::Range<usize> {
+    let (o, n) = (usize::from(old.unsigned_abs().min(7)), usize::from(new.unsigned_abs().min(7)));
+    if new == 0 || (old > 0) != (new > 0) { 0..o } else { n.min(o)..o }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Spelled {
     /// 0 = C … 6 = B.
@@ -122,6 +131,20 @@ pub fn beam_groups(beats: &[guitario_score::Beat], header: &guitario_score::Meas
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_key_change_cancels_what_the_old_key_loses() {
+        // To C, or between sharps and flats: every old accidental.
+        assert_eq!(key_cancel(3, 0), 0..3);
+        assert_eq!(key_cancel(-2, 1), 0..2);
+        // To fewer of the same kind: the ones dropped; to more: none.
+        assert_eq!(key_cancel(4, 1), 1..4);
+        assert_eq!(key_cancel(-5, -3), 3..5);
+        assert!(key_cancel(1, 3).is_empty() && key_cancel(0, -2).is_empty());
+        // Out-of-range keys stay within the seven positions.
+        assert_eq!(key_cancel(i8::MIN, 0), 0..7);
+    }
+
     use super::*;
 
     #[test]

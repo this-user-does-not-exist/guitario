@@ -19,7 +19,7 @@ note = "player.rs tests count_in_and_metronome_click, loops_a_range"
 id = "PLAY-3"
 target = "Guitar and bass sound with palm mute, dead notes, bends, vibrato, legato hammer-ons and slides, let ring"
 status = "partial"
-note = "physical-model synth (Karplus-Strong); not sampled instruments like Guitar Pro's RSE"
+note = "physical-model synth (Karplus-Strong) with a natural decay by pitch (about 7 s near A2, never over 10 s); let ring holds a note past its length until it dies away, also past the end of the song, unless its string is struck again, which stops it within milliseconds (synth and samples; MIDI note-offs follow the same rule); not sampled articulations like Guitar Pro's RSE"
 
 [[item]]
 id = "PLAY-4"
@@ -31,22 +31,22 @@ note = "synthesised kit (kick, snare, hats with choke, cymbals, toms), drums_sou
 id = "PLAY-5"
 target = "Amp and effect chains per track, mixer with volume/pan/mute/solo"
 status = "partial"
-note = "volume, pan, mute and solo apply; one fixed amp model per program; no effect chain or mixer panel"
+note = "Sound › Mixer… (mixer.rs): a strip per track with instrument, pan, volume fader, mute and solo, heard live while playing (Player::set_mix, gains glide over 10 ms; faders heard while dragged, one undo step on release); track.setMix and track.setProgram take any track; Sound › Audio Settings… picks the output device and buffer size, saved in the preferences (a missing device falls back to the default and says so); one fixed amp model per program; no effect chain or master section"
 
 [[item]]
 id = "PLAY-6"
 target = "Automations (tempo ramps, volume, pan) and triplet feel / swing"
-status = "partial"
-note = "triplet feel swings the timeline (score::TripletFeel::warp); fades, swells, strums and arpeggios play; no automations"
+status = "done"
+note = "triplet feel swings the timeline (score::TripletFeel::warp); fades, swells, strums and arpeggios play; tempo automation: each tempo point jumps or glides from the one before (MeasureHeader::tempo_linear, Score::tempo_curves; the tempo map integrates the glide exactly, fermatas on it included), edited in Sound › Automations › Tempo Automation… with the curve drawn, marked accel./rit. in the score, written to MIDI as a step per quarter, read and written in GPIF (points inside a bar move to the nearest bar line; .gp5 writes jumps and says so); volume and pan automation per track (Measure::volume/pan and their linear flags, track.setAutomation, Sound › Automations › Volume / Pan Automation… with the curve): played over the mixer (the player looks them up every 64 samples, from wherever playback starts), written to MIDI as controllers 7 and 10 (a step per quarter while gliding); not yet read from or written to Guitar Pro files (the exports say so)"
 
 [[item]]
 id = "PLAY-7"
 target = "Render to audio (WAV); MP3, FLAC and OGG"
 status = "partial"
-note = "WAV only (file.exportWav)"
+note = "WAV and lossless FLAC (file.exportAudio by format or extension, File › Export › Audio…, `guitario-cli convert x.flac`; pure-Rust flacenc, checked sample for sample by decoding); no MP3 or OGG (their encoders are C libraries; the command says so)"
 
 [[item]]
 id = "PLAY-8"
 target = "Sampled instruments: recorded drums, bass and guitars from open SFZ libraries"
 status = "partial"
-note = "SFZ engine and per-role sound bank (docs/sounds.md), tested on real libraries; no release samples, filters or LFOs; load happens on the UI thread; not yet auditioned on speakers"
+note = "SFZ engine and per-role sound bank (docs/sounds.md), tested on real libraries; samples decode on every core and in the background whenever the score needs new notes (SoundBank::preload and ready; ui-egui sounds.rs), Play waits for them instead of freezing; no release samples, filters or LFOs; not yet auditioned on speakers"

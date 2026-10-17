@@ -30,6 +30,8 @@ pub struct Tokens {
     pub play_bar: Color32,
     pub play_beat: Color32,
     pub effect_ink: Color32,
+    /// Edit › Multivoice Editing draws each voice in its own colour, Voice 1 first.
+    pub voice_ink: [Color32; 4],
     pub neck: Color32,
     pub fret_wire: Color32,
     pub string: Color32,
@@ -62,6 +64,12 @@ pub const GP: Tokens = Tokens {
     play_bar: Color32::from_rgba_premultiplied(0x1a, 0x14, 0x00, 0x1a),
     play_beat: Color32::from_rgba_premultiplied(0x60, 0x40, 0x00, 0x60),
     effect_ink: Color32::from_rgb(0x30, 0x30, 0x30),
+    voice_ink: [
+        Color32::from_rgb(0x1d, 0x5f, 0xc4),
+        Color32::from_rgb(0x2a, 0x8a, 0x3a),
+        Color32::from_rgb(0xc8, 0x6a, 0x10),
+        Color32::from_rgb(0xa8, 0x2c, 0x8e),
+    ],
     neck: Color32::from_rgb(0x3b, 0x27, 0x1c),
     fret_wire: Color32::from_rgb(0xb8, 0xb8, 0xbc),
     string: Color32::from_rgb(0xd9, 0xcf, 0xb8),

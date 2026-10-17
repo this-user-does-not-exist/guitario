@@ -29,6 +29,11 @@ const PROGRAMS: [(u8, &str); 12] = [
     (105, "Banjo"),
 ];
 
+/// The name of a General MIDI program as the instrument lists show it.
+pub(crate) fn program_name(program: u8) -> String {
+    PROGRAMS.iter().find(|p| p.0 == program).map_or_else(|| format!("GM program {program}"), |p| p.1.to_string())
+}
+
 pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let t = tokens();
     ui.horizontal(|ui| {
@@ -114,7 +119,7 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
             return;
         }
         ui.label(egui::RichText::new("Instrument").small().color(tokens().text_dim));
-        let current = PROGRAMS.iter().find(|p| p.0 == tr.program).map_or_else(|| format!("GM program {}", tr.program), |p| p.1.to_string());
+        let current = program_name(tr.program);
         egui::ComboBox::from_id_salt("program").width(ui.available_width()).selected_text(current).show_ui(ui, |ui| {
             for (p, name) in PROGRAMS {
                 if ui.selectable_label(tr.program == p, name).clicked() {
