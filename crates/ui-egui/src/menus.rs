@@ -218,6 +218,7 @@ fn entry(app: &mut GuitarioApp, ui: &mut egui::Ui, item: &MenuItem) {
                 Action::Ui(UiAction::Mixer) => Some(app.mixer.open),
                 Action::Ui(UiAction::ToggleNotation) => Some(app.view.notation),
                 Action::Ui(UiAction::FullScreen) => Some(app.fullscreen),
+                Action::Ui(UiAction::ToggleKeyboard) => Some(app.panels.keyboard),
                 _ => None,
             };
             if let Some(on) = on {

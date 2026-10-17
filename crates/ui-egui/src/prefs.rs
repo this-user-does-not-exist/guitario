@@ -47,6 +47,8 @@ pub struct ViewPrefs {
     pub inspector: bool,
     pub global_view: bool,
     pub fretboard: bool,
+    /// View › Instrument View › Keyboard.
+    pub keyboard: bool,
 }
 
 impl Default for ViewPrefs {
@@ -61,6 +63,7 @@ impl Default for ViewPrefs {
             inspector: true,
             global_view: true,
             fretboard: true,
+            keyboard: false,
         }
     }
 }

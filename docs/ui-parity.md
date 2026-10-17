@@ -15,7 +15,7 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Engraving | standard, tab, slash, drums, chord diagrams, lyrics | standard, tab, drums, chord diagrams, lyrics (see [scorecard](scorecard.md#notation-and-engraving)); no slash notation | partial |
 | Inspector | Song and Track tabs: Information, Musical Notation, Sounds, Interpretation (Song: Sound Mastering) | Song and Track in the same look (full-width tabs, capital headings); sections Information, Musical notation, Sounds, Bar; no Interpretation, Sound Mastering, stylesheet or notation toggles | partial |
 | Global view | track list with mixer controls and bar grid | taller track rows with mute, solo and a draggable volume slider (heard live), bar blocks in the track's colour (empty bars tinted), a + to add a track, Vol. heading, section markers boxed in a row under the grid, selection and playback; no pan, eq, eye or master row | partial |
-| Instrument views | fretboard, keyboard, drum pad | fretboard (click to enter notes) and drum pad (click to toggle hits) | partial |
+| Instrument views | fretboard, keyboard, drum pad | fretboard and keyboard (C2-C7; click a key to enter that pitch on the best string; lit for the beat's notes) and drum pad; no toolbar buttons for keyboard and drum pad, no key labels for the notes | partial |
 | Mixer | per-track volume, pan, effects; master | volume/pan/mute/solo in inspector and global view | partial |
 | Tools | tuner, chord engine, scales, line in | chord diagram editor and namer | partial |
 | Preferences | dialog | File › Preferences… (theme, interface scale) over persisted view, transport and audio settings | partial |
@@ -35,3 +35,4 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | 2026-10-17 | minor | Global view: add-track button, column heading, markers row under the grid |
 | 2026-10-17 | minor | Inspector look: full-width tabs and capital section headings (GP8 has Song and Track only; the Bar and Note tabs listed as missing were not in GP8) |
 | 2026-10-17 | minor | Full Screen, Minimize and Keyboard Shortcuts (menus 153/173) |
+| 2026-10-17 | minor | Keyboard instrument view (menus 154/173) |

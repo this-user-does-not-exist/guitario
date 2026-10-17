@@ -13,6 +13,7 @@ mod global_view;
 mod glyphs;
 mod icons;
 mod inspector;
+mod keyboard;
 mod keys;
 mod layout;
 mod lyrics_dialog;
@@ -54,6 +55,7 @@ pub struct Panels {
     pub inspector: bool,
     pub global: bool,
     pub fretboard: bool,
+    pub keyboard: bool,
 }
 
 pub struct ViewState {
@@ -156,7 +158,7 @@ impl GuitarioApp {
             follow_cursor: true,
             fonts: fonts::FontSet::default(),
             fonts_ready: false,
-            panels: Panels { palette: true, inspector: true, global: true, fretboard: true },
+            panels: Panels { palette: true, inspector: true, global: true, fretboard: true, keyboard: false },
             view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false, multivoice: false },
             inspector_tab: inspector::Tab::Song,
             edit_buffers: HashMap::new(),
@@ -211,7 +213,8 @@ impl GuitarioApp {
         let p = self.settings.get().clone().sanitized();
         self.view =
             ViewState { zoom: p.view.zoom, notation: p.view.notation, layout: p.view.layout, multitrack: p.view.multitrack, multivoice: p.view.multivoice };
-        self.panels = Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard };
+        self.panels =
+            Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard, keyboard: p.view.keyboard };
         let t = &mut self.transport;
         (t.metronome, t.count_in, t.looping, t.speed) = (p.playback.metronome, p.playback.count_in, p.playback.looping, p.playback.speed);
         self.audio_settings = guitario_audio::AudioSettings { device: p.playback.output.clone(), buffer: p.playback.buffer };
@@ -252,6 +255,7 @@ impl GuitarioApp {
             inspector: pn.inspector,
             global_view: pn.global,
             fretboard: pn.fretboard,
+            keyboard: pn.keyboard,
         };
         let playback = prefs::PlaybackPrefs {
             metronome: t.metronome,
@@ -419,6 +423,7 @@ impl GuitarioApp {
             U::ToggleInspector => self.panels.inspector = !self.panels.inspector,
             U::ToggleGlobalView => self.panels.global = !self.panels.global,
             U::ToggleFretboard => self.panels.fretboard = !self.panels.fretboard,
+            U::ToggleKeyboard => self.panels.keyboard = !self.panels.keyboard,
             U::About => self.about_open = true,
         }
     }
@@ -902,6 +907,9 @@ impl GuitarioApp {
                 .default_size(150.0)
                 .frame(egui::Frame::NONE.fill(t.chrome_dark))
                 .show(ui, |ui| global_view::show(self, ui));
+        }
+        if self.panels.keyboard {
+            egui::Panel::bottom("keyboard").exact_size(110.0).frame(egui::Frame::NONE.fill(t.chrome_dark)).show(ui, |ui| keyboard::show(self, ui));
         }
         if self.panels.fretboard {
             egui::Panel::bottom("fretboard").exact_size(132.0).frame(egui::Frame::NONE.fill(t.chrome_dark)).show(ui, |ui| fretboard::show(self, ui));

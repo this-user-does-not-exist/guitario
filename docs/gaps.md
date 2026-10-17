@@ -232,7 +232,9 @@ agent can't finish alone.
   so nothing was saved and autosave and crash recovery were off).
 - **Landed 2026-10-17:** View › Full Screen (F11), Window › Minimize, Help › Keyboard Shortcuts (a
   window generated from the menu catalog).
-- **Missing:** a keyboard instrument view, more preferences (defaults for new scores, key
+- **Landed 2026-10-17:** View › Instrument View › Keyboard (C2-C7, click a key to enter a pitch,
+  lit for the beat; `keyboard.rs`).
+- **Missing:** toolbar buttons for the instrument views, more preferences (defaults for new scores, key
   bindings), a polished light theme, an Interpretation section and Sound Mastering in the inspector (Guitar Pro 8's inspector has Song and Track tabs only), floating panels, several documents at once.
 - **Evidence:** [ui-parity](ui-parity.md); UI-3/5/8/9 in the scorecard.
 - **Estimate:** 100–170 h.
@@ -304,3 +306,4 @@ agent can't finish alone.
 | 2026-10-17 | minor | G4: per-beat beam breaks and user-placed slurs (8–28 h to 6–22 h) |
 | 2026-10-17 | minor | G8: Preferences dialog, light theme, UI scale; persistent preferences wired into the app (menus 150/173) |
 | 2026-10-17 | minor | G8: Full Screen, Minimize, Keyboard Shortcuts (menus 153/173) |
+| 2026-10-17 | minor | G8: keyboard instrument view (menus 154/173) |
