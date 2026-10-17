@@ -67,6 +67,9 @@ pub struct ViewState {
     pub multitrack: bool,
     /// Edit › Multivoice Editing: voices in colour, and a click picks a note of any voice.
     pub multivoice: bool,
+    /// Tracks hidden from the multitrack view by the global view's eye (one bit per track); not
+    /// saved, and cleared when another document opens.
+    pub hidden: u64,
 }
 
 /// Transport state. The player itself lives in the audio slot; this mirrors what the UI shows.
@@ -161,7 +164,7 @@ impl GuitarioApp {
             fonts: fonts::FontSet::default(),
             fonts_ready: false,
             panels: Panels { palette: true, inspector: true, global: true, fretboard: true, keyboard: false },
-            view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false, multivoice: false },
+            view: ViewState { zoom: 1.25, notation: true, layout: layout::LayoutMode::Page, multitrack: false, multivoice: false, hidden: 0 },
             inspector_tab: inspector::Tab::Song,
             edit_buffers: HashMap::new(),
             transport: Transport { playing: false, metronome: false, count_in: false, looping: false, speed: 1.0, transpose: 0, position: 0.0, beat: None },
@@ -213,8 +216,14 @@ impl GuitarioApp {
     pub fn with_settings(mut self, store: prefs::Store, report: &craft_settings::LoadReport) -> Self {
         self.settings = store;
         let p = self.settings.get().clone().sanitized();
-        self.view =
-            ViewState { zoom: p.view.zoom, notation: p.view.notation, layout: p.view.layout, multitrack: p.view.multitrack, multivoice: p.view.multivoice };
+        self.view = ViewState {
+            zoom: p.view.zoom,
+            notation: p.view.notation,
+            layout: p.view.layout,
+            multitrack: p.view.multitrack,
+            multivoice: p.view.multivoice,
+            hidden: 0,
+        };
         self.panels =
             Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard, keyboard: p.view.keyboard };
         let t = &mut self.transport;
@@ -305,7 +314,9 @@ impl GuitarioApp {
     fn perform(&mut self, action: Pending) {
         match action {
             Pending::New => {
-                self.run("file.new", Value::Null);
+                if self.run("file.new", Value::Null).is_some() {
+                    self.view.hidden = 0;
+                }
             }
             Pending::OpenDialog => self.open_dialog_now(),
             Pending::OpenPath(p) => self.open_path_now(&p),
@@ -319,6 +330,7 @@ impl GuitarioApp {
 
     fn open_path_now(&mut self, path: &str) {
         if self.run("file.open", json!({"path": path})).is_some() {
+            self.view.hidden = 0;
             self.remember(path);
         }
     }
@@ -942,6 +954,7 @@ impl GuitarioApp {
                 layout: self.view.layout,
                 multitrack: self.view.multitrack,
                 multivoice: self.view.multivoice,
+                hidden: self.view.hidden,
             };
             let score = self.session.score().clone();
             let cursor = self.session.cursor();

@@ -23,8 +23,9 @@ note = "no Bar or Note tab, no bend editor"
 
 [[item]]
 id = "UI-4"
-target = "Global view: track rows with mute/solo/volume, bar grid with markers, selection and playback"
-status = "done"
+target = "Global view in Guitar Pro 8's columns: icon, name, multitrack eye, mute, solo, volume, volume automation, pan, pan automation, equalizer; Master row with sections; bar grid with selection and playback"
+status = "partial"
+note = "no equalizer, master volume/pan or focus (shown greyed); track visibility is not saved"
 
 [[item]]
 id = "UI-5"
