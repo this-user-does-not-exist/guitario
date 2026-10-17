@@ -42,6 +42,52 @@ struct NoteEvent {
     fade: Option<Fade>,
 }
 
+/// A stretch of an automation in playback time: from and to seconds, from and to values.
+type Ramp = (f64, f64, f64, f64);
+
+/// An automation's value at `t`: inside a stretch, interpolated; after the last, its end value;
+/// before the first, none (the mixer's value applies).
+fn ramp_at(ramps: &[Ramp], t: f64) -> Option<f64> {
+    let i = ramps.partition_point(|r| r.0 <= t);
+    let &(s0, s1, a, b) = ramps.get(i.checked_sub(1)?)?;
+    if t >= s1 {
+        return Some(b);
+    }
+    let x = if s1 > s0 { (t - s0) / (s1 - s0) } else { 1.0 };
+    Some(a + (b - a) * x.clamp(0.0, 1.0))
+}
+
+/// One track's mixer settings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Mix {
+    /// 0..=127.
+    pub volume: u8,
+    /// -63 (left) ..= 63 (right).
+    pub pan: i8,
+    pub muted: bool,
+    pub solo: bool,
+}
+
+impl Mix {
+    pub fn of(t: &guitario_score::Track) -> Mix {
+        Mix { volume: t.volume, pan: t.pan, muted: t.muted, solo: t.solo }
+    }
+
+    /// Left and right gains: equal-power pan and volume; zero when muted or another track is soloed.
+    fn gains(self, any_solo: bool) -> (f32, f32) {
+        if self.muted || (any_solo && !self.solo) {
+            return (0.0, 0.0);
+        }
+        let pan = (f32::from(self.pan.clamp(-63, 63)) / 63.0 + 1.0) * std::f32::consts::FRAC_PI_4;
+        let vol = f32::from(self.volume.min(127)) / 127.0;
+        (vol * pan.cos(), vol * pan.sin())
+    }
+}
+
+fn mix_gains(t: &guitario_score::Track, any_solo: bool) -> (f32, f32) {
+    Mix::of(t).gains(any_solo)
+}
+
 /// Gain of a fade at `x`, the fraction of the note played (0..=1).
 fn fade_gain(fade: Option<Fade>, x: f64) -> f32 {
     let x = if x.is_nan() { 1.0 } else { x.clamp(0.0, 1.0) as f32 };
@@ -56,6 +102,9 @@ fn fade_gain(fade: Option<Fade>, x: f64) -> f32 {
 struct TrackBus {
     gain_l: f32,
     gain_r: f32,
+    /// Where the gains glide to after a mixer change (volume, pan, mute, solo).
+    target_l: f32,
+    target_r: f32,
     drive: f32,
     tone: f32,
     lp: f32,
@@ -98,6 +147,12 @@ pub struct Player {
     count_in_clicks: Vec<(f64, bool)>,
     playing: bool,
     pub opts: Options,
+    /// The mixer as last set (volume, pan, mute, solo per track).
+    mix: Vec<Mix>,
+    /// Per track, volume and pan automation in playback time: `(from sec, to sec, from, to)`.
+    automation: Vec<(Vec<Ramp>, Vec<Ramp>)>,
+    /// Samples until automations are looked up again.
+    automation_countdown: u32,
     beats: Vec<Vec<BeatTime>>,
     /// Beats per bar of each tempo-map segment, for the count-in.
     meter: Vec<u32>,
@@ -137,15 +192,13 @@ impl Player {
         let sr = (sample_rate as f32).clamp(8_000.0, 384_000.0);
         let map = TempoMap::new(score);
         let any_solo = score.tracks.iter().any(|t| t.solo);
-        let audible = |ti: usize| score.tracks.get(ti).is_some_and(|t| !t.muted && (!any_solo || t.solo));
 
         let mut notes: Vec<NoteEvent> = Vec::new();
         let mut played = timeline(score);
         played.sort_by_key(|p| (p.track, p.string, p.start_tick));
+        // Every track's notes are kept: muting and soloing silence a track's bus, so the mixer can
+        // change them while the song plays.
         for (i, p) in played.iter().enumerate() {
-            if !audible(p.track) {
-                continue;
-            }
             let start = map.tick_to_sec(p.start_tick);
             let end = map.tick_to_sec(p.start_tick + u64::from(p.ticks));
             if start > MAX_SECONDS {
@@ -203,8 +256,7 @@ impl Player {
             .tracks
             .iter()
             .map(|t| {
-                let pan = (f32::from(t.pan.clamp(-63, 63)) / 63.0 + 1.0) * std::f32::consts::FRAC_PI_4;
-                let vol = f32::from(t.volume.min(127)) / 127.0;
+                let (gain_l, gain_r) = mix_gains(t, any_solo);
                 let (drive, tone, brightness, sustain) = match t.program {
                     29 => (6.0, 0.35, 0.8, 0.9993),
                     30 => (14.0, 0.28, 0.85, 0.9995),
@@ -213,10 +265,24 @@ impl Player {
                     24 | 25 => (1.0, 0.7, 0.75, 0.9985),
                     _ => (1.0, 0.55, 0.65, 0.9988),
                 };
-                TrackBus { gain_l: vol * pan.cos(), gain_r: vol * pan.sin(), drive, tone, lp: 0.0, hp: 0.0, hp_prev: 0.0, brightness, sustain }
+                TrackBus { gain_l, gain_r, target_l: gain_l, target_r: gain_r, drive, tone, lp: 0.0, hp: 0.0, hp_prev: 0.0, brightness, sustain }
             })
             .collect::<Vec<_>>();
         let beats = (0..score.tracks.len()).map(|ti| map.beat_times(score, ti)).collect();
+        // Volume and pan automation, laid on playback time bar by bar (repeats included).
+        let automation = (0..score.tracks.len())
+            .map(|ti| {
+                let (vol, pan) = score.mix_curves(ti);
+                let lay = |curve: &[Option<(f64, f64)>]| -> Vec<Ramp> {
+                    map.segments
+                        .iter()
+                        .filter_map(|seg| curve.get(seg.measure).copied().flatten().map(|(a, b)| (seg.start_sec, seg.start_sec + seg.duration(), a, b)))
+                        .collect()
+                };
+                (lay(&vol), lay(&pan))
+            })
+            .collect();
+        let mix = score.tracks.iter().map(Mix::of).collect();
         let drum_track = score.tracks.iter().map(|t| t.is_drums()).collect();
         let end = map.total_sec;
         Player {
@@ -244,8 +310,29 @@ impl Player {
             count_in_clicks: Vec::new(),
             playing: false,
             opts,
+            mix,
+            automation,
+            automation_countdown: 0,
             beats,
             meter,
+        }
+    }
+
+    /// Bus targets from the mixer, with each track's volume and pan automation at the play time.
+    fn retarget(&mut self) {
+        let t = self.t;
+        let any_solo = self.mix.iter().any(|m| m.solo);
+        for (i, bus) in self.buses.iter_mut().enumerate() {
+            let Some(mut m) = self.mix.get(i).copied() else { continue };
+            if let Some((vol, pan)) = self.automation.get(i) {
+                if let Some(v) = ramp_at(vol, t) {
+                    m.volume = v.round().clamp(0.0, 127.0) as u8;
+                }
+                if let Some(p) = ramp_at(pan, t) {
+                    m.pan = p.round().clamp(-63.0, 63.0) as i8;
+                }
+            }
+            (bus.target_l, bus.target_r) = m.gains(any_solo);
         }
     }
 
@@ -321,6 +408,14 @@ impl Player {
         self.next_note = self.notes.partition_point(|n| n.start < sec);
         self.next_click = self.clicks.partition_point(|c| c.0 < sec);
         self.playing = true;
+        // Start at the automation's values there, without gliding from elsewhere.
+        let saved = self.t;
+        self.t = sec;
+        self.retarget();
+        self.t = saved;
+        for bus in &mut self.buses {
+            (bus.gain_l, bus.gain_r) = (bus.target_l, bus.target_r);
+        }
     }
 
     pub fn stop(&mut self) {
@@ -411,7 +506,30 @@ impl Player {
         }
     }
 
+    /// Takes the score's mixer settings (volume, pan, mute, solo) while playing; the gains glide
+    /// there over about 10 ms so a fader move does not click. A score with other tracks is ignored.
+    pub fn update_mix(&mut self, score: &Score) {
+        let mix: Vec<Mix> = score.tracks.iter().map(Mix::of).collect();
+        self.set_mix(&mix);
+    }
+
+    /// The same from the mixer's values directly (one per track, in order), so a fader being
+    /// dragged can be heard before it is let go.
+    pub fn set_mix(&mut self, mix: &[Mix]) {
+        if mix.len() != self.buses.len() {
+            return;
+        }
+        self.mix = mix.to_vec();
+        self.retarget();
+    }
+
     fn start_note(&mut self, n: &NoteEvent) {
+        // A muted (or not soloed) track starts no voices; when it is heard again its next notes
+        // sound. Volume, even an automation at zero, only scales what plays.
+        let any_solo = self.mix.iter().any(|m| m.solo);
+        if self.mix.get(n.track).is_none_or(|m| m.muted || (any_solo && !m.solo)) {
+            return;
+        }
         if let Some(inst) = self.instruments.get(n.track).cloned().flatten() {
             self.start_sampled(n, &inst);
             return;
@@ -462,7 +580,20 @@ impl Player {
     pub fn render(&mut self, out: &mut [f32], channels: usize) {
         let ch = channels.max(1);
         let dt = f64::from(self.opts.speed.clamp(0.25, 2.0)) / f64::from(self.sr);
+        let glide = 1.0 - (-1.0 / (0.01 * self.sr)).exp();
+        let automated = self.automation.iter().any(|(v, p)| !v.is_empty() || !p.is_empty());
         for frame in out.chunks_mut(ch) {
+            if automated && self.playing {
+                if self.automation_countdown == 0 {
+                    self.retarget();
+                    self.automation_countdown = 64;
+                }
+                self.automation_countdown -= 1;
+            }
+            for bus in &mut self.buses {
+                bus.gain_l += (bus.target_l - bus.gain_l) * glide;
+                bus.gain_r += (bus.target_r - bus.gain_r) * glide;
+            }
             if self.playing {
                 // Count-in clicks, then song events due at this instant.
                 while let Some(&(at, accent)) = self.count_in_clicks.first() {
@@ -779,6 +910,107 @@ mod tests {
             let bar = f64::from(num) * 4.0 / f64::from(den) * 0.5;
             assert!((p.position() + bar).abs() < 1e-6, "{num}/{den}: {}", p.position());
         }
+    }
+
+    #[test]
+    fn the_mixer_changes_volume_pan_mute_and_solo_while_playing() {
+        // Two guitars holding long notes.
+        let mut s = one_note(5);
+        let mut second = s.tracks[0].clone();
+        second.measures[0].voices[0].beats[0].notes = vec![Note::new(1, 5)];
+        s.tracks.push(second);
+        let mut p = Player::new(&s, 22_050, Options::default());
+        p.play_from(0.0);
+        // Root mean square of each channel over the next `ms`.
+        let rms = |p: &mut Player, ms: usize| {
+            let mut buf = vec![0f32; 22_050 * ms / 1000 * 2];
+            p.render(&mut buf, 2);
+            let half = buf.len() / 4;
+            let tail = &buf[half * 2..];
+            let ch = |c: usize| (tail.iter().skip(c).step_by(2).map(|x| x * x).sum::<f32>() / (tail.len() / 2) as f32).sqrt();
+            (ch(0), ch(1))
+        };
+        let both = rms(&mut p, 200);
+        assert!(both.0 > 0.01 && both.1 > 0.01, "{both:?}");
+        // Pan the first hard left and mute the second: the right channel goes quiet.
+        s.tracks[0].pan = -63;
+        s.tracks[1].muted = true;
+        p.update_mix(&s);
+        let left = rms(&mut p, 200);
+        assert!(left.0 > 0.01 && left.1 < left.0 * 0.05, "{left:?}");
+        // Solo the muted one: nothing sounds (it is muted, the other is not soloed).
+        s.tracks[1].solo = true;
+        p.update_mix(&s);
+        let none = rms(&mut p, 200);
+        assert!(none.0 < 1e-3 && none.1 < 1e-3, "{none:?}");
+        // A fader move glides: the first samples after it are close to before.
+        s.tracks[1].solo = false;
+        s.tracks[0].pan = 0;
+        p.update_mix(&s);
+        let mut buf = vec![0f32; 2];
+        p.render(&mut buf, 2);
+        assert!(buf.iter().all(|x| x.abs() < 0.05), "{buf:?}");
+        // Another score shape is ignored rather than misapplied.
+        p.update_mix(&Score::new());
+    }
+
+    #[test]
+    fn volume_and_pan_automation_play_over_the_mixer() {
+        // A held note over three bars: silent in bar 1, swelling to full over bar 2, panned left in bar 3.
+        let mut s = Score::new();
+        s.tempo = 240;
+        for _ in 0..2 {
+            let h = s.headers[0].clone();
+            s.headers.push(h.clone());
+            s.tracks[0].measures.push(guitario_score::Measure::empty_for(&h));
+        }
+        for m in &mut s.tracks[0].measures {
+            m.voices[0].beats = vec![Beat { rest: false, notes: vec![Note::new(0, 5)], ..Beat::rest(Duration::WHOLE) }];
+            m.voices[0].beats[0].notes[0].effects.let_ring = true;
+        }
+        // Silent from bar 1; still 0 at the start of bar 2, gliding to full by bar 3.
+        s.tracks[0].measures[0].volume = Some(0);
+        s.tracks[0].measures[1].volume = Some(0);
+        s.tracks[0].measures[2].volume = Some(127);
+        s.tracks[0].measures[2].volume_linear = true;
+        s.tracks[0].measures[2].pan = Some(-63);
+        let mut p = Player::new(&s, 22_050, Options::default());
+        p.play_from(0.0);
+        // One bar is one second at 240 bpm. Root mean square per channel over `secs`.
+        let rms = |p: &mut Player, secs: f32| {
+            let mut buf = vec![0f32; (22_050.0 * secs) as usize * 2];
+            p.render(&mut buf, 2);
+            let ch = |c: usize| (buf.iter().skip(c).step_by(2).map(|x| x * x).sum::<f32>() / (buf.len() / 2) as f32).sqrt();
+            (ch(0), ch(1))
+        };
+        // The same notes without automation, at full volume, to compare window by window.
+        let mut plain_score = s.clone();
+        plain_score.tracks[0].volume = 127;
+        for m in &mut plain_score.tracks[0].measures {
+            (m.volume, m.pan) = (None, None);
+        }
+        let mut plain = Player::new(&plain_score, 22_050, Options::default());
+        plain.play_from(0.0);
+        let mut window = |secs: f32| (rms(&mut p, secs), rms(&mut plain, secs));
+        let (bar1, _) = window(1.0);
+        let (early, early_plain) = window(0.4);
+        window(0.2);
+        let (late, late_plain) = window(0.4);
+        // Past the pan's 10 ms glide, which bar 3's attack straddles.
+        window(0.1);
+        let (bar3, _) = window(0.8);
+        assert!(bar1.0 < 1e-3, "silent by automation in bar 1: {bar1:?}");
+        let (ratio_early, ratio_late) = (early.0 / early_plain.0, late.0 / late_plain.0);
+        assert!(ratio_early > 0.05 && ratio_early < 0.4 && ratio_late > 0.6, "swelling through bar 2: {ratio_early} then {ratio_late}");
+        assert!(bar3.0 > 0.01 && bar3.1 < bar3.0 * 0.05, "hard left in bar 3: {bar3:?}");
+        // Starting in the middle of the swell starts at its level there, not from silence.
+        let mut q = Player::new(&s, 22_050, Options::default());
+        q.play_from(1.5);
+        // Halfway through the swell: volume 63.5 of 127, centred: about 0.5 x 0.707 on each side.
+        let g = q.buses[0].gain_l;
+        assert!((g - 0.354).abs() < 0.01, "{g}");
+        assert_eq!(ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 1.5), Some(5.0));
+        assert_eq!((ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 0.5), ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 9.0)), (None, Some(10.0)));
     }
 
     #[test]

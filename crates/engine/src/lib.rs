@@ -5,6 +5,7 @@
 //! GUI.
 
 mod ascii;
+mod automation;
 mod bars;
 mod chords;
 mod commands;

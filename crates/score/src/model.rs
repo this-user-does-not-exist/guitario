@@ -126,6 +126,10 @@ pub struct MeasureHeader {
     pub key: i8,
     #[serde(default)]
     pub tempo: Option<u16>,
+    /// Tempo automation: the tempo glides from the previous tempo point to this bar's `tempo`
+    /// (Guitar Pro's linear automation) instead of jumping to it here.
+    #[serde(default)]
+    pub tempo_linear: bool,
     #[serde(default)]
     pub repeat_open: bool,
     /// Extra passes: `1` plays the section twice. `0` is no repeat close.
@@ -363,6 +367,7 @@ impl MeasureHeader {
             time_signature,
             key: 0,
             tempo: None,
+            tempo_linear: false,
             repeat_open: false,
             repeat_close: 0,
             marker: None,
@@ -489,16 +494,60 @@ impl Track {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Measure {
     pub voices: Vec<Voice>,
+    /// Volume automation: the track's volume (0..=127) from this bar on, in place of the mixer's.
+    #[serde(default)]
+    pub volume: Option<u8>,
+    /// The volume glides here from the point before instead of jumping.
+    #[serde(default)]
+    pub volume_linear: bool,
+    /// Pan automation: -63 (left) ..= 63 (right) from this bar on.
+    #[serde(default)]
+    pub pan: Option<i8>,
+    #[serde(default)]
+    pub pan_linear: bool,
 }
 
 impl Measure {
     /// A measure holding one voice with a single rest as long as the header allows.
     pub fn empty_for(header: &MeasureHeader) -> Measure {
-        Measure { voices: vec![Voice { beats: vec![Beat::rest(rest_for(header.capacity()))] }] }
+        Measure { voices: vec![Voice { beats: vec![Beat::rest(rest_for(header.capacity()))] }], ..Measure::default() }
     }
+}
+
+/// An automation per bar: its value at the bar's start and end, or `None` before its first point.
+pub type Curve = Vec<Option<(f64, f64)>>;
+
+/// The value of an automation at each bar's start and end, from its points `(bar, value, linear)`
+/// in bar order: from a point on the value holds, or, when the next point is linear, glides to it
+/// in proportion to the ticks played. Before the first point it is `before` (`None` for "not
+/// automated yet"). `starts` holds each bar's first tick and, last, the end of the score.
+pub fn automation_curves(starts: &[u64], before: Option<f64>, points: &[(usize, f64, bool)]) -> Curve {
+    let n = starts.len().saturating_sub(1);
+    let mut out: Vec<Option<(f64, f64)>> = vec![before.map(|v| (v, v)); n];
+    let mut prev: Option<(usize, f64)> = before.map(|v| (0, v));
+    for &(b, value, linear) in points {
+        if b >= n {
+            continue;
+        }
+        if let Some((a, from)) = prev.filter(|(a, _)| linear && b > *a) {
+            let (t0, t1) = (starts.get(a).copied().unwrap_or(0), starts.get(b).copied().unwrap_or(0));
+            let span = t1.saturating_sub(t0).max(1) as f64;
+            let at = |t: u64| from + (value - from) * (t.saturating_sub(t0) as f64 / span);
+            for m in a..b {
+                if let (Some(slot), Some(s), Some(e)) = (out.get_mut(m), starts.get(m), starts.get(m + 1)) {
+                    *slot = Some((at(*s), at(*e)));
+                }
+            }
+        }
+        for slot in out.iter_mut().skip(b) {
+            *slot = Some((value, value));
+        }
+        prev = Some((b, value));
+    }
+    out
 }
 
 /// The longest plain (undotted) duration that fits in `ticks`, or a dotted/whole one at best.
@@ -1068,10 +1117,103 @@ impl Score {
     pub fn tempo_at(&self, measure: usize) -> u16 {
         self.headers.iter().take(measure.saturating_add(1)).filter_map(|h| h.tempo).next_back().unwrap_or(self.tempo)
     }
+
+    /// Each bar's tempo at its start and at its end, in written order. A bar is flat at
+    /// [`tempo_at`] unless a later tempo point is linear: then the tempo glides, in proportion to
+    /// the ticks played, from the point before (or the song tempo) to that point's tempo.
+    pub fn tempo_curves(&self) -> Vec<(f64, f64)> {
+        let points: Vec<(usize, f64, bool)> = self.headers.iter().enumerate().filter_map(|(b, h)| Some((b, f64::from(h.tempo?), h.tempo_linear))).collect();
+        let song = f64::from(self.tempo);
+        automation_curves(&self.bar_starts(), Some(song), &points).into_iter().map(|c| c.unwrap_or((song, song))).collect()
+    }
+
+    /// Each bar's first tick in written order, then the end of the score.
+    pub fn bar_starts(&self) -> Vec<u64> {
+        let mut starts = Vec::with_capacity(self.headers.len() + 1);
+        let mut tick = 0u64;
+        for h in &self.headers {
+            starts.push(tick);
+            tick += u64::from(h.capacity());
+        }
+        starts.push(tick);
+        starts
+    }
+
+    /// A track's volume and pan automation at each bar's start and end; `None` where it has no
+    /// point yet (the mixer's value applies).
+    pub fn mix_curves(&self, track: usize) -> (Curve, Curve) {
+        let starts = self.bar_starts();
+        let Some(t) = self.tracks.get(track) else { return (Vec::new(), Vec::new()) };
+        let volume: Vec<(usize, f64, bool)> = t.measures.iter().enumerate().filter_map(|(b, m)| Some((b, f64::from(m.volume?), m.volume_linear))).collect();
+        let pan: Vec<(usize, f64, bool)> = t.measures.iter().enumerate().filter_map(|(b, m)| Some((b, f64::from(m.pan?), m.pan_linear))).collect();
+        (automation_curves(&starts, None, &volume), automation_curves(&starts, None, &pan))
+    }
 }
 
 impl Default for Score {
     fn default() -> Self {
         Score::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bars(n: usize) -> Score {
+        let mut s = Score::new();
+        for _ in 1..n {
+            let h = MeasureHeader::new(TimeSignature::COMMON);
+            s.tracks[0].measures.push(Measure::empty_for(&h));
+            s.headers.push(h);
+        }
+        s
+    }
+
+    #[test]
+    fn a_linear_tempo_point_glides_from_the_point_before() {
+        let mut s = bars(6);
+        s.tempo = 100;
+        // A jump to 120 at bar 2, then a ramp reaching 160 at bar 4: bars 2 and 3 glide.
+        s.headers[1].tempo = Some(120);
+        s.headers[3].tempo = Some(160);
+        s.headers[3].tempo_linear = true;
+        let c = s.tempo_curves();
+        assert_eq!(c[0], (100.0, 100.0));
+        assert_eq!(c[1], (120.0, 140.0));
+        assert_eq!(c[2], (140.0, 160.0));
+        assert_eq!(c[3], (160.0, 160.0));
+        assert_eq!(c[5], (160.0, 160.0));
+        // Volume automation starts nowhere (the mixer's value) until its first point.
+        s.tracks[0].measures[2].volume = Some(40);
+        s.tracks[0].measures[4].volume = Some(120);
+        s.tracks[0].measures[4].volume_linear = true;
+        s.tracks[0].measures[1].pan = Some(-63);
+        let (vol, pan) = s.mix_curves(0);
+        assert_eq!(
+            (vol[0], vol[1], vol[2], vol[3], vol[4], vol[5]),
+            (None, None, Some((40.0, 80.0)), Some((80.0, 120.0)), Some((120.0, 120.0)), Some((120.0, 120.0)))
+        );
+        assert_eq!((pan[0], pan[1], pan[5]), (None, Some((-63.0, -63.0)), Some((-63.0, -63.0))));
+        assert!(s.mix_curves(9).0.is_empty());
+        s.tracks[0].measures[4].volume = Some(200);
+        assert!(s.validate().is_err());
+        s.tracks[0].measures[4].volume = Some(120);
+        // Without the flag it is a jump.
+        s.headers[3].tempo_linear = false;
+        assert_eq!(s.tempo_curves()[2], (120.0, 120.0));
+        // A ramp from the song tempo, over bars of different lengths, in proportion to their ticks.
+        let mut s = bars(3);
+        s.tempo = 60;
+        s.headers[0].time_signature = TimeSignature::new(2, 4).unwrap();
+        s.headers[2].tempo = Some(120);
+        s.headers[2].tempo_linear = true;
+        let c = s.tempo_curves();
+        assert!((c[0].1 - 80.0).abs() < 1e-9 && (c[1].0 - 80.0).abs() < 1e-9 && (c[1].1 - 120.0).abs() < 1e-9, "{c:?}");
+        // A linear point on the first bar has nothing to glide from.
+        let mut s = bars(2);
+        s.headers[0].tempo = Some(90);
+        s.headers[0].tempo_linear = true;
+        assert_eq!(s.tempo_curves()[0], (90.0, 90.0));
     }
 }

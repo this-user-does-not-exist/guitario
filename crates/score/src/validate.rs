@@ -86,6 +86,9 @@ impl crate::Score {
         let strings = track.string_count();
         for (mi, (measure, header)) in track.measures.iter().zip(&self.headers).enumerate() {
             let bad = |what: String| ScoreError::Measure { track: ti, measure: mi, what };
+            if measure.volume.is_some_and(|v| v > 127) || measure.pan.is_some_and(|p| !(-63..=63).contains(&p)) {
+                return Err(bad("has a volume or pan automation out of range".into()));
+            }
             if measure.voices.is_empty() {
                 return Err(bad("has no voice".into()));
             }

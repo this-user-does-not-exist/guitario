@@ -162,6 +162,15 @@ fn main() {
     if args.iter().any(|a| a == "--multivoice") {
         app.view.multivoice = true;
     }
+    if args.iter().any(|a| a == "--volume-automation") {
+        app.open_volume_automation();
+    }
+    if args.iter().any(|a| a == "--tempo-automation") {
+        app.open_tempo_automation();
+    }
+    if args.iter().any(|a| a == "--mixer") {
+        app.open_mixer();
+    }
     if let Some(dir) = value("--recovery") {
         app = app.with_autosave_dir(dir.into());
     }

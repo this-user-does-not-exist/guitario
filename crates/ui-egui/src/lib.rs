@@ -3,6 +3,7 @@
 //! along the bottom. Thin by design: every edit goes through `Session::run`, and the menus and
 //! shortcuts are generated from the engine's command registry.
 
+mod automation_dialog;
 mod autosave;
 mod chord_dialog;
 mod fonts;
@@ -16,6 +17,7 @@ mod layout;
 mod lyrics_dialog;
 mod menu_catalog;
 mod menus;
+mod mixer;
 mod notation;
 mod ornaments;
 mod page;
@@ -109,6 +111,9 @@ pub struct GuitarioApp {
     chord: chord_dialog::ChordDialog,
     lyrics: lyrics_dialog::LyricsDialog,
     transpose: transpose_dialog::TransposeDialog,
+    mixer: mixer::Mixer,
+    tempo_automation: automation_dialog::TempoAutomation,
+    mix_automation: automation_dialog::MixAutomation,
     /// Autosave and crash recovery; off until the persistent preferences are in use.
     autosave: autosave::Autosave,
 }
@@ -160,6 +165,9 @@ impl GuitarioApp {
             lyrics: lyrics_dialog::LyricsDialog::default(),
             autosave: autosave::Autosave::off(),
             transpose: transpose_dialog::TransposeDialog::default(),
+            mixer: mixer::Mixer::default(),
+            tempo_automation: automation_dialog::TempoAutomation::default(),
+            mix_automation: automation_dialog::MixAutomation::default(),
         }
     }
 
@@ -361,6 +369,10 @@ impl GuitarioApp {
             U::ToggleMultivoice => self.view.multivoice = !self.view.multivoice,
             U::Transpose => self.open_transpose(transpose_dialog::Scope::Selection),
             U::TransposeTrack => self.open_transpose(transpose_dialog::Scope::Track),
+            U::Mixer => self.mixer.open = !self.mixer.open,
+            U::TempoAutomation => self.open_tempo_automation(),
+            U::VolumeAutomation => self.open_mix_automation(automation_dialog::MixKind::Volume),
+            U::PanAutomation => self.open_mix_automation(automation_dialog::MixKind::Pan),
             U::TogglePalette => self.panels.palette = !self.panels.palette,
             U::ToggleInspector => self.panels.inspector = !self.panels.inspector,
             U::ToggleGlobalView => self.panels.global = !self.panels.global,
@@ -627,10 +639,13 @@ impl GuitarioApp {
         }
         let track = self.session.cursor().track;
         let opts = self.options();
+        // The mixer is live: volume, pan, mute and solo changes (and a fader being dragged) are heard.
+        let mix = self.live_mix();
         let state = self.audio.as_ref().map(|a| {
             let mut guard = a.slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             guard.as_mut().map(|p| {
                 p.opts = opts;
+                p.set_mix(&mix);
                 (p.is_playing(), p.position(), p.current_beat(track).map(|b| (b.measure, b.beat)))
             })
         });
@@ -759,6 +774,9 @@ impl GuitarioApp {
         self.chord_dialog(&ctx);
         self.lyrics_dialog(&ctx);
         self.transpose_dialog(&ctx);
+        self.mixer_window(&ctx);
+        self.tempo_automation_dialog(&ctx);
+        self.mix_automation_dialog(&ctx);
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));

@@ -215,6 +215,7 @@ fn entry(app: &mut GuitarioApp, ui: &mut egui::Ui, item: &MenuItem) {
                 Action::Ui(UiAction::Layout(mode)) => Some(app.view.layout == mode),
                 Action::Ui(UiAction::ToggleMultitrack) => Some(app.view.multitrack),
                 Action::Ui(UiAction::ToggleMultivoice) => Some(app.view.multivoice),
+                Action::Ui(UiAction::Mixer) => Some(app.mixer.open),
                 Action::Ui(UiAction::ToggleNotation) => Some(app.view.notation),
                 _ => None,
             };

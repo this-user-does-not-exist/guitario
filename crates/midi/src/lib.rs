@@ -60,11 +60,26 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
     // Tempo / time-signature track.
     let mut meta: Vec<(u64, u8, Vec<u8>)> = Vec::new();
     let mut clock = 0u64;
+    let curves = score.tempo_curves();
     for mi in playback_order(score) {
         let Some(h) = score.headers.get(mi) else { continue };
         let us = 60_000_000 / u32::from(score.tempo_at(mi).max(1));
         let tempo = |us: u32| vec![0xff, 0x51, 0x03, (us >> 16) as u8, (us >> 8) as u8, us as u8];
         meta.push((clock, 0, tempo(us)));
+        // A tempo automation gliding through the bar: a step per quarter note, at its middle tempo.
+        if let Some(&(b0, b1)) = curves.get(mi)
+            && (b1 - b0).abs() > 1e-9
+        {
+            let cap = h.capacity().max(1);
+            let mut at = 0u32;
+            while at < cap {
+                let mid = (f64::from(at) + f64::from(TICKS_PER_QUARTER.min(cap - at)) / 2.0) / f64::from(cap);
+                let bpm = (b0 + (b1 - b0) * mid).max(1.0);
+                let step = (60_000_000.0 / bpm).round().clamp(1.0, f64::from(0x00FF_FFFF)) as u32;
+                meta.push((clock + u64::from(at), 0, tempo(step)));
+                at = at.saturating_add(TICKS_PER_QUARTER);
+            }
+        }
         // A fermata slows the tempo for the beat it holds, then the bar's tempo comes back.
         for hold in score.holds(mi) {
             let slow = (f64::from(us) * hold.stretch).round().clamp(1.0, f64::from(0x00FF_FFFF)) as u32;
@@ -95,6 +110,26 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
         ev.push((0, 1, vec![0xc0 | ch, track.program & 0x7f]));
         ev.push((0, 1, vec![0xb0 | ch, 7, track.volume & 0x7f]));
         ev.push((0, 1, vec![0xb0 | ch, 10, (i16::from(track.pan.clamp(-63, 63)) + 64) as u8]));
+        // Volume and pan automation: a controller change where each bar starts, and one per
+        // quarter note while a value glides.
+        let (vol, pan) = score.mix_curves(ti);
+        let mut clock = 0u64;
+        for mi in playback_order(score) {
+            let cap = score.headers.get(mi).map_or(0, |h| h.capacity());
+            for (cc, curve, to_midi) in
+                [(7u8, &vol, (|v: f64| v.round().clamp(0.0, 127.0) as u8) as fn(f64) -> u8), (10, &pan, |v: f64| (v.round().clamp(-63.0, 63.0) + 64.0) as u8)]
+            {
+                let Some(&Some((a, b))) = curve.get(mi) else { continue };
+                let step = if (b - a).abs() > 1e-9 { TICKS_PER_QUARTER } else { cap.max(1) };
+                let mut at = 0u32;
+                while at < cap.max(1) {
+                    let v = a + (b - a) * f64::from(at) / f64::from(cap.max(1));
+                    ev.push((clock + u64::from(at), 1, vec![0xb0 | ch, cc, to_midi(v)]));
+                    at = at.saturating_add(step);
+                }
+            }
+            clock += u64::from(cap);
+        }
         let silent = track.muted || (any_solo && !track.solo);
         if !silent {
             for n in notes.iter().filter(|n| n.track == ti) {
@@ -170,6 +205,43 @@ mod tests {
         assert_eq!(tempo_events(&held), tempo_events(&plain) + 2);
         // 120 bpm is 500 000 us per quarter; held twice as long it is 1 000 000 (0x0F4240).
         assert!(held.windows(6).any(|w| w == [0xff, 0x51, 0x03, 0x0f, 0x42, 0x40]));
+    }
+
+    #[test]
+    fn a_tempo_ramp_is_written_as_a_step_per_quarter() {
+        let mut s = one_note();
+        let tempo_events = |b: &[u8]| b.windows(3).filter(|w| *w == [0xff, 0x51, 0x03]).count();
+        let h = s.headers[0].clone();
+        s.headers.push(guitario_score::MeasureHeader { tempo: Some(180), tempo_linear: true, ..h.clone() });
+        s.tracks[0].measures.push(guitario_score::Measure::empty_for(&h));
+        s.tempo = 60;
+        let plain = {
+            let mut j = s.clone();
+            j.headers[1].tempo_linear = false;
+            export(&j).unwrap()
+        };
+        let ramp = export(&s).unwrap();
+        // Bar 1 glides from 60 to 180: four steps on top of the bar's own tempo event.
+        assert_eq!(tempo_events(&ramp), tempo_events(&plain) + 4);
+        // Its first quarter is at 75 bpm (the middle of 60..90): 800 000 us (0x0C3500).
+        assert!(ramp.windows(6).any(|w| w == [0xff, 0x51, 0x03, 0x0c, 0x35, 0x00]));
+    }
+
+    #[test]
+    fn volume_and_pan_automation_become_controller_changes() {
+        let mut s = one_note();
+        let h = s.headers[0].clone();
+        s.headers.push(h.clone());
+        s.tracks[0].measures.push(guitario_score::Measure::empty_for(&h));
+        s.tracks[0].measures[0].volume = Some(20);
+        s.tracks[0].measures[1].volume = Some(100);
+        s.tracks[0].measures[1].volume_linear = true;
+        s.tracks[0].measures[1].pan = Some(-63);
+        let b = export(&s).unwrap();
+        let cc = |n: u8, v: u8| b.windows(3).any(|w| w == [0xb0, n, v]);
+        // Bar 1 glides 20 -> 100 a quarter at a time (20, 40, 60, 80), then holds 100; pan hard left.
+        assert!(cc(7, 20) && cc(7, 40) && cc(7, 60) && cc(7, 80) && cc(7, 100), "volume steps");
+        assert!(cc(10, 1), "pan left");
     }
 
     #[test]

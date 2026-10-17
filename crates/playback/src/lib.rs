@@ -17,6 +17,6 @@ mod wav;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use bank::{BANK_FILE, Role, SoundBank};
-pub use player::{Options, Player, used_keys};
+pub use player::{Mix, Options, Player, used_keys, used_keys_by_track};
 pub use tempo::{BeatTime, TempoMap};
 pub use wav::{render_player, render_wav, wav_bytes};

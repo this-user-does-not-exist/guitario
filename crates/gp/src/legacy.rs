@@ -570,7 +570,7 @@ impl Parser<'_> {
                 None => voices = empty.voices,
             }
         }
-        Ok(Measure { voices })
+        Ok(Measure { voices, ..Measure::default() })
     }
 
     fn voice(

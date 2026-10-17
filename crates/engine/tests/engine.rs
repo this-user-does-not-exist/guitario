@@ -320,3 +320,46 @@ fn transpose_several_tracks_at_once_all_or_nothing() {
     assert_eq!(fret(&s, 0), 12);
     assert!(s.run("edit.transpose", &json!({"semitones": 30})).is_err());
 }
+
+#[test]
+fn the_mixer_sets_any_track_by_index() {
+    let mut s = Session::new();
+    run(&mut s, "track.add", json!({"name": "Bass", "tuning": "bass"}));
+    run(&mut s, "cursor.set", json!({"track": 0}));
+    run(&mut s, "track.setMix", json!({"track": 1, "volume": 40, "pan": -20, "muted": true}));
+    run(&mut s, "track.setProgram", json!({"track": 1, "program": 34}));
+    let (a, b) = (&s.score().tracks[0], &s.score().tracks[1]);
+    assert_eq!((b.volume, b.pan, b.muted, b.program), (40, -20, true, 34));
+    assert!(!a.muted && a.volume != 40, "the cursor's track is untouched");
+    // Without `track`, the cursor's.
+    run(&mut s, "track.setMix", json!({"solo": true}));
+    assert!(s.score().tracks[0].solo);
+    for bad in [json!({"track": 2, "volume": 1}), json!({"track": -1, "volume": 1}), json!({"track": 0, "volume": 128})] {
+        assert!(s.run("track.setMix", &bad).is_err(), "{bad}");
+    }
+    assert!(s.run("track.setProgram", &json!({"track": 5, "program": 1})).is_err());
+}
+
+#[test]
+fn tempo_points_glide_or_jump_and_are_set_on_any_bar() {
+    let mut s = Session::new();
+    for _ in 0..3 {
+        run(&mut s, "measure.append", Value::Null);
+    }
+    run(&mut s, "measure.setTempo", json!({"bpm": 160, "linear": true, "measure": 3}));
+    let h = &s.score().headers[3];
+    assert_eq!((h.tempo, h.tempo_linear), (Some(160), true));
+    assert_eq!(s.cursor().measure, 0, "the cursor stays");
+    // Bars 0-2 glide from the song tempo to 160.
+    let c = s.score().tempo_curves();
+    assert!(c[0].0 < c[2].1 && (c[2].1 - 160.0).abs() < 1e-9, "{c:?}");
+    // A plain change jumps; clearing drops the glide too.
+    run(&mut s, "measure.setTempo", json!({"bpm": 150, "measure": 3}));
+    assert!(!s.score().headers[3].tempo_linear);
+    run(&mut s, "measure.setTempo", json!({"bpm": 150, "linear": true, "measure": 3}));
+    run(&mut s, "measure.setTempo", json!({"bpm": null, "measure": 3}));
+    assert_eq!((s.score().headers[3].tempo, s.score().headers[3].tempo_linear), (None, false));
+    for bad in [json!({"bpm": 120, "measure": 9}), json!({"bpm": 120, "linear": "yes"}), json!({"bpm": 10})] {
+        assert!(s.run("measure.setTempo", &bad).is_err(), "{bad}");
+    }
+}

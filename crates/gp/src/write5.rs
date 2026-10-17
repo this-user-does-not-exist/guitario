@@ -23,6 +23,12 @@ const DRUM_STRINGS: usize = 6;
 pub fn export_gp5(score: &Score) -> Export {
     let mut w = Writer { out: Vec::new(), dropped: BTreeMap::new() };
     w.song(score);
+    for _ in score.tracks.iter().filter(|t| t.measures.iter().any(|m| m.volume.is_some() || m.pan.is_some())) {
+        w.drop("volume and pan automation");
+    }
+    for _ in score.headers.iter().filter(|h| h.tempo.is_some() && h.tempo_linear) {
+        w.drop("gradual tempo changes");
+    }
     let warnings = w.dropped.iter().map(|(what, n)| format!("{what} cannot be written to Guitar Pro 5 and were dropped ({n})")).collect();
     Export { bytes: w.out, warnings }
 }

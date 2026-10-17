@@ -158,6 +158,7 @@ pub fn paint_print_page(painter: &Painter, score: &Score, pl: &PrintLayout, page
                 selection: None,
                 clef: Clef::for_tuning(track.tuning.strings.iter().copied().max().unwrap_or(64)),
                 lyrics: sung(track),
+                tempo_curves: score.tempo_curves(),
                 multivoice: false,
             })
         })
@@ -238,6 +239,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
                 selection: view.selection.filter(|_| mine),
                 clef: Clef::for_tuning(p.track.tuning.strings.iter().copied().max().unwrap_or(64)),
                 lyrics: sung(p.track),
+                tempo_curves: if p.metrics.top { score.tempo_curves() } else { Vec::new() },
                 multivoice: view.multivoice && mine,
             }
         })
@@ -370,6 +372,8 @@ struct Ctx<'a> {
     play_rect: Option<Rect>,
     selection: Option<Range>,
     clef: Clef,
+    /// Each bar's tempo at its start and end, for drawing tempo automations, worked out once per paint.
+    tempo_curves: Vec<(f64, f64)>,
     /// Each line of lyrics laid on its beats, `(measure, beat, syllable)`, worked out once per paint.
     lyrics: Vec<Vec<(usize, usize, guitario_score::Syllable)>>,
     /// Multivoice Editing: voices in colour and clickable. Never on paper.
@@ -668,7 +672,7 @@ impl<'a> Ctx<'a> {
                 }
             }
             if m.top {
-                self.bar_marks(h, mb.index, mx, end, sys_top);
+                self.bar_marks(h, mb.index, mx, end, sys_top, si == 0);
             }
             let measure = self.track.measures.get(mb.index);
             // Fermatas over the beats they hold, above the top staff.
@@ -884,7 +888,7 @@ impl<'a> Ctx<'a> {
 
     /// What a bar shows above its system once, over the top track: alternate endings, directions,
     /// a change of triplet feel, the section marker and a tempo change.
-    fn bar_marks(&self, h: &MeasureHeader, index: usize, mx: f32, end: f32, sys_top: f32) {
+    fn bar_marks(&self, h: &MeasureHeader, index: usize, mx: f32, end: f32, sys_top: f32, opens_system: bool) {
         let (m, t) = (self.m, self.t);
         let s = m.space;
         // Alternate endings: a bracket over the bar, numbered where the ending starts and
@@ -956,10 +960,30 @@ impl<'a> Ctx<'a> {
             self.p().rect_stroke(r, 0.0, Stroke::new(1.0, t.ink), egui::StrokeKind::Inside);
             self.p().galley(r.min + vec2(0.4 * s, 0.2 * s), galley, t.ink);
         }
+        let marked = h.tempo.is_some() && index > 0;
         if let Some(tempo) = h.tempo
             && index > 0
         {
             self.tempo_mark(mx + 0.5 * s, sys_top - 3.6 * s, tempo);
+        }
+        // A tempo automation gliding through the bar: "accel." or "rit." where the glide starts (and
+        // again at the start of each system), then a dashed line to the end of the bar.
+        if let Some(&(from, to)) = self.tempo_curves.get(index)
+            && (to - from).abs() > 1e-9
+        {
+            let starts = index.checked_sub(1).and_then(|i| self.tempo_curves.get(i)).is_none_or(|p| (p.1 - p.0).abs() < 1e-9);
+            let y = sys_top - 3.6 * s;
+            let mut x = mx + if marked { 7.0 * s } else { 0.5 * s };
+            if starts || opens_system {
+                let r = self.p().text(pos2(x, y), egui::Align2::LEFT_BOTTOM, if to > from { "accel." } else { "rit." }, serif_italic(9.5 * m.zoom), t.ink);
+                x = r.right() + 0.4 * s;
+            }
+            let dy = y - 0.5 * s;
+            let mut dx = x;
+            while dx < end - 0.8 * s {
+                self.p().line_segment([pos2(dx, dy), pos2((dx + 0.6 * s).min(end), dy)], Stroke::new(1.0, t.ink));
+                dx += 1.2 * s;
+            }
         }
     }
 
@@ -2146,6 +2170,28 @@ mod tests {
         assert!(!heads_clash(&[], black, &[3], black) && !heads_clash(&[3], black, &[], black));
         // Within a chord, any one second is enough.
         assert!(heads_clash(&[6, 9], black, &[2, 5], black));
+    }
+
+    #[test]
+    fn a_tempo_ramp_is_marked_accel_or_rit_where_it_starts() {
+        let mut s = Score::new();
+        for _ in 0..3 {
+            let h = guitario_score::MeasureHeader::new(Default::default());
+            s.tracks[0].measures.push(guitario_score::Measure::empty_for(&h));
+            s.headers.push(h);
+        }
+        assert_eq!(texts(&s, true, "accel."), 0);
+        // Speeding up over bars 2-3 into 180 at bar 4: one "accel." where the glide starts.
+        s.headers[1].tempo = Some(100);
+        s.headers[3].tempo = Some(180);
+        s.headers[3].tempo_linear = true;
+        assert_eq!(texts(&s, true, "accel."), 1);
+        assert_eq!(texts(&s, true, "rit."), 0);
+        s.headers[3].tempo = Some(60);
+        assert_eq!((texts(&s, true, "rit."), texts(&s, true, "accel.")), (1, 0));
+        // A jump draws neither.
+        s.headers[3].tempo_linear = false;
+        assert_eq!(texts(&s, true, "rit."), 0);
     }
 
     #[test]

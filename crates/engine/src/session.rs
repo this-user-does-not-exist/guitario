@@ -226,6 +226,7 @@ pub(crate) fn fit_duration(remaining: u32, prefer: Duration) -> Duration {
 pub(crate) fn append_measure(score: &mut Score, header: MeasureHeader) {
     let fresh = MeasureHeader {
         tempo: None,
+        tempo_linear: false,
         repeat_open: false,
         repeat_close: 0,
         marker: None,
