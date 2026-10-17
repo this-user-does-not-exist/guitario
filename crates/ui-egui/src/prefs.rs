@@ -97,6 +97,10 @@ impl Default for PlaybackPrefs {
 pub struct FilePrefs {
     /// Most recent first.
     pub recent: Vec<String>,
+    /// Files pinned to the top of the Homepage's recent files.
+    pub pinned: Vec<String>,
+    /// The folder the Homepage's local files come from.
+    pub folder: Option<String>,
 }
 
 impl Settings for Prefs {
@@ -117,6 +121,16 @@ impl Prefs {
         p.output = p.output.take().filter(|o| !o.trim().is_empty() && o.len() <= 256);
         self.files.recent.truncate(MAX_RECENT);
         self
+    }
+
+    /// Pins `path` to the top of the recent files, or unpins it.
+    pub fn toggle_pin(&mut self, path: &str) {
+        if self.files.pinned.iter().any(|p| p == path) {
+            self.files.pinned.retain(|p| p != path);
+        } else {
+            self.files.pinned.push(path.to_string());
+            self.files.pinned.truncate(MAX_RECENT);
+        }
     }
 
     pub fn push_recent(&mut self, path: &str) {

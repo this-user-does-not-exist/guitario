@@ -55,6 +55,8 @@ pub enum UiAction {
     /// The current track's standard notation, and its tablature.
     ToggleNotation,
     ToggleTablature,
+    /// The Homepage, on its templates.
+    NewFromTemplate,
     Layout(crate::layout::LayoutMode),
     ToggleMultitrack,
     ToggleMultivoice,
@@ -118,7 +120,7 @@ use UiAction as U;
 pub static CATALOG: &[MenuItem] = &[
     // File
     c("File", "New", "file.new", "", "Cmd+N"),
-    m("File", "New from Template…"),
+    u("File", "New from Template…", U::NewFromTemplate, ""),
     u("File", "Open…", U::Open, "Cmd+O"),
     u("File", "Open Recent", U::OpenRecent, ""),
     u("File", "Close", U::CloseDocument, "Cmd+W"),

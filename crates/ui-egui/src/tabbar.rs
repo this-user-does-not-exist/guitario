@@ -57,6 +57,10 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     } else if dirty {
         p.circle_filled(pos2(tab.right() - 18.0, tab.center().y), 4.0, t.text);
     }
+    // The tab goes back to the score from the Homepage.
+    if resp.clicked() {
+        app.home.open = false;
+    }
     resp.context_menu(|ui| {
         if ui.button("Close").clicked() {
             ui.close();
