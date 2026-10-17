@@ -461,3 +461,17 @@ fn interpretation_is_set_per_track_within_range() {
     run(&mut s, "track.addDrums", json!({}));
     assert!(s.run("track.setInterpretation", &json!({"autoBrush": true})).is_err(), "drums have none");
 }
+
+#[test]
+fn the_audio_engine_switches_for_one_track_or_all() {
+    use guitario_score::SoundEngine;
+    let mut s = Session::new();
+    run(&mut s, "track.addDrums", json!({}));
+    run(&mut s, "track.setEngine", json!({"engine": "midi", "tracks": "all"}));
+    assert!(s.score().tracks.iter().all(|t| t.engine == SoundEngine::Midi), "drums too");
+    run(&mut s, "track.setEngine", json!({"engine": "rse", "tracks": [0]}));
+    assert_eq!((s.score().tracks[0].engine, s.score().tracks[1].engine), (SoundEngine::Rse, SoundEngine::Midi));
+    for bad in [json!({"engine": "fm"}), json!({}), json!({"engine": "rse", "tracks": [5]}), json!({"engine": "rse", "tracks": "some"})] {
+        assert!(s.run("track.setEngine", &bad).is_err(), "{bad}");
+    }
+}

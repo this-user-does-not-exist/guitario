@@ -269,6 +269,8 @@ pub static CATALOG: &[MenuItem] = &[
     u("Sound/Automations", "Pan Automation…", U::PanAutomation, ""),
     m("Sound", "Sound Settings…"),
     u("Sound", "Audio Settings…", U::AudioSettings, ""),
+    c("Sound", "Switch All Tracks to MIDI", "track.setEngine", r#"{"engine":"midi","tracks":"all"}"#, ""),
+    c("Sound", "Switch All Tracks to RSE", "track.setEngine", r#"{"engine":"rse","tracks":"all"}"#, ""),
     // Tools
     m("Tools", "Tuner"),
     u("Tools", "Chord Diagrams…", U::ChordDiagrams, ""),

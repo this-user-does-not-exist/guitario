@@ -35,6 +35,15 @@ pub fn specs() -> Vec<CommandSpec> {
             true,
             set_interpretation,
         ),
+        cmd(
+            "track.setEngine",
+            "Audio Engine",
+            "Sound",
+            None,
+            "engine (rse|midi: the sampled sounds, or the synth), tracks? (indexes, or \"all\"; default the cursor's)",
+            true,
+            set_engine,
+        ),
         cmd("track.duplicate", "Duplicate Track", "Track", None, "", true, duplicate),
         cmd(
             "track.transpose",
@@ -170,16 +179,13 @@ fn shift(s: &mut Session, d: i64) -> Result<Value, EngineError> {
     Ok(json!({"track": j}))
 }
 
-/// Moves every note of the chosen tracks by `semitones`. A note keeps its string while its fret
-/// stays in range; otherwise it moves to the free string nearest its own that can play the pitch.
-/// A trill or grace note keeps its distance in frets from its note. Nothing changes unless every
-/// note of every track fits.
-fn transpose(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
-    let semitones = params::int(p, "semitones", -24, 24)?;
+/// The tracks `tracks` names: indexes, or "all" (with drum kits only when `drums`); the cursor's
+/// track when it is left out.
+fn chosen_tracks(s: &Session, p: &Value, drums: bool) -> Result<Vec<usize>, EngineError> {
     let count = s.score.tracks.len();
-    let chosen: Vec<usize> = match p.get("tracks") {
+    Ok(match p.get("tracks") {
         None | Some(Value::Null) => vec![s.cursor.track],
-        Some(Value::String(all)) if all == "all" => (0..count).filter(|i| s.score.tracks.get(*i).is_some_and(|t| !t.is_drums())).collect(),
+        Some(Value::String(all)) if all == "all" => (0..count).filter(|i| s.score.tracks.get(*i).is_some_and(|t| drums || !t.is_drums())).collect(),
         Some(Value::Array(list)) => list
             .iter()
             .map(|v| {
@@ -190,7 +196,31 @@ fn transpose(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
             })
             .collect::<Result<_, _>>()?,
         Some(_) => return Err(EngineError::BadParam("`tracks` must be track indexes or \"all\"".into())),
+    })
+}
+
+fn set_engine(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
+    let engine = match params::string(p, "engine")? {
+        "rse" => guitario_score::SoundEngine::Rse,
+        "midi" => guitario_score::SoundEngine::Midi,
+        other => return Err(EngineError::BadParam(format!("`engine` is rse or midi, not `{other}`"))),
     };
+    let chosen = chosen_tracks(s, p, true)?;
+    let score = Arc::make_mut(&mut s.score);
+    for i in &chosen {
+        let t = score.tracks.get_mut(*i).ok_or_else(|| EngineError::invalid("no such track"))?;
+        t.engine = engine;
+    }
+    Ok(json!({"tracks": chosen}))
+}
+
+/// Moves every note of the chosen tracks by `semitones`. A note keeps its string while its fret
+/// stays in range; otherwise it moves to the free string nearest its own that can play the pitch.
+/// A trill or grace note keeps its distance in frets from its note. Nothing changes unless every
+/// note of every track fits.
+fn transpose(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
+    let semitones = params::int(p, "semitones", -24, 24)?;
+    let chosen = chosen_tracks(s, p, false)?;
     if chosen.is_empty() {
         return Err(EngineError::invalid("no track to transpose"));
     }
