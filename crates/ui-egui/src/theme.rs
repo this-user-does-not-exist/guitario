@@ -58,24 +58,30 @@ pub struct Tokens {
     pub fret_wire: Color32,
     pub string: Color32,
     pub inlay: Color32,
+    /// The selected track's row in the global view.
+    pub row_selected: Color32,
+    /// The document tab.
+    pub tab: Color32,
 }
 
+/// Guitar Pro 8's dark scheme, sampled from the manual's screenshots: blue-grey panels and
+/// buttons, a near-black LCD and fields, a slate workspace around off-white pages.
 pub const GP: Tokens = Tokens {
-    chrome: Color32::from_rgb(0x30, 0x30, 0x32),
-    chrome_dark: Color32::from_rgb(0x24, 0x24, 0x26),
-    panel: Color32::from_rgb(0x3a, 0x3a, 0x3d),
-    panel_header: Color32::from_rgb(0x2b, 0x2b, 0x2e),
-    border: Color32::from_rgb(0x1c, 0x1c, 0x1e),
-    control: Color32::from_rgb(0x48, 0x48, 0x4c),
-    control_hover: Color32::from_rgb(0x58, 0x58, 0x5d),
-    text: Color32::from_rgb(0xe4, 0xe4, 0xe6),
-    text_dim: Color32::from_rgb(0x9c, 0x9c, 0xa2),
-    accent: Color32::from_rgb(0x2f, 0x8c, 0xf0),
-    lcd_bg: Color32::from_rgb(0x15, 0x17, 0x19),
+    chrome: Color32::from_rgb(0x29, 0x2a, 0x33),
+    chrome_dark: Color32::from_rgb(0x1a, 0x1c, 0x22),
+    panel: Color32::from_rgb(0x29, 0x2a, 0x33),
+    panel_header: Color32::from_rgb(0x1a, 0x1c, 0x22),
+    border: Color32::from_rgb(0x16, 0x17, 0x1d),
+    control: Color32::from_rgb(0x52, 0x57, 0x71),
+    control_hover: Color32::from_rgb(0x64, 0x6a, 0x88),
+    text: Color32::from_rgb(0xee, 0xf0, 0xf6),
+    text_dim: Color32::from_rgb(0x9a, 0x9d, 0xad),
+    accent: Color32::from_rgb(0x56, 0x8f, 0xff),
+    lcd_bg: Color32::from_rgb(0x0c, 0x0e, 0x12),
     lcd_text: Color32::from_rgb(0xd8, 0xe9, 0xf5),
     lcd_dim: Color32::from_rgb(0x6f, 0x80, 0x8c),
-    workspace: Color32::from_rgb(0x6c, 0x6c, 0x70),
-    page: Color32::WHITE,
+    workspace: Color32::from_rgb(0x44, 0x47, 0x51),
+    page: Color32::from_rgb(0xf6, 0xf6, 0xf6),
     ink: Color32::from_rgb(0x14, 0x14, 0x14),
     staff_line: Color32::from_rgb(0x9a, 0x9a, 0x9a),
     bar_line: Color32::from_rgb(0x50, 0x50, 0x50),
@@ -96,6 +102,8 @@ pub const GP: Tokens = Tokens {
     fret_wire: Color32::from_rgb(0xb8, 0xb8, 0xbc),
     string: Color32::from_rgb(0xd9, 0xcf, 0xb8),
     inlay: Color32::from_rgb(0xe8, 0xe2, 0xd2),
+    row_selected: Color32::from_rgb(0x3d, 0x3f, 0x4c),
+    tab: Color32::from_rgb(0x82, 0x8f, 0xb2),
 };
 
 /// The light editor: pale chrome and panels around the same white pages. The transport display
@@ -111,6 +119,9 @@ pub const LIGHT: Tokens = Tokens {
     text: Color32::from_rgb(0x1f, 0x1f, 0x22),
     text_dim: Color32::from_rgb(0x66, 0x66, 0x6e),
     workspace: Color32::from_rgb(0xb6, 0xb6, 0xbb),
+    page: Color32::WHITE,
+    row_selected: Color32::from_rgb(0xd8, 0xda, 0xe3),
+    tab: Color32::from_rgb(0xb3, 0xbd, 0xd6),
     ..GP
 };
 
@@ -141,7 +152,8 @@ pub fn apply(ctx: &egui::Context) {
     let mut v = if theme() == Theme::Light { egui::Visuals::light() } else { egui::Visuals::dark() };
     v.panel_fill = t.panel;
     v.window_fill = t.panel;
-    v.extreme_bg_color = t.chrome_dark;
+    // Text fields are near-black in Guitar Pro's dark scheme.
+    v.extreme_bg_color = if theme() == Theme::Light { t.chrome_dark } else { t.lcd_bg };
     v.faint_bg_color = t.panel_header;
     v.override_text_color = Some(t.text);
     v.selection.bg_fill = t.accent;

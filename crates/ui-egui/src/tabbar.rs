@@ -26,10 +26,10 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let p = ui.painter().clone();
     let tab = Rect::from_min_max(full.min, pos2(full.right() - PLUS, full.bottom()));
     let resp = ui.interact(tab, ui.id().with("doc-tab"), Sense::click());
-    p.rect_filled(tab, 0.0, t.control);
+    p.rect_filled(tab, 0.0, t.tab);
     p.line_segment([pos2(tab.right(), tab.top()), pos2(tab.right(), tab.bottom())], Stroke::new(1.0, t.border));
     let title = tab_title(&app.doc_name());
-    p.text(tab.center(), egui::Align2::CENTER_CENTER, &title, crate::fonts::sans_bold(14.0), t.text);
+    p.text(tab.center(), egui::Align2::CENTER_CENTER, &title, crate::fonts::sans_bold(14.0), Color32::WHITE);
     let dirty = app.session.is_dirty();
     // Hovering shows save and close at the right; otherwise a modified file shows a dot there.
     let hover = resp.hovered() || ui.rect_contains_pointer(tab);
@@ -70,9 +70,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
 
     let plus = Rect::from_min_max(pos2(full.right() - PLUS, full.top()), full.max);
     let plus_r = ui.interact(plus, ui.id().with("doc-tab-new"), Sense::click()).on_hover_text("New score (⌘N)");
-    if plus_r.hovered() {
-        p.rect_filled(plus, 0.0, t.control_hover);
-    }
+    p.rect_filled(plus, 0.0, if plus_r.hovered() { t.control_hover } else { t.control });
     let c = plus.center();
     let st = Stroke::new(2.0, if plus_r.hovered() { Color32::WHITE } else { t.text });
     p.line_segment([c - vec2(6.0, 0.0), c + vec2(6.0, 0.0)], st);

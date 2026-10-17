@@ -52,7 +52,9 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             t.control
         };
         ui.painter().rect_filled(r, 0.0, fill);
-        ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, name, egui::FontId::proportional(12.5), if open { Color32::WHITE } else { t.text_dim });
+        // White on both tabs, as in Guitar Pro; the light theme's pale closed tab takes dark text.
+        let ink = if open || crate::theme::theme() == crate::theme::Theme::Dark { Color32::WHITE } else { t.text };
+        ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, name, crate::fonts::sans_bold(13.0), ink);
         if resp.clicked() {
             app.inspector_tab = tab;
         }
@@ -71,7 +73,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
 /// A section: its name in large capitals, then the body (Guitar Pro's inspector has no folding).
 fn section(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
     ui.add_space(8.0);
-    ui.label(egui::RichText::new(title.to_uppercase()).size(15.0).strong());
+    ui.label(egui::RichText::new(title.to_uppercase()).font(crate::fonts::sans_bold(18.0)));
     ui.add_space(4.0);
     body(ui);
 }
@@ -85,7 +87,8 @@ fn field(
     commit: impl FnOnce(&str) -> (&'static str, Value),
     actions: &mut Vec<(&'static str, Value)>,
 ) {
-    ui.label(egui::RichText::new(label).small().color(tokens().text_dim));
+    // Guitar Pro labels a field "Title:" above it.
+    ui.label(egui::RichText::new(format!("{label}:")).size(13.0));
     let mut text = app.edit_buffers.get(key).cloned().unwrap_or_else(|| current.to_string());
     let r = ui.add(egui::TextEdit::singleline(&mut text).desired_width(f32::INFINITY));
     if r.changed() {

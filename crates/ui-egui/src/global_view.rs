@@ -221,7 +221,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 let (row, resp) = ui.allocate_exact_size(vec2(LEFT, ROW), Sense::click());
                 let p = ui.painter().clone();
                 let sel = i == c.track;
-                p.rect_filled(row, 0.0, if sel { t.control } else { t.panel });
+                p.rect_filled(row, 0.0, if sel { t.row_selected } else { t.panel });
                 p.line_segment([row.left_bottom(), row.right_bottom()], Stroke::new(1.0, t.chrome_dark));
                 p.rect_filled(Rect::from_min_size(row.min, vec2(5.0, ROW)), 0.0, track_color(i));
                 let cy = row.center().y;
