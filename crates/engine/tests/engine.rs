@@ -260,3 +260,63 @@ fn drum_tracks_take_kit_pieces_on_their_lanes() {
     run(&mut s, "track.select", json!({"index": 0}));
     assert!(s.run("note.setDrum", &json!({"drum": "kick"})).is_err());
 }
+
+#[test]
+fn transpose_track_moves_frets_and_wraps_to_another_string() {
+    let mut s = Session::new();
+    run(&mut s, "cursor.set", json!({"string": 5}));
+    run(&mut s, "note.setFret", json!({"fret": 3}));
+    run(&mut s, "track.transpose", json!({"semitones": 2}));
+    let note = s.score().tracks[0].measures[0].voices[0].beats[0].notes[0];
+    assert_eq!((note.string, note.fret), (5, 5));
+    // Down to the open low E, then one more semitone: nothing fits, so nothing changes.
+    run(&mut s, "track.transpose", json!({"semitones": -5}));
+    let before = (**s.score()).clone();
+    assert!(s.run("track.transpose", &json!({"semitones": -1})).is_err());
+    assert_eq!(**s.score(), before);
+    assert!(s.score().validate().is_ok());
+    assert!(s.run("track.transpose", &json!({"semitones": 99})).is_err());
+}
+
+#[test]
+fn transpose_track_relocates_a_note_that_runs_off_a_string() {
+    let mut s = Session::new();
+    run(&mut s, "cursor.set", json!({"string": 1}));
+    run(&mut s, "note.setFret", json!({"fret": 0}));
+    // B3 down a semitone is fret -1 on its string; the next string up can play it at fret 3.
+    run(&mut s, "track.transpose", json!({"semitones": -1}));
+    let note = s.score().tracks[0].measures[0].voices[0].beats[0].notes[0];
+    assert_eq!((note.string, note.fret), (2, 3));
+    assert!(s.score().validate().is_ok());
+}
+
+#[test]
+fn transpose_several_tracks_at_once_all_or_nothing() {
+    let mut s = Session::new();
+    run(&mut s, "cursor.set", json!({"string": 5}));
+    run(&mut s, "note.setFret", json!({"fret": 3}));
+    run(&mut s, "track.add", json!({"name": "Bass", "tuning": "bass"}));
+    run(&mut s, "cursor.set", json!({"track": 1, "string": 3}));
+    run(&mut s, "note.setFret", json!({"fret": 0}));
+    run(&mut s, "track.addDrums", json!({}));
+    let fret = |s: &Session, t: usize| s.score().tracks[t].measures[0].voices[0].beats[0].notes[0].fret;
+    // "all" moves every pitched track and leaves the drums alone.
+    let drums = s.score().tracks[2].clone();
+    run(&mut s, "track.transpose", json!({"semitones": 2, "tracks": "all"}));
+    assert_eq!((fret(&s, 0), fret(&s, 1)), (5, 2));
+    assert_eq!(s.score().tracks[2], drums);
+    // The open low E of the bass cannot go down: neither track moves.
+    let before = (**s.score()).clone();
+    run(&mut s, "track.transpose", json!({"semitones": -2, "tracks": [0, 1]}));
+    assert!(s.run("track.transpose", &json!({"semitones": -1, "tracks": [0, 1]})).is_err());
+    run(&mut s, "track.transpose", json!({"semitones": 2, "tracks": [0, 1]}));
+    assert_eq!(**s.score(), before);
+    for bad in [json!({"semitones": 1, "tracks": [9]}), json!({"semitones": 1, "tracks": "some"}), json!({"semitones": 1, "tracks": [2]})] {
+        assert!(s.run("track.transpose", &bad).is_err(), "{bad}");
+    }
+    // Edit › Transpose… moves the note at the cursor (or the selection) by any interval.
+    run(&mut s, "cursor.set", json!({"track": 0, "measure": 0, "beat": 0, "string": 5}));
+    run(&mut s, "edit.transpose", json!({"semitones": 7}));
+    assert_eq!(fret(&s, 0), 12);
+    assert!(s.run("edit.transpose", &json!({"semitones": 30})).is_err());
+}

@@ -28,6 +28,7 @@ mod print_dialog;
 mod spool;
 mod theme;
 mod topbar;
+mod transpose_dialog;
 
 pub use layout::LayoutMode;
 pub use pdf::PdfRenderer;
@@ -96,6 +97,7 @@ pub struct GuitarioApp {
     ornaments: ornaments::OrnamentDialog,
     chord: chord_dialog::ChordDialog,
     lyrics: lyrics_dialog::LyricsDialog,
+    transpose: transpose_dialog::TransposeDialog,
 }
 
 /// What the unsaved-changes prompt will do once the user answers.
@@ -140,6 +142,7 @@ impl GuitarioApp {
             ornaments: ornaments::OrnamentDialog::default(),
             chord: chord_dialog::ChordDialog::default(),
             lyrics: lyrics_dialog::LyricsDialog::default(),
+            transpose: transpose_dialog::TransposeDialog::default(),
         }
     }
 
@@ -325,6 +328,8 @@ impl GuitarioApp {
                 self.view.multitrack = !self.view.multitrack;
                 self.follow_cursor = true;
             }
+            U::Transpose => self.open_transpose(transpose_dialog::Scope::Selection),
+            U::TransposeTrack => self.open_transpose(transpose_dialog::Scope::Track),
             U::TogglePalette => self.panels.palette = !self.panels.palette,
             U::ToggleInspector => self.panels.inspector = !self.panels.inspector,
             U::ToggleGlobalView => self.panels.global = !self.panels.global,
@@ -612,6 +617,7 @@ impl GuitarioApp {
             || self.ornaments.is_open()
             || self.chord.open
             || self.lyrics.open
+            || self.transpose.open
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
@@ -700,6 +706,7 @@ impl GuitarioApp {
         self.ornament_dialog(&ctx);
         self.chord_dialog(&ctx);
         self.lyrics_dialog(&ctx);
+        self.transpose_dialog(&ctx);
         self.print_dialog(&ctx);
         let t = theme::tokens();
         let bar = |fill| egui::Frame::NONE.fill(fill).inner_margin(egui::Margin::symmetric(6, 0));
