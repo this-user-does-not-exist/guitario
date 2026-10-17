@@ -81,7 +81,7 @@ The catalog lists Guitar Pro 8's menu items from its documentation and observati
 
 | Item | Status | Runs |
 |---|---|---|
-| Add Track | live | `track.add` `{}` |
+| Add Track | live | shell: AddTrack |
 | Duplicate Track | live | `track.duplicate` |
 | Delete Track | live | `track.remove` |
 | Track Properties… | live | shell: TrackProperties |

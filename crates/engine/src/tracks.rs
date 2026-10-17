@@ -44,6 +44,15 @@ pub fn specs() -> Vec<CommandSpec> {
             true,
             set_engine,
         ),
+        cmd(
+            "track.create",
+            "Add Track",
+            "Track",
+            None,
+            "kind? (strings|drums), name, shortName?, color? (#rrggbb), tuning? (preset) | strings? (pitches, highest first), program? (0..=127), standard?, tab?, replace? (index of a track to replace instead of adding)",
+            true,
+            create,
+        ),
         cmd("track.duplicate", "Duplicate Track", "Track", None, "", true, duplicate),
         cmd(
             "track.transpose",
@@ -149,6 +158,76 @@ fn set_interpretation(s: &mut Session, p: &Value) -> Result<Value, EngineError> 
         }
     }
     Ok(json!({}))
+}
+
+/// A track set up in one step, as Guitar Pro's Add Track window makes it.
+fn create(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
+    use guitario_score::Track;
+    use guitario_theory::Tuning;
+    let drums = match params::opt_string(p, "kind") {
+        None | Some("strings") => false,
+        Some("drums") => true,
+        Some(other) => return Err(EngineError::BadParam(format!("`kind` is strings or drums, not `{other}`"))),
+    };
+    let name = params::string(p, "name")?.trim();
+    if name.is_empty() {
+        return Err(EngineError::BadParam("`name` cannot be empty".into()));
+    }
+    let tuning = if let Some(preset) = params::opt_string(p, "tuning") {
+        Tuning::preset(preset).ok_or_else(|| EngineError::BadParam(format!("unknown tuning preset `{preset}`")))?
+    } else if let Some(list) = p.get("strings") {
+        let strings: Vec<u8> = serde_json::from_value(list.clone()).map_err(|_| EngineError::BadParam("`strings` must be MIDI pitches".into()))?;
+        Tuning::new("Custom", strings).map_err(|e| EngineError::BadParam(e.to_string()))?
+    } else {
+        Tuning::standard()
+    };
+    let program = params::opt_uint(p, "program", 127)?;
+    let flag = |key: &str| p.get(key).map(|_| params::boolean(p, key)).transpose();
+    let (standard, tab) = (flag("standard")?, flag("tab")?);
+    let replace = params::opt_uint(p, "replace", 10_000)?.map(|i| i as usize);
+    let headers = s.score.headers.clone();
+    let mut track = if drums { Track::drums(name, &headers) } else { Track::new(name, tuning, &headers) };
+    track.name = name.chars().take(100).collect();
+    if let Some(program) = program.filter(|_| !drums) {
+        track.program = program as u8;
+    }
+    if !drums {
+        track.notation.standard = standard.unwrap_or(true);
+        track.notation.tab = tab.unwrap_or(true);
+        if track.notation.bits() == 0 {
+            return Err(EngineError::invalid("a track shows at least one notation"));
+        }
+    }
+    let count = s.score.tracks.len();
+    let index = match replace {
+        Some(i) if i < count => i,
+        Some(i) => return Err(EngineError::BadParam(format!("`replace` {i}: no such track"))),
+        None if count >= 15 => return Err(EngineError::invalid("a score holds at most 15 tracks")),
+        None => count,
+    };
+    let score = Arc::make_mut(&mut s.score);
+    if replace.is_some() {
+        if let Some(slot) = score.tracks.get_mut(index) {
+            *slot = track;
+        }
+    } else {
+        score.tracks.push(track);
+    }
+    s.cursor.track = index;
+    s.selection = None;
+    // The colour and short name go through the one place that checks them.
+    let mut info = serde_json::Map::new();
+    info.insert("track".into(), json!(index));
+    for key in ["shortName", "color"] {
+        if let Some(v) = p.get(key) {
+            info.insert(key.into(), v.clone());
+        }
+    }
+    if info.len() > 1 {
+        set_info(s, &Value::Object(info))?;
+    }
+    s.clamp_cursor();
+    Ok(json!({"track": index}))
 }
 
 fn duplicate(s: &mut Session, _: &Value) -> Result<Value, EngineError> {

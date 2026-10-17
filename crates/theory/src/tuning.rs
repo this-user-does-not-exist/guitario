@@ -99,6 +99,47 @@ impl Tuning {
         Tuning { name: "7 String Drop A".into(), strings: vec![64, 59, 55, 50, 45, 40, 33] }
     }
 
+    /// B E A D G.
+    pub fn bass_five() -> Tuning {
+        Tuning { name: "Bass (5 string)".into(), strings: vec![43, 38, 33, 28, 23] }
+    }
+
+    /// B E A D G C.
+    pub fn bass_six() -> Tuning {
+        Tuning { name: "Bass (6 string)".into(), strings: vec![48, 43, 38, 33, 28, 23] }
+    }
+
+    /// F# B E A D G B E.
+    pub fn eight_string() -> Tuning {
+        Tuning { name: "8 string".into(), strings: vec![64, 59, 55, 50, 45, 40, 35, 30] }
+    }
+
+    /// Open G, the fifth (drone) string high: D B G D g.
+    pub fn banjo() -> Tuning {
+        Tuning { name: "Banjo (open G)".into(), strings: vec![62, 59, 55, 50, 67] }
+    }
+
+    /// E A D G, as a violin.
+    pub fn mandolin() -> Tuning {
+        Tuning { name: "Mandolin".into(), strings: vec![76, 69, 62, 55] }
+    }
+
+    pub fn violin() -> Tuning {
+        Tuning { name: "Violin".into(), strings: vec![76, 69, 62, 55] }
+    }
+
+    pub fn viola() -> Tuning {
+        Tuning { name: "Viola".into(), strings: vec![69, 62, 55, 48] }
+    }
+
+    pub fn cello() -> Tuning {
+        Tuning { name: "Cello".into(), strings: vec![57, 50, 43, 36] }
+    }
+
+    pub fn double_bass() -> Tuning {
+        Tuning { name: "Double bass".into(), strings: vec![43, 38, 33, 28] }
+    }
+
     /// A drum track's eight kit lanes (see [`crate::drums::LANES`]). Every lane is "tuned" to 0, so
     /// a note's fret is its General MIDI drum number.
     pub fn drum_kit() -> Tuning {
@@ -117,8 +158,17 @@ impl Tuning {
             Tuning::open_g(),
             Tuning::seven_string(),
             Tuning::seven_string_drop_a(),
+            Tuning::eight_string(),
             Tuning::bass(),
+            Tuning::bass_five(),
+            Tuning::bass_six(),
             Tuning::ukulele(),
+            Tuning::banjo(),
+            Tuning::mandolin(),
+            Tuning::violin(),
+            Tuning::viola(),
+            Tuning::cello(),
+            Tuning::double_bass(),
         ]
     }
 

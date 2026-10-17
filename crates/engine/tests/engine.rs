@@ -475,3 +475,35 @@ fn the_audio_engine_switches_for_one_track_or_all() {
         assert!(s.run("track.setEngine", &bad).is_err(), "{bad}");
     }
 }
+
+#[test]
+fn a_track_is_created_set_up_in_one_step_or_replaces_one() {
+    let mut s = Session::new();
+    run(
+        &mut s,
+        "track.create",
+        json!({"name": "Fiddle", "tuning": "violin", "program": 40, "standard": true, "tab": false, "shortName": "vln.", "color": "#336699"}),
+    );
+    let t = &s.score().tracks[1];
+    assert_eq!((t.name.as_str(), t.short_name.as_str(), t.program, t.string_count()), ("Fiddle", "vln.", 40, 4));
+    assert_eq!((t.notation.standard, t.notation.tab, t.color), (true, false, Some([0x33, 0x66, 0x99])));
+    assert_eq!(s.cursor().track, 1);
+    // One undo removes it all.
+    assert!(s.run("edit.undo", &json!(null)).is_ok());
+    assert_eq!(s.score().tracks.len(), 1);
+    // Replacing the first track, as the new-file assistant does.
+    run(&mut s, "track.create", json!({"kind": "drums", "name": "Kit", "replace": 0}));
+    assert!(s.score().tracks.len() == 1 && s.score().tracks[0].is_drums());
+    for bad in [
+        json!({"name": ""}),
+        json!({"name": "x", "kind": "horn"}),
+        json!({"name": "x", "tuning": "nope"}),
+        json!({"name": "x", "strings": []}),
+        json!({"name": "x", "replace": 4}),
+        json!({"name": "x", "standard": false, "tab": false}),
+        json!({"name": "x", "color": "blue"}),
+    ] {
+        assert!(s.run("track.create", &bad).is_err(), "{bad}");
+    }
+    assert_eq!(s.score().tracks.len(), 1, "refusals leave the score as it was");
+}
