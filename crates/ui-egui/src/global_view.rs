@@ -12,6 +12,8 @@ const HEAD: f32 = 30.0;
 const LEFT: f32 = 310.0;
 const CELL: f32 = 22.0;
 const SLIDER: f32 = 92.0;
+/// The row of section markers under the bar grid.
+const FOOT: f32 = 24.0;
 
 pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let t = tokens();
@@ -27,7 +29,29 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             ui.set_width(LEFT);
             let (r, _) = ui.allocate_exact_size(vec2(LEFT, HEAD), egui::Sense::hover());
             ui.painter().rect_filled(r, 0.0, t.panel_header);
-            ui.painter().text(r.left_center() + vec2(8.0, 0.0), egui::Align2::LEFT_CENTER, "Tracks", egui::FontId::proportional(11.0), t.text_dim);
+            let add = Rect::from_center_size(r.left_center() + vec2(15.0, 0.0), vec2(22.0, 22.0));
+            let add_resp = ui.interact(add, egui::Id::new("global-add-track"), egui::Sense::click()).on_hover_text("Add a track");
+            if add_resp.hovered() {
+                ui.painter().rect_filled(add, 3.0, t.control_hover);
+            }
+            ui.painter().text(add.center(), egui::Align2::CENTER_CENTER, "+", egui::FontId::proportional(17.0), t.text);
+            egui::Popup::menu(&add_resp).show(|ui| {
+                for (label, id, params) in [
+                    ("Guitar", "track.add", json!({"name": "Guitar"})),
+                    ("Bass", "track.add", json!({"name": "Bass", "tuning": "bass"})),
+                    ("Drums", "track.addDrums", json!({})),
+                ] {
+                    if ui.button(label).clicked() {
+                        actions.push((id, params));
+                        ui.close();
+                    }
+                }
+            });
+            let title = |x: f32, text: &str| {
+                ui.painter().text(pos2(r.left() + x, r.center().y), egui::Align2::LEFT_CENTER, text, egui::FontId::proportional(11.0), t.text_dim);
+            };
+            title(34.0, "Tracks");
+            title(LEFT - SLIDER / 2.0 - 20.0, "Vol.");
             for (i, tr) in score.tracks.iter().enumerate() {
                 let (row, resp) = ui.allocate_exact_size(vec2(LEFT, ROW), egui::Sense::click());
                 let p = ui.painter();
@@ -86,15 +110,20 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     actions.push(row_click(i, tr, part));
                 }
             }
+            let (r, _) = ui.allocate_exact_size(vec2(LEFT, FOOT), egui::Sense::hover());
+            ui.painter().rect_filled(r, 0.0, t.panel_header);
+            ui.painter().text(r.left_center() + vec2(8.0, 0.0), egui::Align2::LEFT_CENTER, "Sections", egui::FontId::proportional(11.0), t.text_dim);
         });
         // Bar grid.
         egui::ScrollArea::horizontal().id_salt("global-bars").show(ui, |ui| {
             let w = (bars as f32 * CELL + 8.0).max(ui.available_width());
-            let h = HEAD + ROW * score.tracks.len() as f32;
+            let h = HEAD + ROW * score.tracks.len() as f32 + FOOT;
             let (rect, resp) = ui.allocate_exact_size(vec2(w, h), egui::Sense::click());
             let p = ui.painter();
             p.rect_filled(rect, 0.0, t.chrome_dark);
             p.rect_filled(Rect::from_min_size(rect.min, vec2(w, HEAD)), 0.0, t.panel_header);
+            let foot_y = rect.top() + HEAD + ROW * score.tracks.len() as f32;
+            p.rect_filled(Rect::from_min_size(pos2(rect.left(), foot_y), vec2(w, FOOT)), 0.0, t.panel_header);
             for (mi, hd) in score.headers.iter().enumerate() {
                 let x = rect.left() + mi as f32 * CELL;
                 if mi % 4 == 0 {
@@ -107,10 +136,13 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     );
                 }
                 if let Some(m) = &hd.marker {
-                    // Clip to the room before the next marker so neighbouring labels never overlap.
+                    // A boxed name in the row under the grid, clipped to the room before the next marker.
                     let next = score.headers.iter().enumerate().skip(mi + 1).find(|(_, h)| h.marker.is_some()).map_or(bars, |(i, _)| i);
-                    let clip = Rect::from_min_max(pos2(x, rect.top()), pos2(rect.left() + next as f32 * CELL - 1.0, rect.top() + HEAD));
-                    p.with_clip_rect(clip).text(pos2(x + 2.0, rect.top() + 1.0), egui::Align2::LEFT_TOP, m, egui::FontId::proportional(8.5), t.accent);
+                    let clip = Rect::from_min_max(pos2(x, foot_y), pos2(rect.left() + next as f32 * CELL - 2.0, foot_y + FOOT));
+                    let label = p.with_clip_rect(clip);
+                    let at = pos2(x + 5.0, foot_y + FOOT / 2.0);
+                    let text = label.text(at, egui::Align2::LEFT_CENTER, m, egui::FontId::proportional(10.5), t.text);
+                    label.rect_stroke(text.expand2(vec2(3.0, 1.0)), 2.0, Stroke::new(1.0, t.text_dim), egui::StrokeKind::Outside);
                 }
                 for (ti, tr) in score.tracks.iter().enumerate() {
                     let cell = Rect::from_min_size(pos2(x, rect.top() + HEAD + ti as f32 * ROW + 3.0), vec2(CELL - 1.0, ROW - 6.0));
