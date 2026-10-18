@@ -1,7 +1,9 @@
 //! Decoded audio for sampled instruments: WAV (16/24/32-bit int, 32-bit float, with the loop a
 //! `smpl` chunk carries), FLAC and OGG Vorbis.
 
+use super::stream::{HEAD_SECS, Loader, STREAM_MIN_SECS, Stream};
 use std::io::Cursor;
+use std::sync::Arc;
 
 /// Longest sample accepted, in frames (about 6 minutes at 48 kHz); longer files are rejected so a
 /// hostile or huge file cannot exhaust memory.
@@ -19,33 +21,68 @@ pub enum SfzError {
 
 /// Mono or stereo audio at its native rate, kept as 16-bit values: half the memory of floats, exact
 /// for the 16-bit recordings libraries mostly ship, and for 24-bit ones a loss only below -96 dB.
-/// Extra channels beyond two are dropped.
+/// Extra channels beyond two are dropped. A long sample read from a file keeps only its first
+/// second here and the rest in [`stream`](Self::stream).
 #[derive(Debug)]
 pub struct Sample {
     pub rate: u32,
+    /// The frames in memory: all of them, or the head of a streamed sample.
     pub left: Vec<i16>,
     pub right: Option<Vec<i16>>,
     /// The loop the file itself marks (a WAV `smpl` chunk's first loop): its first and last
     /// frame.
     pub loop_points: Option<(u64, u64)>,
+    /// The frames after the head, read from disk when a voice gets near them.
+    pub stream: Option<Arc<Stream>>,
 }
 
 impl Sample {
+    /// Every frame, streamed ones included.
     pub fn frames(&self) -> usize {
+        self.left.len() + self.stream.as_ref().map_or(0, |s| s.frames())
+    }
+
+    /// The frames held in memory.
+    pub fn head_frames(&self) -> usize {
         self.left.len()
     }
 
-    /// The memory its audio takes, in bytes.
+    /// Keeps the first [`HEAD_SECS`] in memory and leaves the rest to `load` (which decodes the
+    /// whole sample again), if the sample is longer than [`STREAM_MIN_SECS`].
+    pub fn streamed(mut self, load: Loader) -> Sample {
+        let rate = f64::from(self.rate);
+        if self.stream.is_some() || (self.left.len() as f64) <= STREAM_MIN_SECS * rate {
+            return self;
+        }
+        let head = (HEAD_SECS * rate) as usize;
+        let tail = self.left.len().saturating_sub(head);
+        self.left.truncate(head);
+        self.left.shrink_to_fit();
+        if let Some(r) = self.right.as_mut() {
+            r.truncate(head);
+            r.shrink_to_fit();
+        }
+        self.stream = Some(Arc::new(Stream::new(head, tail, load)));
+        self
+    }
+
+    /// The memory its audio takes now, in bytes (a streamed sample's head).
     pub fn bytes(&self) -> usize {
         (self.left.len() + self.right.as_ref().map_or(0, Vec::len)) * std::mem::size_of::<i16>()
     }
 
     /// A sample from float audio (-1..=1), one channel or two.
     pub fn from_f32(rate: u32, left: &[f32], right: Option<&[f32]>) -> Sample {
-        Sample { rate, left: left.iter().map(|x| to_i16(*x)).collect(), right: right.map(|r| r.iter().map(|x| to_i16(*x)).collect()), loop_points: None }
+        Sample {
+            rate,
+            left: left.iter().map(|x| to_i16(*x)).collect(),
+            right: right.map(|r| r.iter().map(|x| to_i16(*x)).collect()),
+            loop_points: None,
+            stream: None,
+        }
     }
 
-    /// Frame `i`, both channels, -1..1.
+    /// Frame `i` of those in memory, both channels, -1..1.
     #[inline]
     pub fn get(&self, i: isize) -> (f32, f32) {
         let Ok(idx) = usize::try_from(i) else { return (0.0, 0.0) };
@@ -74,7 +111,7 @@ impl Sample {
         if right.as_ref().is_some_and(|r| *r == left) {
             right = None;
         }
-        Ok(Sample { rate, left, right, loop_points: None })
+        Ok(Sample { rate, left, right, loop_points: None, stream: None })
     }
 
     /// Decodes by file extension (`wav`, `flac` or `ogg`).

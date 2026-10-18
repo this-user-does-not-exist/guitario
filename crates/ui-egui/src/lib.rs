@@ -770,6 +770,8 @@ impl GuitarioApp {
         let Some(audio) = &self.audio else { return };
         let c = self.session.cursor();
         let mut player = guitario_playback::Player::new(self.session.score(), audio.sample_rate, self.options());
+        // It renders on the sound card's thread, which never waits for a sample read from disk.
+        player.set_live(true);
         let sound_notes = self.sounds.as_ref().map(|b| b.apply(&mut player, self.session.score())).unwrap_or_default();
         // With loop on and a selection, play just the selection, round and round.
         let range = self.session.selection().filter(|s| self.transport.looping && s.track == c.track).map(|s| s.ordered());

@@ -3,6 +3,7 @@
 
 use super::parse::{Filter, FilterKind, LoopMode, Region};
 use super::sample::Sample;
+use super::stream::{LEAD_SECS, Tail};
 use crate::fx::filter::{Biquad, OnePole, Shape};
 use std::sync::Arc;
 
@@ -234,6 +235,13 @@ pub struct SampleVoice {
     pub gain: f32,
     pub fade: Option<guitario_score::Fade>,
     sample: Arc<Sample>,
+    /// A streamed sample's tail, once in memory; the voice holds it until it ends.
+    tail: Option<Arc<Tail>>,
+    /// The source position at which to look for the tail (again).
+    tail_at: f64,
+    /// Offline: load a missing tail right away instead of asking the streamer.
+    wait_for_tail: bool,
+    underrun: bool,
     pos: f64,
     /// Source frames per output frame before bend.
     step: f64,
@@ -296,6 +304,10 @@ impl SampleVoice {
             gain: 1.0,
             fade: None,
             sample: Arc::clone(sample),
+            tail: None,
+            tail_at: if sample.stream.is_some() { sample.head_frames() as f64 - LEAD_SECS * f64::from(sample.rate) } else { f64::MAX },
+            wait_for_tail: true,
+            underrun: false,
             pos: (region.offset as f64).min(frames),
             step,
             end,
@@ -312,6 +324,34 @@ impl SampleVoice {
             vib_phase: 0.0,
             sr,
         }
+    }
+
+    /// On the audio thread: never wait for a streamed tail; ask the streamer ahead of need, and
+    /// play silence if it is late. Off (the default), a missing tail is loaded when needed, so
+    /// offline renders are exact.
+    pub fn live(&mut self, live: bool) {
+        self.wait_for_tail = !live;
+    }
+
+    /// Takes the tail if it is in memory (or loads it, offline), else asks for it and looks again
+    /// a few milliseconds of sample later.
+    #[cold]
+    fn fetch_tail(&mut self) {
+        let Some(stream) = &self.sample.stream else {
+            self.tail_at = f64::MAX;
+            return;
+        };
+        self.tail = if self.wait_for_tail { stream.tail() } else { stream.try_tail() };
+        if self.tail.is_some() || stream.failed() {
+            self.tail_at = f64::MAX;
+            return;
+        }
+        stream.request();
+        if !self.underrun && self.pos >= self.sample.head_frames() as f64 - 2.0 {
+            self.underrun = true;
+            super::stream::note_underrun();
+        }
+        self.tail_at = self.pos + 0.005 * f64::from(self.sample.rate);
     }
 
     /// Plays the sample `ratio` times higher (the relative tonality); 1.0 leaves it as it is.
@@ -368,13 +408,26 @@ impl SampleVoice {
         self.amp.done
     }
 
+    /// Frame `i`, from memory or the tail (silence while a streamed tail is not there yet).
+    #[inline]
+    fn frame(&self, i: isize) -> (f32, f32) {
+        let head = self.sample.head_frames() as isize;
+        if i < head {
+            return self.sample.get(i);
+        }
+        match (&self.tail, usize::try_from(i - head)) {
+            (Some(t), Ok(at)) => t.get(at),
+            _ => (0.0, 0.0),
+        }
+    }
+
     /// The sample at source position `pos`, both channels, by 4-point Hermite interpolation.
     #[inline]
     fn read(&self, pos: f64) -> (f32, f32) {
         let i = pos.floor();
         let t = (pos - i) as f32;
         let i = i as isize;
-        let (a, b, c, d) = (self.sample.get(i - 1), self.sample.get(i), self.sample.get(i + 1), self.sample.get(i + 2));
+        let (a, b, c, d) = (self.frame(i - 1), self.frame(i), self.frame(i + 1), self.frame(i + 2));
         let h = |y0: f32, y1: f32, y2: f32, y3: f32| {
             let c1 = 0.5 * (y2 - y0);
             let c2 = y0 - 2.5 * y1 + 2.0 * y2 - 0.5 * y3;
@@ -403,6 +456,9 @@ impl SampleVoice {
             bend += self.vibrato_depth * (self.vib_phase * std::f32::consts::TAU).sin();
         }
         let looping = self.looping && (!self.sustain_loop || !self.released);
+        if self.pos >= self.tail_at {
+            self.fetch_tail();
+        }
         let (mut l, mut r) = self.read(self.pos);
         // Near the loop's end, fade into what comes before its start, so the seam is smooth.
         let fade_from = self.loop_end - self.crossfade;
@@ -575,6 +631,64 @@ mod tests {
         };
         let (hard, smooth) = (jump("<region> sample=a.wav key=60"), jump("<region> sample=a.wav key=60 loop_crossfade=0.002"));
         assert!(hard > 0.5 && smooth < 0.02, "seam {hard} without, {smooth} with a crossfade");
+    }
+
+    /// A 3 s stereo chirp at 8 kHz, whole, and the same streamed from a loader that takes `delay`.
+    fn chirp(delay_ms: u64) -> (Arc<Sample>, Arc<Sample>) {
+        let make = || {
+            let l: Vec<f32> = (0..24_000).map(|n| (n as f32 * (0.01 + n as f32 * 1e-6)).sin() * 0.5).collect();
+            let r: Vec<f32> = l.iter().map(|x| -x).collect();
+            Sample::from_f32(8000, &l, Some(&r))
+        };
+        let streamed = make().streamed(Box::new(move || {
+            std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+            Ok(make())
+        }));
+        (Arc::new(make()), Arc::new(streamed))
+    }
+
+    fn render_both(v: &mut SampleVoice, n: usize) -> Vec<(f32, f32)> {
+        (0..n).map(|_| v.tick()).collect()
+    }
+
+    #[test]
+    fn a_streamed_sample_sounds_exactly_like_the_whole_one() {
+        let (whole, streamed) = chirp(0);
+        assert_eq!(streamed.head_frames(), 8000, "one second in memory");
+        assert_eq!((streamed.frames(), whole.frames()), (24_000, 24_000));
+        assert!(streamed.bytes() * 3 == whole.bytes());
+        let r = region("<region> sample=a.wav lokey=0 hikey=127 pitch_keycenter=60");
+        // Offline, a fifth up and resampled to 11.025 kHz: the tail is loaded when reached.
+        let reference = render_both(&mut SampleVoice::new(0, 0, &r, &whole, 67, 1.0, 11_025.0), 20_000);
+        let offline = render_both(&mut SampleVoice::new(0, 0, &r, &streamed, 67, 1.0, 11_025.0), 20_000);
+        assert!(reference == offline, "bit for bit");
+        // Live, the voice asks ahead of need and takes the tail once the streamer has it.
+        let (_, streamed) = chirp(0);
+        let mut live = SampleVoice::new(0, 0, &r, &streamed, 67, 1.0, 11_025.0);
+        live.live(true);
+        let mut out = render_both(&mut live, 4000);
+        let stream = streamed.stream.clone().unwrap();
+        assert!(stream.queued.load(std::sync::atomic::Ordering::Relaxed) || stream.try_tail().is_some(), "asked for before the head ran out");
+        let t0 = std::time::Instant::now();
+        while stream.try_tail().is_none() && t0.elapsed().as_secs() < 10 {
+            std::thread::yield_now();
+        }
+        out.extend(render_both(&mut live, 16_000));
+        assert!(reference == out, "the same once the tail arrived in time");
+    }
+
+    #[test]
+    fn a_late_tail_plays_silence_and_is_counted() {
+        let (_, streamed) = chirp(400);
+        let r = region("<region> sample=a.wav key=60");
+        let mut v = SampleVoice::new(0, 0, &r, &streamed, 60, 1.0, 8000.0);
+        v.live(true);
+        let before = super::super::stream::underruns();
+        let out = render_both(&mut v, 12_000);
+        assert!(out.iter().take(7990).any(|f| f.0.abs() > 0.1), "the head plays");
+        assert!(out.iter().skip(8010).all(|f| *f == (0.0, 0.0)), "silence after it, not a stall");
+        assert!(super::super::stream::underruns() > before);
+        assert!(!v.finished(), "the voice carries on and picks the tail up when it comes");
     }
 
     #[test]

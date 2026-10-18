@@ -280,6 +280,8 @@ pub struct Player {
     master_automation: (Vec<Ramp>, Vec<Ramp>),
     /// Frames in a row the output has been silent, to know when effect tails have died away.
     quiet: u32,
+    /// Rendering for the sound card: streamed sample tails are never waited for.
+    live: bool,
 }
 
 /// The sorted, distinct MIDI keys `track` plays, so a sampled instrument can load only the
@@ -501,6 +503,7 @@ impl Player {
             master_level: (100, 0),
             master_automation,
             quiet: 0,
+            live: false,
         };
         for ti in 0..player.buses.len() {
             player.configure_track(ti);
@@ -601,6 +604,17 @@ impl Player {
 
     pub fn sample_rate(&self) -> u32 {
         self.sr as u32
+    }
+
+    /// For the sound card: the tails of long samples are read from disk ahead of need by the
+    /// streamer thread and never waited for (a late one plays as silence and counts in
+    /// [`stream::underruns`](crate::sfz::stream::underruns)). Off (the default, for exports and
+    /// tests), a tail is loaded when a note reaches it, so the result is exact.
+    pub fn set_live(&mut self, live: bool) {
+        self.live = live;
+        if live {
+            crate::sfz::stream::start();
+        }
     }
 
     pub fn duration(&self) -> f64 {
@@ -801,6 +815,7 @@ impl Player {
             }
             for h in hits {
                 let mut v = SampleVoice::new(n.track, n.string, h.region, h.sample, key, velocity, self.sr);
+                v.live(self.live);
                 v.repitch(ratio);
                 voices.push(v);
             }
@@ -844,6 +859,7 @@ impl Player {
             let rand = (self.noise.next() + 1.0) * 0.5;
             for h in inst.select_release(key, (velocity * 127.0).round() as u8, counter, rand) {
                 let mut v = SampleVoice::new(track, NO_STRING, h.region, h.sample, key, velocity, self.sr);
+                v.live(self.live);
                 v.repitch(ratio);
                 v.attenuate(h.region.rt_decay * held);
                 if self.sampled.len() >= MAX_SAMPLE_VOICES {

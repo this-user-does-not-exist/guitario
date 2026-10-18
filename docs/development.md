@@ -57,6 +57,7 @@ equivalents found in the system font folders, `CRAFT_FONTS_DIR` or `GUITARIO_FON
 | `GUITARIO_FONTS_DIR`, `CRAFT_FONTS_DIR` | Extra font folders |
 | `GUITARIO_MUSIC_FONT` | A SMuFL font file to use |
 | `GUITARIO_SOUNDS` | The sound-bank folder of SFZ instruments ([`sounds.md`](sounds.md)); default is the per-user data folder |
+| `GUITARIO_STREAM_CACHE_MB` | The most memory the tails of long samples keep while no note plays them (default 256; [`sounds.md`](sounds.md#memory-and-streaming)) |
 | `GUITARIO_SFZ_DIR`, `GUITARIO_SFZ_FILE`, `GUITARIO_SFZ_RENDER`, `GUITARIO_SFZ_OUT` | Run the real-library tests in `crates/playback/tests/real_libraries.rs` (parse a folder, print a key map, render a riff to a WAV) |
 | `GUITARIO_FUZZ_CASES`, `GUITARIO_FUZZ_SEED` | Cases per reader in `crates/gp/tests/fuzz.rs` (default 400) and where its seeds start; failing inputs land in `target/fuzz-failures/` |
 | `GUITARIO_GP_CORPUS`, `GUITARIO_GP_DUMP` | Import every Guitar Pro file in a local folder (`crates/gp/tests/corpus.rs`); GP3-5 files must also come back unchanged through the `.gp5` writer. `GUITARIO_GP_DUMP=1` prints what each file imported as. Real files belong to their authors: keep the corpus local |

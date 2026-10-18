@@ -147,13 +147,26 @@ mod tests {
             results.push(("sounds_ready_check", time(9, || assert!(bank.ready(&score)))));
             let mut p = guitario_playback::Player::new(&score, 48_000, guitario_playback::Options::default());
             results.push(("sounds_play", time(5, || drop(bank.apply(&mut p, &score)))));
+            // The audio thread's share: the tails of long samples are read by the streamer ahead
+            // of need, which faster than real time it cannot be, so an offline pass over the
+            // same seconds reads them first.
+            let mut warm = guitario_playback::Player::new(&score, 48_000, guitario_playback::Options::default());
+            bank.apply(&mut warm, &score);
+            warm.play_from(10.0);
+            for _ in 0..(6 * 48_000 / 512) {
+                warm.render(&mut buf, 2);
+            }
+            p.set_live(true);
             p.play_from(10.0);
+            let late = guitario_playback::sfz::stream::underruns();
             let sampled = time(5, || {
                 for _ in 0..(48_000 / 512) {
                     p.render(&mut buf, 2);
                 }
             });
             results.push(("render_sampled_per_second", sampled));
+            results.push(("sounds_tails_mb", guitario_playback::sfz::stream::resident_bytes() as f64 / 1_048_576.0));
+            results.push(("sounds_late_tails", (guitario_playback::sfz::stream::underruns() - late) as f64));
         }
 
         let mut failed = Vec::new();
