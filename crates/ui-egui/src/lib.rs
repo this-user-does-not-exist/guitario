@@ -4,6 +4,7 @@
 //! shortcuts are generated from the engine's command registry.
 
 mod add_track;
+pub mod app_icon;
 mod audio_settings;
 mod automation_dialog;
 mod autosave;

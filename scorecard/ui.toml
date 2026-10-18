@@ -19,7 +19,7 @@ status = "done"
 id = "UI-3"
 target = "Inspector: Song and Track tabs"
 status = "partial"
-note = "no Bar or Note tab, no bend editor"
+note = "Guitar Pro 8 has only these two tabs; master effects behind Sound Mastering, tuning window and transposition are greyed"
 
 [[item]]
 id = "UI-4"

@@ -12,7 +12,11 @@ fn main() -> eframe::Result {
         startup_error = Some(e.to_string());
     }
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1440.0, 900.0]).with_min_inner_size([900.0, 600.0]).with_title("Guitario"),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1440.0, 900.0])
+            .with_min_inner_size([900.0, 600.0])
+            .with_title("Guitario")
+            .with_icon(guitario_ui_egui::app_icon::window_icon()),
         ..Default::default()
     };
     eframe::run_native(

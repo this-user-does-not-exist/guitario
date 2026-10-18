@@ -221,9 +221,18 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let left = full.center().x - width / 2.0;
     let mut y = full.top() + 24.0;
 
-    // The name.
+    // The mark and the name, as Guitar Pro heads its Homepage with its logo.
     let p = ui.painter().clone();
-    p.text(pos2(full.center().x, y), egui::Align2::CENTER_TOP, "Guitario", crate::fonts::sans_bold(44.0), t.text);
+    let name = p.layout_no_wrap("Guitario".into(), crate::fonts::sans_bold(44.0), t.text);
+    let side = 56.0;
+    let gap = 14.0;
+    let x = full.center().x - (side + gap + name.size().x) / 2.0;
+    if let Some(tex) = crate::app_icon::mark(ui.ctx()) {
+        let r = Rect::from_min_size(pos2(x, y - 4.0), vec2(side, side));
+        p.image(tex.id(), r, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), t.text);
+    }
+    let name_h = name.size().y;
+    p.galley(pos2(x + side + gap, y + (side - 8.0 - name_h) / 2.0), name, t.text);
     y += 74.0;
 
     // New File and Open File…

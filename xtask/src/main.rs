@@ -2,6 +2,7 @@
 //!
 //! Pure Rust (std + serde). External tools (`cargo`) are invoked through `std::process::Command`.
 
+mod ico;
 mod layers;
 mod scorecard;
 mod sounds;
@@ -27,6 +28,8 @@ commands:
                   regenerate docs/scorecard.md from scorecard/*.toml (--check: fail if stale)
   sounds [--list] [--dir <folder>] [--only <id>,..]
                   download open SFZ guitars, bass and drums and write the sound bank (docs/sounds.md)
+  ico <out.ico> <in.png>...
+                  pack PNG images into a Windows icon (packaging/icons.sh uses it)
   version [set X.Y.Z[-pre]]
                   print the workspace version, or set it (Cargo.toml + Cargo.lock)
 ";
@@ -44,6 +47,7 @@ fn main() -> ExitCode {
         Some("scorecard") => scorecard::run(&root(), rest.contains(&"--check")),
         Some("sounds") => sounds::run(&rest),
         Some("version") => version::run(&root(), &rest),
+        Some("ico") => ico::run(&rest),
         Some("-h" | "--help" | "help") | None => {
             print!("{USAGE}");
             Ok(())

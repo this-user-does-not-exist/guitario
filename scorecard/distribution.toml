@@ -27,4 +27,5 @@ status = "missing"
 [[item]]
 id = "DIST-5"
 target = "App icon and file associations for .gt and .gp"
-status = "missing"
+status = "partial"
+note = "icon in every format (assets/app-icon: .icns, .ico in the exe, hicolor, window icon); no app bundle yet, so no file associations"
