@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (master automation, 16-bit samples; beta ~260–530 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (packages, file types, release workflow; beta ~200–415 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -14,7 +14,7 @@ for one agent working sequentially, and an upper bound (see
 [calibration](target-app-parity.md#calibration)).
 
 **Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
-today; ~260–530 h of work are left, ordered under [Current focus](#current-focus).
+today; ~200–415 h of work are left, ordered under [Current focus](#current-focus).
 
 ## Stages
 
@@ -63,7 +63,7 @@ live except the ones the scorecard stages for 1.0.
 
 | # | Beta workflow | Today | What is missing | Gap |
 |---|---|---|---|---|
-| B1 | **Install and open.** Download a signed build for macOS, Windows or Linux; double-click a `.gp` or `.gt` and it opens; the sound bank installs itself on first run | no | no installers, signing or file associations; the sound bank installs from the app (2026-10-18); only macOS has been run by hand | [G12](gaps.md#g12-platforms-and-distribution), [G5](gaps.md#g5-playback-realism) |
+| B1 | **Install and open.** Download a signed build for macOS, Windows or Linux; double-click a `.gp` or `.gt` and it opens; the sound bank installs itself on first run | no | packages for three platforms, file types declared and the release workflow (2026-10-18), not yet run on GitHub or signed; a file double-clicked in Finder starts the app without opening it (a decision on `unsafe`, [decisions](decisions.md)); the sound bank installs from the app; only macOS has been run by hand | [G12](gaps.md#g12-platforms-and-distribution), [G5](gaps.md#g5-playback-realism) |
 | B2 | **Hear a band.** Guitar with palm mutes, harmonics and slides, bass, and sampled drums, through an amp and room, and a guitarist accepts how it sounds | partial | sampled instruments play through effect chains (amp, cabinet, reverb, delay …), the mixer's equalizer and mastering; the synth plays every articulation and a bank can record each, the sampler plays release samples, filters, velocity curves and loops, and the app installs the libraries (2026-10-18); nobody has listened on speakers | [G5](gaps.md#g5-playback-realism) |
 | B3 | **Transcribe a solo.** Bends with their curves, whammy dives, grace notes, tuplets, a drum groove on a step grid, Paste Special | partial | the drum step grid (bend curves, the whammy bar and Paste Special landed 2026-10-17) | [G6](gaps.md#g6-editing-depth), [G1](gaps.md#g1-drums-depth) |
 | B4 | **Exchange.** Open any Guitar Pro 3 to 8 file (at least 95 % of a real corpus without warnings); a `.gp` export opens in Guitar Pro 8; MIDI and MusicXML go in and out | partial | the `.gp` check in Guitar Pro 8 (human); MIDI import, MusicXML and Guitar Pro 6 drums landed 2026-10-18 | [G3](gaps.md#g3-guitar-pro-exchange) |
@@ -101,7 +101,7 @@ Engineering milestones, each with a definition of done. The GitHub milestones Al
 | M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, page setup; no MusicXML, headers and footers | beta |
 | M8 Tools | 🟡 | chord diagram editor and namer; no tuner, chord window or scale tool | beta |
 | M9 Automation | ⬜ | control channel, MCP | beta |
-| M10 Distribution | 🟡 | icon in every format, CI green on three platforms; no installers, signing, file associations or release workflow | beta |
+| M10 Distribution | 🟡 | icon in every format, CI green on three platforms, packages, file types and a release workflow; no signing, no first release, Finder's double-click does not open the file | beta |
 
 ## Current focus
 
@@ -113,9 +113,10 @@ what needs a human ear or signing material last, so the human steps overlap with
 1. **Sound** ([G5](gaps.md#g5-playback-realism)): streaming samples from disk (articulations, the
    sampler's depth, the sound bank in the app, master automation, amp, cabinet, effects and
    mastering landed 2026-10-18). A listening pass closes it. 15–35 h.
-2. **Release workflow and packages** ([G12](gaps.md#g12-platforms-and-distribution)): tag to
-   artifacts for three platforms, an app bundle with file associations; signing waits on accounts.
-   80–150 h + human.
+2. **First release** ([G12](gaps.md#g12-platforms-and-distribution)): run the release workflow
+   (packages, file types and the workflow landed 2026-10-18) and fix what macOS and Windows
+   reveal; Finder's double-click once a human decides on the `unsafe` delegate; signing waits on
+   accounts. 20–40 h + human.
 3. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 55–100 h.
 4. **Drum step grid and articulations** ([G1](gaps.md#g1-drums-depth)); **headers, footers,
    selected bars** ([G2](gaps.md#g2-print-depth)); **voice picking** ([G4](gaps.md#g4-notation-depth)).
@@ -163,6 +164,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | Packages, file types and the release workflow landed: B1 lacks signing, a first release run and Finder's double-click (a decision); beta ~200–415 h |
 | 2026-10-18 | minor | Master automation and 16-bit samples landed; beta ~260–530 h |
 | 2026-10-18 | minor | The sound bank in the app (Sound Bank window, first-run offer) and an instrument per track landed; beta ~270–550 h |
 | 2026-10-18 | minor | The sampler's depth landed (release samples, legato regions, filters, velocity curves, loops, OGG); beta ~325–655 h |

@@ -348,3 +348,28 @@ loss is below -96 dBFS, under the recordings' own noise. Memory halves, playback
 at no measurable cost, and `sounds_memory_mb` in `perf/budgets.toml` watches it. Streaming the
 tails of long samples from disk (#110) would cut it further and is the remaining part.
 
+## 2026-10-18: Packages are built by `cargo xtask package`; macOS file opening waits on a decision
+
+Guitar Pro ships an installer per platform. Guitario's packages are laid out by one xtask
+command from templates in `packaging/`, so a maintainer builds locally what the release workflow
+builds, and the templates are checked by tests (every extension the app opens is declared on each
+platform). No packaging tool is added to the tree: `ditto` and `hdiutil` come with macOS,
+`dpkg-deb` with Debian and Ubuntu, Inno Setup with GitHub's Windows images (installed when
+missing). Signing runs inside the same command when its environment variables are set, so an
+unsigned build and a signed one are laid out identically; the workflow compiles everything
+before the secrets enter the environment, so no dependency's build script can read them.
+
+The `.deb` depends only on ALSA: the binary links `libasound` and libc; winit and wgpu load the
+X11, Wayland, Vulkan and GL libraries when the app starts, and rfd talks to the desktop portal
+over D-Bus, so GTK is not needed.
+
+Windows and Linux hand a double-clicked file to the program on its command line, which the app
+already opens. macOS sends it as an Apple Event to the application delegate, and winit 0.30
+registers none and leaves it to the program: receiving it needs an `NSApplicationDelegate`
+declared with objc2, whose class declarations and message sends are `unsafe`. The workspace forbids
+`unsafe_code` (shared-rules' never-crash standard), so the bundle declares the file types (Finder
+shows the icons and Open With) but a double-click starts Guitario without opening the file.
+The options, for a human: allow one reviewed `unsafe` module in the desktop app (about 60 lines,
+macOS only, the file list handed to the shell as the command line is), or wait for winit to
+deliver the event (requested upstream; 0.30 has no such event). Beta workflow B1 waits on this choice.
+

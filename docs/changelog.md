@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: master automation, 16-bit samples) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G12: packages and the release workflow) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -420,4 +420,30 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   `file.recover`; REL-6).
 - **Landed 2026-10-16:** mutation fuzzing of every Guitar Pro reader (`crates/gp/tests/fuzz.rs`,
   in every test run; `GUITARIO_FUZZ_CASES` for depth; 150,000 cases found nothing).
+
+### G12. Platforms and distribution
+- **Landed 2026-10-16:** the app icon in every format (`assets/app-icon`: `.icns`, `.ico` in the
+  Windows executable, the hicolor theme, the window icon) and CI on macOS, Linux and Windows.
+- **Landed 2026-10-18:** packages (`cargo xtask package [--target <triple>] [--no-build]`,
+  templates in `packaging/`, output in `dist/`). macOS: `Guitario.app` with both binaries, the
+  icon and an `Info.plist` that declares the Guitario score type (`ai.storyteller.guitario.score`
+  for `.gt` and `.gt`, owned), Guitar Pro (`.gp` `.gpx` `.gp5` `.gp4` `.gp3`), MIDI and
+  MusicXML, and the microphone use the tuner needs, zipped with `ditto` and as a `.dmg`. Linux:
+  a `.tar.gz` (binaries, desktop entry, MIME types `application/x-guitario` and
+  `application/x-guitar-pro`, AppStream metadata, icons, `install.sh` for `~/.local` or a prefix,
+  `--remove`) and a `.deb` (depends only on ALSA; the windowing and GPU libraries are loaded at
+  start). Windows: a `.zip` and an Inno Setup installer (`packaging/windows/guitario.iss`):
+  per-user by default, `.gt` owned, the others under Open With, Guitar Pro files optionally made
+  Guitario's. The window's app id is `ai.storyteller.guitario`, so Linux desktops match it to the
+  desktop entry. Signing is built in and runs when its variables are set: `codesign` for the
+  hardened runtime with `packaging/macos/entitlements.plist`, `notarytool` and `stapler` for the
+  app and the disk image, `signtool` with a `.pfx` or a certificate thumbprint on Windows.
+  Checked here: the `.deb` installs on Ubuntu 24.04 (`dpkg -i`; the MIME database learns both
+  types, `guitario-cli` runs) and removes cleanly, `install.sh` installs and removes under a
+  prefix, `desktop-file-validate` and `appstreamcli validate --pedantic` pass. The release
+  workflow (`.github/workflows/release.yml`): a tag `v<version>` (checked against the workspace
+  version) builds the packages for Apple silicon and Intel macOS, Linux x86-64 and Windows x86-64
+  and drafts a GitHub release with them and `SHA256SUMS`; a pull request that changes the
+  packaging, or a run by hand, builds them as artifacts. Everything compiles before the signing
+  secrets enter the environment.
 

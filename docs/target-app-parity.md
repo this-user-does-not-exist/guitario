@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (master automation, 16-bit samples: playback 67 %; beta ~260–530 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (packages, file types, release workflow: platforms 35 %, readiness ~65 %; beta ~200–415 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -15,12 +15,12 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 |---|---|---|
 | **Stage** | **alpha** | measured: the [alpha gate](roadmap.md#alpha-gate) passes (two human checks open) |
 | **Beta gate** | **0 of 8 workflows pass** | measured by running them: [beta gate](roadmap.md#beta-gate) |
-| **Scorecard** | 57 done · 17 partial · 19 missing; **20 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
+| **Scorecard** | 57 done · 19 partial · 17 missing; **20 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
 | **Menu parity** | 172 of 180 items live (96 %) | measured: `cargo xtask parity` |
 | **Feature breadth** (does each Guitar Pro feature exist?) | **~74 %** | partly measured, weights [below](#feature-breadth-74-weighted) |
-| **Readiness** (how deep is each dimension, weighted?) | **~64 %** (range 57–69) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~260–530 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~965–1,910 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| **Readiness** (how deep is each dimension, weighted?) | **~65 %** (range 58–70) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
+| Remaining to **beta** | **~200–415 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~905–1,795 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -71,8 +71,8 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 | Tools | 5% | 65% | 0 + human | 80–150 | G7 | tuner, chord window, scales, line in |
 | Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
 | Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
-| Platforms and automation | 10% | 25% | 120–230 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; no installers or releases, no control channel or MCP |
-| **Weighted** | 100% | **~64%** | **~260–530** | **~710–1,390** | | 0.20·70 + 0.15·74 + 0.15·67 + 0.10·70 + 0.10·62 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·25 = 64.2 |
+| Platforms and automation | 10% | 35% | 60–120 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; packages for three platforms (`cargo xtask package`), file types declared, a release workflow that has not run yet, signing waiting on certificates; a file double-clicked in Finder does not open; no control channel or MCP |
+| **Weighted** | 100% | **~65%** | **~200–415** | **~710–1,390** | | 0.20·70 + 0.15·74 + 0.15·67 + 0.10·70 + 0.10·62 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·35 = 65.2 |
 
 Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
 is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
@@ -98,6 +98,7 @@ subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | Packages for three platforms, file types declared, the release workflow: platforms 25% → 35%, readiness ~64% → ~65%; beta hours 260–530 → 200–415 |
 | 2026-10-18 | minor | Master volume and pan automation, 16-bit samples with a memory budget: playback 65% → 67%; beta hours 270–550 → 260–530 |
 | 2026-10-18 | minor | The sound bank installs from the app (Sound Bank window, first-run offer, `sound.installLibraries`), an instrument per track: playback 60% → 65%, readiness ~63% → ~64%; beta hours 325–655 → 270–550 |
 | 2026-10-18 | minor | The sampler's depth (release samples, legato regions, filters, velocity curves, WAV loops and crossfades, OGG samples): playback 57% → 60%, breadth playback 65% → 67%; beta hours 340–685 → 325–655 |

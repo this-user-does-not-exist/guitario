@@ -1,4 +1,4 @@
-# Scorecard checklist: distribution. Verified 2026-10-17.
+# Scorecard checklist: distribution. Verified 2026-10-18.
 area = "distribution"
 title = "Distribution"
 order = 8
@@ -24,22 +24,23 @@ stage = "1.0"
 [[item]]
 id = "DIST-4"
 target = "Signed, notarized macOS and signed Windows releases; Linux packages"
-status = "missing"
+status = "partial"
 stage = "beta"
+note = "cargo xtask package builds the macOS app, zip and dmg, the Windows zip and installer, and the Linux tar.gz and .deb (installed on Ubuntu 24.04); signing runs when its secrets are set, and none are yet (issues 176, 177)"
 
 [[item]]
 id = "DIST-5"
 target = "App icon and file associations for .gt and .gp"
 status = "partial"
 stage = "beta"
-note = "icon in every format (assets/app-icon: .icns, .ico in the exe, hicolor, window icon); no app bundle yet, so no file associations"
+note = "declared on every platform (Info.plist, desktop entry and MIME types, the Windows installer); Windows and Linux pass the file on the command line, which the app opens (not tried by hand on Windows); a double-click in Finder starts the app without opening it (needs a decision on unsafe, docs/decisions.md)"
 
 [[item]]
 id = "DIST-6"
 target = "Release workflow: a tag builds installers for macOS, Windows and Linux"
-status = "missing"
+status = "partial"
 stage = "beta"
-note = "issue 179; signing material and store accounts are human work (issues 176, 177)"
+note = ".github/workflows/release.yml drafts a release from a tag v<version>; it has not run on GitHub yet; signing material is human work (issues 176, 177)"
 
 [[item]]
 id = "DIST-7"

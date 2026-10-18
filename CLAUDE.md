@@ -21,6 +21,7 @@ cargo xtask ci          # fmt --check, clippy -D warnings, tests, layers, parity
 cargo xtask layers      # dependency-layer check only
 cargo xtask wasm        # L0–L5 build for wasm32-unknown-unknown
 cargo xtask perf        # release timings on a 400-bar score vs perf/budgets.toml
+cargo xtask package     # release packages for this platform in dist/ (app bundle, .deb, installer …)
 cargo xtask parity      # regenerate docs/parity-checklist.md (then raise FLOOR in crates/ui-egui/src/parity.rs)
 cargo xtask scorecard   # regenerate docs/scorecard.md from scorecard/*.toml
 ```
