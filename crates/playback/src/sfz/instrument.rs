@@ -1,6 +1,6 @@
 //! A sampled instrument: parsed regions plus the decoded audio they play.
 
-use super::parse::{Region, parse};
+use super::parse::{Region, parse_switched};
 use super::sample::{Sample, SfzError};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -80,7 +80,19 @@ impl Instrument {
         load: &(dyn Fn(&str) -> Result<Sample, SfzError> + Sync),
         keys: Option<&[u8]>,
     ) -> Result<Instrument, SfzError> {
-        let parsed = parse(text, include);
+        Instrument::build_switched(name, text, include, load, keys, None)
+    }
+
+    /// [`build`](Self::build) with `switch` as the active keyswitch (see [`parse_switched`]).
+    pub fn build_switched(
+        name: &str,
+        text: &str,
+        include: &mut dyn FnMut(&str) -> Option<String>,
+        load: &(dyn Fn(&str) -> Result<Sample, SfzError> + Sync),
+        keys: Option<&[u8]>,
+        switch: Option<u8>,
+    ) -> Result<Instrument, SfzError> {
+        let parsed = parse_switched(text, include, switch);
         let mut warnings = parsed.warnings;
         let needed = keys.map(|ks| needed_regions(&parsed.regions, ks));
         let kept: Vec<Region> = parsed

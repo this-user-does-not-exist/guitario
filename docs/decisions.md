@@ -294,3 +294,25 @@ mono until a chorus or reverb widens it; whether a bus is mono is fixed by wheth
 sampled instrument, never decided per sample, so every channel's filters and delay lines stay in
 step.
 
+## 2026-10-18: Articulations: the synth plays them, a bank may record them
+
+Guitar Pro's RSE plays palm mutes, harmonics, slides and legato from recordings of each. Guitario
+plays them in two ways. The plucked-string synth models each one, because it is what everyone
+hears without a sound bank: a palm mute is a lowpass inside the string loop plus a short decay (the
+filter's delay is taken off the delay line at the note's pitch, or a muted note would sound flat);
+a harmonic is the same string excited through a comb that cancels every partial without a node
+at the touched point, so it rings at the partial for as long as that partial would (pure, not
+tempered, as on a guitar); legato is the vibration already on the string, moved to the new pitch
+with a little energy added. A sampled instrument takes a program per articulation from the bank,
+or a keyswitch within one program; whatever a bank does not record is borrowed from the sustain
+program and shaped as before (cut short, moved in pitch).
+
+Which articulation a note is and whether it carries on its string are decided once
+(`crates/playback/src/articulation.rs`) and used both to load samples and to play them, so a
+program never lacks the keys the player asks of it. The timeline keeps `pitch` as the fretted
+note, which the views and the clipboard need, and adds what a harmonic sounds beside it; MIDI
+export uses that too. A shift slide picks the second note and a legato slide does not, as Guitar
+Pro's manual defines them; before, both flowed on. Natural harmonics are looked for up to the
+ninth partial within about a third of a fret, because the model stores whole frets (Guitar Pro's
+2.4, 3.2 and 5.8 cannot be written); a fret without a node plays the plain note.
+

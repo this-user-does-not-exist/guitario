@@ -380,9 +380,15 @@ fn build_region(map: &Opcodes, cc: &[f32; 128], default_path: &str, key_offset: 
 }
 
 /// Parses SFZ `text`. `resolve` returns the text of an included file by its path as written.
-/// `sw_default` is the keyswitch assumed active (None keeps only regions without a switch plus
-/// those whose `sw_last` equals the file's own `sw_default`).
+/// Keyswitched regions are kept for the file's own `sw_default` (see [`parse_switched`]).
 pub fn parse(text: &str, resolve: &mut dyn FnMut(&str) -> Option<String>) -> Parsed {
+    parse_switched(text, resolve, None)
+}
+
+/// [`parse`] with `switch` as the active keyswitch: regions without a switch are kept, and those
+/// whose `sw_last` is `switch` (None: the file's own `sw_default`). One program can so give each
+/// articulation it records by keyswitch.
+pub fn parse_switched(text: &str, resolve: &mut dyn FnMut(&str) -> Option<String>, switch: Option<u8>) -> Parsed {
     let mut pre = Preprocessor { resolve, defines: HashMap::new(), includes: 0, warnings: Vec::new() };
     let mut clean = String::new();
     pre.expand(text, 0, &mut clean);
@@ -484,8 +490,8 @@ pub fn parse(text: &str, resolve: &mut dyn FnMut(&str) -> Option<String>) -> Par
             break;
         }
         if let Some(r) = build_region(&map, &cc, &default_path, key_offset) {
-            // Keyswitched regions play only for the default switch.
-            if r.sw_last.is_none() || r.sw_last == sw_default {
+            // Keyswitched regions play only for the active switch.
+            if r.sw_last.is_none() || r.sw_last == switch.or(sw_default) {
                 parsed.regions.push(r);
             }
         }
@@ -551,6 +557,12 @@ mod tests {
         );
         assert_eq!(r.regions.len(), 1);
         assert_eq!(r.regions[0].sample, "a.wav");
+        // Another switch picks the other articulation; regions without a switch stay.
+        let text = "<global> sw_default=c2\n<region> sample=a.wav key=60 sw_last=c2\n<region> sample=b.wav key=60 sw_last=d2\n<region> sample=n.wav key=40";
+        let names = |switch| parse_switched(text, &mut |_| None, switch).regions.into_iter().map(|r| r.sample).collect::<Vec<_>>();
+        assert_eq!(names(parse_key("d2")), ["b.wav", "n.wav"]);
+        assert_eq!(names(None), ["a.wav", "n.wav"]);
+        assert_eq!(names(Some(0)), ["n.wav"], "a switch nothing uses keeps only the unswitched regions");
     }
 
     #[test]

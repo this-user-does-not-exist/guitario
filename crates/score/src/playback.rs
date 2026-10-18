@@ -137,6 +137,32 @@ pub struct PlayedBeat {
     pub fade: Option<Fade>,
     /// The whammy bar's curve moving this note.
     pub whammy: Option<PlayedWhammy>,
+    /// What a harmonic makes the note sound (`pitch` stays the fretted note).
+    pub harmonic: Option<PlayedHarmonic>,
+    /// The beat is slapped or popped (a bass).
+    pub technique: Option<crate::BeatTechnique>,
+}
+
+/// A harmonic in playback: the pitch of the vibrating length, the partial heard over it and how much
+/// of the plain note sounds under it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PlayedHarmonic {
+    pub base: guitario_theory::Pitch,
+    pub partial: u8,
+    pub fundamental: f32,
+}
+
+impl PlayedHarmonic {
+    /// The pitch heard, in MIDI notes with a fraction: partials are pure, so the fifth sounds 14
+    /// cents below the tempered major third two octaves up.
+    pub fn semitones(&self) -> f32 {
+        f32::from(self.base.0) + 12.0 * f32::from(self.partial.max(1)).log2()
+    }
+
+    /// The nearest MIDI note to the pitch heard.
+    pub fn key(&self) -> u8 {
+        self.semitones().round().clamp(0.0, 127.0) as u8
+    }
 }
 
 /// A whammy curve in playback time: it runs over `ticks` from `from_tick`. Before that the bar is
@@ -334,6 +360,8 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                     effects,
                                     fade: None,
                                     whammy: None,
+                                    harmonic: None,
+                                    technique: None,
                                 });
                             }
                             // A trill alternates with another fret; tremolo picking repeats the note.
@@ -344,6 +372,12 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                 (None, None) => None,
                             };
                             let other = trill.and_then(|t| track.tuning.pitch(s, t.fret, track.capo));
+                            // A harmonic sounds a partial of the length its string vibrates from.
+                            let harmonic_at = |fret: u8| {
+                                let h = note.effects.harmonic.filter(|_| !dead)?.sound(fret)?;
+                                let base = track.tuning.pitch(s, h.fret, track.capo)?;
+                                Some(PlayedHarmonic { base, partial: h.partial, fundamental: h.fundamental })
+                            };
                             let parts = attacks(period, ticks_swung, lead);
                             let picks = parts.len();
                             let whammy = beat.whammy.map(|curve| PlayedWhammy { curve, from_tick: s0, ticks: ticks_swung });
@@ -382,6 +416,11 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                     effects,
                                     fade: beat.fade,
                                     whammy,
+                                    harmonic: harmonic_at(match trill {
+                                        Some(t) if k % 2 == 1 => t.fret,
+                                        _ => note.fret,
+                                    }),
+                                    technique: beat.technique,
                                 });
                             }
                         }
@@ -467,6 +506,46 @@ mod tests {
         assert_eq!(h.beam_starts(), vec![0, 2 * e]);
         assert_eq!(MeasureHeader::new(ts(13, 16)).beam_starts(), vec![0, 2 * e, 4 * e]);
         assert_eq!(MeasureHeader::new(TimeSignature::COMMON).beam_starts(), vec![0, 2 * e, 4 * e, 6 * e]);
+    }
+
+    #[test]
+    fn natural_harmonics_sound_the_partial_whose_node_is_at_the_fret() {
+        use crate::natural_harmonic;
+        let table: Vec<(u8, Option<u8>)> = (0..=24).map(|f| (f, natural_harmonic(f))).collect();
+        let at = |f: usize| table[f].1;
+        assert_eq!((at(12), at(7), at(19), at(5), at(24)), (Some(2), Some(3), Some(3), Some(4), Some(4)));
+        assert_eq!((at(4), at(9), at(16), at(3)), (Some(5), Some(5), Some(5), Some(6)));
+        assert_eq!((at(0), at(1), at(11), at(13)), (None, None, None, None), "no node near the nut or beside the 12th");
+        assert!((25..=255).all(|f| natural_harmonic(f).is_none_or(|n| (2..=9).contains(&n))));
+    }
+
+    #[test]
+    fn a_harmonic_keeps_the_fretted_pitch_and_says_what_sounds() {
+        use crate::{Beat, Harmonic, Note};
+        use guitario_theory::Duration;
+        let mut s = score_with(1);
+        let note = |string: u8, fret: u8, h: Option<Harmonic>| {
+            let mut n = Note::new(string, fret);
+            n.effects.harmonic = h;
+            Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::QUARTER) }
+        };
+        // Low E (40): natural at 7 and 12, artificial at 3, and a natural one where there is no node.
+        s.tracks[0].capo = 2;
+        s.tracks[0].measures[0].voices[0].beats = vec![
+            note(5, 7, Some(Harmonic::Natural)),
+            note(5, 12, Some(Harmonic::Natural)),
+            note(5, 3, Some(Harmonic::Artificial)),
+            note(5, 1, Some(Harmonic::Natural)),
+        ];
+        let out = timeline(&s);
+        let h: Vec<_> = out.iter().map(|p| (p.pitch.map(|p| p.0), p.harmonic.map(|h| (h.base.0, h.partial, h.key())))).collect();
+        assert_eq!(
+            h,
+            vec![(Some(49), Some((42, 3, 61))), (Some(54), Some((42, 2, 54))), (Some(45), Some((45, 2, 57))), (Some(43), None)],
+            "nodes count from the capo; the 7th fret's partial is an octave and a fifth over the open string"
+        );
+        let fifth = PlayedHarmonic { base: guitario_theory::Pitch(40), partial: 5, fundamental: 0.0 };
+        assert!((fifth.semitones() - 67.863).abs() < 1e-3 && fifth.key() == 68);
     }
 
     #[test]

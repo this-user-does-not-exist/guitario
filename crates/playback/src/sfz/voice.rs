@@ -30,7 +30,13 @@ pub struct SampleVoice {
     pub bend: Option<guitario_score::Bend>,
     /// The whammy bar's curve moving the note.
     pub whammy: Option<crate::synth::WhammyTime>,
+    /// A slide moving the note, in song time.
+    pub slide: Option<crate::synth::SlideTime>,
     pub bend_semis: f32,
+    /// How far legato notes have moved the voice from the key it started on, in semitones.
+    legato_semis: f32,
+    /// The pitch heard now, before bends, in MIDI notes: where the next legato note moves from.
+    pub pitch: f32,
     /// Vibrato depth in semitones (wide vibrato is deeper).
     pub vibrato_depth: f32,
     /// Output gain for fades and swells, 0..=1.
@@ -98,7 +104,10 @@ impl SampleVoice {
             note_end: f64::MAX,
             bend: None,
             whammy: None,
+            slide: None,
             bend_semis: 0.0,
+            legato_semis: 0.0,
+            pitch: f32::from(key),
             vibrato_depth: 0.12,
             gain: 1.0,
             fade: None,
@@ -133,6 +142,16 @@ impl SampleVoice {
         if ratio.is_finite() && ratio > 0.0 {
             self.step *= f64::from(ratio);
         }
+    }
+
+    /// Carries on at `pitch` (MIDI notes) without a new attack: a hammer-on, pull-off or legato
+    /// slide moves the sounding sample instead of starting another.
+    pub fn legato_to(&mut self, pitch: f32) {
+        if pitch.is_finite() {
+            self.legato_semis += pitch - self.pitch;
+            self.pitch = pitch;
+        }
+        self.bend_semis = 0.0;
     }
 
     /// Note off. One-shot regions play out unless forced.
@@ -219,7 +238,7 @@ impl SampleVoice {
         if self.stage == Stage::Delay {
             return (0.0, 0.0);
         }
-        let mut bend = self.bend_semis;
+        let mut bend = self.bend_semis + self.legato_semis;
         if self.vibrato {
             self.vib_phase += 5.5 / self.sr;
             if self.vib_phase >= 1.0 {

@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: effect chains, track equalizer, master) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: articulations) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -206,6 +206,32 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   until a chorus or reverb widens it: rendering a six-track 400-bar score costs 30 ms a second
   of sound (budget 50). Not yet: cabinet impulse responses from files, the chain in Guitar Pro
   files, master automation, the pedalboard; nobody has listened on speakers.
+- **Landed 2026-10-18:** articulations (#111, #112). The synth plays each one
+  (`crates/playback/src/synth.rs`, `player.rs`): palm mutes put a lowpass in the string loop and
+  die in 0.7 s to 0.15 s by the track's palm-mute weight, with the filter's delay taken off the
+  string so the pitch stays true; dead notes are a 45 ms click; harmonics excite the string
+  through a comb that keeps only the partial's multiples, so they ring at the partial (natural
+  harmonics by the node at the fret, pure: 2 at the 12th, 3 at the 7th and 19th, 4 at the 5th, 5
+  at the 4th, 9th and 16th …; artificial and tapped an octave over the fretted note; pinch and
+  semi two octaves over it with some of the note) and longer than a fretted note at that pitch;
+  shift and legato slides glide over the end of the first note and arrive on the second, which a
+  shift slide picks again; slides in scoop from three semitones away, slides out fall or rise
+  eight while fading; hammer-ons, pull-offs and taps carry on the string with a little of the
+  finger's energy (a tap on a silent string plucks it without a pick click); staccato plays half
+  the note; slap and pop, and harder notes, are brighter. A note's end now fades it by 60 dB in a
+  quarter second at any pitch, where a low string used to ring for seconds after its note. The
+  timeline carries what a harmonic sounds (`PlayedHarmonic`, `Harmonic::sound`,
+  `natural_harmonic`) and the beat's technique, keeping `pitch` the fretted note. A sound bank's
+  role can name a program per articulation (`sustain`, `palm_mute`, `dead`, `harmonic`,
+  `legato`), each a file or a keyswitch held in one (`parse_switched`); each loads only the keys
+  its notes play (`used_keys_by_articulation`), and an articulation without one plays from the
+  sustain program, as before for palm mutes and dead notes. Without legato samples, a hammer-on,
+  pull-off or legato slide moves the sample already sounding to the new pitch instead of starting
+  a softer one. MIDI export sounds harmonics at their partial (a semi-harmonic with the note under
+  it) and staccato at half length; the three demos with such notes were regenerated. Checked by
+  tests: every pitch within 1.2 % (harmonics, palm mutes, slides), decay and release times,
+  plucks counted, programs chosen. Not yet: the libraries `cargo xtask sounds` installs are
+  mapped for sustain only, bends are not written to MIDI as pitch bends, and nobody has listened.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

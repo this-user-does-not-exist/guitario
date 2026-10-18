@@ -1,8 +1,9 @@
+use crate::articulation::{Articulation, legato_flags, sample_key, used_keys_by_articulation};
 use crate::fx::Chain;
 use crate::sfz::{Instrument, SampleVoice};
-use crate::synth::{Click, DrumVoice, Noise, Pluck, StringVoice, WhammyTime, curve_semis};
+use crate::synth::{Click, DrumVoice, Noise, Pluck, SlideTime, StringVoice, WhammyTime, curve_semis};
 use crate::tempo::{BeatTime, TempoMap, locate};
-use guitario_score::{Effect, Fade, Master, PlayingStyle, Score, Slide, default_chain, timeline};
+use guitario_score::{BeatTechnique, Effect, Fade, Master, PlayingStyle, Score, Slide, default_chain, timeline};
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -36,7 +37,10 @@ struct NoteEvent {
     end: f64,
     track: usize,
     string: u8,
+    /// The pitch of the length of string that vibrates (a harmonic sounds a partial of it).
     freq: f32,
+    /// The pitch heard, in MIDI notes with a fraction: a harmonic's partial.
+    pitch: f32,
     velocity: f32,
     dead: bool,
     palm_mute: bool,
@@ -48,13 +52,49 @@ struct NoteEvent {
     bend: Option<guitario_score::Bend>,
     /// The whammy bar's curve over the note's beat.
     whammy: Option<WhammyTime>,
+    /// A slide into the note, out of it, or on to the next note on its string.
+    slide: Option<SlideTime>,
     /// The MIDI note: the drum number on a drum track.
     midi: u8,
+    /// The key it plays on a sampled instrument, and which of its programs plays it.
+    key: u8,
+    articulation: Articulation,
     /// This note continues the previous one on its string without a pluck.
     legato_from_prev: bool,
-    slide_glide: bool,
+    /// A finger, not the pick, sets the string going (tapping): no pick click.
+    tapped: bool,
+    /// What a finger hammering on, pulling off or tapping puts back into the ringing string, as
+    /// a share of a pluck (a legato slide adds nothing).
+    energy: f32,
+    /// A harmonic: the partial heard (1 for a plain note) and how much of the plain note sounds
+    /// under it.
+    partial: u8,
+    fundamental: f32,
+    /// How much brighter than the track's tone it is picked: harder notes, slaps and pops are
+    /// brighter.
+    bright: f32,
     wide_vibrato: bool,
     fade: Option<Fade>,
+}
+
+/// How far a slide into a note starts from it, and how far a slide out of one goes, in semitones.
+const SLIDE_IN: f32 = 3.0;
+const SLIDE_OUT: f32 = 8.0;
+
+/// The slide a note makes, in song time: into it at its start, or over its last part out of it or
+/// on to `next_pitch` (the next note on its string, for a shift or legato slide).
+fn slide_time(slide: Option<Slide>, start: f64, end: f64, pitch: f32, next_pitch: Option<f32>) -> Option<SlideTime> {
+    let len = (end - start).max(0.0);
+    let tail = |share: f64, lo: f64, hi: f64| end - (len * share).clamp(lo, hi).min(len);
+    let into = |from: f32| SlideTime { start, end: start + (len * 0.4).clamp(0.03, 0.12).min(len), from, to: 0.0, fade: false };
+    let out = |to: f32| SlideTime { start: tail(0.5, 0.05, 0.35), end, from: 0.0, to, fade: true };
+    match slide? {
+        Slide::Shift | Slide::Legato => next_pitch.map(|to| SlideTime { start: tail(0.3, 0.03, 0.18), end, from: 0.0, to: to - pitch, fade: false }),
+        Slide::IntoFromBelow => Some(into(-SLIDE_IN)),
+        Slide::IntoFromAbove => Some(into(SLIDE_IN)),
+        Slide::OutDown => Some(out(-SLIDE_OUT)),
+        Slide::OutUp => Some(out(SLIDE_OUT)),
+    }
 }
 
 /// A stretch of an automation in playback time: from and to seconds, from and to values.
@@ -147,7 +187,6 @@ struct TrackBus {
     hp: f32,
     hp_prev: f32,
     brightness: f32,
-    sustain: f32,
     /// A new note on a string stops the one ringing there (off: notes ring on, as on a piano).
     stringed: bool,
     program: u8,
@@ -175,8 +214,9 @@ pub struct Player {
     next_click: usize,
     voices: Vec<StringVoice>,
     drums: Vec<DrumVoice>,
-    /// Sampled (SFZ) instrument per track; a track without one uses the built-in synth.
-    instruments: Vec<Option<Arc<Instrument>>>,
+    /// Sampled (SFZ) programs per track, one per articulation: the sustain program plays every
+    /// articulation without one of its own; a track without it uses the built-in synth.
+    instruments: Vec<[Option<Arc<Instrument>>; Articulation::COUNT]>,
     sampled: Vec<SampleVoice>,
     sample_acc: Vec<(f32, f32)>,
     /// Note counter per track, for round-robin sample selection.
@@ -215,32 +255,27 @@ pub struct Player {
 }
 
 /// The sorted, distinct MIDI keys `track` plays, so a sampled instrument can load only the
-/// samples the score needs. Dead notes count as the open string's pitch.
+/// samples the score needs: harmonics at the pitch heard, dead notes at the open string's.
 pub fn used_keys(score: &Score, track: usize) -> Vec<u8> {
     used_keys_by_track(score).into_iter().nth(track).unwrap_or_default()
 }
 
 /// [`used_keys`] for every track, from one pass over the timeline.
 pub fn used_keys_by_track(score: &Score) -> Vec<Vec<u8>> {
-    let mut keys: Vec<Vec<u8>> = vec![Vec::new(); score.tracks.len()];
-    for p in timeline(score) {
-        let (Some(t), Some(list)) = (score.tracks.get(p.track), keys.get_mut(p.track)) else { continue };
-        let key = match p.pitch {
-            Some(pt) => Some(pt.0),
-            None if p.dead => t.tuning.strings.get(usize::from(p.string)).copied(),
-            None => None,
-        };
-        list.extend(key);
-    }
-    for list in &mut keys {
-        list.sort_unstable();
-        list.dedup();
-    }
-    keys
+    used_keys_by_articulation(score)
+        .into_iter()
+        .map(|by_art| {
+            let mut keys: Vec<u8> = by_art.into_iter().flatten().collect();
+            keys.sort_unstable();
+            keys.dedup();
+            keys
+        })
+        .collect()
 }
 
-fn freq_of(midi: u8) -> f32 {
-    440.0 * 2f32.powf((f32::from(midi) - 69.0) / 12.0)
+/// The frequency of a MIDI note (with a fraction).
+fn freq_of(midi: f32) -> f32 {
+    440.0 * 2f32.powf((midi - 69.0) / 12.0)
 }
 
 impl Player {
@@ -251,25 +286,40 @@ impl Player {
 
         let mut notes: Vec<NoteEvent> = Vec::new();
         let mut played = timeline(score);
-        played.sort_by_key(|p| (p.track, p.string, p.start_tick));
+        // In string order, so each note knows the one before and after it on its string.
+        let legato = legato_flags(&mut played);
+        // The written pitch of a note, in MIDI notes; a dead note takes its open string's.
+        let fretted = |p: &guitario_score::PlayedBeat| match (p.pitch, p.dead) {
+            (Some(pt), _) => Some(f32::from(pt.0)),
+            (None, true) => score.tracks.get(p.track).and_then(|t| t.tuning.strings.get(usize::from(p.string)).map(|m| f32::from(m.saturating_add(t.capo)))),
+            (None, false) => None,
+        };
         // Every track's notes are kept: muting and soloing silence a track's bus, so the mixer can
         // change them while the song plays.
         for (i, p) in played.iter().enumerate() {
             let start = map.tick_to_sec(p.start_tick);
-            let end = map.tick_to_sec(p.start_tick + u64::from(p.ticks));
+            let mut end = map.tick_to_sec(p.start_tick + u64::from(p.ticks));
             if start > MAX_SECONDS {
                 continue;
             }
-            let prev = i
-                .checked_sub(1)
-                .and_then(|j| played.get(j))
-                .filter(|q| q.track == p.track && q.string == p.string && q.start_tick + u64::from(q.ticks) == p.start_tick);
-            let legato = prev.is_some_and(|q| q.effects.hammer || matches!(q.effects.slide, Some(Slide::Legato | Slide::Shift)));
-            let slide_glide = prev.is_some_and(|q| matches!(q.effects.slide, Some(Slide::Legato | Slide::Shift)));
-            let freq = match (p.pitch, p.dead) {
-                (Some(pt), _) => freq_of(pt.0),
-                (None, true) => score.tracks.get(p.track).and_then(|t| t.tuning.strings.get(usize::from(p.string))).map_or(110.0, |m| freq_of(*m)),
-                (None, false) => continue,
+            let Some(written) = fretted(p) else { continue };
+            let next = played.get(i + 1).filter(|q| q.track == p.track && q.string == p.string && p.start_tick + u64::from(p.ticks) == q.start_tick && !q.dead);
+            let flows_on = legato.get(i + 1).copied().unwrap_or(false) && next.is_some();
+            // A staccato note sounds for half its length, unless it flows into the next.
+            if p.effects.staccato && !flows_on {
+                end = start + (end - start) * 0.5;
+            }
+            let (base, partial, fundamental) = match p.harmonic {
+                Some(h) => (f32::from(h.base.0), h.partial, h.fundamental),
+                None => (written, 1, 1.0),
+            };
+            let pitch = p.harmonic.map_or(written, |h| h.semitones());
+            let legato_from_prev = legato.get(i).copied().unwrap_or(false);
+            let velocity = f32::from(p.velocity) / 127.0;
+            let technique = match p.technique {
+                Some(BeatTechnique::Slap) => 1.5,
+                Some(BeatTechnique::Pop) => 1.9,
+                None => 1.0,
             };
             notes.push(NoteEvent {
                 midi: p.pitch.map_or(0, |pt| pt.0),
@@ -277,8 +327,9 @@ impl Player {
                 end,
                 track: p.track,
                 string: p.string,
-                freq,
-                velocity: f32::from(p.velocity) / 127.0,
+                freq: freq_of(base),
+                pitch,
+                velocity,
                 dead: p.dead,
                 palm_mute: p.effects.palm_mute,
                 mute: score.tracks.get(p.track).map_or(0.0, |t| f32::from(t.interpretation.palm_mute.min(100)) / 100.0),
@@ -292,8 +343,20 @@ impl Player {
                     start: map.tick_to_sec(w.from_tick),
                     end: map.tick_to_sec(w.from_tick + u64::from(w.ticks)),
                 }),
-                legato_from_prev: legato,
-                slide_glide,
+                slide: slide_time(p.effects.slide, start, end, written, next.and_then(fretted)),
+                key: sample_key(score, p).unwrap_or(0),
+                articulation: Articulation::of(p, legato_from_prev),
+                legato_from_prev,
+                tapped: p.effects.tapped || p.effects.left_hand_tapped,
+                energy: match i.checked_sub(1).and_then(|j| played.get(j)) {
+                    _ if !legato_from_prev => 0.0,
+                    _ if p.effects.tapped || p.effects.left_hand_tapped => 0.5,
+                    Some(q) if q.effects.hammer => 0.35,
+                    _ => 0.0,
+                },
+                partial,
+                fundamental,
+                bright: technique * (0.75 + 0.35 * velocity),
             });
         }
         notes.sort_by(|a, b| a.start.total_cmp(&b.start));
@@ -320,13 +383,13 @@ impl Player {
             .map(|t| {
                 let (gain_l, gain_r) = mix_gains(t, any_solo);
                 // The overdriven and distorted programs get their amp from the effect chain.
-                let (tone, brightness, sustain) = match t.program {
-                    29 => (0.55, 0.8, 0.9993),
-                    30 => (0.55, 0.85, 0.9995),
-                    _ if t.is_drums() => (0.95, 1.0, 1.0),
-                    32..=39 => (0.25, 0.35, 0.9992),
-                    24 | 25 => (0.7, 0.75, 0.9985),
-                    _ => (0.55, 0.65, 0.9988),
+                let (tone, brightness) = match t.program {
+                    29 => (0.55, 0.8),
+                    30 => (0.55, 0.85),
+                    _ if t.is_drums() => (0.95, 1.0),
+                    32..=39 => (0.25, 0.35),
+                    24 | 25 => (0.7, 0.75),
+                    _ => (0.55, 0.65),
                 };
                 // Fingers are warmer than a pick; a slapped bass is brighter.
                 let brightness = brightness
@@ -347,7 +410,6 @@ impl Player {
                     hp: 0.0,
                     hp_prev: 0.0,
                     brightness,
-                    sustain,
                     stringed,
                     program: t.program,
                     chain: Chain::new(sr),
@@ -385,7 +447,7 @@ impl Player {
             next_click: 0,
             voices: Vec::new(),
             drums: Vec::new(),
-            instruments: vec![None; score.tracks.len()],
+            instruments: (0..score.tracks.len()).map(|_| Default::default()).collect(),
             sampled: Vec::new(),
             sample_acc: vec![(0.0, 0.0); score.tracks.len()],
             seq: vec![0; score.tracks.len()],
@@ -425,7 +487,7 @@ impl Player {
     /// chain plays the instrument's: the synth's amp for its program, nothing for a sampled
     /// instrument (its recording already has its amp).
     fn configure_track(&mut self, ti: usize) {
-        let sampled = self.instruments.get(ti).is_some_and(Option::is_some);
+        let sampled = self.is_sampled(ti);
         let (Some(bus), Some(sound)) = (self.buses.get_mut(ti), self.sound.get(ti)) else { return };
         match &sound.effects {
             Some(chain) => bus.chain.configure(chain),
@@ -478,10 +540,26 @@ impl Player {
 
     /// Plays `track` from a sampled instrument instead of the built-in synth.
     pub fn set_instrument(&mut self, track: usize, instrument: Option<Arc<Instrument>>) {
-        if let Some(slot) = self.instruments.get_mut(track) {
+        self.set_articulation(track, Articulation::Sustain, instrument);
+    }
+
+    /// Plays `track`'s notes of one articulation (palm mutes, harmonics …) from their own sampled
+    /// program; without one they play from the sustain program.
+    pub fn set_articulation(&mut self, track: usize, articulation: Articulation, instrument: Option<Arc<Instrument>>) {
+        if let Some(slot) = self.instruments.get_mut(track).and_then(|a| a.get_mut(articulation.index())) {
             *slot = instrument;
         }
         self.configure_track(track);
+    }
+
+    /// Whether `track` plays sampled programs rather than the synth.
+    fn is_sampled(&self, track: usize) -> bool {
+        self.instruments.get(track).is_some_and(|a| a.iter().any(Option::is_some))
+    }
+
+    /// The program `track` has of its own for `articulation`.
+    fn instrument(&self, track: usize, articulation: Articulation) -> Option<&Arc<Instrument>> {
+        self.instruments.get(track)?.get(articulation.index())?.as_ref()
     }
 
     pub fn sample_rate(&self) -> u32 {
@@ -607,59 +685,80 @@ impl Player {
         self.drums.push(DrumVoice::new(n.track, n.midi, n.velocity, self.sr));
     }
 
-    /// The key a note plays on a sampled instrument: the drum number, the pitch, or for a dead
-    /// note the open string's pitch.
-    fn sample_key(n: &NoteEvent, drum: bool) -> u8 {
-        if drum || !n.dead {
-            return n.midi;
-        }
-        let midi = (69.0 + 12.0 * (n.freq.max(1.0) / 440.0).log2()).round();
-        u8::try_from(midi as i32).unwrap_or(40)
-    }
-
-    fn start_sampled(&mut self, n: &NoteEvent, inst: &Instrument) {
+    fn start_sampled(&mut self, n: &NoteEvent) {
         let drum = self.drum_track.get(n.track).copied().unwrap_or(false);
+        let art = if drum { Articulation::Sustain } else { n.articulation };
+        let own = self.instrument(n.track, art).cloned();
+        let Some(inst) = own.clone().or_else(|| self.instrument(n.track, Articulation::Sustain).cloned()) else { return };
+        // Without legato samples, a hammer-on, pull-off or legato slide moves the sample already
+        // sounding on the string to the new pitch, with no new attack.
+        if art == Articulation::Legato && own.is_none() {
+            let mut moved = false;
+            for v in self.sampled.iter_mut().filter(|v| v.track == n.track && v.string == n.string && !v.released) {
+                v.legato_to(n.pitch);
+                v.vibrato = n.vibrato;
+                v.vibrato_depth = if n.wide_vibrato { 0.45 } else { 0.12 };
+                v.let_ring = n.let_ring;
+                v.fade = n.fade;
+                v.gain = fade_gain(n.fade, 0.0);
+                (v.note_start, v.note_end, v.bend, v.whammy, v.slide) = (n.start, n.end, n.bend, n.whammy, n.slide);
+                v.bend_semis = curve_semis(n.bend, n.whammy, n.slide, n.start, n.start, n.end);
+                moved = true;
+            }
+            if moved {
+                return;
+            }
+        }
         // The written key picks the sample, so the preloaded keys still cover the score; the
         // relative tonality then re-pitches it.
         let ratio = if drum { 1.0 } else { self.opts.pitch_ratio() };
-        let key = Self::sample_key(n, drum);
-        // Legato notes are softer: no new pick attack. A string sounds one note at a time.
-        let mut velocity = n.velocity
-            * if n.dead {
-                0.6
-            } else if n.legato_from_prev {
-                0.75
-            } else {
-                1.0
-            };
-        velocity = velocity.clamp(0.0, 1.0);
+        // A recorded articulation sounds as recorded; borrowed from the sustain program, dead notes
+        // and legato notes are softer, palm mutes and dead notes cut short.
+        let borrowed = own.is_none() && !drum;
+        let soft = match art {
+            Articulation::Dead if borrowed => 0.6,
+            Articulation::Legato if borrowed => 0.75,
+            _ if n.tapped => 0.85,
+            _ => 1.0,
+        };
+        let velocity = (n.velocity * soft).clamp(0.0, 1.0);
         // A string sounds one note at a time: a new note stops the one ringing there.
         if !drum && self.buses.get(n.track).is_none_or(|b| b.stringed) {
             for v in self.sampled.iter_mut().filter(|v| v.track == n.track && v.string == n.string && !v.finished()) {
                 v.damp();
             }
         }
-        let counter = self.seq.get_mut(n.track).map_or(0, |c| {
-            *c = c.wrapping_add(1);
-            *c
-        });
-        let rand = (self.noise.next() + 1.0) * 0.5;
-        let hits = inst.select(key, (velocity * 127.0).round() as u8, counter, rand);
-        // A sound with a group chokes the sounds it is `off_by`.
-        for h in &hits {
-            if h.region.group != 0 {
-                for v in self.sampled.iter_mut().filter(|v| v.track == n.track && v.off_by == h.region.group) {
-                    v.choke(v.off_fast);
-                }
-            }
-        }
-        // Palm mutes and dead notes are damped quickly whatever the sample's own tail.
-        let damped = n.palm_mute || n.dead;
+        let damped = borrowed && (n.palm_mute || n.dead);
         // A heavier palm mute cuts the sample sooner.
         let muted_for = 0.22 - 0.12 * n.mute.clamp(0.0, 1.0);
-        for h in hits {
-            let mut v = SampleVoice::new(n.track, n.string, h.region, h.sample, key, velocity, self.sr);
-            v.repitch(ratio);
+        let end = if damped { n.end.min(n.start + if n.dead { 0.08 } else { f64::from(muted_for) }) } else { n.end };
+        // A semi-harmonic sounds the plain note under the partial.
+        let under = n.partial > 1 && n.fundamental >= 0.5 && !drum;
+        let plain = self.instrument(n.track, Articulation::Sustain).cloned().unwrap_or_else(|| Arc::clone(&inst));
+        let keys = [Some((n.key, velocity, inst)), under.then_some((n.midi, velocity * n.fundamental, plain))];
+        let mut voices = Vec::new();
+        for (key, velocity, inst) in keys.into_iter().flatten() {
+            let counter = self.seq.get_mut(n.track).map_or(0, |c| {
+                *c = c.wrapping_add(1);
+                *c
+            });
+            let rand = (self.noise.next() + 1.0) * 0.5;
+            let hits = inst.select(key, (velocity * 127.0).round() as u8, counter, rand);
+            // A sound with a group chokes the sounds it is `off_by`.
+            for h in &hits {
+                if h.region.group != 0 {
+                    for v in self.sampled.iter_mut().filter(|v| v.track == n.track && v.off_by == h.region.group) {
+                        v.choke(v.off_fast);
+                    }
+                }
+            }
+            for h in hits {
+                let mut v = SampleVoice::new(n.track, n.string, h.region, h.sample, key, velocity, self.sr);
+                v.repitch(ratio);
+                voices.push(v);
+            }
+        }
+        for mut v in voices {
             v.vibrato = n.vibrato;
             if n.wide_vibrato {
                 v.vibrato_depth = 0.45;
@@ -667,9 +766,8 @@ impl Player {
             v.fade = n.fade;
             v.gain = fade_gain(n.fade, 0.0);
             v.let_ring = n.let_ring && !damped;
-            let end = if damped { n.end.min(n.start + if n.dead { 0.08 } else { f64::from(muted_for) }) } else { n.end };
-            (v.note_start, v.note_end, v.bend, v.whammy) = (n.start, end, n.bend, n.whammy);
-            v.bend_semis = curve_semis(n.bend, n.whammy, n.start, n.start, end);
+            (v.note_start, v.note_end, v.bend, v.whammy, v.slide) = (n.start, end, n.bend, n.whammy, n.slide);
+            v.bend_semis = curve_semis(n.bend, n.whammy, n.slide, n.start, n.start, end);
             if self.sampled.len() >= MAX_SAMPLE_VOICES {
                 self.sampled.remove(0);
             }
@@ -701,8 +799,8 @@ impl Player {
         if self.mix.get(n.track).is_none_or(|m| m.muted || (any_solo && !m.solo)) {
             return;
         }
-        if let Some(inst) = self.instruments.get(n.track).cloned().flatten() {
-            self.start_sampled(n, &inst);
+        if self.is_sampled(n.track) {
+            self.start_sampled(n);
             return;
         }
         if self.drum_track.get(n.track).copied().unwrap_or(false) {
@@ -710,15 +808,24 @@ impl Player {
             return;
         }
         let freq = n.freq * self.opts.pitch_ratio();
-        // A string sounds one note at a time.
+        // A hammer-on, pull-off, legato slide or tap carries on the vibration already on the
+        // string (the slide has brought it to this pitch), with what the finger adds. A harmonic
+        // is a new vibration of the string.
         if n.legato_from_prev
+            && n.partial == 1
             && let Some(v) = self.voices.iter_mut().find(|v| v.track == n.track && v.string == n.string && !v.released)
         {
-            v.glide_to(freq, if n.slide_glide { 0.06 } else { 0.0 });
+            v.glide_to(freq, 0.0);
+            if n.energy > 0.0 {
+                v.excite(n.velocity * n.energy, &mut self.noise);
+            }
             v.vibrato = n.vibrato;
+            v.vibrato_depth = if n.wide_vibrato { 0.04 } else { 0.012 };
             v.let_ring = n.let_ring;
-            (v.note_start, v.note_end, v.bend, v.whammy) = (n.start, n.end, n.bend, n.whammy);
-            v.bend_semis = curve_semis(n.bend, n.whammy, n.start, n.start, n.end);
+            v.fade = n.fade;
+            v.gain = fade_gain(n.fade, 0.0);
+            (v.note_start, v.note_end, v.bend, v.whammy, v.slide) = (n.start, n.end, n.bend, n.whammy, n.slide);
+            v.bend_semis = curve_semis(n.bend, n.whammy, n.slide, n.start, n.start, n.end);
             return;
         }
         // A string sounds one note at a time: a new note stops the one ringing there (a let-ring
@@ -729,16 +836,27 @@ impl Player {
             }
         }
         let Some(bus) = self.buses.get(n.track) else { return };
-        let (brightness, sustain) = if n.dead {
-            (0.9, 0.95)
+        let mut pluck = Pluck::plain(freq, n.velocity, (bus.brightness * n.bright).min(1.0));
+        if n.dead {
+            // A click with hardly any pitch: the hand stops the string at once.
+            (pluck.velocity, pluck.brightness, pluck.decay, pluck.damping) = (n.velocity * 0.6, 0.9, Some(0.045), 0.8);
         } else if n.palm_mute {
-            // A heavier palm mute is darker and dies sooner.
+            // The palm takes the highs off and stops the string soon; a heavier mute more so.
             let k = n.mute.clamp(0.0, 1.0);
-            (bus.brightness * (0.45 - 0.3 * k), 0.996 - 0.016 * k)
-        } else {
-            (bus.brightness, bus.sustain)
-        };
-        let pluck = Pluck { freq, velocity: n.velocity * if n.dead { 0.6 } else { 1.0 }, brightness, sustain };
+            pluck.brightness *= 0.6 - 0.3 * k;
+            pluck.decay = Some(0.7 - 0.55 * k);
+            pluck.damping = 0.5 + 0.4 * k;
+        }
+        if n.tapped {
+            // A finger, not a pick: no click, a little softer.
+            pluck.brightness *= 0.6;
+            pluck.velocity *= 0.85;
+        }
+        if n.partial > 1 {
+            // The partial is high up the string's spectrum: excite it brightly.
+            (pluck.partial, pluck.fundamental) = (n.partial, n.fundamental);
+            pluck.brightness = pluck.brightness.max(0.85);
+        }
         let mut v = StringVoice::new(n.track, n.string, self.sr, &pluck, &mut self.noise);
         v.vibrato = n.vibrato;
         if n.wide_vibrato {
@@ -747,8 +865,8 @@ impl Player {
         v.fade = n.fade;
         v.gain = fade_gain(n.fade, 0.0);
         v.let_ring = n.let_ring;
-        (v.note_start, v.note_end, v.bend, v.whammy) = (n.start, n.end, n.bend, n.whammy);
-        v.bend_semis = curve_semis(n.bend, n.whammy, n.start, n.start, n.end);
+        (v.note_start, v.note_end, v.bend, v.whammy, v.slide) = (n.start, n.end, n.bend, n.whammy, n.slide);
+        v.bend_semis = curve_semis(n.bend, n.whammy, n.slide, n.start, n.start, n.end);
         if self.voices.len() >= MAX_VOICES {
             self.voices.remove(0);
         }
@@ -806,22 +924,22 @@ impl Player {
                     if !v.let_ring && !v.released && t >= v.note_end {
                         v.release();
                     }
-                    if v.fade.is_some() {
-                        v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3));
+                    if v.fade.is_some() || v.slide.is_some_and(|s| s.fade) {
+                        v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3)) * v.slide.map_or(1.0, |s| s.gain_at(t));
                     }
-                    if v.bend.is_some() || v.whammy.is_some() {
-                        v.bend_semis = curve_semis(v.bend, v.whammy, t, v.note_start, v.note_end);
+                    if v.bend.is_some() || v.whammy.is_some() || v.slide.is_some() {
+                        v.bend_semis = curve_semis(v.bend, v.whammy, v.slide, t, v.note_start, v.note_end);
                     }
                 }
                 for v in &mut self.sampled {
                     if !v.let_ring && !v.released && t >= v.note_end {
                         v.release();
                     }
-                    if v.fade.is_some() {
-                        v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3));
+                    if v.fade.is_some() || v.slide.is_some_and(|s| s.fade) {
+                        v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3)) * v.slide.map_or(1.0, |s| s.gain_at(t));
                     }
-                    if v.bend.is_some() || v.whammy.is_some() {
-                        v.bend_semis = curve_semis(v.bend, v.whammy, t, v.note_start, v.note_end);
+                    if v.bend.is_some() || v.whammy.is_some() || v.slide.is_some() {
+                        v.bend_semis = curve_semis(v.bend, v.whammy, v.slide, t, v.note_start, v.note_end);
                     }
                 }
                 self.t += dt;
@@ -970,9 +1088,9 @@ mod tests {
         assert!((hz - 261.6).abs() < 4.0, "measured {hz} Hz");
         // The curve in song time: at rest before it, held after it.
         let w = WhammyTime { curve: guitario_score::Whammy::preset(guitario_score::WhammyKind::Dive, -4), start: 1.0, end: 2.0 };
-        assert_eq!((curve_semis(None, Some(w), 0.5, 0.0, 4.0), curve_semis(None, Some(w), 9.0, 0.0, 4.0)), (0.0, -2.0));
+        assert_eq!((curve_semis(None, Some(w), None, 0.5, 0.0, 4.0), curve_semis(None, Some(w), None, 9.0, 0.0, 4.0)), (0.0, -2.0));
         let up = guitario_score::Bend::to(4);
-        assert_eq!(curve_semis(Some(up), Some(w), 9.0, 0.0, 4.0), 0.0, "a full-step bend and a full-step dive cancel out");
+        assert_eq!(curve_semis(Some(up), Some(w), None, 9.0, 0.0, 4.0), 0.0, "a full-step bend and a full-step dive cancel out");
     }
 
     #[test]
@@ -1384,6 +1502,212 @@ mod tests {
         assert!(fade_gain(Some(Fade::Out), 1.0) < 1e-6);
         assert!(fade_gain(Some(Fade::Swell), 0.5) > 0.99 && fade_gain(Some(Fade::Swell), 1.0) < 1e-3);
         assert!(fade_gain(Some(Fade::In), f64::NAN).is_finite());
+    }
+
+    /// The pitch of `x` at `sr`: the shortest lag whose autocorrelation peaks within 10 % of the
+    /// strongest between 40 Hz and 2.4 kHz, so a harmonic is not taken for the string under it.
+    fn pitch_hz(x: &[f32], sr: f32) -> f32 {
+        let ac = |lag: usize| x.iter().zip(x.iter().skip(lag)).map(|(a, b)| a * b).sum::<f32>();
+        let (lo, hi) = ((sr / 2400.0) as usize, (sr / 40.0) as usize);
+        let acs: Vec<f32> = (lo..hi).map(ac).collect();
+        let max = acs.iter().copied().fold(0.0, f32::max);
+        let peak = (1..acs.len() - 1).find(|&i| acs[i] >= 0.9 * max && acs[i] >= acs[i - 1] && acs[i] >= acs[i + 1]).unwrap_or(0);
+        sr / (lo + peak) as f32
+    }
+
+    /// One whole note on `string` at `fret`, shaped by `f`.
+    fn note_score(string: u8, fret: u8, f: impl Fn(&mut Note)) -> Score {
+        let mut n = Note::new(string, fret);
+        f(&mut n);
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices[0].beats = vec![Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::WHOLE) }];
+        s
+    }
+
+    /// `secs` of `score` played from the start at 48 kHz, mono.
+    fn play(score: &Score, secs: f32) -> (Player, Vec<f32>) {
+        let mut p = Player::new(score, 48_000, Options::default());
+        p.play_from(0.0);
+        let mut buf = vec![0.0f32; (48_000.0 * secs) as usize];
+        p.render(&mut buf, 1);
+        (p, buf)
+    }
+
+    #[test]
+    fn harmonics_sound_their_partial() {
+        use guitario_score::Harmonic;
+        let heard = |fret: u8, h: Harmonic| pitch_hz(&play(&note_score(0, fret, |n| n.effects.harmonic = Some(h)), 0.3).1[4800..12_000], 48_000.0);
+        // Over the open high E (329.6 Hz): the 12th fret's octave, the 7th's octave and a fifth.
+        for (fret, want) in [(12, 659.3), (7, 988.9), (5, 1318.5)] {
+            let hz = heard(fret, Harmonic::Natural);
+            assert!((hz / want - 1.0).abs() < 0.012, "natural at {fret}: {hz} Hz, want {want}");
+        }
+        // An artificial harmonic on A (440 Hz, the 5th fret) sounds its octave; a natural one at
+        // a fret without a node sounds the plain note.
+        let hz = heard(5, Harmonic::Artificial);
+        assert!((hz / 880.0 - 1.0).abs() < 0.012, "artificial: {hz} Hz");
+        let hz = heard(1, Harmonic::Natural);
+        assert!((hz / 349.2 - 1.0).abs() < 0.012, "no node: {hz} Hz");
+        // A harmonic rings like a bell: longer than the fretted note at the same pitch.
+        let tail = |s: &Score| {
+            let buf = play(s, 1.25).1;
+            rms(&buf[48_000..60_000]) / rms(&buf[1000..13_000])
+        };
+        let (bell, fretted) = (tail(&note_score(0, 12, |n| n.effects.harmonic = Some(Harmonic::Natural))), tail(&note_score(0, 12, |_| {})));
+        assert!(bell > 3.0 * fretted, "harmonic {bell}, fretted {fretted}");
+    }
+
+    #[test]
+    fn palm_mutes_and_dead_notes_stop_soon_and_keep_their_pitch() {
+        let plain = play(&note_score(5, 0, |_| {}), 1.0).1;
+        let muted = play(&note_score(5, 0, |n| n.effects.palm_mute = true), 1.0).1;
+        let dead = play(&note_score(5, 0, |n| n.kind = guitario_score::NoteKind::Dead), 1.0).1;
+        let late = |b: &[f32]| rms(&b[24_000..48_000]);
+        assert!(late(&muted) < 0.15 * late(&plain), "a palm mute dies away: {} vs {}", late(&muted), late(&plain));
+        assert!(late(&dead) < 1e-3 && rms(&dead[..2400]) > 0.01, "a dead note clicks and stops");
+        // The palm's damping is taken out of the string's length: still a low E.
+        let mut heavy = note_score(5, 0, |n| n.effects.palm_mute = true);
+        heavy.tracks[0].interpretation.palm_mute = 100;
+        let hz = pitch_hz(&play(&heavy, 0.2).1[1000..8000], 48_000.0);
+        assert!((hz / 82.41 - 1.0).abs() < 0.012, "palm-muted low E at {hz} Hz");
+        let hz = pitch_hz(&muted[1000..12_000], 48_000.0);
+        assert!((hz / 82.41 - 1.0).abs() < 0.012, "palm-muted low E at {hz} Hz");
+    }
+
+    #[test]
+    fn staccato_plays_half_the_note() {
+        let tail = |s: &Score| rms(&play(s, 1.6).1[60_000..76_800]);
+        let (long, short) = (tail(&note_score(0, 5, |_| {})), tail(&note_score(0, 5, |n| n.effects.staccato = true)));
+        assert!(short < 0.05 * long, "the staccato note has stopped by 1.25 s of its 2: {short} vs {long}");
+    }
+
+    /// Two quarter notes on the high E string, the first shaped by `f`, then a half rest.
+    fn pair(from: u8, to: u8, f: impl Fn(&mut Note)) -> Score {
+        let mut first = Note::new(0, from);
+        f(&mut first);
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices[0].beats = vec![
+            Beat { rest: false, notes: vec![first], ..Beat::rest(Duration::QUARTER) },
+            Beat { rest: false, notes: vec![Note::new(0, to)], ..Beat::rest(Duration::QUARTER) },
+            Beat::rest(Duration::new(guitario_theory::NoteValue::Half)),
+        ];
+        s
+    }
+
+    #[test]
+    fn slides_glide_over_the_end_of_the_first_note_and_only_a_shift_slide_picks_again() {
+        // A (440 Hz, fret 5) slides to B (493.9 Hz, fret 7); a beat is half a second.
+        for (slide, picks) in [(Slide::Legato, 1usize), (Slide::Shift, 2)] {
+            let s = pair(5, 7, |n| n.effects.slide = Some(slide));
+            let mut p = Player::new(&s, 48_000, Options::default());
+            p.play_from(0.0);
+            let mut first = vec![0.0f32; 16_800];
+            p.render(&mut first, 1);
+            let hz = pitch_hz(&first[4800..14_400], 48_000.0);
+            assert!((hz / 440.0 - 1.0).abs() < 0.012, "{slide:?}: the first note holds its pitch until the slide: {hz}");
+            // 0.35 s to 0.5 s: the slide; by the end of the first note it is at B.
+            let mut sliding = vec![0.0f32; 7_000];
+            p.render(&mut sliding, 1);
+            let bend = p.voices.iter().find(|v| !v.released).map(|v| v.bend_semis);
+            assert!(bend.is_some_and(|b| b > 1.0), "{slide:?}: on the way up at 0.49 s: {bend:?}");
+            // Just after B starts: a shift slide has plucked again (the old vibration still dying).
+            let mut second = vec![0.0f32; 12_000];
+            p.render(&mut second[..1000], 1);
+            assert_eq!(p.voices.len(), picks, "{slide:?}: strings plucked");
+            p.render(&mut second[1000..], 1);
+            let hz = pitch_hz(&second[2400..12_000], 48_000.0);
+            assert!((hz / 493.9 - 1.0).abs() < 0.012, "{slide:?}: then B: {hz}");
+        }
+        // Without a next note on the string, a shift slide does nothing.
+        let s = note_score(0, 5, |n| n.effects.slide = Some(Slide::Shift));
+        let (p, _) = play(&s, 1.9);
+        assert!(p.voices.iter().all(|v| v.bend_semis == 0.0));
+    }
+
+    #[test]
+    fn slides_into_and_out_of_a_note() {
+        let start_bend = |slide: Slide| {
+            let (p, _) = play(&note_score(0, 5, |n| n.effects.slide = Some(slide)), 0.01);
+            p.voices.first().map(|v| v.bend_semis)
+        };
+        assert!(start_bend(Slide::IntoFromBelow).is_some_and(|b| b < -2.0 && b > -3.1));
+        assert!(start_bend(Slide::IntoFromAbove).is_some_and(|b| b > 2.0 && b < 3.1));
+        // Into from below reaches the note within the first 0.12 s.
+        let (p, _) = play(&note_score(0, 5, |n| n.effects.slide = Some(Slide::IntoFromBelow)), 0.2);
+        assert!(p.voices.first().is_some_and(|v| v.bend_semis == 0.0));
+        // Out of the note: falling (or rising) and fading over its last 0.35 s, silent at its end.
+        for (slide, sign) in [(Slide::OutDown, -1.0f32), (Slide::OutUp, 1.0)] {
+            let (p, buf) = play(&note_score(0, 5, |n| n.effects.slide = Some(slide)), 1.9);
+            assert!(p.voices.first().is_some_and(|v| v.bend_semis * sign > 2.0 && v.gain < 0.2), "{slide:?}");
+            let (_, plain) = play(&note_score(0, 5, |_| {}), 1.9);
+            assert!(rms(&buf[86_400..91_200]) < 0.5 * rms(&plain[86_400..91_200]), "{slide:?} fades");
+        }
+    }
+
+    #[test]
+    fn a_hammer_on_puts_energy_back_and_a_legato_slide_does_not() {
+        // The second note's loudness after a hammer-on and after a legato slide from the same note.
+        let second = |f: &dyn Fn(&mut Note)| rms(&play(&pair(5, 7, f), 1.0).1[26_400..48_000]);
+        let (hammer, slide) = (second(&|n| n.effects.hammer = true), second(&|n| n.effects.slide = Some(Slide::Legato)));
+        assert!(hammer > 1.1 * slide, "hammer {hammer}, slide {slide}");
+        // A hammer-on onto a harmonic sounds the harmonic, not the string under it.
+        let mut s = pair(5, 12, |n| n.effects.hammer = true);
+        s.tracks[0].measures[0].voices[0].beats[1].notes[0].effects.harmonic = Some(guitario_score::Harmonic::Natural);
+        let hz = pitch_hz(&play(&s, 0.62).1[26_400..29_760], 48_000.0);
+        assert!((hz / 659.3 - 1.0).abs() < 0.012, "{hz} Hz");
+        // A tap on a silent string plucks it without a pick, softer than a picked note.
+        let tap = rms(&play(&note_score(0, 12, |n| n.effects.tapped = true), 0.5).1);
+        let picked = rms(&play(&note_score(0, 12, |_| {}), 0.5).1);
+        assert!(tap > 0.1 * picked && tap < picked, "tap {tap}, picked {picked}");
+    }
+
+    #[test]
+    fn sampled_legato_moves_the_sounding_sample_unless_the_bank_has_legato_samples() {
+        let sfz = "<region> sample=hi.wav lokey=0 hikey=127 pitch_keycenter=69 ampeg_release=0.05";
+        let s = pair(5, 7, |n| n.effects.hammer = true);
+        let mut p = Player::new(&s, 48_000, Options::default());
+        p.set_instrument(0, Some(test_instrument(sfz, 48_000)));
+        p.play_from(0.0);
+        let mut buf = vec![0.0f32; 36_000];
+        p.render(&mut buf, 1);
+        assert_eq!(p.sampled.len(), 1, "one sample carries on");
+        let hz = pitch_hz(&buf[26_400..36_000], 48_000.0);
+        assert!((hz / 493.9 - 1.0).abs() < 0.012, "at B: {hz}");
+        // With a legato program, the second note starts a sample of its own.
+        let mut p = Player::new(&s, 48_000, Options::default());
+        p.set_instrument(0, Some(test_instrument(sfz, 48_000)));
+        p.set_articulation(0, Articulation::Legato, Some(test_instrument(sfz, 48_000)));
+        p.play_from(0.0);
+        p.render(&mut buf, 1);
+        assert_eq!(p.sampled.iter().filter(|v| !v.released).count(), 1);
+        assert!(p.sampled.iter().any(|v| v.note_start == 0.5 && v.pitch == 71.0));
+    }
+
+    #[test]
+    fn sampled_articulations_play_from_their_own_programs() {
+        // The sustain program is a 440 Hz recording, the palm-mute one a 110 Hz recording, both at A4.
+        let sustain = test_instrument("<region> sample=hi.wav lokey=0 hikey=127 pitch_keycenter=69", 48_000);
+        let muted = test_instrument("<region> sample=lo.wav lokey=0 hikey=127 pitch_keycenter=69", 48_000);
+        let s = note_score(0, 5, |n| n.effects.palm_mute = true);
+        let mut p = Player::new(&s, 48_000, Options::default());
+        p.set_instrument(0, Some(sustain));
+        p.set_articulation(0, Articulation::PalmMute, Some(muted));
+        p.play_from(0.0);
+        let mut buf = vec![0.0f32; 24_000];
+        p.render(&mut buf, 1);
+        let hz = pitch_hz(&buf[4800..14_400], 48_000.0);
+        assert!((hz / 110.0 - 1.0).abs() < 0.012, "from the palm-mute program: {hz}");
+        assert!(rms(&buf[14_400..24_000]) > 0.05, "a recorded palm mute is not cut short again");
+        // A semi-harmonic sounds its partial and the plain note under it.
+        let s = note_score(0, 5, |n| n.effects.harmonic = Some(guitario_score::Harmonic::Semi));
+        let mut p = Player::new(&s, 48_000, Options::default());
+        p.set_instrument(0, Some(test_instrument("<region> sample=hi.wav lokey=0 hikey=127 pitch_keycenter=69", 48_000)));
+        p.play_from(0.0);
+        p.render(&mut buf[..100], 1);
+        let mut pitches: Vec<f32> = p.sampled.iter().map(|v| v.pitch).collect();
+        pitches.sort_by(f32::total_cmp);
+        assert_eq!(pitches, vec![69.0, 93.0]);
+        assert_eq!(used_keys(&s, 0), vec![69, 93]);
     }
 
     #[test]

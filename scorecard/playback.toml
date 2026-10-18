@@ -18,9 +18,9 @@ note = "player.rs tests count_in_and_metronome_click, loops_a_range"
 [[item]]
 id = "PLAY-3"
 target = "Guitar and bass sound with palm mute, dead notes, bends, vibrato, legato hammer-ons and slides, let ring"
-status = "partial"
+status = "done"
 stage = "beta"
-note = "physical-model synth (Karplus-Strong) with a natural decay by pitch (about 7 s near A2, never over 10 s); let ring holds a note past its length until it dies away, also past the end of the song, unless its string is struck again, which stops it within milliseconds (synth and samples; MIDI note-offs follow the same rule); the overdriven and distorted programs play through an amp and cabinet model (PLAY-5); not sampled articulations like Guitar Pro's RSE"
+note = "physical-model synth (Karplus-Strong) with a natural decay by pitch (about 7 s near A2, never over 10 s) and a quarter-second release when a note ends; palm mutes damp the highs in the string loop and die in 0.7 to 0.15 s by the track's palm-mute weight, pitch kept true; dead notes click for 45 ms; harmonics ring at their partial (natural by the node at the fret, pure; artificial and tapped an octave up; pinch and semi two octaves up over some of the note); shift and legato slides glide over the end of the first note (a shift slide picks the second), slides in and out scoop, fall or rise and fade; hammer-ons, pull-offs and taps carry on the string with the finger's energy; staccato plays half the note; slap and pop are brighter (player.rs and articulation.rs tests: pitches within 1.2 %, decay, picks counted); let ring holds a note past its length until it dies away, also past the end of the song, unless its string is struck again, which stops it within milliseconds (synth and samples; MIDI note-offs follow the same rule); sampled instruments take a program per articulation (PLAY-8); MIDI export plays harmonics and staccato; the overdriven and distorted programs play through an amp and cabinet model (PLAY-5); not heard on speakers"
 
 [[item]]
 id = "PLAY-4"
@@ -52,7 +52,7 @@ id = "PLAY-8"
 target = "Sampled instruments: recorded drums, bass and guitars from open SFZ libraries"
 status = "partial"
 stage = "beta"
-note = "SFZ engine and per-role sound bank (docs/sounds.md), tested on real libraries; samples decode on every core and in the background whenever the score needs new notes (SoundBank::preload and ready; ui-egui sounds.rs), Play waits for them instead of freezing; no release samples, filters or LFOs; not yet auditioned on speakers; the bank comes from `cargo xtask sounds`, the app cannot install it yet (issues 114, 275)"
+note = "SFZ engine and per-role sound bank (docs/sounds.md), tested on real libraries; a role can name a program per articulation (sustain, palm mute, dead, harmonic, legato), each a file or a keyswitch in one (bank.json; SoundBank::program, Player::set_articulation), loading only the keys its notes play; without a legato program a hammer-on, pull-off or legato slide moves the sounding sample to the new pitch; samples decode on every core and in the background whenever the score needs new notes (SoundBank::preload and ready; ui-egui sounds.rs), Play waits for them instead of freezing; no release samples, filters or LFOs; the libraries `cargo xtask sounds` installs are mapped for sustain only; not yet auditioned on speakers; the bank comes from `cargo xtask sounds`, the app cannot install it yet (issues 114, 275)"
 
 [[item]]
 id = "PLAY-9"

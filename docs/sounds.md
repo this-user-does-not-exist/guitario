@@ -44,6 +44,30 @@ Paths are relative to the folder. Any role may be left out. Use it from the CLI 
 `guitario-cli convert song.gt song.wav --sounds <folder>` (the `file.exportWav` command takes
 a `sounds` parameter); the desktop app uses the default folder.
 
+### Articulations
+
+A role can name a program per articulation instead of one program. `sustain` plays every note
+that has no program of its own; the others are `palm_mute`, `dead` (muted strings), `harmonic`
+(natural, artificial, pinch, tapped and semi-harmonics, played at the pitch they sound) and
+`legato` (hammer-ons, pull-offs and legato slides). A library that switches articulations by key
+takes the program and the keyswitch to hold, as a note name or MIDI number:
+
+```json
+{ "guitar_distorted": {
+    "sustain":   "dist/Programs/sustain.sfz",
+    "palm_mute": "dist/Programs/palm-muted.sfz",
+    "dead":      { "program": "dist/Programs/all.sfz", "keyswitch": "c1" },
+    "harmonic":  { "program": "dist/Programs/all.sfz", "keyswitch": 26 } },
+  "bass": "growlybass/growlybass_clean.sfz" }
+```
+
+Each articulation's program loads only the keys its notes play. What the libraries installed by
+`cargo xtask sounds` record beyond sustain has not been mapped yet; a bank written by hand can
+use the form above today. Without an articulation program, the sustain program plays the note:
+palm mutes and dead notes are cut short (a heavier palm mute sooner), a harmonic plays the
+sustain sample at its pitch, and a hammer-on, pull-off or legato slide moves the sample already
+sounding on the string to the new pitch without a new attack (a shift slide picks again).
+
 ## What the SFZ engine supports
 
 Headers `<control> <global> <master> <group> <region>` with inheritance; `#define`/`$VAR`, `#include`
@@ -53,14 +77,44 @@ Headers `<control> <global> <master> <group> <region>` with inheritance; `#defin
 `delay` and an AHDSR amplitude envelope (`ampeg_*`), `group`/`off_by`/`off_mode` (hi-hat choke),
 round robin (`seq_length`/`seq_position`, `lorand`/`hirand`), `set_ccN`/`set_hdccN` defaults,
 `locc`/`hicc` region conditions and `_onccN`/`_ccN` modulation evaluated at those defaults, and the
-default keyswitch (`sw_default`/`sw_last`). Samples: WAV (16/24/32-bit, float) and FLAC. A note
-outside every region borrows the nearest one, transposed.
+default keyswitch (`sw_default`/`sw_last`), or the one a bank names for an articulation. Samples:
+WAV (16/24/32-bit, float) and FLAC. A note outside every region borrows the nearest one,
+transposed.
 
 Not yet: release-triggered samples (`trigger=release` regions are dropped), SFZ filters and EQ
-opcodes, LFOs, live CC, OGG samples, embedded loop points in WAV files, generators (`*sine`). Bends and
-vibrato change the playback rate; hammer-ons, slides and palm mutes use plain note-on, a softer
-velocity and a short gate. Samples are decoded on the UI thread when Play is first pressed after
-starting the app (instruments are cached), so a large kit pauses briefly the first time.
+opcodes, LFOs, live CC (so articulations a library selects by controller cannot be mapped), OGG
+samples, embedded loop points in WAV files, generators (`*sine`). Bends, slides, vibrato and
+legato notes change the playback rate. Samples decode in the background whenever the score needs
+new notes, and Play waits for them.
+
+## The built-in synth's articulations
+
+Without a sound bank (or for a role it does not map), the plucked-string synth plays every
+articulation itself (`crates/playback/src/synth.rs`, `player.rs`):
+
+- **Palm mute**: a lowpass inside the string loop takes the highs off and the note dies in 0.7 s
+  (a light mute) to 0.15 s (the track's heaviest), its pitch kept true by taking the filter's delay
+  off the string's length.
+- **Dead note**: a click that dies in 45 ms.
+- **Harmonics**: the string is excited through a comb that keeps only the partial's multiples, so
+  it rings at the partial over its own length, longer than the fretted note at that pitch. A
+  natural harmonic sounds the partial whose node is at its fret (2 at the 12th, 3 at the 7th and
+  19th, 4 at the 5th, 5 at the 4th, 9th and 16th …, pure rather than tempered); artificial and
+  tapped harmonics an octave over the fretted note; a pinch harmonic two octaves over it with a
+  little of the note, a semi-harmonic with more.
+- **Slides**: a shift or legato slide glides over the last 30 % of the first note (30 to 180 ms) and
+  arrives on the second; a shift slide then picks it, a legato slide carries on. A slide in starts
+  three semitones below or above and reaches the note within 120 ms; a slide out falls or rises
+  eight semitones over the last half of the note (up to 0.35 s) while fading out.
+- **Hammer-ons and pull-offs** carry on the ringing string with a little of the finger's energy;
+  **tapped** notes do the same, or pluck a silent string softly without a pick click.
+- **Staccato** sounds for half the note. A note's end lifts the finger: it fades by 60 dB in a
+  quarter second at any pitch (before, a low string rang on for seconds after its note ended).
+- **Slap and pop** are brighter, and a harder note is brighter than a soft one.
+
+MIDI export follows the same rules for harmonics (the partial, and the note under a
+semi-harmonic) and staccato. Bends, slides and the whammy bar are not written to MIDI as pitch
+bends yet.
 
 ## Effects after the instrument
 
