@@ -68,7 +68,15 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
 
 const CORE: [CommandSpec; 55] = [
     cmd("file.new", "New", "File", Some("Cmd+N"), "", false, file_new),
-    cmd("file.open", "Open…", "File", Some("Cmd+O"), "path (.gt, or a Guitar Pro .gp/.gpx/.gp5/.gp4/.gp3 or a MIDI .mid/.midi to import)", false, file_open),
+    cmd(
+        "file.open",
+        "Open…",
+        "File",
+        Some("Cmd+O"),
+        "path (.gt, or a Guitar Pro .gp/.gpx/.gp5/.gp4/.gp3 a MIDI .mid/.midi or a MusicXML .musicxml/.mxl/.xml to import)",
+        false,
+        file_open,
+    ),
     cmd("file.importGp", "Import Guitar Pro…", "File/Import", None, "path (.gp, .gpx, .gp5, .gp4 or .gp3)", false, import_gp),
     cmd("file.importMidi", "MIDI…", "File/Import", None, "path (.mid or .midi, format 0 or 1)", false, import_midi),
     cmd("file.save", "Save", "File", Some("Cmd+S"), "path?", false, file_save),
@@ -278,6 +286,9 @@ fn file_open(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     }
     if guitario_midi::is_midi_path(raw) {
         return import_midi(s, params);
+    }
+    if guitario_musicxml::is_musicxml_path(raw) {
+        return crate::exchange::import_musicxml(s, params);
     }
     let path = PathBuf::from(raw);
     let score = guitario_format::open(&path)?;

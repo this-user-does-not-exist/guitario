@@ -48,9 +48,9 @@ fn the_suite_is_complete() {
     ] {
         assert!(names.iter().any(|n| n.contains(want)), "missing a `{want}` demo in {names:?}");
     }
-    // Each score ships with MIDI, ASCII tab and Guitar Pro 5 copies.
+    // Each score ships with MIDI, ASCII tab, Guitar Pro 5 and MusicXML copies.
     for n in &names {
-        for (sub, ext) in [("midi", "mid"), ("tab", "txt"), ("gp5", "gp5")] {
+        for (sub, ext) in [("midi", "mid"), ("tab", "txt"), ("gp5", "gp5"), ("musicxml", "musicxml")] {
             let p = demos().join(sub).join(format!("{n}.{ext}"));
             assert!(std::fs::metadata(&p).is_ok_and(|m| m.len() > 0), "{} missing or empty", p.display());
         }
@@ -214,6 +214,40 @@ fn every_midi_copy_opens_with_its_bars_tracks_and_tempo() {
     }
     let mut s = Session::new();
     assert!(s.run("file.importMidi", &json!({"path": demos().join("01-thrash-attack.gt").display().to_string()})).is_err(), "a .gt is not MIDI");
+}
+
+#[test]
+fn every_musicxml_copy_opens_as_its_score() {
+    for (name, path) in scores() {
+        let native = open(&path);
+        let mut s = Session::new();
+        let xml = demos().join("musicxml").join(format!("{name}.musicxml"));
+        s.run("file.open", &json!({"path": xml.display().to_string()})).unwrap_or_else(|e| panic!("{name}.musicxml: {e}"));
+        assert!(s.path().is_none() && s.is_dirty(), "{name}: an import is unsaved");
+        let (a, b) = (native.score(), s.score());
+        assert_eq!((a.headers.len(), a.tracks.len(), a.tempo, &a.meta.title), (b.headers.len(), b.tracks.len(), b.tempo, &b.meta.title), "{name}");
+        for (ta, tb) in a.tracks.iter().zip(&b.tracks) {
+            let frets = |t: &guitario_score::Track| {
+                t.measures
+                    .iter()
+                    .flat_map(|m| &m.voices)
+                    .flat_map(|v| &v.beats)
+                    .map(|b| {
+                        let mut n: Vec<(u8, u8)> = b.notes.iter().map(|n| (n.string, n.fret)).collect();
+                        n.sort_unstable();
+                        n
+                    })
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(frets(ta), frets(tb), "{name}: {}", ta.name);
+        }
+    }
+    // And back out through the command.
+    let mut s = Session::new();
+    let tmp = std::env::temp_dir().join(format!("gt-mxl-{}.musicxml", std::process::id()));
+    let r = s.run("file.exportMusicXml", &json!({"path": tmp.display().to_string()})).unwrap();
+    assert!(r["bytes"].as_u64().unwrap_or(0) > 0);
+    std::fs::remove_file(tmp).ok();
 }
 
 #[test]

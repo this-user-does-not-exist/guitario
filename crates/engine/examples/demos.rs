@@ -315,6 +315,7 @@ fn write(s: &mut Session, dir: &Path, name: &str) -> R {
     run(s, "file.exportMidi", json!({"path": path("midi", "mid")}))?;
     run(s, "file.exportAscii", json!({"path": path("tab", "txt")}))?;
     run(s, "file.exportGp5", json!({"path": path("gp5", "gp5")}))?;
+    run(s, "file.exportMusicXml", json!({"path": path("musicxml", "musicxml")}))?;
     run(s, "score.validate", Value::Null)
 }
 
@@ -1011,14 +1012,14 @@ fn demo_dir() -> PathBuf {
 
 fn main() -> ExitCode {
     let dir = demo_dir();
-    for sub in ["", "midi", "tab", "gp5"] {
+    for sub in ["", "midi", "tab", "gp5", "musicxml"] {
         if let Err(e) = std::fs::create_dir_all(dir.join(sub)) {
             eprintln!("cannot create {}: {e}", dir.join(sub).display());
             return ExitCode::FAILURE;
         }
     }
     // Replace the whole suite: drop outputs of demos that no longer exist.
-    for (sub, ext) in [("", "gt"), ("midi", "mid"), ("tab", "txt"), ("gp5", "gp5")] {
+    for (sub, ext) in [("", "gt"), ("midi", "mid"), ("tab", "txt"), ("gp5", "gp5"), ("musicxml", "musicxml")] {
         if let Ok(entries) = std::fs::read_dir(dir.join(sub)) {
             for e in entries.flatten().filter(|e| e.path().extension().is_some_and(|x| x == ext)) {
                 let _ = std::fs::remove_file(e.path());

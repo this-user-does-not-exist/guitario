@@ -20,10 +20,11 @@ A crate may depend only on lower layers. `cargo xtask layers` enforces it (`xtas
 ```text
 L0  theory     durations, time signatures, tunings, pitch (standalone: no workspace deps)
 L1  score      the document: Score > Track > Measure > Voice > Beat > Note; validation; playback timeline
-L2  midi       Standard MIDI File export
+L2  midi       Standard MIDI File import and export
 L2  playback   tempo map, scheduler, plucked-string synth, WAV
 L3  format     native .gt (versioned JSON, craft-atomic saves)
-L3  gp         Guitar Pro import (.gp, .gpx, .gp5/.gp4/.gp3) and .gp5 export
+L3  gp         Guitar Pro import (.gp, .gpx, .gp5/.gp4/.gp3) and .gp/.gp5 export
+L3  musicxml   MusicXML import (.musicxml, .xml, .mxl) and export
 L4  audio      sound-card output (cpal): the only platform audio below the shell
 L5  engine     Session (score, cursor, selection, clipboard, undo) and the command registry
 L6  ui-egui    the shell: Guitar Pro layout, page engraving, menus from the GP menu catalog

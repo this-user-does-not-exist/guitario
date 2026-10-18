@@ -41,6 +41,12 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   Keys no longer reach the score while a dialog is open.
 
 ### G3. Guitar Pro exchange
+- **Landed 2026-10-18:** MusicXML import and export (`crates/musicxml`, File › Import and Export ›
+  MusicXML…, File › Open on `.musicxml`/`.xml`/`.mxl`, `cli convert` to `.musicxml`): tunings,
+  strings and frets, four voices, tuplets, ties, repeats, endings, sections, tempo, dynamics,
+  lyrics, chords, drums and the guitar effects. Every demo comes back bar for bar; MuseScore 4
+  reads the export, and MuseScore's own export of Steel Horizon imports with the same rhythms and
+  pitches. The demo suite ships MusicXML copies (`demos/musicxml/`).
 - **Landed 2026-10-18:** MIDI import (`crates/midi/src/import.rs`, `file.importMidi`, File ›
   Import › MIDI…, and File › Open on `.mid`/`.midi`): format 0 and 1, a track per MIDI track and
   channel, channel 10 as drums, tempo, time and key signatures, names, programs, volume and pan;

@@ -449,6 +449,8 @@ impl GuitarioApp {
             U::Lyrics => self.open_lyrics(),
             U::ImportGuitarPro => self.open_dialog(),
             U::ImportMidi => self.guard(Pending::ImportDialog("MIDI", &guitario_engine::MIDI_EXTENSIONS)),
+            U::ImportMusicXml => self.guard(Pending::ImportDialog("MusicXML", &guitario_engine::MUSICXML_EXTENSIONS)),
+            U::ExportMusicXml => self.export_dialog("MusicXML", "musicxml", "file.exportMusicXml"),
             U::Quit => ctx_quit(),
             U::SongInfo => {
                 self.panels.inspector = true;
@@ -669,10 +671,12 @@ impl GuitarioApp {
         let mut kinds = guitario_engine::NATIVE_EXTENSIONS.to_vec();
         kinds.extend(guitario_engine::GUITAR_PRO_EXTENSIONS);
         kinds.extend(guitario_engine::MIDI_EXTENSIONS);
+        kinds.extend(guitario_engine::MUSICXML_EXTENSIONS);
         let dialog = rfd::FileDialog::new()
             .add_filter("Guitar scores", &kinds)
             .add_filter("Guitar Pro", &guitario_engine::GUITAR_PRO_EXTENSIONS)
-            .add_filter("MIDI", &guitario_engine::MIDI_EXTENSIONS);
+            .add_filter("MIDI", &guitario_engine::MIDI_EXTENSIONS)
+            .add_filter("MusicXML", &guitario_engine::MUSICXML_EXTENSIONS);
         if let Some(p) = dialog.pick_file() {
             self.open_path_now(&p.display().to_string());
         }

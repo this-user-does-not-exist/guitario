@@ -1,0 +1,21 @@
+[package]
+name = "guitario-musicxml"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+guitario-theory = { workspace = true }
+guitario-score = { workspace = true }
+guitario-midi = { workspace = true }
+thiserror = { workspace = true }
+roxmltree = "0.21"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+guitario-format = { workspace = true }
+roxmltree = "0.21"
+zip = { version = "2", default-features = false, features = ["deflate"] }

@@ -69,10 +69,12 @@ fn real_main(args: &[String]) -> Result<(), String> {
                 "file.exportGp5"
             } else if lower.ends_with(".gp") {
                 "file.exportGp"
+            } else if lower.ends_with(".musicxml") || lower.ends_with(".xml") {
+                "file.exportMusicXml"
             } else if lower.ends_with(".gt") {
                 "file.save"
             } else {
-                return Err("output must end in .gt, .gp, .gp5, .pdf, .mid, .wav, .flac or .txt".into());
+                return Err("output must end in .gt, .gp, .gp5, .musicxml, .pdf, .mid, .wav, .flac or .txt".into());
             };
             let mut params = serde_json::Map::new();
             params.insert("path".into(), json!(out));

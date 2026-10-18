@@ -34,6 +34,7 @@ pub const TABLE: &[(&str, Class)] = &[
     ("playback", Class::Layer(2)),
     ("format", Class::Layer(3)),
     ("gp", Class::Layer(3)),
+    ("musicxml", Class::Layer(3)),
     // The sound card: the only crate below the shell that touches platform audio.
     ("audio", Class::Layer(4)),
     ("engine", Class::Layer(5)),

@@ -12,6 +12,8 @@ pub enum EngineError {
     Midi(#[from] guitario_midi::MidiError),
     #[error(transparent)]
     Gp(#[from] guitario_gp::GpError),
+    #[error(transparent)]
+    MusicXml(#[from] guitario_musicxml::MusicXmlError),
     #[error("i/o error: {0}")]
     Io(#[from] std::io::Error),
     /// A bug: the command panicked. The session was put back as it was before the command.

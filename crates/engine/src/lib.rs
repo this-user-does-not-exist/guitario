@@ -43,6 +43,8 @@ pub use selection::Selection;
 pub const GUITAR_PRO_EXTENSIONS: [&str; 5] = guitario_gp::EXTENSIONS;
 /// File extensions `file.open` imports as MIDI.
 pub const MIDI_EXTENSIONS: [&str; 2] = ["mid", "midi"];
+/// File extensions `file.open` imports as MusicXML.
+pub const MUSICXML_EXTENSIONS: [&str; 3] = guitario_musicxml::EXTENSIONS;
 /// Native file extensions: `.gt`, and `.gt` from before the rename.
 pub const NATIVE_EXTENSIONS: [&str; 2] = guitario_format::EXTENSIONS;
 pub use session::{Cursor, Session};

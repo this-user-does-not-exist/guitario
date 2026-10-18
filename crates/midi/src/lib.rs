@@ -3,7 +3,7 @@
 
 mod import;
 
-pub use import::{Import, MAX_FILE, import, import_file, is_midi_path};
+pub use import::{Import, MAX_FILE, finger, import, import_file, into_range, is_midi_path, range, tuning_for};
 
 use guitario_score::{Score, ScoreError, playback_order, timeline};
 use guitario_theory::TICKS_PER_QUARTER;

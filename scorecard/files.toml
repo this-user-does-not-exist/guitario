@@ -39,8 +39,9 @@ note = "export: format 1 with title, tempo, time and key signatures. Import (cra
 [[item]]
 id = "FILE-6"
 target = "MusicXML import and export"
-status = "missing"
+status = "done"
 stage = "beta"
+note = "crates/musicxml (L3): MusicXML 4.0 partwise export and import of .musicxml/.xml and compressed .mxl (File › Import/Export › MusicXML…, File › Open, cli convert). Tunings in staff-details, strings and frets in technical (checked against the pitch, fingered when absent), up to four voices, tuplets, ties, repeats, endings, sections, tempo, keys, dynamics, lyrics, chord names and diagrams, drums as unpitched parts, and the guitar effects; every demo comes back bar for bar; MuseScore 4 reads the export and its own export of a demo imports with the same rhythms and pitches (tests/data). Not written: whammy curves, fades; timewise files are refused"
 
 [[item]]
 id = "FILE-7"

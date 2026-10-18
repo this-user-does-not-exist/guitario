@@ -1602,6 +1602,7 @@ dependencies = [
  "guitario-format",
  "guitario-gp",
  "guitario-midi",
+ "guitario-musicxml",
  "guitario-playback",
  "guitario-score",
  "guitario-theory",
@@ -1641,6 +1642,19 @@ dependencies = [
  "guitario-score",
  "guitario-theory",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "guitario-musicxml"
+version = "0.1.0"
+dependencies = [
+ "guitario-format",
+ "guitario-midi",
+ "guitario-score",
+ "guitario-theory",
+ "roxmltree 0.21.1",
+ "thiserror 2.0.21",
+ "zip",
 ]
 
 [[package]]

@@ -24,6 +24,7 @@ guitario-playback = { path = "crates/playback" }
 guitario-audio = { path = "crates/audio" }
 guitario-format = { path = "crates/format" }
 guitario-gp = { path = "crates/gp" }
+guitario-musicxml = { path = "crates/musicxml" }
 guitario-engine = { path = "crates/engine" }
 guitario-ui-egui = { path = "crates/ui-egui" }
 

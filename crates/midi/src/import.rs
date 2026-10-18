@@ -420,7 +420,8 @@ fn build(events: Vec<Timed>, scale: impl Fn(u64) -> u64, warnings: &mut Vec<Stri
         let mut track = if drums {
             Track::drums(name, &score.headers)
         } else {
-            let (tuning, moved) = tuning_for(program, &p.notes);
+            let keys: Vec<u8> = p.notes.iter().map(|n| n.key).collect();
+            let (tuning, moved) = tuning_for(program, &keys);
             if moved > 0 {
                 warnings.push(format!("track {}: {moved} notes out of the instrument's range were moved by octaves", i + 1));
             }
@@ -519,8 +520,10 @@ fn tempo_marks(score: &mut Score, starts: &[u64], tempos: &[(u64, u32)], warning
 }
 
 /// A tuning that fits the part's range, and how many notes still fall outside it.
-fn tuning_for(program: u8, notes: &[Played]) -> (Tuning, usize) {
-    let low = notes.iter().map(|n| n.key).min().unwrap_or(40);
+/// A tuning that fits the lowest of `keys` for a General MIDI `program` (basses 32-39 get a bass),
+/// and how many of the keys still fall outside its range.
+pub fn tuning_for(program: u8, keys: &[u8]) -> (Tuning, usize) {
+    let low = keys.iter().copied().min().unwrap_or(40);
     let tuning = if (32..=39).contains(&program) {
         if low >= 28 { Tuning::bass() } else { Tuning::bass_five() }
     } else if low >= 40 {
@@ -535,19 +538,19 @@ fn tuning_for(program: u8, notes: &[Played]) -> (Tuning, usize) {
         Tuning::eight_string()
     };
     let (lo, hi) = range(&tuning);
-    let moved = notes.iter().filter(|n| n.key < lo || n.key > hi).count();
+    let moved = keys.iter().filter(|k| **k < lo || **k > hi).count();
     (tuning, moved)
 }
 
 /// The lowest open string and the highest fretted note of a tuning.
-fn range(t: &Tuning) -> (u8, u8) {
+pub fn range(t: &Tuning) -> (u8, u8) {
     let lo = t.strings.iter().copied().min().unwrap_or(40);
     let hi = t.strings.iter().copied().max().unwrap_or(64).saturating_add(TOP_FRET).min(127);
     (lo, hi)
 }
 
 /// Moves a key by octaves into `lo..=hi`.
-fn into_range(key: u8, lo: u8, hi: u8) -> u8 {
+pub fn into_range(key: u8, lo: u8, hi: u8) -> u8 {
     let mut k = key;
     while k < lo && k <= 115 {
         k += 12;
@@ -726,7 +729,7 @@ fn fill_track(track: &mut Track, notes: &[Played], starts: &[u64], drums: bool) 
 }
 
 /// Strings and frets for the keys of one chord (highest first), near the hand's position.
-fn finger(tuning: &Tuning, keys: &[u8], hand: &mut f32) -> (Vec<Note>, usize) {
+pub fn finger(tuning: &Tuning, keys: &[u8], hand: &mut f32) -> (Vec<Note>, usize) {
     let strings = &tuning.strings;
     let n = keys.len().min(strings.len());
     let mut best: Option<(f32, Vec<(u8, u8)>)> = None;
