@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--sound-bank dir] [--sound-offer] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--section] [--crowded] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--master-automation] [--audio-settings] [--sound-bank dir] [--sound-offer] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--section] [--crowded] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -223,6 +223,10 @@ fn main() {
         run(&mut session, "edit.copy", Value::Null);
     }
     let session_track = session.cursor().track;
+    if args.iter().any(|a| a == "--master-automation") {
+        run(&mut session, "score.setMasterAutomation", json!({"kind": "volume", "value": 0, "measure": 0}));
+        run(&mut session, "score.setMasterAutomation", json!({"kind": "volume", "value": 100, "linear": true, "measure": 2}));
+    }
     let mut app = GuitarioApp::new(session, None);
     if let Some(z) = value("--zoom").and_then(|z| z.parse::<f32>().ok()) {
         app.view.zoom = z;
@@ -252,6 +256,10 @@ fn main() {
     }
     if args.iter().any(|a| a == "--volume-automation") {
         app.open_volume_automation();
+    }
+    // `--master-automation`: a fade-in of the master over the first bars, in its window.
+    if args.iter().any(|a| a == "--master-automation") {
+        app.open_master_volume_automation();
     }
     if args.iter().any(|a| a == "--tempo-automation") {
         app.open_tempo_automation();

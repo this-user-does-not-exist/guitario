@@ -235,6 +235,7 @@ pub(crate) fn append_measure(score: &mut Score, header: MeasureHeader) {
         endings: 0,
         targets: Vec::new(),
         jump: None,
+        master: guitario_score::MasterAutomation::default(),
         ..header
     };
     for t in &mut score.tracks {

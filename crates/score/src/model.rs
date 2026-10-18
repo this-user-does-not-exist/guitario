@@ -187,6 +187,28 @@ pub struct MeasureHeader {
     /// grouping ([`default_beaming`]).
     #[serde(default)]
     pub beams: Vec<u8>,
+    /// The master's volume and pan automation points on this bar.
+    #[serde(default, skip_serializing_if = "MasterAutomation::is_empty")]
+    pub master: MasterAutomation,
+}
+
+/// The master's volume and pan from a bar on (Sound › Automations, the global view's Master row),
+/// each jumping there or gliding from the point before, as a track's do on its own bars.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MasterAutomation {
+    /// 0..=127, 100 is unity.
+    pub volume: Option<u8>,
+    pub volume_linear: bool,
+    /// -63 (left) ..= 63 (right).
+    pub pan: Option<i8>,
+    pub pan_linear: bool,
+}
+
+impl MasterAutomation {
+    pub fn is_empty(&self) -> bool {
+        *self == MasterAutomation::default()
+    }
 }
 
 /// Most beam groups a bar may list.
@@ -405,6 +427,7 @@ impl MeasureHeader {
             jump: None,
             fermatas: Vec::new(),
             beams: Vec::new(),
+            master: MasterAutomation::default(),
         }
     }
 
@@ -1393,6 +1416,18 @@ impl Score {
         }
         starts.push(tick);
         starts
+    }
+
+    /// The master's volume and pan automation at each bar's start and end; `None` where it has no
+    /// point yet (the master's own value applies).
+    pub fn master_curves(&self) -> (Curve, Curve) {
+        let starts = self.bar_starts();
+        let point = |b: usize, v: Option<f64>, linear: bool| Some((b, v?, linear));
+        let volume: Vec<(usize, f64, bool)> =
+            self.headers.iter().enumerate().filter_map(|(b, h)| point(b, h.master.volume.map(f64::from), h.master.volume_linear)).collect();
+        let pan: Vec<(usize, f64, bool)> =
+            self.headers.iter().enumerate().filter_map(|(b, h)| point(b, h.master.pan.map(f64::from), h.master.pan_linear)).collect();
+        (automation_curves(&starts, None, &volume), automation_curves(&starts, None, &pan))
     }
 
     /// A track's volume and pan automation at each bar's start and end; `None` where it has no

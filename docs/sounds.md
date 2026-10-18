@@ -116,7 +116,9 @@ every region borrows the nearest one, transposed.
 
 Not yet: EQ opcodes (`eq1_*`), LFOs, the pitch envelope, `<curve>` headers and `curvecc`, live CC (so
 articulations a library selects by controller cannot be mapped), generators (`*sine`), streaming
-from disk (every sample of the keys a score plays is decoded into memory). Bends, slides, vibrato
+from disk: every sample of the keys a score plays is decoded into memory, as 16-bit values (exact
+for 16-bit recordings, half the memory of floats; the 400-bar, six-track perf score holds 500 MB
+with the guitars and bass installed, `sounds_memory_mb` in `perf/budgets.toml`). Bends, slides, vibrato
 and legato notes change the playback rate. Samples decode in the background whenever the score
 needs new notes, and Play waits for them.
 
@@ -152,7 +154,8 @@ bends yet.
 ## Effects after the instrument
 
 Every track runs an effect chain after its instrument, then the mixer's equalizer, volume and pan;
-the master bus runs its compressor, reverb and equalizer, then the master volume and pan
+the master bus runs its compressor, reverb and equalizer, then the master volume and pan (their
+automation, from the global view's Master row or `score.setMasterAutomation`, goes over them)
 (`crates/playback/src/fx/`, [decisions](decisions.md)). A track that has not set its own chain
 plays its instrument's: the synth's overdriven (GM 29) and distorted (GM 30) guitars go through an
 amp and cabinet; a sampled instrument plays none, its recording has its own amp. So with the

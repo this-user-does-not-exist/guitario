@@ -437,8 +437,8 @@ mod tests {
     }
 
     fn sine(rate: u32, hz: f32, frames: usize) -> Arc<Sample> {
-        let left = (0..frames).map(|n| (n as f32 / rate as f32 * hz * std::f32::consts::TAU).sin()).collect();
-        Arc::new(Sample { rate, left, right: None, loop_points: None })
+        let left: Vec<f32> = (0..frames).map(|n| (n as f32 / rate as f32 * hz * std::f32::consts::TAU).sin()).collect();
+        Arc::new(Sample::from_f32(rate, &left, None))
     }
 
     fn zero_crossings(x: &[f32]) -> usize {
@@ -554,8 +554,10 @@ mod tests {
     fn a_sample_loops_where_its_file_says_and_the_seam_can_be_crossfaded() {
         // A ramp whose loop jumps from 0.9 back to 0.1: a click without a crossfade.
         let ramp = |looped: bool| {
-            let left = (0..1000).map(|i| i as f32 / 1000.0).collect();
-            Arc::new(Sample { rate: 44_100, left, right: None, loop_points: looped.then_some((100, 899)) })
+            let left: Vec<f32> = (0..1000).map(|i| i as f32 / 1000.0).collect();
+            let mut s = Sample::from_f32(44_100, &left, None);
+            s.loop_points = looped.then_some((100, 899));
+            Arc::new(s)
         };
         let mut v = SampleVoice::new(0, 0, &region("<region> sample=a.wav key=60"), &ramp(true), 60, 1.0, 44_100.0);
         render(&mut v, 5000);

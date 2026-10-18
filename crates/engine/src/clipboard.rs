@@ -188,6 +188,7 @@ fn plain_header(h: &MeasureHeader) -> MeasureHeader {
         targets: Vec::new(),
         jump: None,
         fermatas: Vec::new(),
+        master: guitario_score::MasterAutomation::default(),
         ..h.clone()
     }
 }

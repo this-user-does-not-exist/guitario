@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the sound bank in the app: playback 65 %; beta ~270–550 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (master automation, 16-bit samples: playback 67 %; beta ~260–530 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -19,8 +19,8 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 | **Menu parity** | 172 of 180 items live (96 %) | measured: `cargo xtask parity` |
 | **Feature breadth** (does each Guitar Pro feature exist?) | **~74 %** | partly measured, weights [below](#feature-breadth-74-weighted) |
 | **Readiness** (how deep is each dimension, weighted?) | **~64 %** (range 57–69) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~270–550 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~975–1,930 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| Remaining to **beta** | **~260–530 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~965–1,910 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -65,14 +65,14 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 |---|---:|---:|---:|---:|---|---|
 | Editing | 20% | 70% | 15–30 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends and the whammy bar have curves and editors, Paste Special, All-Track Copy, Unset; no drum step grid (G1) |
 | Notation | 15% | 74% | 6–22 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): all done; voice picking in notation is left |
-| Playback | 15% | 65% | 25–55 | 140–280 | G5 | sampler (release samples, filters, curves, loops, OGG) with the bank installed from the app and an instrument per track, mixer, automations, effect chains, equalizer, mastering and articulations (synth and bank) in; no streaming or pedalboard; checked by tests, not by ear |
+| Playback | 15% | 67% | 15–35 | 140–280 | G5 | sampler (release samples, filters, curves, loops, OGG) with the bank installed from the app and an instrument per track, mixer, automations, effect chains, equalizer, mastering and articulations (synth and bank) in; master automation; samples in 16 bits; no streaming or pedalboard; checked by tests, not by ear |
 | Files and exchange | 10% | 70% | 10–20 | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 65–125 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view and homepage match Guitar Pro 8; depth (several documents, preferences, stylesheet) does not |
 | Tools | 5% | 65% | 0 + human | 80–150 | G7 | tuner, chord window, scales, line in |
 | Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
 | Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
 | Platforms and automation | 10% | 25% | 120–230 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; no installers or releases, no control channel or MCP |
-| **Weighted** | 100% | **~64%** | **~270–550** | **~710–1,390** | | 0.20·70 + 0.15·74 + 0.15·65 + 0.10·70 + 0.10·62 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·25 = 63.9 |
+| **Weighted** | 100% | **~64%** | **~260–530** | **~710–1,390** | | 0.20·70 + 0.15·74 + 0.15·67 + 0.10·70 + 0.10·62 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·25 = 64.2 |
 
 Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
 is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
@@ -98,6 +98,7 @@ subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | Master volume and pan automation, 16-bit samples with a memory budget: playback 65% → 67%; beta hours 270–550 → 260–530 |
 | 2026-10-18 | minor | The sound bank installs from the app (Sound Bank window, first-run offer, `sound.installLibraries`), an instrument per track: playback 60% → 65%, readiness ~63% → ~64%; beta hours 325–655 → 270–550 |
 | 2026-10-18 | minor | The sampler's depth (release samples, legato regions, filters, velocity curves, WAV loops and crossfades, OGG samples): playback 57% → 60%, breadth playback 65% → 67%; beta hours 340–685 → 325–655 |
 | 2026-10-18 | minor | Articulations in the synth and the sound bank, sampled legato: playback 52% → 57%, readiness ~62% → ~63%; beta hours 355–715 → 340–685. Breadth ~66% → ~74%, mostly a correction: the Tools row still said there was no chord window, tuner or scale tool (8% → 60%) and the Files row no MIDI import or MusicXML (57% → 70%), all landed earlier on 2026-10-18; playback 60% → 65% |

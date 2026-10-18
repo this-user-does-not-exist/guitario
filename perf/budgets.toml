@@ -20,3 +20,6 @@ sounds_preload = 3000
 sounds_ready_check = 5
 sounds_play = 10
 render_sampled_per_second = 100
+# Megabytes of decoded samples the score's sampled instruments hold (16-bit), with the guitars and
+# bass installed; the drum kit adds its own.
+sounds_memory_mb = 1000

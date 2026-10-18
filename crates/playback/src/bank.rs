@@ -157,6 +157,12 @@ impl SoundBank {
         self.entries.iter().find(|(r, a, _)| *r == role && *a == articulation).map(|(_, _, p)| p)
     }
 
+    /// The memory the decoded instruments take, in bytes.
+    pub fn memory(&self) -> usize {
+        let mut seen = std::collections::HashSet::new();
+        self.cache().iter().filter_map(|(_, _, inst)| inst.as_ref().ok()).map(|i| i.memory(&mut seen)).sum()
+    }
+
     /// Forgets decoded instruments (after the library files change).
     pub fn clear_cache(&self) {
         self.cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clear();

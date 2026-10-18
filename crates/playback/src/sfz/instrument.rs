@@ -141,6 +141,12 @@ impl Instrument {
         self.regions.len() + self.releases.len()
     }
 
+    /// The decoded samples it holds, each once, so `seen` (sample addresses already counted
+    /// elsewhere) can sum several instruments without counting a shared one twice.
+    pub fn memory(&self, seen: &mut std::collections::HashSet<usize>) -> usize {
+        self.regions.iter().chain(&self.releases).filter(|(_, s)| seen.insert(Arc::as_ptr(s) as usize)).map(|(_, s)| s.bytes()).sum()
+    }
+
     /// Whether a note-off starts anything.
     pub fn has_release(&self) -> bool {
         !self.releases.is_empty()
@@ -204,7 +210,7 @@ mod tests {
     use super::*;
 
     fn tone(rate: u32) -> Sample {
-        Sample { rate, left: vec![0.5; 100], right: None, loop_points: None }
+        Sample::from_f32(rate, &[0.5; 100], None)
     }
 
     fn inst(text: &str) -> Instrument {
@@ -289,7 +295,7 @@ mod tests {
             &|n| {
                 calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 let k: usize = n.trim_start_matches('s').trim_end_matches(".wav").parse().unwrap();
-                if k == 7 { Err(SfzError::Io("gone".into())) } else { Ok(Sample { rate: 8000, left: vec![k as f32; 10], right: None, loop_points: None }) }
+                if k == 7 { Err(SfzError::Io("gone".into())) } else { Ok(Sample::from_f32(8000, &[k as f32 / 100.0; 10], None)) }
             },
             None,
         )
@@ -298,7 +304,7 @@ mod tests {
         assert_eq!((i.region_count(), i.warnings.len()), (57, 1));
         for key in [0u8, 21, 59] {
             let hit = i.select(key, 100, 0, 0.5, false);
-            assert_eq!(hit[0].sample.left[0], f32::from(key % 20), "key {key}");
+            assert!((hit[0].sample.get(0).0 - f32::from(key % 20) / 100.0).abs() < 1e-4, "key {key}");
         }
     }
 }

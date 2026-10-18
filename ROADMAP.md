@@ -1,8 +1,8 @@
 # Guitario roadmap
 
-**Stage: alpha** · next: beta, ~270–550 h away · then 1.0 (full parity), ~705–1,380 h further
+**Stage: alpha** · next: beta, ~260–530 h away · then 1.0 (full parity), ~705–1,380 h further
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the sound bank installs from the app; a track picks its instrument; beta ~270–550 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (master automation, 16-bit samples; beta ~260–530 h) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [roadmap](docs/roadmap.md) (stages, gates, current focus), [target-app parity](docs/target-app-parity.md)
@@ -24,8 +24,8 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | Menus | 172 of 180 live (96 %) | measured |
 | Feature breadth | **~74 %** | partly measured: weights in [target-app parity](docs/target-app-parity.md#feature-breadth-74-weighted) |
 | Readiness | **~64 %** (57–69) | estimated: weighted dimension average |
-| Remaining to **beta** | **~270–550 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
-| Remaining to **full parity** | **~975–1,930 h** | beta plus the 1.0 column |
+| Remaining to **beta** | **~260–530 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
+| Remaining to **full parity** | **~965–1,910 h** | beta plus the 1.0 column |
 
 ## Stages
 
@@ -54,7 +54,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 |---|---:|---:|---:|---|
 | Editing | 20% | 70% | 15–30 | [scorecard](docs/scorecard.md#editing) |
 | Notation | 15% | 74% | 6–22 | [scorecard](docs/scorecard.md#notation-and-engraving) |
-| Playback | 15% | 65% | 25–55 | [scorecard](docs/scorecard.md#playback) |
+| Playback | 15% | 67% | 15–35 | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 10% | 70% | 10–20 | [file-format-parity](docs/file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 70–135 | [ui-parity](docs/ui-parity.md) |
 | Tools | 5% | 65% | 0 + human | [gaps G7](docs/gaps.md#g7-tools) |
@@ -73,7 +73,7 @@ Ranked for the beta gate; the reasoning and the human steps are in [docs/roadmap
 
 | Rank | Work | Gap | Beta hours |
 |---|---|---|---:|
-| 1 | Sound: a memory budget with streaming, master automation; a listening pass | [G5](docs/gaps.md#g5-playback-realism) | 25–55 |
+| 1 | Sound: streaming samples from disk; a listening pass | [G5](docs/gaps.md#g5-playback-realism) | 15–35 |
 | 2 | Release workflow, installers, file associations | [G12](docs/gaps.md#g12-platforms-and-distribution) | 80–150 + human |
 | 3 | Several documents, shortcuts audit, user book | [G8](docs/gaps.md#g8-ui-depth) | 55–100 |
 | 4 | Drum step grid, headers and footers, voice picking | [G1](docs/gaps.md#g1-drums-depth), [G2](docs/gaps.md#g2-print-depth), [G4](docs/gaps.md#g4-notation-depth) | 30–70 |

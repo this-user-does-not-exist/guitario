@@ -17,12 +17,14 @@ pub enum SfzError {
     Empty(String),
 }
 
-/// Mono or stereo audio at its native rate. Extra channels beyond two are dropped.
+/// Mono or stereo audio at its native rate, kept as 16-bit values: half the memory of floats, exact
+/// for the 16-bit recordings libraries mostly ship, and for 24-bit ones a loss only below -96 dB.
+/// Extra channels beyond two are dropped.
 #[derive(Debug)]
 pub struct Sample {
     pub rate: u32,
-    pub left: Vec<f32>,
-    pub right: Option<Vec<f32>>,
+    pub left: Vec<i16>,
+    pub right: Option<Vec<i16>>,
     /// The loop the file itself marks (a WAV `smpl` chunk's first loop): its first and last
     /// frame.
     pub loop_points: Option<(u64, u64)>,
@@ -33,11 +35,22 @@ impl Sample {
         self.left.len()
     }
 
+    /// The memory its audio takes, in bytes.
+    pub fn bytes(&self) -> usize {
+        (self.left.len() + self.right.as_ref().map_or(0, Vec::len)) * std::mem::size_of::<i16>()
+    }
+
+    /// A sample from float audio (-1..=1), one channel or two.
+    pub fn from_f32(rate: u32, left: &[f32], right: Option<&[f32]>) -> Sample {
+        Sample { rate, left: left.iter().map(|x| to_i16(*x)).collect(), right: right.map(|r| r.iter().map(|x| to_i16(*x)).collect()), loop_points: None }
+    }
+
+    /// Frame `i`, both channels, -1..1.
     #[inline]
     pub fn get(&self, i: isize) -> (f32, f32) {
         let Ok(idx) = usize::try_from(i) else { return (0.0, 0.0) };
-        let l = self.left.get(idx).copied().unwrap_or(0.0);
-        let r = self.right.as_ref().map_or(l, |r| r.get(idx).copied().unwrap_or(0.0));
+        let l = self.left.get(idx).map_or(0.0, |x| f32::from(*x) / 32_768.0);
+        let r = self.right.as_ref().map_or(l, |r| r.get(idx).map_or(0.0, |x| f32::from(*x) / 32_768.0));
         (l, r)
     }
 
@@ -52,9 +65,9 @@ impl Sample {
         let mut left = Vec::with_capacity(frames);
         let mut right = (channels > 1).then(|| Vec::with_capacity(frames));
         for f in data.chunks_exact(channels) {
-            left.push(f.first().copied().unwrap_or(0.0));
+            left.push(to_i16(f.first().copied().unwrap_or(0.0)));
             if let Some(r) = right.as_mut() {
-                r.push(f.get(1).copied().unwrap_or(0.0));
+                r.push(to_i16(f.get(1).copied().unwrap_or(0.0)));
             }
         }
         // A stereo file that is really mono (identical channels) costs half the memory as mono.
@@ -74,6 +87,11 @@ impl Sample {
             other => Err(SfzError::Decode(format!("unsupported sample format .{other} ({name})"))),
         }
     }
+}
+
+/// A float sample (-1..=1) as 16 bits; a 16-bit source comes back exactly.
+fn to_i16(x: f32) -> i16 {
+    if x.is_finite() { (x * 32_768.0).round().clamp(-32_768.0, 32_767.0) as i16 } else { 0 }
 }
 
 fn decode_wav(bytes: &[u8]) -> Result<Sample, SfzError> {
@@ -186,6 +204,17 @@ mod tests {
     }
 
     #[test]
+    fn sixteen_bit_audio_is_kept_exactly_and_floats_are_clamped() {
+        let frames: Vec<Vec<i16>> = [-32_768i16, -1, 0, 1, 12_345, 32_767].iter().map(|v| vec![*v]).collect();
+        let s = Sample::decode(&wav_bytes(8000, 1, &frames), "a.wav").unwrap();
+        assert_eq!(s.left, vec![-32_768, -1, 0, 1, 12_345, 32_767]);
+        assert_eq!(s.bytes(), 12);
+        let f = Sample::from_f32(8000, &[2.0, -2.0, f32::NAN, 0.5], None);
+        assert_eq!(f.left, vec![32_767, -32_768, 0, 16_384]);
+        assert!((f.get(3).0 - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
     fn identical_channels_collapse_to_mono() {
         let s = Sample::decode(&wav_bytes(44_100, 2, &[vec![5, 5], vec![9, 9]]), "x.wav").unwrap();
         assert!(s.right.is_none());
@@ -227,7 +256,7 @@ mod tests {
         assert_eq!((s.rate, s.right.is_none()), (22_050, true));
         assert!((s.frames() as i64 - 11_025).abs() < 600, "{} frames", s.frames());
         // Half a second of 440 Hz: about 220 rising zero crossings.
-        let rising = s.left.windows(2).filter(|w| w[0] < 0.0 && w[1] >= 0.0).count();
+        let rising = s.left.windows(2).filter(|w| w[0] < 0 && w[1] >= 0).count();
         assert!((rising as i64 - 220).abs() <= 6, "{rising}");
         for cut in [0, 10, 58, 200, bytes.len() / 2, bytes.len() - 1] {
             let _ = Sample::decode(&bytes[..cut], "t.ogg");

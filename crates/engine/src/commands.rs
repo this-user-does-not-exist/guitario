@@ -673,6 +673,7 @@ fn measure_insert(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
         endings: 0,
         targets: Vec::new(),
         jump: None,
+        master: guitario_score::MasterAutomation::default(),
         ..template
     };
     for t in &mut score.tracks {

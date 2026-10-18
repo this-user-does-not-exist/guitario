@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: the sound bank in the app) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: master automation, 16-bit samples) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -275,6 +275,16 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   notes in timeline order made handing instruments to the player 2.9 ms (was 12.3) and the check
   after an edit 3.0 ms on a 400-bar score. Not yet: the drum kit's download from inside this
   build's sandbox (GitHub's repository archives were not reachable), a memory budget.
+- **Landed 2026-10-18:** master volume and pan automation (the rest of #265): points on the master
+  bar (`MeasureHeader::master`, left out of files while empty, not copied to new bars), jumping or
+  gliding like a track's, `score.setMasterAutomation`, played over the master's own volume and pan
+  from wherever playback starts (`Score::master_curves`, the player's master ramps); the global
+  view's Master row has live A buttons, lit while automated, that open the Volume and Pan
+  Automation window on the Master (which its track list also offers). Samples are held as 16-bit
+  values: the 400-bar, six-track perf score's decoded guitars and bass went from 1,000 MB to 500
+  MB, recorded as `sounds_memory_mb` in the perf budgets (#110, first half), and a real Growlybass
+  render is unchanged. Not yet: streaming long samples from disk; master automation in MIDI and
+  Guitar Pro files (track automation is not exchanged either).
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

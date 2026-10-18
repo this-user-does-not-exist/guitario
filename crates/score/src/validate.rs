@@ -57,6 +57,9 @@ impl crate::Score {
             if h.beams.len() > crate::MAX_BEAM_GROUPS || h.beams.contains(&0) {
                 return Err(ScoreError::Beams(mi));
             }
+            if h.master.volume.is_some_and(|v| v > 127) || h.master.pan.is_some_and(|p| !(-63..=63).contains(&p)) {
+                return Err(ScoreError::Master(format!("bar {}: a master automation point is out of range", mi + 1)));
+            }
         }
         for t in self.headers.iter().filter_map(|h| h.tempo).chain([self.tempo]) {
             if !(20..=400).contains(&t) {

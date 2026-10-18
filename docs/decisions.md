@@ -338,3 +338,13 @@ into its library, and leaves a user's own entries (another library, articulation
 track can name its instrument (`Track::bank`): a role, or an `.sfz` file, absolute or relative to
 the bank's folder so a score and a bank can move together. The first-run offer is armed by the
 desktop app only, so tests and offscreen renders never see it.
+
+## 2026-10-18: Samples are kept as 16-bit values
+
+A score's sampled instruments are decoded into memory for the keys it plays; with the default
+guitars and bass, the 400-bar perf score held 1 GB as floats. The libraries ship 16- and 24-bit
+recordings, so samples are now held as `i16`: exact for 16-bit files, and for 24-bit ones the
+loss is below -96 dBFS, under the recordings' own noise. Memory halves, playback converts on read
+at no measurable cost, and `sounds_memory_mb` in `perf/budgets.toml` watches it. Streaming the
+tails of long samples from disk (#110) would cut it further and is the remaining part.
+

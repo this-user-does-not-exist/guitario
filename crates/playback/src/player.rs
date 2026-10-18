@@ -155,10 +155,18 @@ impl TrackSound {
 
 /// The master's left and right gains: volume (100 is unity) and a balance that only turns down
 /// the side away from the pan.
-fn master_gains(m: &Master) -> (f32, f32) {
-    let v = f32::from(m.volume.min(127)) / 100.0;
-    let pan = f32::from(m.pan.clamp(-63, 63)) / 63.0;
+fn master_gains(volume: u8, pan: i8) -> (f32, f32) {
+    let v = f32::from(volume.min(127)) / 100.0;
+    let pan = f32::from(pan.clamp(-63, 63)) / 63.0;
     (v * (1.0 - pan).min(1.0), v * (1.0 + pan).min(1.0))
+}
+
+/// An automation curve (per written bar) laid on playback time, bar by bar, repeats included.
+fn lay(map: &TempoMap, curve: &[Option<(f64, f64)>]) -> Vec<Ramp> {
+    map.segments
+        .iter()
+        .filter_map(|seg| curve.get(seg.measure).copied().flatten().map(|(a, b)| (seg.start_sec, seg.start_sec + seg.duration(), a, b)))
+        .collect()
 }
 
 fn mix_gains(t: &guitario_score::Track, any_solo: bool) -> (f32, f32) {
@@ -267,6 +275,9 @@ pub struct Player {
     master_fx: bool,
     master_gain: (f32, f32),
     master_target: (f32, f32),
+    /// The master's volume and pan as last set, and their automation in playback time.
+    master_level: (u8, i8),
+    master_automation: (Vec<Ramp>, Vec<Ramp>),
     /// Frames in a row the output has been silent, to know when effect tails have died away.
     quiet: u32,
 }
@@ -442,15 +453,11 @@ impl Player {
         let automation = (0..score.tracks.len())
             .map(|ti| {
                 let (vol, pan) = score.mix_curves(ti);
-                let lay = |curve: &[Option<(f64, f64)>]| -> Vec<Ramp> {
-                    map.segments
-                        .iter()
-                        .filter_map(|seg| curve.get(seg.measure).copied().flatten().map(|(a, b)| (seg.start_sec, seg.start_sec + seg.duration(), a, b)))
-                        .collect()
-                };
-                (lay(&vol), lay(&pan))
+                (lay(&map, &vol), lay(&map, &pan))
             })
             .collect();
+        let (master_vol, master_pan) = score.master_curves();
+        let master_automation = (lay(&map, &master_vol), lay(&map, &master_pan));
         let mix = score.tracks.iter().map(Mix::of).collect();
         let drum_track = score.tracks.iter().map(|t| t.is_drums()).collect();
         let end = map.total_sec;
@@ -491,6 +498,8 @@ impl Player {
             master_fx: false,
             master_gain: (1.0, 1.0),
             master_target: (1.0, 1.0),
+            master_level: (100, 0),
+            master_automation,
             quiet: 0,
         };
         for ti in 0..player.buses.len() {
@@ -531,11 +540,13 @@ impl Player {
         }
     }
 
-    /// Takes the master's volume, pan and mastering effects.
+    /// Takes the master's volume, pan and mastering effects (its automation, where it has a point,
+    /// goes over the volume and pan).
     pub fn set_master(&mut self, master: &Master) {
         self.master.configure(&master.slots().map(Clone::clone));
         self.master_fx = self.master.active();
-        self.master_target = master_gains(master);
+        self.master_level = (master.volume, master.pan);
+        self.retarget();
     }
 
     /// Bus targets from the mixer, with each track's volume and pan automation at the play time.
@@ -554,6 +565,14 @@ impl Player {
             }
             (bus.target_l, bus.target_r) = m.gains(any_solo);
         }
+        let (mut volume, mut pan) = self.master_level;
+        if let Some(v) = ramp_at(&self.master_automation.0, t) {
+            volume = v.round().clamp(0.0, 127.0) as u8;
+        }
+        if let Some(p) = ramp_at(&self.master_automation.1, t) {
+            pan = p.round().clamp(-63.0, 63.0) as i8;
+        }
+        self.master_target = master_gains(volume, pan);
     }
 
     /// Plays `track` from a sampled instrument instead of the built-in synth.
@@ -654,6 +673,7 @@ impl Player {
         for bus in &mut self.buses {
             (bus.gain_l, bus.gain_r) = (bus.target_l, bus.target_r);
         }
+        self.master_gain = self.master_target;
     }
 
     /// The song played to its end: what is held ends, but let-ring notes and cymbals ring out
@@ -938,7 +958,7 @@ impl Player {
         let ch = channels.max(1);
         let dt = f64::from(self.opts.speed.clamp(0.25, 2.0)) / f64::from(self.sr);
         let glide = 1.0 - (-1.0 / (0.01 * self.sr)).exp();
-        let automated = self.automation.iter().any(|(v, p)| !v.is_empty() || !p.is_empty());
+        let automated = self.automation.iter().chain([&self.master_automation]).any(|(v, p)| !v.is_empty() || !p.is_empty());
         for frame in out.chunks_mut(ch) {
             if automated && self.playing {
                 if self.automation_countdown == 0 {
@@ -1252,11 +1272,9 @@ mod tests {
     }
 
     fn test_instrument(sfz: &str, rate: u32) -> Arc<Instrument> {
-        let tone = |hz: f32| crate::sfz::Sample {
-            rate,
-            left: (0..rate as usize * 3).map(|n| (n as f32 / rate as f32 * hz * std::f32::consts::TAU).sin() * 0.8).collect(),
-            right: None,
-            loop_points: None,
+        let tone = |hz: f32| {
+            let left: Vec<f32> = (0..rate as usize * 3).map(|n| (n as f32 / rate as f32 * hz * std::f32::consts::TAU).sin() * 0.8).collect();
+            crate::sfz::Sample::from_f32(rate, &left, None)
         };
         let load = |name: &str| Ok(tone(if name.starts_with("lo") { 110.0 } else { 440.0 }));
         Arc::new(Instrument::build("test", sfz, &mut |_| None, &load, None).unwrap())
@@ -1437,6 +1455,44 @@ mod tests {
         assert!((g - 0.354).abs() < 0.01, "{g}");
         assert_eq!(ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 1.5), Some(5.0));
         assert_eq!((ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 0.5), ramp_at(&[(1.0, 2.0, 0.0, 10.0)], 9.0)), (None, Some(10.0)));
+    }
+
+    #[test]
+    fn master_automation_plays_over_the_master_level() {
+        // Two bars of a held note at 240 bpm (a bar is a second): the master silent in the first,
+        // then back to unity and panned hard left.
+        let mut s = Score::new();
+        s.tempo = 240;
+        let h = s.headers[0].clone();
+        s.headers.push(h.clone());
+        s.tracks[0].measures.push(guitario_score::Measure::empty_for(&h));
+        for m in &mut s.tracks[0].measures {
+            m.voices[0].beats = vec![Beat { rest: false, notes: vec![Note::new(0, 5)], ..Beat::rest(Duration::WHOLE) }];
+        }
+        s.headers[0].master.volume = Some(0);
+        s.headers[1].master.volume = Some(100);
+        s.headers[1].master.pan = Some(-63);
+        let mut p = Player::new(&s, 22_050, Options::default());
+        p.play_from(0.0);
+        let mut channel_rms = |secs: f32| {
+            let mut buf = vec![0f32; (22_050.0 * secs) as usize * 2];
+            p.render(&mut buf, 2);
+            let ch = |c: usize| (buf.iter().skip(c).step_by(2).map(|x| x * x).sum::<f32>() / (buf.len() / 2) as f32).sqrt();
+            (ch(0), ch(1))
+        };
+        let first = channel_rms(0.95);
+        channel_rms(0.1);
+        let second = channel_rms(0.5);
+        assert!(first.0 < 1e-4 && first.1 < 1e-4, "silent by the master in bar 1: {first:?}");
+        assert!(second.0 > 0.01 && second.1 < 0.01 * second.0, "full and hard left in bar 2: {second:?}");
+        // Starting in bar 2 starts at its values; changing the master's own level keeps the points.
+        let mut q = Player::new(&s, 22_050, Options::default());
+        q.play_from(1.5);
+        assert!(q.master_gain.1 < 1e-6 && q.master_gain.0 > 0.9, "{:?}", q.master_gain);
+        let mut m = s.master.clone();
+        m.volume = 50;
+        q.set_master(&m);
+        assert!(q.master_target.0 > 0.9, "the automation point still rules: {:?}", q.master_target);
     }
 
     #[test]

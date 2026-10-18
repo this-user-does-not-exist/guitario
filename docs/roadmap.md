@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the sound bank installs from the app, an instrument per track; beta ~270–550 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (master automation, 16-bit samples; beta ~260–530 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -14,7 +14,7 @@ for one agent working sequentially, and an upper bound (see
 [calibration](target-app-parity.md#calibration)).
 
 **Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
-today; ~270–550 h of work are left, ordered under [Current focus](#current-focus).
+today; ~260–530 h of work are left, ordered under [Current focus](#current-focus).
 
 ## Stages
 
@@ -110,9 +110,9 @@ issue assigned to you. Work in **batches**: one pull request, one slice of a gap
 and a snapshot where it is visible. The order puts what an agent can fully verify first and
 what needs a human ear or signing material last, so the human steps overlap with other work.
 
-1. **Sound** ([G5](gaps.md#g5-playback-realism)): a memory budget with streaming and master
-   automation (articulations, the sampler's depth, the sound bank in the app, amp, cabinet, effects
-   and mastering landed 2026-10-18). A listening pass closes it. 25–55 h.
+1. **Sound** ([G5](gaps.md#g5-playback-realism)): streaming samples from disk (articulations, the
+   sampler's depth, the sound bank in the app, master automation, amp, cabinet, effects and
+   mastering landed 2026-10-18). A listening pass closes it. 15–35 h.
 2. **Release workflow and packages** ([G12](gaps.md#g12-platforms-and-distribution)): tag to
    artifacts for three platforms, an app bundle with file associations; signing waits on accounts.
    80–150 h + human.
@@ -163,6 +163,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | Master automation and 16-bit samples landed; beta ~260–530 h |
 | 2026-10-18 | minor | The sound bank in the app (Sound Bank window, first-run offer) and an instrument per track landed; beta ~270–550 h |
 | 2026-10-18 | minor | The sampler's depth landed (release samples, legato regions, filters, velocity curves, loops, OGG); beta ~325–655 h |
 | 2026-10-18 | minor | Articulations landed (the synth plays each, a bank can record each, sampled legato): B2 lacks the sampler's depth and a listening pass; beta ~340–685 h |
