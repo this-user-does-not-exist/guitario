@@ -1306,6 +1306,9 @@ impl<'a> Ctx<'a> {
             slashed: bool,
             /// Fingering by staff position: the left- and right-hand fingers.
             fingers: Vec<(i32, Option<guitario_score::Finger>, Option<guitario_score::Finger>)>,
+            /// The pitch each bend reaches (when the stylesheet shows it): the bent note's staff
+            /// position, then the target's, its accidental and whether it is a quarter tone higher.
+            bends: Vec<(i32, i32, Option<i8>, bool)>,
         }
         let mut infos: Vec<Option<Info>> = Vec::new();
         for (bi, beat) in beats.iter().enumerate() {
@@ -1367,12 +1370,27 @@ impl<'a> Ctx<'a> {
                     (e.left_finger.is_some() || e.right_finger.is_some()).then_some((p.0, e.left_finger, e.right_finger))
                 })
                 .collect();
+            // Where bends end up, spelled after the notes so their accidentals follow them.
+            let bends = if self.score.page.bend_pitch && !self.m.drums {
+                keyed
+                    .iter()
+                    .filter_map(|(st, head)| {
+                        let n = beat.note_on(*st).filter(|n| n.kind == NoteKind::Normal)?;
+                        let q = n.effects.bend?.peak();
+                        let p = self.track.tuning.pitch(usize::from(n.string), n.fret, self.track.capo)?;
+                        let sp = spell(p.0.saturating_add(12).saturating_add(q / 2).min(127), h.key);
+                        Some((head.0, staff_pos(sp, self.clef), acc.next(sp, h.key), q % 2 == 1))
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
             let by_string = keyed.iter().map(|(st, p)| (*st, p.0)).collect();
             let mut pos: Vec<Head> = keyed.into_iter().map(|(_, p)| p).collect();
             pos.sort_by_key(|p| p.0);
             let avg = pos.iter().map(|p| p.0).sum::<i32>() as f32 / pos.len().max(1) as f32;
             // Drum parts are written stems up (one voice, hands and feet together).
-            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed, fingers }));
+            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed, fingers, bends }));
         }
 
         let groups = beam_groups(beats, h);
@@ -1454,6 +1472,10 @@ impl<'a> Ctx<'a> {
                     let y = self.nota_y(nt, base) - k as f32 * 1.3 * s;
                     self.p().text(pos2(info.x, y), egui::Align2::CENTER_BOTTOM, f.right_mark(), serif_italic(8.0 * self.m.zoom), ink);
                 }
+            }
+            // The pitch a bend reaches: a small head after the note, slurred to it.
+            for &(from, to, accidental, quarter) in &info.bends {
+                self.bend_target(left + hw + 1.1 * s, nt, from, to, accidental, quarter, left + hw / 2.0);
             }
             // Grace notes: small, left of the heads and their accidentals, slurred into the lowest head.
             if !info.graces.is_empty() {
@@ -1650,6 +1672,40 @@ impl<'a> Ctx<'a> {
 
     /// Small grace notes whose heads end at `right`, sharing one stem up with an eighth flag, slashed
     /// when they come before the beat. Returns the heads' centre and the lowest head's staff position.
+    /// A bend's target: a small head with its left edge at `x` on staff position `to` (with its
+    /// accidental, raised a quarter tone when `quarter`), slurred from the bent note's head at
+    /// `from_x`, `from`.
+    #[allow(clippy::too_many_arguments)]
+    fn bend_target(&self, x: f32, nt: f32, from: i32, to: i32, accidental: Option<i8>, quarter: bool, from_x: f32) {
+        const SCALE: f32 = 0.62;
+        let (s, ink) = (self.m.space, self.t.ink);
+        let hw = self.pen.width(g::HEAD_BLACK) * SCALE;
+        let sign = match (quarter, accidental) {
+            (true, Some(1)) => Some(g::THREE_QUARTER_SHARP),
+            (true, _) => Some(g::QUARTER_SHARP),
+            (false, Some(1)) => Some(g::SHARP),
+            (false, Some(-1)) => Some(g::FLAT),
+            (false, Some(_)) => Some(g::NATURAL),
+            (false, None) => None,
+        };
+        let aw = sign.map_or(0.0, |c| self.pen.width(c) * SCALE + 0.15 * s);
+        let head_x = x + aw;
+        let y = self.nota_y(nt, to);
+        let thin = Stroke::new((0.1 * s).max(0.8), ink);
+        let mut lp = if to <= -2 { -2 } else { 10 };
+        while (to <= -2 && lp >= to) || (to >= 10 && lp <= to) {
+            let ly = self.nota_y(nt, lp);
+            self.p().line_segment([pos2(head_x - 0.25 * s, ly), pos2(head_x + hw + 0.25 * s, ly)], thin);
+            lp += if to <= -2 { -2 } else { 2 };
+        }
+        if let Some(c) = sign {
+            self.pen.glyph_scaled(c, pos2(x, y), SCALE, ink);
+        }
+        self.pen.glyph_scaled(g::HEAD_BLACK, pos2(head_x, y), SCALE, ink);
+        let arc = Stroke::new((0.14 * s).max(1.0), ink);
+        g::arc(self.p(), pos2(from_x, self.nota_y(nt, from) - 0.6 * s), pos2(head_x + hw / 2.0, y - 0.5 * s), -0.5 * s, arc);
+    }
+
     fn grace_group(&self, right: f32, nt: f32, graces: &[(i32, Option<i8>, &'static str)], slashed: bool) -> Option<(f32, i32)> {
         const SCALE: f32 = 0.62;
         let (s, ink) = (self.m.space, self.t.ink);
@@ -2548,6 +2604,35 @@ mod tests {
             b.notes[0].effects.grace = Some(Grace::new(3));
         });
         assert_eq!(texts(&tied, false, "3"), texts(&plain, false, "3"));
+    }
+
+    #[test]
+    fn the_stylesheet_can_show_the_pitch_a_bend_reaches_in_notation() {
+        use guitario_score::{Bend, BendKind};
+        let bent = |q: u8, kind: NoteKind| {
+            one_note(guitario_theory::NoteValue::Quarter, |b| {
+                b.notes[0].effects.bend = Some(Bend::to(q));
+                b.notes[0].kind = kind;
+            })
+        };
+        let shown = |mut s: Score| {
+            s.page.bend_pitch = true;
+            s
+        };
+        // Off (Guitar Pro's default): notation is as before.
+        let full = bent(4, NoteKind::Normal);
+        let before = curves(&full, true);
+        // On: one slur more, to the small head of the target.
+        assert_eq!(curves(&shown(full), true), before + 1);
+        // A quarter-tone bend shows too; a tied note (a hold) does not.
+        assert_eq!(curves(&shown(bent(1, NoteKind::Normal)), true), curves(&bent(1, NoteKind::Normal), true) + 1);
+        let held = one_note(guitario_theory::NoteValue::Quarter, |b| {
+            b.notes[0].effects.bend = Some(Bend::preset(BendKind::Hold, 4));
+            b.notes[0].kind = NoteKind::Tie;
+        });
+        assert_eq!(curves(&shown(held.clone()), true), curves(&held, true));
+        // Tab alone shows no target.
+        assert_eq!(curves(&shown(bent(4, NoteKind::Normal)), false), curves(&bent(4, NoteKind::Normal), false));
     }
 
     #[test]

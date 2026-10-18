@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G6: Paste Special, All-Track Copy/Cut, Check Bar Durations window; beta ~520–1,025 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G6 beta done: Unset and bend pitches in notation; beta ~515–1,010 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -21,7 +21,7 @@ Ranked by user impact on the way to beta.
 | Rank | Gap | Beta needs | Beta h | After beta (1.0) | After h |
 |---:|---|---|---:|---|---:|
 | 1 | [G5](#g5-playback-realism) Playback realism | articulated samples, amp, cabinet, reverb and delay, first-run sound bank | 150–300 | pedalboard, mastering, audio track, MP3/OGG | 130–260 |
-| 2 | [G6](#g6-editing-depth) Editing depth | Unset, bends held through ties in GP3-5, quarter tones in notation | 5–15 | nested tuplets, ornaments, assistants, tuning window | 80–160 |
+| 2 | [G6](#g6-editing-depth) Editing depth | done | 0 | nested tuplets, ornaments, assistants, tuning window | 80–160 |
 | 3 | [G3](#g3-guitar-pro-exchange) Exchange | MusicXML both ways, MIDI import, GP6 drums, `.gp` checked in Guitar Pro | 55–100 | PowerTab, TablEdit, `.gtp`, ASCII import, `.gpx` export | 90–180 |
 | 4 | [G7](#g7-tools) Tools | tuner, chord window, scale tool | 55–100 | line in, MIDI capture, command palette | 70–130 |
 | 5 | [G12](#g12-platforms-and-distribution) Platforms | signed releases on three platforms, file associations, release workflow | 80–150 + human | browser build, update check | 30–60 |
@@ -33,9 +33,9 @@ Ranked by user impact on the way to beta.
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~520–1,025 h** | | **~690–1,350 h** |
+| | **Total** | | **~515–1,010 h** | | **~690–1,350 h** |
 
-Beta plus after-beta is **~1,210–2,375 h** to full parity.
+Beta plus after-beta is **~1,205–2,360 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -62,15 +62,14 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 ### G6. Editing depth
 - **Landed 2026-10-17:** bend curves and the Bend window; the whammy bar and vibrato with the bar;
   Guitar Pro's paste rules, All-Track Copy and Cut, Paste Special, the Check Bar Durations window;
-  see the [changelog](changelog.md).
-- **Beta:** Unset command (#332); bend hold across tied notes written to Guitar Pro 3-5 and
-  quarter-tone notation in standard notation (#437, #438).
+  Unset; the pitch bends reach in standard notation; see the [changelog](changelog.md).
+- **Beta:** nothing left.
 - **After beta:** nested tuplets and 2 to 13 over any ratio (#287, #404), ornaments (#379, #380),
   the assistants (let ring, palm mute, bar arranger, finger positioning, voices; #345 to 349), the
   tuning window and tuning library (#426 to 432), transposing instruments (#416), non-fretted
   instruments (#407), anacrusis (#354), multirests, file protection (#340).
 - **Evidence:** EDIT-3, EDIT-5, EDIT-8.
-- **Estimate:** 5–15 h beta, 80–160 h after.
+- **Estimate:** 0 h beta, 80–160 h after.
 
 ### G3. Guitar Pro exchange
 - **Beta:** MusicXML import and export (#24, #25), MIDI import (#26), Guitar Pro 6 drum hits (kit
@@ -203,6 +202,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-17 | minor | G6: Unset, bends held through ties checked in Guitar Pro 5, and the pitch bends reach in standard notation: G6 has no beta work left (5–15 h to 0) |
 | 2026-10-17 | minor | G6: paste rules, All-Track Copy and Cut, Paste Special and the Check Bar Durations window landed (15–35 h to 5–15 h beta) |
 | 2026-10-17 | minor | G6: the whammy bar (six shapes or a free curve, the Whammy Bar window, its lane over the tab, playback) and vibrato with the bar landed (25–50 h to 15–35 h beta); G3: whammy dives and bar vibrato read from Guitar Pro 3 to 8 and written to `.gp` and `.gp5` |
 | 2026-10-17 | minor | G6: bend curves, the seven Guitar Pro bend types and the Bend window landed (45–80 h to 25–50 h beta); G3: bends exchanged with all their points |

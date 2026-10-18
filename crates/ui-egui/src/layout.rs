@@ -1152,7 +1152,7 @@ mod tests {
         let s = score(40);
         for paper in Paper::ALL {
             for landscape in [false, true] {
-                let page = PageSetup { paper, landscape, margin_left: 5, margin_right: 25, margin_top: 20, margin_bottom: 10 };
+                let page = PageSetup { paper, landscape, margin_left: 5, margin_right: 25, margin_top: 20, margin_bottom: 10, bend_pitch: false };
                 let m = Metrics::new(1.0, true, 6).with_page(&page);
                 let (w, h) = page.size_mm();
                 assert!((m.page_w - w * MM).abs() < 0.01 && (m.page_h - h * MM).abs() < 0.01);

@@ -346,7 +346,7 @@ fn the_page_setup_goes_out_and_comes_back() {
     for page in [
         PageSetup::default(),
         PageSetup { paper: Paper::Letter, ..PageSetup::default() },
-        PageSetup { paper: Paper::Legal, landscape: true, margin_left: 5, margin_right: 25, margin_top: 20, margin_bottom: 8 },
+        PageSetup { paper: Paper::Legal, landscape: true, margin_left: 5, margin_right: 25, margin_top: 20, margin_bottom: 8, bend_pitch: false },
         PageSetup { paper: Paper::A5, margin_left: 0, margin_right: 0, margin_top: 0, margin_bottom: 0, ..PageSetup::default() },
     ] {
         s.page = page;

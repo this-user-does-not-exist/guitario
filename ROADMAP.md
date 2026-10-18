@@ -1,8 +1,8 @@
 # Guitario roadmap
 
-**Stage: alpha** · next: beta, ~520–1,025 h away · then 1.0 (full parity), ~690–1,350 h further
+**Stage: alpha** · next: beta, ~515–1,010 h away · then 1.0 (full parity), ~690–1,350 h further
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (Paste Special, All-Track Copy/Cut, Check Bar Durations window: menus 165/179, editing 68 %, beta ~520–1,025 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (editing beta work done: Unset, bend pitches in notation; beta ~515–1,010 h) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [roadmap](docs/roadmap.md) (stages, gates, current focus), [target-app parity](docs/target-app-parity.md)
@@ -24,8 +24,8 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | Menus | 165 of 179 live (92 %) | measured |
 | Feature breadth | **~63 %** | partly measured: weights in [target-app parity](docs/target-app-parity.md#feature-breadth-63-weighted) |
 | Readiness | **~56 %** (50–62) | estimated: weighted dimension average |
-| Remaining to **beta** | **~520–1,025 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
-| Remaining to **full parity** | **~1,210–2,375 h** | beta plus the 1.0 column |
+| Remaining to **beta** | **~515–1,010 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
+| Remaining to **full parity** | **~1,205–2,360 h** | beta plus the 1.0 column |
 
 ## Stages
 
@@ -52,7 +52,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 
 | Dimension | Weight | % ready | Beta h | Doc |
 |---|---:|---:|---:|---|
-| Editing | 20% | 68% | 20–45 | [scorecard](docs/scorecard.md#editing) |
+| Editing | 20% | 70% | 15–30 | [scorecard](docs/scorecard.md#editing) |
 | Notation | 15% | 74% | 6–22 | [scorecard](docs/scorecard.md#notation-and-engraving) |
 | Playback | 15% | 42% | 150–300 | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 10% | 56% | 65–120 | [file-format-parity](docs/file-format-parity.md) |
@@ -73,11 +73,10 @@ Ranked for the beta gate; the reasoning and the human steps are in [docs/roadmap
 
 | Rank | Work | Gap | Beta hours |
 |---|---|---|---:|
-| 1 | Unset, bends through ties in GP3-5, quarter tones (bends, whammy and Paste Special landed 2026-10-17) | [G6](docs/gaps.md#g6-editing-depth) | 5–15 |
-| 2 | MIDI and MusicXML import and export, Guitar Pro 6 drums | [G3](docs/gaps.md#g3-guitar-pro-exchange) | 55–100 |
-| 3 | Chord window, scale tool, tuner | [G7](docs/gaps.md#g7-tools) | 55–100 |
-| 4 | Sound: articulations, amp, cabinet, reverb, first-run sound bank | [G5](docs/gaps.md#g5-playback-realism) | 150–300 |
-| 5 | Release workflow, installers, file associations | [G12](docs/gaps.md#g12-platforms-and-distribution) | 80–150 + human |
-| 6 | Several documents, shortcuts audit, user book | [G8](docs/gaps.md#g8-ui-depth) | 60–110 |
-| 7 | Drum step grid, headers and footers, voice picking | [G1](docs/gaps.md#g1-drums-depth), [G2](docs/gaps.md#g2-print-depth), [G4](docs/gaps.md#g4-notation-depth) | 30–70 |
+| 1 | MIDI and MusicXML import and export, Guitar Pro 6 drums (editing's beta work finished 2026-10-17) | [G3](docs/gaps.md#g3-guitar-pro-exchange) | 55–100 |
+| 2 | Chord window, scale tool, tuner | [G7](docs/gaps.md#g7-tools) | 55–100 |
+| 3 | Sound: articulations, amp, cabinet, reverb, first-run sound bank | [G5](docs/gaps.md#g5-playback-realism) | 150–300 |
+| 4 | Release workflow, installers, file associations | [G12](docs/gaps.md#g12-platforms-and-distribution) | 80–150 + human |
+| 5 | Several documents, shortcuts audit, user book | [G8](docs/gaps.md#g8-ui-depth) | 60–110 |
+| 6 | Drum step grid, headers and footers, voice picking | [G1](docs/gaps.md#g1-drums-depth), [G2](docs/gaps.md#g2-print-depth), [G4](docs/gaps.md#g4-notation-depth) | 30–70 |
 | 8 | Control channel and MCP, fuzzing, CI budgets, localization framework | [G10](docs/gaps.md#g10-automation), [G11](docs/gaps.md#g11-reliability-depth), [G9](docs/gaps.md#g9-performance-budgets), [G13](docs/gaps.md#g13-languages) | 85–175 |

@@ -68,11 +68,15 @@ pub struct PageSetup {
     pub margin_right: u8,
     pub margin_top: u8,
     pub margin_bottom: u8,
+    /// Standard notation shows the pitch a bend reaches: a small note after the bent one, slurred
+    /// to it (off in Guitar Pro's default stylesheet).
+    #[serde(default)]
+    pub bend_pitch: bool,
 }
 
 impl Default for PageSetup {
     fn default() -> Self {
-        PageSetup { paper: Paper::A4, landscape: false, margin_left: 10, margin_right: 10, margin_top: 15, margin_bottom: 12 }
+        PageSetup { paper: Paper::A4, landscape: false, margin_left: 10, margin_right: 10, margin_top: 15, margin_bottom: 12, bend_pitch: false }
     }
 }
 

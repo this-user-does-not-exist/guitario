@@ -20,6 +20,7 @@ impl PageSetupDialog {
         json!({
             "paper": d.paper.name().to_lowercase(), "landscape": d.landscape,
             "marginLeft": d.margin_left, "marginRight": d.margin_right, "marginTop": d.margin_top, "marginBottom": d.margin_bottom,
+            "bendPitch": d.bend_pitch,
         })
     }
 }
@@ -96,6 +97,7 @@ impl GuitarioApp {
                 sheet(ui, d);
             });
             ui.add_space(6.0);
+            ui.checkbox(&mut d.bend_pitch, "Show the pitch bends reach in standard notation");
             match &problem {
                 Some(why) => {
                     ui.colored_label(Color32::from_rgb(0xff, 0x7a, 0x6a), why);

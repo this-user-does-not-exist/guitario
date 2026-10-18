@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (Paste Special landed; focus item 1 is the last beta editing items) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (editing beta work done; focus item 1 is MIDI and MusicXML) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -14,7 +14,7 @@ for one agent working sequentially, and an upper bound (see
 [calibration](target-app-parity.md#calibration)).
 
 **Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
-today; ~520–1,025 h of work are left, ordered under [Current focus](#current-focus).
+today; ~515–1,010 h of work are left, ordered under [Current focus](#current-focus).
 
 ## Stages
 
@@ -110,24 +110,21 @@ issue assigned to you. Work in **batches**: one pull request, one slice of a gap
 and a snapshot where it is visible. The order puts what an agent can fully verify first and
 what needs a human ear or signing material last, so the human steps overlap with other work.
 
-1. **Unset, bends through ties in Guitar Pro 3-5, quarter tones** ([G6](gaps.md#g6-editing-depth)):
-   the last beta editing items (#332, #437, #438). The bend editor, the whammy bar and Paste
-   Special landed 2026-10-17. 5–15 h.
-2. **MIDI and MusicXML** ([G3](gaps.md#g3-guitar-pro-exchange)): import and export, Guitar Pro 6
-   drum hits. 55–100 h.
-3. **Chord window, scale tool, tuner** ([G7](gaps.md#g7-tools)): the first two are pure theory and
+1. **MIDI and MusicXML** ([G3](gaps.md#g3-guitar-pro-exchange)): import and export, Guitar Pro 6
+   drum hits. 55–100 h. (G6, editing, has no beta work left since 2026-10-17.)
+2. **Chord window, scale tool, tuner** ([G7](gaps.md#g7-tools)): the first two are pure theory and
    UI; the tuner needs audio input. 55–100 h.
-4. **Sound** ([G5](gaps.md#g5-playback-realism)): articulation mapping and legato, then amp,
+3. **Sound** ([G5](gaps.md#g5-playback-realism)): articulation mapping and legato, then amp,
    cabinet, reverb and delay, then the first-run sound bank install. A listening pass closes it.
    150–300 h.
-5. **Release workflow and packages** ([G12](gaps.md#g12-platforms-and-distribution)): tag to
+4. **Release workflow and packages** ([G12](gaps.md#g12-platforms-and-distribution)): tag to
    artifacts for three platforms, an app bundle with file associations; signing waits on accounts.
    80–150 h + human.
-6. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 60–110 h.
-7. **Drum step grid and articulations** ([G1](gaps.md#g1-drums-depth)); **headers, footers,
+5. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 60–110 h.
+6. **Drum step grid and articulations** ([G1](gaps.md#g1-drums-depth)); **headers, footers,
    selected bars** ([G2](gaps.md#g2-print-depth)); **voice picking** ([G4](gaps.md#g4-notation-depth)).
    30–70 h.
-8. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
+7. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
    cache** ([G11](gaps.md#g11-reliability-depth), [G9](gaps.md#g9-performance-budgets)); **the
    localization framework** ([G13](gaps.md#g13-languages)). 85–175 h.
 
@@ -170,6 +167,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-17 | minor | Unset and bend pitches in notation landed: editing has no beta work left, focus item 1 is MIDI and MusicXML; beta ~515–1,010 h |
 | 2026-10-17 | minor | Paste Special, All-Track Copy/Cut and the Check Bar Durations window landed: focus item 1 is the last beta editing items; beta ~520–1,025 h |
 | 2026-10-17 | minor | The whammy bar landed: focus item 1 is now Paste Special; beta ~530–1,045 h |
 | 2026-10-17 | minor | Bend curves and the Bend window landed: focus item 1 is now the whammy bar and Paste Special; beta ~540–1,060 h |

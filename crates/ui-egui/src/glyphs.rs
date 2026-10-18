@@ -20,6 +20,9 @@ pub const DOT: char = '\u{E1E7}';
 pub const FLAT: char = '\u{E260}';
 pub const NATURAL: char = '\u{E261}';
 pub const SHARP: char = '\u{E262}';
+/// Sharp by a quarter tone, and by three quarters (Stein-Zimmermann).
+pub const QUARTER_SHARP: char = '\u{E282}';
+pub const THREE_QUARTER_SHARP: char = '\u{E283}';
 pub const ACCENT_ABOVE: char = '\u{E4A0}';
 pub const STACCATO_ABOVE: char = '\u{E4A2}';
 /// articMarcatoAbove / Below: the heavy accent.

@@ -211,6 +211,15 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   bars. Tools › Check Bar Durations (F4) opens a window listing the track, bar and voice of every
   bar that does not fill its time signature, too short or too long in quarters; a click puts the
   cursor there and Check Again reruns it. The menu catalog gains GP8's All-Track Copy and Cut.
+- **Landed 2026-10-17:** `edit.unset` (`unset.rs`), the command palette's "unset": one effect by name
+  (any note or beat effect, ties, dead notes, chords, text, dynamics, slurs, beams), `effects` for
+  every effect, or `all`, from the selection or the cursor's beat in one undo step. The stylesheet
+  option "show the pitch bends reach" (`PageSetup.bend_pitch`, `score.setPage bendPitch`, a check
+  box in Page Setup; off as in Guitar Pro's default): standard notation draws a small head at the
+  bend's peak after the bent note, slurred to it, with its accidental, or a quarter-tone sharp for
+  an odd number of quarter tones (`snapshot --bends --bend-pitch`). A bend held or let down
+  through ties already played and drew as Guitar Pro does; a test now proves Guitar Pro 5 keeps
+  it.
 ### G7. Tools
 - **Landed 2026-10-16:** Tools › Chord Diagrams…: a clickable diagram for the beat under the
   cursor (fingers, open and muted strings, first fret), filled from the beat's notes and named by a

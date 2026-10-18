@@ -201,7 +201,7 @@ mod tests {
         use crate::{PageSetup, Paper};
         let mut s = Score::new();
         assert_eq!(s.page, PageSetup::default());
-        s.page = PageSetup { paper: Paper::Letter, landscape: true, margin_left: 0, margin_right: 0, margin_top: 0, margin_bottom: 0 };
+        s.page = PageSetup { paper: Paper::Letter, landscape: true, margin_left: 0, margin_right: 0, margin_top: 0, margin_bottom: 0, bend_pitch: false };
         assert_eq!(s.validate(), Ok(()));
         // A margin wider than allowed.
         s.page = PageSetup { margin_left: 61, ..PageSetup::default() };

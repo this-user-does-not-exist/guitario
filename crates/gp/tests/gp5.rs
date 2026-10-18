@@ -322,7 +322,7 @@ fn the_page_setup_goes_out_and_comes_back() {
     for page in [
         PageSetup::default(),
         PageSetup { paper: Paper::Letter, ..PageSetup::default() },
-        PageSetup { paper: Paper::Legal, landscape: true, margin_left: 5, margin_right: 25, margin_top: 20, margin_bottom: 8 },
+        PageSetup { paper: Paper::Legal, landscape: true, margin_left: 5, margin_right: 25, margin_top: 20, margin_bottom: 8, bend_pitch: false },
         PageSetup { paper: Paper::A5, margin_left: 0, margin_right: 0, margin_top: 0, margin_bottom: 0, ..PageSetup::default() },
     ] {
         s.page = page;
@@ -330,4 +330,31 @@ fn the_page_setup_goes_out_and_comes_back() {
         assert_eq!(back.page, page);
         assert!(export_warnings.is_empty() && import_warnings.is_empty(), "{export_warnings:?} {import_warnings:?}");
     }
+}
+
+#[test]
+fn a_bend_held_through_a_tie_survives_guitar_pro_5() {
+    let mut s = Score::new();
+    let mut head = Note::new(1, 7);
+    head.effects.bend = Some(Bend::to(4));
+    let mut tail = Note::new(1, 7);
+    tail.kind = NoteKind::Tie;
+    tail.effects.bend = Some(Bend::preset(BendKind::Hold, 4));
+    let mut back_down = Note::new(1, 7);
+    back_down.kind = NoteKind::Tie;
+    back_down.effects.bend = Some(Bend::preset(BendKind::Release, 4));
+    let beat = |n: Note| Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::QUARTER) };
+    s.tracks[0].measures[0].voices[0].beats = vec![beat(head), beat(tail), beat(back_down), Beat::rest(Duration::QUARTER)];
+    let (back, export_warnings, import_warnings) = round_trip(&s);
+    assert!(export_warnings.is_empty() && import_warnings.is_empty(), "{export_warnings:?} {import_warnings:?}");
+    let notes: Vec<(NoteKind, Option<Bend>)> =
+        back.tracks[0].measures[0].voices[0].beats.iter().take(3).map(|b| (b.notes[0].kind, b.notes[0].effects.bend)).collect();
+    assert_eq!(
+        notes,
+        vec![
+            (NoteKind::Normal, Some(Bend::to(4))),
+            (NoteKind::Tie, Some(Bend::preset(BendKind::Hold, 4))),
+            (NoteKind::Tie, Some(Bend::preset(BendKind::Release, 4)))
+        ]
+    );
 }

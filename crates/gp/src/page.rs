@@ -114,7 +114,15 @@ mod tests {
         for paper in Paper::ALL {
             for landscape in [false, true] {
                 for margins in [(10, 10, 15, 12), (5, 25, 20, 8), (0, 0, 0, 0), (30, 30, 30, 30)] {
-                    let page = PageSetup { paper, landscape, margin_left: margins.0, margin_right: margins.1, margin_top: margins.2, margin_bottom: margins.3 };
+                    let page = PageSetup {
+                        paper,
+                        landscape,
+                        margin_left: margins.0,
+                        margin_right: margins.1,
+                        margin_top: margins.2,
+                        margin_bottom: margins.3,
+                        bend_pitch: false,
+                    };
                     if page.check().is_err() {
                         continue;
                     }

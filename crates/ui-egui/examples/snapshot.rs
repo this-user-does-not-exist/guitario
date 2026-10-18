@@ -201,6 +201,10 @@ fn main() {
     if let Some(paper) = value("--paper") {
         run(&mut session, "score.setPage", json!({"paper": paper}));
     }
+    // `--bend-pitch`: the stylesheet shows the pitch bends reach in standard notation.
+    if args.iter().any(|a| a == "--bend-pitch") {
+        run(&mut session, "score.setPage", json!({"bendPitch": true}));
+    }
     if args.iter().any(|a| a == "--landscape") {
         run(&mut session, "score.setPage", json!({"landscape": true}));
     }
