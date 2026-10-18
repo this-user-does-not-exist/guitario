@@ -319,6 +319,17 @@ fn main() {
     if args.iter().any(|a| a == "--chord") {
         app.open_chord();
     }
+    // `--chord-built`: the Chord window building the manual's example, D#m7add11.
+    if args.iter().any(|a| a == "--chord-built") {
+        app.open_chord();
+        let spec = guitario_theory::ChordSpec {
+            root: 3,
+            kind: guitario_theory::ChordType::MinorSeventh,
+            extension: guitario_theory::Extension::Add11,
+            ..Default::default()
+        };
+        app.build_chord(spec);
+    }
     if args.iter().any(|a| a == "--lyrics") {
         app.open_lyrics();
     }

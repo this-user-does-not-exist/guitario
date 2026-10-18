@@ -328,6 +328,7 @@ fn transposed(track: &guitario_score::Track, semitones: i64) -> Result<(guitario
     let mut copy = track.clone();
     let (max, capo) = (i64::from(copy.max_fret()), i64::from(copy.capo));
     let open: Vec<i64> = copy.tuning.strings.iter().map(|p| i64::from(*p)).collect();
+    let (strings, capo_fret) = (copy.tuning.strings.clone(), copy.capo);
     let place = |pitch: i64, string: usize| -> Option<i64> {
         let fret = pitch - open.get(string).copied()? - capo;
         (0..=max).contains(&fret).then_some(fret)
@@ -335,6 +336,9 @@ fn transposed(track: &guitario_score::Track, semitones: i64) -> Result<(guitario
     let off = || "a note would leave the fretboard".to_string();
     let mut count = 0usize;
     for beat in copy.measures.iter_mut().flat_map(|m| m.voices.iter_mut()).flat_map(|v| v.beats.iter_mut()) {
+        if let Some(chord) = beat.chord.as_mut() {
+            crate::chords::transpose_chord(chord, semitones as i16, &strings, capo_fret);
+        }
         let pitches: Vec<i64> =
             beat.notes.iter().map(|n| open.get(usize::from(n.string)).copied().unwrap_or(0) + i64::from(n.fret) + capo + semitones).collect();
         // Pass 1: notes that stay on their string. Pass 2: the others find a free string.

@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G3: MIDI import, MusicXML, GP6 drums; beta ~460–910 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G7: the Chord window; beta ~440–875 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -23,7 +23,7 @@ Ranked by user impact on the way to beta.
 | 1 | [G5](#g5-playback-realism) Playback realism | articulated samples, amp, cabinet, reverb and delay, first-run sound bank | 150–300 | pedalboard, mastering, audio track, MP3/OGG | 130–260 |
 | 2 | [G6](#g6-editing-depth) Editing depth | done | 0 | nested tuplets, ornaments, assistants, tuning window | 80–160 |
 | 3 | [G3](#g3-guitar-pro-exchange) Exchange | `.gp` checked in Guitar Pro (human) | 0 + human | PowerTab, TablEdit, `.gtp`, ASCII import, `.gpx` export | 90–180 |
-| 4 | [G7](#g7-tools) Tools | tuner, chord window, scale tool | 55–100 | line in, MIDI capture, command palette | 70–130 |
+| 4 | [G7](#g7-tools) Tools | tuner, scale tool | 35–65 | line in, MIDI capture, command palette | 70–130 |
 | 5 | [G12](#g12-platforms-and-distribution) Platforms | signed releases on three platforms, file associations, release workflow | 80–150 + human | browser build, update check | 30–60 |
 | 6 | [G8](#g8-ui-depth) UI depth | several documents, shortcuts audit, user book, click-to-edit, track EQ and master | 60–110 | stylesheet window, floating panels, accessibility | 70–130 |
 | 7 | [G1](#g1-drums-depth) Drums | step-grid editor, articulations | 15–30 | kit map editing, drum mix, sampled-kit articulations | 15–30 |
@@ -33,9 +33,9 @@ Ranked by user impact on the way to beta.
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~460–910 h** | | **~690–1,350 h** |
+| | **Total** | | **~440–875 h** | | **~690–1,350 h** |
 
-Beta plus after-beta is **~1,150–2,260 h** to full parity.
+Beta plus after-beta is **~1,130–2,225 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -87,16 +87,17 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 
 ### G7. Tools
 - **Beta:** a tuner: audio input in `crates/audio` (#134) and a pitch detector within ±2 cents
-  (#135); the chord window: build a chord from root, type, extension and alterations, list its
-  voicings by difficulty, fill from the notes under the cursor (#136, #316 to 323); the scale tool
+  (#135); the scale tool
   with scales on the fretboard and keyboard views and "find scales in a selection" (#138, #306,
   #333).
 - **After beta:** Line In through the amp (#140, #487), MIDI capture (#339), Command Palette and
   Action List (#324 to 331), Expression Text (#330), scale diagrams in the score (#334), Fretlight
-  (#341).
-- **Landed:** chord diagram editor and namer, see the [changelog](changelog.md).
-- **Evidence:** TOOL-2/3/4 (beta), TOOL-5/6 (1.0).
-- **Estimate:** 55–100 h beta, 70–130 h after.
+  (#341), the chord window's display options and fingering in the score (#318, #319), literal
+  names with an apostrophe (#320).
+- **Landed:** chord diagram editor and namer; the Chord window (2026-10-18); see the
+  [changelog](changelog.md).
+- **Evidence:** TOOL-2/4 (beta), TOOL-5/6 (1.0); TOOL-3 is done.
+- **Estimate:** 35–65 h beta, 75–140 h after.
 
 ### G12. Platforms and distribution
 - **Beta:** a release workflow from a tag (#179); a signed, notarized macOS app bundle (#176), a
@@ -205,6 +206,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | G7: the Chord window (55–100 h to 35–65 h beta) |
 | 2026-10-18 | minor | G3: Guitar Pro 6 drum hits; no agent beta work left (5–15 h to 0) |
 | 2026-10-18 | minor | G3: MusicXML import and export (40–80 h to 5–15 h beta) |
 | 2026-10-18 | minor | G3: MIDI import (55–100 h to 40–80 h beta) |

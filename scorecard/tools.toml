@@ -19,9 +19,9 @@ note = "needs audio input in crates/audio (issue 134) and a pitch detector; the 
 [[item]]
 id = "TOOL-3"
 target = "Chord window: build a chord from root, type, extension and alterations, and list its voicings by difficulty"
-status = "missing"
+status = "done"
 stage = "beta"
-note = "the namer goes notes to name; the dictionary goes name to every voicing (issues 316, 317)"
+note = "Note › Chord… (A) in Guitar Pro 8's layout (chord_dialog.rs): root and spelling, 17 types, extensions 9/11/13 and add9/11/13, altered 5th/9th/11th/13th, bass or inversion, omissions; main diagram with fingering, notes and root highlight, play button; alternatives from guitario_theory::voicings (any tuning and string count, capo, five-fret stretch, barres, four fingers) easiest first; chord.build; built chords keep their structure (Chord.built) and transpose with track.transpose and edit.transpose. Not yet: chord display options and fingering in the score's diagrams (issues 318, 319), Guitar Pro exchange of the fingering"
 
 [[item]]
 id = "TOOL-4"

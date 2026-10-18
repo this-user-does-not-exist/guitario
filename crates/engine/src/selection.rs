@@ -146,7 +146,12 @@ fn transpose(s: &mut Session, semis: i16) -> Result<Value, EngineError> {
         // On a drum track the number is the instrument: transposing would swap the kit pieces.
         return Err(EngineError::invalid("drum hits can't be transposed"));
     }
+    let (strings, capo) = s.score.tracks.get(s.cursor.track).map(|t| (t.tuning.strings.clone(), t.capo)).unwrap_or_default();
     let shift = |b: &mut Beat| -> Result<(), EngineError> {
+        // A chord built in the Chord window moves with its notes.
+        if let Some(chord) = b.chord.as_mut() {
+            crate::chords::transpose_chord(chord, semis, &strings, capo);
+        }
         for n in &mut b.notes {
             let f = i16::from(n.fret) + semis;
             if !(0..=36).contains(&f) {

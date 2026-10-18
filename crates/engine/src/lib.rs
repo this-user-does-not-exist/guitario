@@ -32,6 +32,7 @@ mod voices;
 mod whammy;
 
 pub use bars::direction_targets;
+pub use chords::spec_json;
 pub use clipboard::{Clip, TrackBars};
 pub use commands::{CommandSpec, registry};
 pub use error::EngineError;

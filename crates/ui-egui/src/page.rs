@@ -2540,7 +2540,7 @@ mod tests {
         let named = one_note(guitario_theory::NoteValue::Quarter, |b| b.chord = Some(Chord::named("A5")));
         // A5: x 0 2 2 x x from the low string; three dots would be a barre, two are not.
         let a5 = one_note(guitario_theory::NoteValue::Quarter, |b| {
-            b.chord = Some(Chord { name: "A5".into(), frets: vec![None, None, Some(2), Some(2), Some(0), None], first_fret: 1 })
+            b.chord = Some(Chord { name: "A5".into(), frets: vec![None, None, Some(2), Some(2), Some(0), None], first_fret: 1, ..Chord::default() })
         });
         // Each diagram is drawn twice: over its beat and in the chord list under the title.
         assert_eq!(texts(&a5, true, "A5"), 2);
@@ -2550,13 +2550,13 @@ mod tests {
         assert_eq!(circles(&a5), circles(&named) + 2 * 3);
         // Up the neck: the first fret is written and there is no nut; a barre joins its strings.
         let barre = one_note(guitario_theory::NoteValue::Quarter, |b| {
-            b.chord = Some(Chord { name: "D".into(), frets: vec![Some(5), Some(7), Some(7), Some(7), Some(5), None], first_fret: 5 })
+            b.chord = Some(Chord { name: "D".into(), frets: vec![Some(5), Some(7), Some(7), Some(7), Some(5), None], first_fret: 5, ..Chord::default() })
         });
         assert_eq!(texts(&barre, true, "5fr"), 2);
         assert_eq!(lines(&barre, true), lines(&named, true) + 2 * (6 + 5 + 2 + 1), "grid, one x mark, the barre");
         // An open D is fingered: no barre although fret 2 is held on both sides of the third fret.
         let open_d = one_note(guitario_theory::NoteValue::Quarter, |b| {
-            b.chord = Some(Chord { name: "D".into(), frets: vec![Some(2), Some(3), Some(2), Some(0), None, None], first_fret: 1 })
+            b.chord = Some(Chord { name: "D".into(), frets: vec![Some(2), Some(3), Some(2), Some(0), None, None], first_fret: 1, ..Chord::default() })
         });
         assert_eq!(lines(&open_d, true), lines(&named, true) + 2 * (6 + 5 + 1 + 2 * 2), "grid, nut, two x marks");
     }
@@ -2564,8 +2564,8 @@ mod tests {
     #[test]
     fn the_chord_list_names_each_distinct_diagram_once_under_the_title() {
         use guitario_score::Chord;
-        let e5 = Chord { name: "E5".into(), frets: vec![None, None, None, Some(2), Some(2), Some(0)], first_fret: 1 };
-        let a5 = Chord { name: "A5".into(), frets: vec![None, None, Some(2), Some(2), Some(0), None], first_fret: 1 };
+        let e5 = Chord { name: "E5".into(), frets: vec![None, None, None, Some(2), Some(2), Some(0)], first_fret: 1, ..Chord::default() };
+        let a5 = Chord { name: "A5".into(), frets: vec![None, None, Some(2), Some(2), Some(0), None], first_fret: 1, ..Chord::default() };
         let note = |fret: u8, chord: &Chord| Beat { rest: false, notes: vec![Note::new(5, fret)], chord: Some(chord.clone()), ..Beat::rest(Duration::QUARTER) };
         let mut s = Score::new();
         s.tracks[0].measures[0].voices[0].beats = vec![note(0, &e5), note(5, &a5), note(0, &e5), note(5, &a5)];

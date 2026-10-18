@@ -96,7 +96,7 @@ pub fn riff() -> Score {
     dead.effects.ghost = true;
     let note = |notes: Vec<Note>, d: Duration| Beat { rest: false, notes, ..Beat::rest(d) };
     let mut chord = note(vec![Note::new(3, 2), Note::new(4, 0), Note::new(5, 0)], Duration::QUARTER);
-    chord.chord = Some(Chord { name: "D5".into(), frets: vec![None, None, None, Some(2), Some(0), Some(0)], first_fret: 1 });
+    chord.chord = Some(Chord { name: "D5".into(), frets: vec![None, None, None, Some(2), Some(0), Some(0)], first_fret: 1, ..Chord::default() });
     chord.dynamic = Dynamic::Ff;
     chord.brush = Some(Brush { kind: BrushKind::Brush, down: true, ticks: TICKS_PER_QUARTER / 4 });
     chord.text = Some("let it ring".into());

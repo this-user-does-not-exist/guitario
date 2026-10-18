@@ -230,7 +230,7 @@ fn a_grace_beat_with_nothing_to_ornament_is_reported() {
 #[test]
 fn chords_are_listed_once_per_track_with_frets_from_their_base_fret() {
     let mut s = riff();
-    let barre = Chord { name: "D <5> & \"x\"".into(), frets: vec![Some(5), Some(7), Some(7), Some(7), Some(5), None], first_fret: 5 };
+    let barre = Chord { name: "D <5> & \"x\"".into(), frets: vec![Some(5), Some(7), Some(7), Some(7), Some(5), None], first_fret: 5, ..Chord::default() };
     let named = Chord::named("N.C.");
     let beats = &mut s.tracks[0].measures[0].voices[0].beats;
     beats[1].chord = Some(barre.clone());

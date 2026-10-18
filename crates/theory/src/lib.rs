@@ -2,12 +2,14 @@
 //!
 //! Everything here is pure data with no workspace dependencies, so every other crate can use it.
 
+mod chord_build;
 mod chords;
 pub mod drums;
 mod duration;
 mod pitch;
 mod tuning;
 
+pub use chord_build::{Alteration, ChordSpec, ChordTone, ChordType, Extension, Voicing, fingering, voicings};
 pub use chords::{chord_name, pitch_class_name};
 pub use duration::{Duration, NoteValue, TICKS_PER_QUARTER, TimeSignature};
 pub use pitch::{Pitch, note_name};

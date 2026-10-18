@@ -995,7 +995,7 @@ mod tests {
         let before = first_y(&s, &base);
         assert_eq!(base.chord_list_h(), 0.0);
         // Sixty distinct diagrams: the list stops at MAX_CHORD_LIST and wraps into rows.
-        let chord = |i: u8| Chord { name: format!("C{i}"), frets: vec![Some(i % 20), None, None, None, None, None], first_fret: 1 };
+        let chord = |i: u8| Chord { name: format!("C{i}"), frets: vec![Some(i % 20), None, None, None, None, None], first_fret: 1, ..Chord::default() };
         s.tracks[0].measures[0].voices[0].beats =
             (0..60).map(|i| Beat { rest: false, notes: vec![Note::new(0, 0)], chord: Some(chord(i)), ..Beat::rest(Duration::QUARTER) }).collect();
         let listed = chord_list(&s.tracks[0]);
@@ -1029,7 +1029,7 @@ mod tests {
         let names = named(&s);
         assert!(names.annotations && !names.diagrams && names.lane_above() > plain.lane_above());
         s.tracks[0].measures[0].voices[0].beats[0].chord =
-            Some(Chord { name: "E5".into(), frets: vec![None, None, None, Some(2), Some(2), Some(0)], first_fret: 1 });
+            Some(Chord { name: "E5".into(), frets: vec![None, None, None, Some(2), Some(2), Some(0)], first_fret: 1, ..Chord::default() });
         let m = named(&s);
         assert!(m.diagrams && m.lane_above() > names.lane_above() && m.chord_name_above() > names.chord_name_above());
         let pages = layout(&s, 0, &m);

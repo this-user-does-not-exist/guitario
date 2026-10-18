@@ -1114,7 +1114,7 @@ impl Parser<'_> {
 fn chord_of(name: String, first_fret: i32, frets: &[i32]) -> Option<Chord> {
     let name = name.trim().to_string();
     let frets = frets.iter().map(|f| u8::try_from(*f).ok().filter(|f| *f <= 36)).collect();
-    let chord = Chord { name, frets, first_fret: u8::try_from(first_fret.clamp(1, 36)).unwrap_or(1) };
+    let chord = Chord { name, frets, first_fret: u8::try_from(first_fret.clamp(1, 36)).unwrap_or(1), ..Chord::default() };
     (!chord.name.is_empty() || chord.frets.iter().any(Option::is_some)).then_some(chord)
 }
 

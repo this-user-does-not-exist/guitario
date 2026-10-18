@@ -1015,15 +1015,29 @@ pub struct Chord {
     /// The fret the diagram starts at (1 is the nut).
     #[serde(default = "first_fret")]
     pub first_fret: u8,
+    /// The finger on each string of the diagram (1 index to 4 little, 0 the thumb), highest string
+    /// first; empty when no fingering is set.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fingers: Vec<Option<u8>>,
+    /// How the Chord window built it (root, type, extension …): a built chord keeps its structure
+    /// when transposed. `None` for a chord that is only named.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub built: Option<guitario_theory::ChordSpec>,
 }
 
 fn first_fret() -> u8 {
     1
 }
 
+impl Default for Chord {
+    fn default() -> Self {
+        Chord { name: String::new(), frets: Vec::new(), first_fret: 1, fingers: Vec::new(), built: None }
+    }
+}
+
 impl Chord {
     pub fn named(name: impl Into<String>) -> Chord {
-        Chord { name: name.into(), frets: Vec::new(), first_fret: 1 }
+        Chord { name: name.into(), ..Chord::default() }
     }
 }
 

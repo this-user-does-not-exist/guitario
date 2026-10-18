@@ -237,6 +237,12 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   through ties already played and drew as Guitar Pro does; a test now proves Guitar Pro 5 keeps
   it.
 ### G7. Tools
+- **Landed 2026-10-18:** the Chord window (Note › Chord…, `A`, in Guitar Pro 8's layout): build a
+  chord from root, type, extension, altered 5th/9th/11th/13th, bass or inversion and omitted
+  tones; every diagram that plays it on the track's tuning (any string count, capo), fingered
+  with barres and sorted by difficulty (`guitario_theory::voicings`, `chord.build`); a play button;
+  built chords keep their structure and transpose. Guitar Pro 8's shortcuts for accents (`;` and
+  `:`) replace `A`, which opens the window.
 - **Landed 2026-10-16:** Tools › Chord Diagrams…: a clickable diagram for the beat under the
   cursor (fingers, open and muted strings, first fret), filled from the beat's notes and named by a
   chord namer (`guitario_theory::chord_name`: triads, power chords, sixths, sevenths, ninths,
