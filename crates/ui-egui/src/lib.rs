@@ -172,6 +172,8 @@ enum Pending {
     Close,
     New,
     OpenDialog,
+    /// File › Import: a dialog that shows one kind of file (its name and extensions).
+    ImportDialog(&'static str, &'static [&'static str]),
     OpenPath(String),
     /// A command that replaces the document (a template, an example).
     Start(&'static str, Value),
@@ -372,6 +374,11 @@ impl GuitarioApp {
                 }
             }
             Pending::OpenDialog => self.open_dialog_now(),
+            Pending::ImportDialog(name, kinds) => {
+                if let Some(p) = rfd::FileDialog::new().add_filter(name, kinds).pick_file() {
+                    self.open_path_now(&p.display().to_string());
+                }
+            }
             Pending::OpenPath(p) => self.open_path_now(&p),
             Pending::Start(id, params) => {
                 if self.run(id, params).is_some() {
@@ -441,6 +448,7 @@ impl GuitarioApp {
             U::ChordDiagrams => self.open_chord(),
             U::Lyrics => self.open_lyrics(),
             U::ImportGuitarPro => self.open_dialog(),
+            U::ImportMidi => self.guard(Pending::ImportDialog("MIDI", &guitario_engine::MIDI_EXTENSIONS)),
             U::Quit => ctx_quit(),
             U::SongInfo => {
                 self.panels.inspector = true;
@@ -660,7 +668,11 @@ impl GuitarioApp {
     fn open_dialog_now(&mut self) {
         let mut kinds = guitario_engine::NATIVE_EXTENSIONS.to_vec();
         kinds.extend(guitario_engine::GUITAR_PRO_EXTENSIONS);
-        let dialog = rfd::FileDialog::new().add_filter("Guitar scores", &kinds).add_filter("Guitar Pro", &guitario_engine::GUITAR_PRO_EXTENSIONS);
+        kinds.extend(guitario_engine::MIDI_EXTENSIONS);
+        let dialog = rfd::FileDialog::new()
+            .add_filter("Guitar scores", &kinds)
+            .add_filter("Guitar Pro", &guitario_engine::GUITAR_PRO_EXTENSIONS)
+            .add_filter("MIDI", &guitario_engine::MIDI_EXTENSIONS);
         if let Some(p) = dialog.pick_file() {
             self.open_path_now(&p.display().to_string());
         }

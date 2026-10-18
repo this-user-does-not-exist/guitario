@@ -11,3 +11,6 @@ workspace = true
 guitario-theory = { workspace = true }
 guitario-score = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+guitario-format = { workspace = true }

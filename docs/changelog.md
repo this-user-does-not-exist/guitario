@@ -41,6 +41,13 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   Keys no longer reach the score while a dialog is open.
 
 ### G3. Guitar Pro exchange
+- **Landed 2026-10-18:** MIDI import (`crates/midi/src/import.rs`, `file.importMidi`, File ›
+  Import › MIDI…, and File › Open on `.mid`/`.midi`): format 0 and 1, a track per MIDI track and
+  channel, channel 10 as drums, tempo, time and key signatures, names, programs, volume and pan;
+  per-quarter quantization that keeps written rhythms exact and finds triplets; chords fingered
+  onto strings near the hand in a tuning that fits the range. Every demo exported to MIDI comes
+  back with 99-100 % of its notes at the same moment (93 % for the technique showcase, whose
+  trills and grace notes MIDI flattens). The MIDI export now writes the title and key signatures.
 - **Landed 2026-10-16:** `.gp5`, `.gp4` and `.gp3` import (`crates/gp/src/legacy.rs`), `.gpx`
   (Guitar Pro 6) import (`gpx.rs`), `.gp5` export (`write5.rs`, File › Export › Guitar Pro 5…) and
   chord names. File › Open tells the format by content. Checked against a local corpus of 39 real

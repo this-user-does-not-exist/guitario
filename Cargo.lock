@@ -1637,6 +1637,7 @@ dependencies = [
 name = "guitario-midi"
 version = "0.1.0"
 dependencies = [
+ "guitario-format",
  "guitario-score",
  "guitario-theory",
  "thiserror 2.0.21",

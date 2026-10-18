@@ -1,8 +1,8 @@
 # Guitario roadmap
 
-**Stage: alpha** · next: beta, ~515–1,010 h away · then 1.0 (full parity), ~690–1,350 h further
+**Stage: alpha** · next: beta, ~500–990 h away · then 1.0 (full parity), ~690–1,350 h further
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (editing beta work done: Unset, bend pitches in notation; beta ~515–1,010 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (MIDI import; beta ~500–990 h) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [roadmap](docs/roadmap.md) (stages, gates, current focus), [target-app parity](docs/target-app-parity.md)
@@ -20,12 +20,12 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 |---|---|---|
 | **Stage** | **alpha** | measured: the [alpha gate](docs/roadmap.md#alpha-gate) passes |
 | **Beta gate** | **0 of 8** workflows pass | measured: [beta gate](docs/roadmap.md#beta-gate) |
-| Scorecard | 49 done, 21 partial, 23 missing; **28 open for beta**, 16 for 1.0 | measured |
-| Menus | 165 of 179 live (92 %) | measured |
+| Scorecard | 50 done, 20 partial, 23 missing; **27 open for beta**, 16 for 1.0 | measured |
+| Menus | 166 of 179 live (93 %) | measured |
 | Feature breadth | **~63 %** | partly measured: weights in [target-app parity](docs/target-app-parity.md#feature-breadth-63-weighted) |
-| Readiness | **~56 %** (50–62) | estimated: weighted dimension average |
-| Remaining to **beta** | **~515–1,010 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
-| Remaining to **full parity** | **~1,205–2,360 h** | beta plus the 1.0 column |
+| Readiness | **~57 %** (50–62) | estimated: weighted dimension average |
+| Remaining to **beta** | **~500–990 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
+| Remaining to **full parity** | **~1,190–2,340 h** | beta plus the 1.0 column |
 
 ## Stages
 
@@ -42,7 +42,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | B1 | Install and open on macOS, Windows, Linux | no | installers, signing, file associations, in-app sound bank |
 | B2 | Hear a band: articulated guitar, bass, sampled drums through an amp | partial | articulations, amp, cabinet, reverb; a listening pass |
 | B3 | Transcribe a solo: bends, whammy, step-grid drums, Paste Special | partial | step grid (bends, whammy and Paste Special are done) |
-| B4 | Exchange: Guitar Pro 3-8, MIDI, MusicXML | partial | MusicXML, MIDI import, a `.gp` opened in Guitar Pro 8 |
+| B4 | Exchange: Guitar Pro 3-8, MIDI, MusicXML | partial | MusicXML, Guitar Pro 6 drums, a `.gp` opened in Guitar Pro 8 (MIDI import is done) |
 | B5 | Practise with the tools | no | tuner, chord window, scale tool |
 | B6 | Print properly | partial | headers and footers, selected bars, a real printer |
 | B7 | Work for hours | partial | several documents, CI budgets, more fuzzing |
@@ -55,7 +55,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | Editing | 20% | 70% | 15–30 | [scorecard](docs/scorecard.md#editing) |
 | Notation | 15% | 74% | 6–22 | [scorecard](docs/scorecard.md#notation-and-engraving) |
 | Playback | 15% | 42% | 150–300 | [scorecard](docs/scorecard.md#playback) |
-| Files and exchange | 10% | 56% | 65–120 | [file-format-parity](docs/file-format-parity.md) |
+| Files and exchange | 10% | 60% | 50–100 | [file-format-parity](docs/file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 75–140 | [ui-parity](docs/ui-parity.md) |
 | Tools | 5% | 8% | 55–100 | [gaps G7](docs/gaps.md#g7-tools) |
 | Stability | 10% | 65% | 15–35 | [scorecard](docs/scorecard.md#reliability) |
@@ -73,7 +73,7 @@ Ranked for the beta gate; the reasoning and the human steps are in [docs/roadmap
 
 | Rank | Work | Gap | Beta hours |
 |---|---|---|---:|
-| 1 | MIDI and MusicXML import and export, Guitar Pro 6 drums (editing's beta work finished 2026-10-17) | [G3](docs/gaps.md#g3-guitar-pro-exchange) | 55–100 |
+| 1 | MusicXML import and export, Guitar Pro 6 drums (MIDI import landed 2026-10-18) | [G3](docs/gaps.md#g3-guitar-pro-exchange) | 40–80 |
 | 2 | Chord window, scale tool, tuner | [G7](docs/gaps.md#g7-tools) | 55–100 |
 | 3 | Sound: articulations, amp, cabinet, reverb, first-run sound bank | [G5](docs/gaps.md#g5-playback-realism) | 150–300 |
 | 4 | Release workflow, installers, file associations | [G12](docs/gaps.md#g12-platforms-and-distribution) | 80–150 + human |

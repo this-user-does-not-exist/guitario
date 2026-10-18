@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (G6 beta done: Unset and bend pitches in notation; beta ~515–1,010 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G3: MIDI import; beta ~500–990 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -22,7 +22,7 @@ Ranked by user impact on the way to beta.
 |---:|---|---|---:|---|---:|
 | 1 | [G5](#g5-playback-realism) Playback realism | articulated samples, amp, cabinet, reverb and delay, first-run sound bank | 150–300 | pedalboard, mastering, audio track, MP3/OGG | 130–260 |
 | 2 | [G6](#g6-editing-depth) Editing depth | done | 0 | nested tuplets, ornaments, assistants, tuning window | 80–160 |
-| 3 | [G3](#g3-guitar-pro-exchange) Exchange | MusicXML both ways, MIDI import, GP6 drums, `.gp` checked in Guitar Pro | 55–100 | PowerTab, TablEdit, `.gtp`, ASCII import, `.gpx` export | 90–180 |
+| 3 | [G3](#g3-guitar-pro-exchange) Exchange | MusicXML both ways, GP6 drums, `.gp` checked in Guitar Pro | 40–80 | PowerTab, TablEdit, `.gtp`, ASCII import, `.gpx` export | 90–180 |
 | 4 | [G7](#g7-tools) Tools | tuner, chord window, scale tool | 55–100 | line in, MIDI capture, command palette | 70–130 |
 | 5 | [G12](#g12-platforms-and-distribution) Platforms | signed releases on three platforms, file associations, release workflow | 80–150 + human | browser build, update check | 30–60 |
 | 6 | [G8](#g8-ui-depth) UI depth | several documents, shortcuts audit, user book, click-to-edit, track EQ and master | 60–110 | stylesheet window, floating panels, accessibility | 70–130 |
@@ -33,9 +33,9 @@ Ranked by user impact on the way to beta.
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~515–1,010 h** | | **~690–1,350 h** |
+| | **Total** | | **~500–990 h** | | **~690–1,350 h** |
 
-Beta plus after-beta is **~1,205–2,360 h** to full parity.
+Beta plus after-beta is **~1,190–2,340 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -72,15 +72,16 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 - **Estimate:** 0 h beta, 80–160 h after.
 
 ### G3. Guitar Pro exchange
-- **Beta:** MusicXML import and export (#24, #25), MIDI import (#26), Guitar Pro 6 drum hits (kit
-  element and variation).
+- **Landed 2026-10-18:** MIDI import; see the [changelog](changelog.md).
+- **Beta:** MusicXML import and export (#24, #25), Guitar Pro 6 drum hits (kit element and
+  variation).
 - **Human:** open a few `.gp` exports in Guitar Pro 8 (#19). The writer follows the importer's
   fixture and 76 real files, but no copy of Guitar Pro was available to open them.
 - **After beta:** ASCII tab import (#27), PowerTab (#28), TablEdit (#29), `.gtp` (#30), `.gpx`
-  export (#256), batch converter (#257, #493), embedded audio (#486), AIFF (#490), the volume and
+  export (#256), a MIDI import options window and pitch bends read as bends, batch converter (#257, #493), embedded audio (#486), AIFF (#490), the volume and
   pan automation round trip in Guitar Pro files (#460).
 - **Evidence:** FILE-2/3/5/6 (beta), FILE-12/13 (1.0).
-- **Estimate:** 55–100 h beta (+ the human check), 90–180 h after.
+- **Estimate:** 40–80 h beta (+ the human check), 90–180 h after.
 
 ### G7. Tools
 - **Beta:** a tuner: audio input in `crates/audio` (#134) and a pitch detector within ±2 cents
@@ -202,6 +203,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | G3: MIDI import (55–100 h to 40–80 h beta) |
 | 2026-10-17 | minor | G6: Unset, bends held through ties checked in Guitar Pro 5, and the pitch bends reach in standard notation: G6 has no beta work left (5–15 h to 0) |
 | 2026-10-17 | minor | G6: paste rules, All-Track Copy and Cut, Paste Special and the Check Bar Durations window landed (15–35 h to 5–15 h beta) |
 | 2026-10-17 | minor | G6: the whammy bar (six shapes or a free curve, the Whammy Bar window, its lane over the tab, playback) and vibrato with the bar landed (25–50 h to 15–35 h beta); G3: whammy dives and bar vibrato read from Guitar Pro 3 to 8 and written to `.gp` and `.gp5` |

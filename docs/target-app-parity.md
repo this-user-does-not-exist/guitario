@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (Unset and bend pitches: editing 70 %, beta ~515–1,010 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (MIDI import: files 60 %, beta ~500–990 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -15,12 +15,12 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 |---|---|---|
 | **Stage** | **alpha** | measured: the [alpha gate](roadmap.md#alpha-gate) passes (two human checks open) |
 | **Beta gate** | **0 of 8 workflows pass** | measured by running them: [beta gate](roadmap.md#beta-gate) |
-| **Scorecard** | 49 done · 21 partial · 23 missing; **28 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
-| **Menu parity** | 165 of 179 items live (92 %) | measured: `cargo xtask parity` |
+| **Scorecard** | 50 done · 20 partial · 23 missing; **27 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
+| **Menu parity** | 166 of 179 items live (93 %) | measured: `cargo xtask parity` |
 | **Feature breadth** (does each Guitar Pro feature exist?) | **~63 %** | partly measured, weights [below](#feature-breadth-63-weighted) |
-| **Readiness** (how deep is each dimension, weighted?) | **~56 %** (range 50–62) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~515–1,010 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~1,205–2,360 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| **Readiness** (how deep is each dimension, weighted?) | **~57 %** (range 50–62) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
+| Remaining to **beta** | **~500–990 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~1,190–2,340 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -66,13 +66,13 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 | Editing | 20% | 70% | 15–30 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends and the whammy bar have curves and editors, Paste Special, All-Track Copy, Unset; no drum step grid (G1) |
 | Notation | 15% | 74% | 6–22 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): all done; voice picking in notation is left |
 | Playback | 15% | 42% | 150–300 | 130–260 | G5 | sampler, mixer and automations in; no articulation samples, amp or effects; checked by tests, not by ear |
-| Files and exchange | 10% | 56% | 65–120 | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
+| Files and exchange | 10% | 60% | 50–100 | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 75–140 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view and homepage match Guitar Pro 8; depth (several documents, preferences, stylesheet) does not |
 | Tools | 5% | 8% | 55–100 | 70–130 | G7 | tuner, chord window, scales, line in |
 | Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
 | Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
 | Platforms and automation | 10% | 25% | 120–230 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; no installers or releases, no control channel or MCP |
-| **Weighted** | 100% | **~56%** | **~515–1,010** | **~690–1,350** | | 0.20·70 + 0.15·74 + 0.15·42 + 0.10·56 + 0.10·62 + 0.05·8 + 0.10·65 + 0.05·70 + 0.10·25 = 56.1 |
+| **Weighted** | 100% | **~57%** | **~500–990** | **~690–1,350** | | 0.20·70 + 0.15·74 + 0.15·42 + 0.10·60 + 0.10·62 + 0.05·8 + 0.10·65 + 0.05·70 + 0.10·25 = 56.5 |
 
 Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
 is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
@@ -99,6 +99,7 @@ subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-17 | minor | Unset, the pitch bends reach in notation: editing 68% → 70%; beta hours 520–1,025 → 515–1,010 |
+| 2026-10-18 | minor | MIDI import (File › Import › MIDI…): menus 166/179; files 56% → 60%, readiness ~56% → ~57%; beta hours 515–1,010 → 500–990 |
 | 2026-10-17 | minor | Paste rules, All-Track Copy and Cut (two catalog items from GP8's shortcut list), Paste Special, Check Bar Durations window: menus 165/179; editing 65% → 68%, readiness ~55% → ~56%; beta hours 530–1,045 → 520–1,025 |
 | 2026-10-17 | minor | The whammy bar and vibrato with the bar (Effects › Whammy Bar…, palette): menus 162/177; editing 62% → 65%, readiness ~54% → ~55%; beta hours 540–1,060 → 530–1,045 |
 | 2026-10-17 | minor | Bend curves and the Bend window (Effects › Bend…, B): menus 161/177; editing 60% → 62%; beta hours 560–1,090 → 540–1,060 |

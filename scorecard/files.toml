@@ -32,9 +32,9 @@ note = "crates/gp/src/writegp.rs, file.exportGp (File › Export › Guitar Pro 
 [[item]]
 id = "FILE-5"
 target = "MIDI export (format 1, repeats unrolled, ties merged); MIDI import"
-status = "partial"
+status = "done"
 stage = "beta"
-note = "export only"
+note = "export: format 1 with title, tempo, time and key signatures. Import (crates/midi/src/import.rs, File › Import › MIDI…, File › Open): format 0 and 1, a track per MIDI track and channel, channel 10 as drums, per-quarter quantization that finds triplets, fingering onto strings and frets, a tuning that fits the range; every demo comes back at 99-100 % of its notes (93 % for the technique showcase: trills and grace notes). Pitch bends and controller changes after the first note are not imported"
 
 [[item]]
 id = "FILE-6"

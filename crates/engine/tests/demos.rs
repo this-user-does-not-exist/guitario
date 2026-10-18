@@ -198,6 +198,25 @@ fn the_guitar_pro_fixture_imports_through_the_engine() {
 }
 
 #[test]
+fn every_midi_copy_opens_with_its_bars_tracks_and_tempo() {
+    for (name, path) in scores() {
+        let native = open(&path);
+        let mut s = Session::new();
+        let mid = demos().join("midi").join(format!("{name}.mid"));
+        s.run("file.open", &json!({"path": mid.display().to_string()})).unwrap_or_else(|e| panic!("{name}.mid: {e}"));
+        assert!(s.path().is_none() && s.is_dirty(), "{name}: an import is unsaved");
+        let (a, b) = (native.score(), s.score());
+        assert_eq!(a.tempo, b.tempo, "{name}");
+        // Tracks without notes leave no trace in a MIDI file; repeats come back unrolled.
+        let sounding = a.tracks.iter().filter(|t| t.measures.iter().any(|m| m.voices.iter().any(|v| v.beats.iter().any(|b| !b.rest)))).count();
+        assert_eq!(b.tracks.len(), sounding.max(1), "{name}: an empty song still has one track");
+        assert!(b.headers.len() >= a.headers.len().min(1), "{name}");
+    }
+    let mut s = Session::new();
+    assert!(s.run("file.importMidi", &json!({"path": demos().join("01-thrash-attack.gt").display().to_string()})).is_err(), "a .gt is not MIDI");
+}
+
+#[test]
 fn every_guitar_pro_5_copy_opens_as_its_score() {
     for (name, path) in scores() {
         let native = open(&path);

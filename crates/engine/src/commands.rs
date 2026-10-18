@@ -66,10 +66,11 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .collect()
 });
 
-const CORE: [CommandSpec; 54] = [
+const CORE: [CommandSpec; 55] = [
     cmd("file.new", "New", "File", Some("Cmd+N"), "", false, file_new),
-    cmd("file.open", "Open…", "File", Some("Cmd+O"), "path (.gt, or a Guitar Pro .gp/.gpx/.gp5/.gp4/.gp3 to import)", false, file_open),
+    cmd("file.open", "Open…", "File", Some("Cmd+O"), "path (.gt, or a Guitar Pro .gp/.gpx/.gp5/.gp4/.gp3 or a MIDI .mid/.midi to import)", false, file_open),
     cmd("file.importGp", "Import Guitar Pro…", "File/Import", None, "path (.gp, .gpx, .gp5, .gp4 or .gp3)", false, import_gp),
+    cmd("file.importMidi", "MIDI…", "File/Import", None, "path (.mid or .midi, format 0 or 1)", false, import_midi),
     cmd("file.save", "Save", "File", Some("Cmd+S"), "path?", false, file_save),
     cmd("file.exportMidi", "Export MIDI…", "File/Export", None, "path", false, export_midi),
     cmd(
@@ -275,6 +276,9 @@ fn file_open(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     if guitario_gp::is_guitar_pro_path(raw) {
         return import_gp(s, params);
     }
+    if guitario_midi::is_midi_path(raw) {
+        return import_midi(s, params);
+    }
     let path = PathBuf::from(raw);
     let score = guitario_format::open(&path)?;
     s.replace_score(score, Some(path));
@@ -285,6 +289,15 @@ fn file_open(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 /// later Save asks for a `.gt` path instead of overwriting the Guitar Pro file.
 fn import_gp(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let import = guitario_gp::import_file(std::path::Path::new(p::string(params, "path")?))?;
+    s.replace_score(import.score, None);
+    s.dirty = true;
+    Ok(json!({"warnings": import.warnings}))
+}
+
+/// Imports a Standard MIDI File: a track per MIDI track and channel, quantized and fingered.
+/// Unsaved, like a Guitar Pro import.
+fn import_midi(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
+    let import = guitario_midi::import_file(std::path::Path::new(p::string(params, "path")?))?;
     s.replace_score(import.score, None);
     s.dirty = true;
     Ok(json!({"warnings": import.warnings}))

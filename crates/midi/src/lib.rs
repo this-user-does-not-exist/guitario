@@ -1,12 +1,29 @@
-//! L2 Standard MIDI File (format 1) export, with repeats unrolled and ties merged.
+//! L2 Standard MIDI Files: export (format 1, repeats unrolled and ties merged) and import
+//! ([`import`]).
 
-use guitario_score::{Score, playback_order, timeline};
+mod import;
+
+pub use import::{Import, MAX_FILE, import, import_file, is_midi_path};
+
+use guitario_score::{Score, ScoreError, playback_order, timeline};
 use guitario_theory::TICKS_PER_QUARTER;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MidiError {
     #[error("score has more than 15 tracks; MIDI channels run out")]
     TooManyTracks,
+    #[error("not a MIDI file")]
+    NotMidi,
+    #[error("unsupported MIDI file: {0}")]
+    Unsupported(String),
+    #[error("damaged MIDI file: {0}")]
+    Damaged(String),
+    #[error("the file is too large")]
+    TooLarge,
+    #[error("could not read the file: {0}")]
+    Io(String),
+    #[error("imported score is invalid: {0}")]
+    Invalid(#[from] ScoreError),
 }
 
 fn vlq(out: &mut Vec<u8>, mut v: u32) {
@@ -61,6 +78,15 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
     let mut meta: Vec<(u64, u8, Vec<u8>)> = Vec::new();
     let mut clock = 0u64;
     let curves = score.tempo_curves();
+    let mut key: Option<i8> = None;
+    // The song's title names the tempo track, as sequencers do; an import reads it back.
+    let title = score.meta.title.trim();
+    if !title.is_empty() {
+        let mut name = vec![0xff, 0x03];
+        vlq(&mut name, title.len() as u32);
+        name.extend(title.bytes());
+        meta.push((0, 0, name));
+    }
     for mi in playback_order(score) {
         let Some(h) = score.headers.get(mi) else { continue };
         let us = 60_000_000 / u32::from(score.tempo_at(mi).max(1));
@@ -85,6 +111,11 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
             let slow = (f64::from(us) * hold.stretch).round().clamp(1.0, f64::from(0x00FF_FFFF)) as u32;
             meta.push((clock + u64::from(hold.at), 0, tempo(slow)));
             meta.push((clock + u64::from(hold.at) + u64::from(hold.ticks), 0, tempo(us)));
+        }
+        // The key signature where it changes (and at the start), as sharps or flats, major.
+        if key != Some(h.key) {
+            meta.push((clock, 0, vec![0xff, 0x59, 0x02, h.key.clamp(-7, 7) as u8, 0]));
+            key = Some(h.key);
         }
         let den_pow = h.time_signature.denominator.max(1).ilog2() as u8;
         meta.push((clock, 0, vec![0xff, 0x58, 0x04, h.time_signature.numerator, den_pow, 24, 8]));
