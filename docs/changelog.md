@@ -41,6 +41,9 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   Keys no longer reach the score while a dialog is open.
 
 ### G3. Guitar Pro exchange
+- **Landed 2026-10-18:** Guitar Pro 6 drum hits (`gp6_drum` in `crates/gp/src/gpif.rs`): the kit
+  element and variation become General MIDI numbers, worked out by reading a Guitar Pro 6 file
+  beside the Guitar Pro 5 copy of the same song.
 - **Landed 2026-10-18:** MusicXML import and export (`crates/musicxml`, File › Import and Export ›
   MusicXML…, File › Open on `.musicxml`/`.xml`/`.mxl`, `cli convert` to `.musicxml`): tunings,
   strings and frets, four voices, tuplets, ties, repeats, endings, sections, tempo, dynamics,

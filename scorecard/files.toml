@@ -19,9 +19,9 @@ note = "notes, rhythms, effects, repeats, tempo, tunings, drum kits (articulatio
 [[item]]
 id = "FILE-3"
 target = "Guitar Pro 6 (.gpx) and 3-5 (.gp3/.gp4/.gp5) import"
-status = "partial"
+status = "done"
 stage = "beta"
-note = "crates/gp/src/legacy.rs and gpx.rs: two voices, chords, repeats and endings, directions, triplet feel, techniques; 39 real GP3-5 and 37 real GP6 files import (local corpus, crates/gp/tests/corpus.rs); GP6 drum hits (kit element and variation) are dropped; tremolo picking and trills are read; whammy dives are read (GP3 depth as a dip, GP4-5 curves, GP6 `WhammyBar…` properties) and written to `.gp5`"
+note = "crates/gp/src/legacy.rs and gpx.rs: two voices, chords, repeats and endings, directions, triplet feel, techniques; 39 real GP3-5 and 37 real GP6 files import (local corpus, crates/gp/tests/corpus.rs); GP6 drum hits are read from the kit element and variation (crates/gp/src/gpif.rs gp6_drum, from GP6 files beside their GP5 copies; elements 2 and 4 were never seen and are dropped with a warning); tremolo picking and trills are read; whammy dives are read (GP3 depth as a dip, GP4-5 curves, GP6 `WhammyBar…` properties) and written to `.gp5`"
 
 [[item]]
 id = "FILE-4"

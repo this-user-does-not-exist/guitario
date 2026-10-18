@@ -236,9 +236,14 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
     if score.tracks.is_empty() {
         return Err(GpError::Damaged("no readable tracks".into()));
     }
-    let gp6_drums = notes.values().filter(|n| property(**n, "Element").is_some() && property(**n, "Midi").is_none()).count();
-    if gp6_drums > 0 {
-        warnings.push(format!("Guitar Pro 6 drum hits (kit element and variation) are not supported yet and were dropped ({gp6_drums})"));
+    let unknown = notes
+        .values()
+        .filter(|n| property(**n, "Midi").is_none())
+        .filter_map(|n| prop_num::<u8>(*n, "Element").map(|e| (e, prop_num::<u8>(*n, "Variation").unwrap_or(0))))
+        .filter(|(e, v)| gp6_drum(*e, *v).is_none())
+        .count();
+    if unknown > 0 {
+        warnings.push(format!("{unknown} Guitar Pro 6 drum hits on kit pieces Guitario does not know were dropped"));
     }
     score.validate()?;
     Ok(Import { score, warnings })
@@ -362,6 +367,35 @@ fn articulations(tn: Node) -> Vec<u8> {
         .collect()
 }
 
+/// A Guitar Pro 6 drum hit: the kit element and its variation, as General MIDI numbers. Read
+/// from files saved by Guitar Pro 6 next to the same song saved as Guitar Pro 5 (which stores the
+/// MIDI number): kick; snare (hit, rim, side stick); cowbell; five toms from the low floor tom up;
+/// hi-hat (closed, half, open) and its pedal; two crashes, splash; ride (middle, edge, bell); china.
+/// Elements 2 and 4 were never seen and are left out.
+pub(crate) fn gp6_drum(element: u8, variation: u8) -> Option<u8> {
+    let kit: [&[u8]; 17] = [
+        &[36],
+        &[38, 40, 37],
+        &[],
+        &[56],
+        &[],
+        &[41],
+        &[43],
+        &[45],
+        &[47],
+        &[48],
+        &[42, 46, 46],
+        &[44],
+        &[49, 49],
+        &[57, 57],
+        &[55, 55],
+        &[51, 51, 53],
+        &[52, 52],
+    ];
+    let piece = kit.get(usize::from(element))?;
+    piece.get(usize::from(variation)).or_else(|| piece.first()).copied()
+}
+
 /// Where a note goes: strings are flipped (GP counts from the lowest), drum hits go to the lane
 /// of their General MIDI number.
 #[derive(Clone, Copy)]
@@ -384,10 +418,12 @@ impl Placement<'_> {
                 (gp_string < strings).then(|| ((strings - 1 - gp_string) as u8, fret.min(36)))
             }
             Placement::Drums(kit) => {
-                let midi = prop_num::<u8>(nn, "Midi").or_else(|| {
-                    let i = text(nn, "InstrumentArticulation")?.parse::<usize>().ok()?;
-                    kit.get(i).copied().filter(|m| *m > 0)
-                })?;
+                let midi = prop_num::<u8>(nn, "Midi")
+                    .or_else(|| gp6_drum(prop_num::<u8>(nn, "Element")?, prop_num::<u8>(nn, "Variation").unwrap_or(0)))
+                    .or_else(|| {
+                        let i = text(nn, "InstrumentArticulation")?.parse::<usize>().ok()?;
+                        kit.get(i).copied().filter(|m| *m > 0)
+                    })?;
                 let midi = midi.min(guitario_theory::drums::MAX_DRUM);
                 Some((guitario_theory::drums::lane_for(midi), midi))
             }
@@ -948,6 +984,44 @@ mod tests {
         assert!(n.effects.wide_vibrato && !n.effects.vibrato && n.effects.heavy_accent && n.effects.staccato && !n.effects.accent);
         // Empty bar falls back to a rest.
         assert!(t.measures[1].voices[0].beats[0].rest);
+    }
+
+    #[test]
+    fn guitar_pro_6_drum_hits_come_from_the_kit_element_and_variation() {
+        let hit = |id: u8, e: u8, v: u8| {
+            format!(
+                r#"<Note id="{id}"><Properties><Property name="Element"><Element>{e}</Element></Property><Property name="Variation"><Variation>{v}</Variation></Property></Properties></Note>"#
+            )
+        };
+        let notes: String = [(0, 0, 0), (1, 10, 0), (2, 1, 0), (3, 10, 2), (4, 1, 2), (5, 15, 2), (6, 2, 0)].iter().map(|&(i, e, v)| hit(i, e, v)).collect();
+        let xml = format!(
+            r#"<?xml version="1.0"?><GPIF><GPVersion>6</GPVersion><Score><Title>Kit</Title></Score>
+<MasterTrack><Tracks>0</Tracks></MasterTrack>
+<Tracks><Track id="0"><Name>Drumkit</Name><GeneralMidi table="Percussion"><Program>0</Program></GeneralMidi></Track></Tracks>
+<MasterBars><MasterBar><Time>4/4</Time><Bars>0</Bars></MasterBar></MasterBars>
+<Bars><Bar id="0"><Voices>0 -1 -1 -1</Voices></Bar></Bars>
+<Voices><Voice id="0"><Beats>0 1 2 3</Beats></Voice></Voices>
+<Beats><Beat id="0"><Rhythm ref="0"/><Notes>0 1</Notes></Beat><Beat id="1"><Rhythm ref="0"/><Notes>2 3</Notes></Beat><Beat id="2"><Rhythm ref="0"/><Notes>4 5</Notes></Beat><Beat id="3"><Rhythm ref="0"/><Notes>6</Notes></Beat></Beats>
+<Notes>{notes}</Notes>
+<Rhythms><Rhythm id="0"><NoteValue>Quarter</NoteValue></Rhythm></Rhythms></GPIF>"#
+        );
+        let imp = parse_gpif(&xml).unwrap();
+        let t = &imp.score.tracks[0];
+        assert!(t.is_drums());
+        let hits: Vec<Vec<u8>> = t.measures[0].voices[0]
+            .beats
+            .iter()
+            .map(|b| {
+                let mut f: Vec<u8> = b.notes.iter().map(|n| n.fret).collect();
+                f.sort_unstable();
+                f
+            })
+            .collect();
+        // Kick and closed hat; snare and open hat; side stick and ride bell; an unknown piece.
+        assert_eq!(hits, vec![vec![36, 42], vec![38, 46], vec![37, 53], vec![]]);
+        assert!(imp.warnings.iter().any(|w| w.contains("1 Guitar Pro 6 drum hits")), "{:?}", imp.warnings);
+        assert_eq!(gp6_drum(12, 1), Some(49), "a crash choke is still the crash");
+        assert_eq!(gp6_drum(40, 0), None);
     }
 
     #[test]
