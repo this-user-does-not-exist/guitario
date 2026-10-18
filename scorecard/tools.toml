@@ -35,7 +35,7 @@ id = "TOOL-5"
 target = "Line In: play a real guitar through the track's amp and effects"
 status = "missing"
 stage = "1.0"
-note = "needs low-latency input and the effect chain (PLAY-5)"
+note = "needs low-latency input; the effect chain it would play through exists (PLAY-5)"
 
 [[item]]
 id = "TOOL-6"

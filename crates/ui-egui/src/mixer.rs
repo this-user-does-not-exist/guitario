@@ -1,5 +1,5 @@
-//! Sound › Mixer…: a channel strip per track (instrument, pan, volume fader, mute and solo), heard
-//! live while the song plays. A fader being dragged is sent straight to the player and becomes one
+//! Sound › Mixer…: a channel strip per track (instrument, pan, volume fader, mute, solo and the
+//! equalizer) and the master's, heard live while the song plays. A fader being dragged is sent straight to the player and becomes one
 //! undo step when it is let go.
 
 use crate::GuitarioApp;
@@ -12,6 +12,9 @@ use serde_json::json;
 pub(crate) enum Control {
     Volume,
     Pan,
+    /// The master's fader and pan (the track index is unused).
+    MasterVolume,
+    MasterPan,
 }
 
 #[derive(Default)]
@@ -36,6 +39,7 @@ impl GuitarioApp {
             match control {
                 Control::Volume => m.volume = v.clamp(0, 127) as u8,
                 Control::Pan => m.pan = v.clamp(-63, 63) as i8,
+                Control::MasterVolume | Control::MasterPan => {}
             }
         }
         mix
@@ -47,6 +51,8 @@ impl GuitarioApp {
         }
         let mut open = true;
         let mut actions: Vec<serde_json::Value> = Vec::new();
+        let mut master_actions: Vec<serde_json::Value> = Vec::new();
+        let mut open_eq = None;
         let mut drag = self.mixer.drag;
         let score = self.session.score().clone();
         let tracks: Vec<(String, bool, Mix, u8)> = score.tracks.iter().map(|t| (t.name.clone(), t.is_drums(), Mix::of(t), t.program)).collect();
@@ -101,15 +107,47 @@ impl GuitarioApp {
                             if ui.selectable_label(mix.solo, "S").on_hover_text("Solo").clicked() {
                                 actions.push(json!({"track": ti, "solo": !mix.solo}));
                             }
+                            let shaping = score.tracks.get(ti).is_some_and(|t| t.eq.on && !t.eq.is_neutral());
+                            if ui.selectable_label(shaping, "EQ").on_hover_text("Equalizer").clicked() {
+                                open_eq = Some(ti);
+                            }
                         });
                     });
                     ui.add_space(10.0);
                 }
+                // The master: volume after every track.
+                ui.separator();
+                ui.vertical(|ui| {
+                    ui.set_width(72.0);
+                    ui.label(egui::RichText::new("Master").strong().small());
+                    ui.label(egui::RichText::new("Song").small().color(tokens().text_dim));
+                    ui.add_space(38.0);
+                    let mut vol = match drag {
+                        Some((_, Control::MasterVolume, v)) => v,
+                        _ => i64::from(score.master.volume),
+                    };
+                    ui.spacing_mut().slider_width = 160.0;
+                    let r = ui.add(egui::Slider::new(&mut vol, 0..=127).vertical().show_value(false)).on_hover_text("Master volume (100 is unity)");
+                    if r.dragged() || r.changed() {
+                        drag = Some((usize::MAX, Control::MasterVolume, vol));
+                    }
+                    if r.drag_stopped() || (r.changed() && !r.dragged()) {
+                        master_actions.push(json!({"volume": vol}));
+                        drag = None;
+                    }
+                    ui.label(egui::RichText::new(vol.to_string()).small().monospace());
+                });
             });
         });
         self.mixer.drag = drag;
         for params in actions {
             self.run("track.setMix", params);
+        }
+        for params in master_actions {
+            self.run("score.setMaster", params);
+        }
+        if let Some(ti) = open_eq {
+            self.open_equalizer(ti);
         }
         self.mixer.open = open;
         if self.mixer.drag.is_some() {
@@ -119,11 +157,12 @@ impl GuitarioApp {
 
     /// Sends what the mixer shows to the player, if one is playing.
     pub(crate) fn push_mix(&self) {
-        let mix = self.live_mix();
+        let (mix, master) = (self.live_mix(), self.live_master());
         if let Some(audio) = &self.audio
             && let Some(p) = audio.slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_mut()
         {
             p.set_mix(&mix);
+            p.set_master(&master);
         }
     }
 }

@@ -1,7 +1,8 @@
+use crate::fx::Chain;
 use crate::sfz::{Instrument, SampleVoice};
 use crate::synth::{Click, DrumVoice, Noise, Pluck, StringVoice, WhammyTime, curve_semis};
 use crate::tempo::{BeatTime, TempoMap, locate};
-use guitario_score::{Fade, PlayingStyle, Score, Slide, timeline};
+use guitario_score::{Effect, Fade, Master, PlayingStyle, Score, Slide, default_chain, timeline};
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -98,6 +99,28 @@ impl Mix {
     }
 }
 
+/// One track's sound after the instrument: its effect chain (none plays the instrument's own) and
+/// the mixer's equalizer.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TrackSound {
+    pub effects: Option<Vec<Effect>>,
+    pub eq: Effect,
+}
+
+impl TrackSound {
+    pub fn of(t: &guitario_score::Track) -> TrackSound {
+        TrackSound { effects: t.effects.clone(), eq: t.eq.clone() }
+    }
+}
+
+/// The master's left and right gains: volume (100 is unity) and a balance that only turns down
+/// the side away from the pan.
+fn master_gains(m: &Master) -> (f32, f32) {
+    let v = f32::from(m.volume.min(127)) / 100.0;
+    let pan = f32::from(m.pan.clamp(-63, 63)) / 63.0;
+    (v * (1.0 - pan).min(1.0), v * (1.0 + pan).min(1.0))
+}
+
 fn mix_gains(t: &guitario_score::Track, any_solo: bool) -> (f32, f32) {
     Mix::of(t).gains(any_solo)
 }
@@ -119,7 +142,6 @@ struct TrackBus {
     /// Where the gains glide to after a mixer change (volume, pan, mute, solo).
     target_l: f32,
     target_r: f32,
-    drive: f32,
     tone: f32,
     lp: f32,
     hp: f32,
@@ -128,6 +150,15 @@ struct TrackBus {
     sustain: f32,
     /// A new note on a string stops the one ringing there (off: notes ring on, as on a piano).
     stringed: bool,
+    program: u8,
+    /// The effect chain, then the mixer's equalizer; `fx` is whether either changes the sound.
+    chain: Chain,
+    eq: Chain,
+    fx: bool,
+    /// Plays a sampled (stereo) instrument rather than the mono synth.
+    sampled: bool,
+    /// The sound is stereo after the chain (sampled, or the chain widens it).
+    wide: bool,
 }
 
 const MAX_VOICES: usize = 96;
@@ -172,6 +203,15 @@ pub struct Player {
     beats: Vec<Vec<BeatTime>>,
     /// Beats per bar of each tempo-map segment, for the count-in.
     meter: Vec<u32>,
+    /// Each track's effects and equalizer as last set.
+    sound: Vec<TrackSound>,
+    /// The master's compressor, reverb and equalizer, and its volume and pan as gains.
+    master: Chain,
+    master_fx: bool,
+    master_gain: (f32, f32),
+    master_target: (f32, f32),
+    /// Frames in a row the output has been silent, to know when effect tails have died away.
+    quiet: u32,
 }
 
 /// The sorted, distinct MIDI keys `track` plays, so a sampled instrument can load only the
@@ -279,13 +319,14 @@ impl Player {
             .iter()
             .map(|t| {
                 let (gain_l, gain_r) = mix_gains(t, any_solo);
-                let (drive, tone, brightness, sustain) = match t.program {
-                    29 => (6.0, 0.35, 0.8, 0.9993),
-                    30 => (14.0, 0.28, 0.85, 0.9995),
-                    _ if t.is_drums() => (1.0, 0.95, 1.0, 1.0),
-                    32..=39 => (1.0, 0.25, 0.35, 0.9992),
-                    24 | 25 => (1.0, 0.7, 0.75, 0.9985),
-                    _ => (1.0, 0.55, 0.65, 0.9988),
+                // The overdriven and distorted programs get their amp from the effect chain.
+                let (tone, brightness, sustain) = match t.program {
+                    29 => (0.55, 0.8, 0.9993),
+                    30 => (0.55, 0.85, 0.9995),
+                    _ if t.is_drums() => (0.95, 1.0, 1.0),
+                    32..=39 => (0.25, 0.35, 0.9992),
+                    24 | 25 => (0.7, 0.75, 0.9985),
+                    _ => (0.55, 0.65, 0.9988),
                 };
                 // Fingers are warmer than a pick; a slapped bass is brighter.
                 let brightness = brightness
@@ -296,7 +337,25 @@ impl Player {
                         PlayingStyle::BassSlap => 1.3,
                     };
                 let stringed = t.interpretation.stringed;
-                TrackBus { gain_l, gain_r, target_l: gain_l, target_r: gain_r, drive, tone, lp: 0.0, hp: 0.0, hp_prev: 0.0, brightness, sustain, stringed }
+                TrackBus {
+                    gain_l,
+                    gain_r,
+                    target_l: gain_l,
+                    target_r: gain_r,
+                    tone,
+                    lp: 0.0,
+                    hp: 0.0,
+                    hp_prev: 0.0,
+                    brightness,
+                    sustain,
+                    stringed,
+                    program: t.program,
+                    chain: Chain::new(sr),
+                    eq: Chain::new(sr),
+                    fx: false,
+                    sampled: false,
+                    wide: false,
+                }
             })
             .collect::<Vec<_>>();
         let beats = (0..score.tracks.len()).map(|ti| map.beat_times(score, ti)).collect();
@@ -316,7 +375,8 @@ impl Player {
         let mix = score.tracks.iter().map(Mix::of).collect();
         let drum_track = score.tracks.iter().map(|t| t.is_drums()).collect();
         let end = map.total_sec;
-        Player {
+        let sound = score.tracks.iter().map(TrackSound::of).collect();
+        let mut player = Player {
             sr,
             map,
             notes,
@@ -346,7 +406,56 @@ impl Player {
             automation_countdown: 0,
             beats,
             meter,
+            sound,
+            master: Chain::new(sr),
+            master_fx: false,
+            master_gain: (1.0, 1.0),
+            master_target: (1.0, 1.0),
+            quiet: 0,
+        };
+        for ti in 0..player.buses.len() {
+            player.configure_track(ti);
         }
+        player.set_master(&score.master);
+        player.master_gain = player.master_target;
+        player
+    }
+
+    /// Builds track `ti`'s chain and equalizer from its sound. A track that has not set its own
+    /// chain plays the instrument's: the synth's amp for its program, nothing for a sampled
+    /// instrument (its recording already has its amp).
+    fn configure_track(&mut self, ti: usize) {
+        let sampled = self.instruments.get(ti).is_some_and(Option::is_some);
+        let (Some(bus), Some(sound)) = (self.buses.get_mut(ti), self.sound.get(ti)) else { return };
+        match &sound.effects {
+            Some(chain) => bus.chain.configure(chain),
+            None if sampled => bus.chain.configure(&[]),
+            None => bus.chain.configure(&default_chain(bus.program)),
+        }
+        bus.eq.configure(std::slice::from_ref(&sound.eq));
+        bus.fx = bus.chain.active() || bus.eq.active();
+        bus.sampled = sampled;
+        bus.wide = sampled || bus.chain.widens();
+    }
+
+    /// Takes each track's effects and equalizer (one per track, in order) while playing: an effect
+    /// that stays keeps its state, so a reverb's tail survives a knob move. Other lengths are
+    /// ignored.
+    pub fn set_sound(&mut self, sound: &[TrackSound]) {
+        if sound.len() != self.buses.len() || sound == self.sound.as_slice() {
+            return;
+        }
+        self.sound = sound.to_vec();
+        for ti in 0..self.buses.len() {
+            self.configure_track(ti);
+        }
+    }
+
+    /// Takes the master's volume, pan and mastering effects.
+    pub fn set_master(&mut self, master: &Master) {
+        self.master.configure(&master.slots().map(Clone::clone));
+        self.master_fx = self.master.active();
+        self.master_target = master_gains(master);
     }
 
     /// Bus targets from the mixer, with each track's volume and pan automation at the play time.
@@ -372,6 +481,7 @@ impl Player {
         if let Some(slot) = self.instruments.get_mut(track) {
             *slot = instrument;
         }
+        self.configure_track(track);
     }
 
     pub fn sample_rate(&self) -> u32 {
@@ -463,7 +573,12 @@ impl Player {
 
     /// Whether anything still sounds (a note ringing out after the end, a cymbal decaying).
     pub fn is_sounding(&self) -> bool {
-        !self.voices.is_empty() || !self.drums.is_empty() || !self.sampled.is_empty() || !self.active_clicks.is_empty()
+        let tails = self.master_fx || self.buses.iter().any(|b| b.fx);
+        !self.voices.is_empty()
+            || !self.drums.is_empty()
+            || !self.sampled.is_empty()
+            || !self.active_clicks.is_empty()
+            || (tails && (self.quiet as f32) < self.sr * 0.25)
     }
 
     pub fn stop(&mut self) {
@@ -659,6 +774,8 @@ impl Player {
                 bus.gain_l += (bus.target_l - bus.gain_l) * glide;
                 bus.gain_r += (bus.target_r - bus.gain_r) * glide;
             }
+            self.master_gain.0 += (self.master_target.0 - self.master_gain.0) * glide;
+            self.master_gain.1 += (self.master_target.1 - self.master_gain.1) * glide;
             if self.playing {
                 // Count-in clicks, then song events due at this instant.
                 while let Some(&(at, accent)) = self.count_in_clicks.first() {
@@ -742,23 +859,27 @@ impl Player {
                 }
             }
             let (mut l, mut r) = (0.0f32, 0.0f32);
-            // Sampled tracks are already shaped (amp, cabinet), so only volume and pan apply.
-            for (bus, a) in self.buses.iter().zip(&self.sample_acc) {
-                l += a.0 * 0.85 * bus.gain_l;
-                r += a.1 * 0.85 * bus.gain_r;
-            }
-            for (bus, a) in self.buses.iter_mut().zip(&self.acc) {
-                let mut x = *a * 0.85;
-                if bus.drive > 1.0 {
-                    x = (x * bus.drive).tanh() * 0.95;
-                }
-                bus.lp += bus.tone * (x - bus.lp);
+            // Each track: the synth's voicing, the sampled instrument beside it, then the effect
+            // chain, the equalizer, volume and pan.
+            for ((bus, a), s) in self.buses.iter_mut().zip(&self.acc).zip(&self.sample_acc) {
+                bus.lp += bus.tone * (*a * 0.85 - bus.lp);
                 // DC blocker.
                 bus.hp = bus.lp - bus.hp_prev + 0.995 * bus.hp;
                 bus.hp_prev = bus.lp;
-                l += bus.hp * bus.gain_l;
-                r += bus.hp * bus.gain_r;
+                let (mut tl, mut tr) = (bus.hp + s.0 * 0.85, bus.hp + s.1 * 0.85);
+                if bus.fx {
+                    // The synth is mono, so its effects run once until one widens the sound.
+                    (tl, tr) = if bus.sampled { bus.chain.tick(tl, tr) } else { bus.chain.tick_mono(tl) };
+                    (tl, tr) = if bus.wide { bus.eq.tick(tl, tr) } else { bus.eq.tick_mono(tl) };
+                }
+                l += tl * bus.gain_l;
+                r += tr * bus.gain_r;
             }
+            if self.master_fx {
+                (l, r) = self.master.tick(l, r);
+            }
+            (l, r) = (l * self.master_gain.0, r * self.master_gain.1);
+            self.quiet = if l.abs().max(r.abs()) > 1e-4 { 0 } else { self.quiet.saturating_add(1) };
             for c in &mut self.active_clicks {
                 let y = c.tick();
                 l += y;
@@ -1273,5 +1394,100 @@ mod tests {
         p.render(&mut buf, 0);
         p.render(&mut [], 2);
         assert!(buf.iter().all(|x| x.is_finite()));
+    }
+
+    /// Renders the whole song at 48 kHz, stereo, with its tails.
+    fn render_all(score: &Score) -> Vec<f32> {
+        let mut p = Player::new(score, 48_000, Options::default());
+        crate::render_player(&mut p)
+    }
+
+    #[test]
+    fn the_overdriven_programs_play_through_an_amp_and_a_chain_of_their_own_replaces_it() {
+        // How much of its attack a note keeps after a second: an amp's clipping holds it up.
+        let bright = |score: &Score| {
+            let mut p = Player::new(score, 48_000, Options::default());
+            p.play_from(0.0);
+            let mut buf = vec![0.0f32; 72_000];
+            p.render(&mut buf, 1);
+            rms(&buf[48_000..]) / rms(&buf[..4800])
+        };
+        let mut clean = one_note(3);
+        clean.tracks[0].program = 27;
+        let mut dist = clean.clone();
+        dist.tracks[0].program = 30;
+        assert!(bright(&dist) > 1.5 * bright(&clean), "{} vs {}", bright(&dist), bright(&clean));
+        // An empty chain of its own: the same program plays clean.
+        dist.tracks[0].effects = Some(Vec::new());
+        assert!((bright(&dist) - bright(&clean)).abs() < 0.2 * bright(&clean));
+    }
+
+    #[test]
+    fn a_reverb_rings_on_after_the_song_and_the_export_keeps_its_tail() {
+        use guitario_score::{Effect, EffectType};
+        let mut s = one_note(5);
+        s.tracks[0].measures[0].voices[0].beats[0].duration = Duration::EIGHTH;
+        let dry = render_all(&s);
+        s.tracks[0].effects = Some(vec![Effect::preset(EffectType::Reverb, "Hall").unwrap()]);
+        let wet = render_all(&s);
+        assert!(wet.len() > dry.len(), "{} vs {}", wet.len(), dry.len());
+        // The master's reverb is off by default; on, it adds a tail to every track.
+        let mut m = one_note(5);
+        m.tracks[0].measures[0].voices[0].beats[0].duration = Duration::EIGHTH;
+        m.master.reverb = Effect::preset(EffectType::Reverb, "Hall").unwrap();
+        assert!(render_all(&m).len() > dry.len());
+        assert!(wet.iter().all(|x| x.is_finite()));
+    }
+
+    #[test]
+    fn the_master_volume_and_pan_follow_the_track_mix_and_glide_while_playing() {
+        let level = |p: &mut Player| {
+            let mut buf = vec![0.0f32; 9600];
+            p.render(&mut buf, 2);
+            let l: Vec<f32> = buf.iter().step_by(2).copied().collect();
+            let r: Vec<f32> = buf.iter().skip(1).step_by(2).copied().collect();
+            (rms(&l), rms(&r))
+        };
+        let s = one_note(5);
+        let mut p = Player::new(&s, 48_000, Options::default());
+        p.play_from(0.0);
+        let (l0, r0) = level(&mut p);
+        let mut m = s.master.clone();
+        m.pan = 63;
+        p.set_master(&m);
+        level(&mut p);
+        let (l1, r1) = level(&mut p);
+        assert!((l0 - r0).abs() < 1e-6 && l1 < 0.001 * r1, "{l1} {r1} after {l0} {r0}");
+        m.volume = 0;
+        p.set_master(&m);
+        level(&mut p);
+        assert!(level(&mut p).1 < 1e-4);
+    }
+
+    #[test]
+    fn effects_and_the_equalizer_change_while_playing() {
+        use guitario_score::{Effect, EffectType};
+        let s = one_note(5);
+        let mut p = Player::new(&s, 48_000, Options::default());
+        p.play_from(0.0);
+        let mut buf = vec![0.0f32; 4800];
+        p.render(&mut buf, 2);
+        let before = rms(&buf);
+        let mut sound: Vec<TrackSound> = s.tracks.iter().map(TrackSound::of).collect();
+        sound[0].eq.set("low", -12.0).unwrap();
+        sound[0].eq.set("lowMid", -12.0).unwrap();
+        sound[0].eq.set("mid", -12.0).unwrap();
+        sound[0].eq.set("highMid", -12.0).unwrap();
+        sound[0].eq.set("high", -12.0).unwrap();
+        p.set_sound(&sound);
+        p.render(&mut buf, 2);
+        assert!(rms(&buf) < 0.5 * before, "{} vs {before}", rms(&buf));
+        sound[0].eq.on = false;
+        sound[0].effects = Some(vec![Effect::new(EffectType::Tremolo)]);
+        p.set_sound(&sound);
+        p.render(&mut buf, 2);
+        assert!(buf.iter().all(|x| x.is_finite()));
+        // The wrong number of tracks is ignored.
+        p.set_sound(&[]);
     }
 }

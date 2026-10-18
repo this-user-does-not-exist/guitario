@@ -77,6 +77,8 @@ pub enum UiAction {
     VolumeAutomation,
     PanAutomation,
     AudioSettings,
+    /// The track inspector's Sounds: the sound, its effect chain.
+    SoundSettings,
     Preferences,
     KeyboardShortcuts,
     FullScreen,
@@ -285,7 +287,7 @@ pub static CATALOG: &[MenuItem] = &[
     u("Sound/Automations", "Tempo Automation…", U::TempoAutomation, ""),
     u("Sound/Automations", "Volume Automation…", U::VolumeAutomation, ""),
     u("Sound/Automations", "Pan Automation…", U::PanAutomation, ""),
-    m("Sound", "Sound Settings…"),
+    u("Sound", "Sound Settings…", U::SoundSettings, ""),
     u("Sound", "Audio Settings…", U::AudioSettings, ""),
     c("Sound", "Switch All Tracks to MIDI", "track.setEngine", r#"{"engine":"midi","tracks":"all"}"#, ""),
     c("Sound", "Switch All Tracks to RSE", "track.setEngine", r#"{"engine":"rse","tracks":"all"}"#, ""),

@@ -22,6 +22,8 @@ pub enum ScoreError {
     Fermatas(usize),
     #[error("measure {0} has an empty beam group or too many")]
     Beams(usize),
+    #[error("master: {0}")]
+    Master(String),
 }
 
 /// Most fermatas one bar may hold.
@@ -41,6 +43,7 @@ impl crate::Score {
             return Err(ScoreError::NoTracks);
         }
         self.page.check().map_err(ScoreError::Page)?;
+        self.master.check().map_err(ScoreError::Master)?;
         for (mi, h) in self.headers.iter().enumerate() {
             if h.targets.iter().enumerate().any(|(i, t)| h.targets.iter().take(i).any(|u| u == t)) {
                 return Err(ScoreError::Directions(mi));
@@ -74,6 +77,22 @@ impl crate::Score {
         if track.program > 127 || track.volume > 127 {
             return Err(ScoreError::Track { track: ti, what: "program and volume must be 0..=127".into() });
         }
+        let sound = |what: String| ScoreError::Track { track: ti, what };
+        if let Some(chain) = &track.effects {
+            if chain.len() > crate::MAX_TRACK_EFFECTS {
+                return Err(sound(format!("has {} effects; at most {}", chain.len(), crate::MAX_TRACK_EFFECTS)));
+            }
+            if chain.iter().any(|e| e.kind == crate::EffectType::MixerEq) {
+                return Err(sound("the mixer's equalizer is not a chain effect".into()));
+            }
+            for e in chain {
+                e.check().map_err(sound)?;
+            }
+        }
+        if track.eq.kind != crate::EffectType::MixerEq {
+            return Err(sound(format!("its equalizer is a {}", track.eq.kind.label())));
+        }
+        track.eq.check().map_err(sound)?;
         if track.lyrics.len() > crate::MAX_LYRIC_LINES {
             return Err(ScoreError::Track { track: ti, what: format!("has {} lines of lyrics; at most {}", track.lyrics.len(), crate::MAX_LYRIC_LINES) });
         }

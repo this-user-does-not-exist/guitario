@@ -12,6 +12,7 @@ mod bar_check;
 mod bend_dialog;
 mod bend_draw;
 mod chord_dialog;
+mod effects_ui;
 mod fonts;
 mod fretboard;
 mod global_view;
@@ -154,6 +155,7 @@ pub struct GuitarioApp {
     transpose: transpose_dialog::TransposeDialog,
     section: section_dialog::SectionDialog,
     mixer: mixer::Mixer,
+    sound_ui: effects_ui::SoundUi,
     tempo_automation: automation_dialog::TempoAutomation,
     mix_automation: automation_dialog::MixAutomation,
     /// The sound card to play through (Sound › Audio Settings…).
@@ -242,6 +244,7 @@ impl GuitarioApp {
             transpose: transpose_dialog::TransposeDialog::default(),
             section: section_dialog::SectionDialog::default(),
             mixer: mixer::Mixer::default(),
+            sound_ui: effects_ui::SoundUi::default(),
             tempo_automation: automation_dialog::TempoAutomation::default(),
             mix_automation: automation_dialog::MixAutomation::default(),
             audio_settings: guitario_audio::AudioSettings::default(),
@@ -530,6 +533,10 @@ impl GuitarioApp {
             U::VolumeAutomation => self.open_mix_automation(automation_dialog::MixKind::Volume),
             U::PanAutomation => self.open_mix_automation(automation_dialog::MixKind::Pan),
             U::AudioSettings => self.open_audio_settings(),
+            U::SoundSettings => {
+                self.panels.inspector = true;
+                self.inspector_tab = inspector::Tab::Track;
+            }
             U::Preferences => self.open_preferences(),
             U::KeyboardShortcuts => self.shortcuts_open = true,
             U::FullScreen => {
@@ -813,11 +820,15 @@ impl GuitarioApp {
         let opts = self.options();
         // The mixer is live: volume, pan, mute and solo changes (and a fader being dragged) are heard.
         let mix = self.live_mix();
+        // So are the effects, the equalizers and the master.
+        let (sound, master) = (self.live_sound(), self.live_master());
         let state = self.audio.as_ref().map(|a| {
             let mut guard = a.slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             guard.as_mut().map(|p| {
                 p.opts = opts;
                 p.set_mix(&mix);
+                p.set_sound(&sound);
+                p.set_master(&master);
                 (p.is_playing(), p.position(), p.current_beat(track).map(|b| (b.measure, b.beat)))
             })
         });
@@ -960,6 +971,7 @@ impl GuitarioApp {
         self.transpose_dialog(&ctx);
         self.section_dialog(&ctx);
         self.mixer_window(&ctx);
+        self.sound_windows(&ctx);
         self.tempo_automation_dialog(&ctx);
         self.mix_automation_dialog(&ctx);
         self.audio_settings_dialog(&ctx);

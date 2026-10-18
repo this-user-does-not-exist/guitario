@@ -25,6 +25,7 @@ mod scales;
 mod sections;
 mod selection;
 mod session;
+mod sound;
 mod techniques;
 mod tools;
 mod tracks;

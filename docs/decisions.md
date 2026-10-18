@@ -268,3 +268,29 @@ stacks them: tempo marks (with accel./rit. and the swing indication beside the t
 markers, segno and coda, endings, bar numbers. The section row is kept only when the score has a
 section (`Metrics::sections`), so scores without sections lose no height. The header keeps room
 for the tuning legend (`Metrics::legend_lines`), which could run into the first system before.
+
+## 2026-10-18: Effects are tables of parameters; a track without a chain plays its instrument's
+
+Guitar Pro 8 gives each sound an effect chain of up to six pedals and amps, the mixer an
+equalizer, and the song three mastering slots of fixed types. Guitario stores an effect as its
+type, an on flag and a map of named values (`guitario_score::Effect`), and describes each type
+once as a table of parameters with ranges, units and presets (`EffectType::params`, `presets`).
+Validation, the engine's commands (`track.setEffect` takes `params: {name: value}`), the
+`sound.effectTypes` query for agents and the UI's knobs all read that table, so a new effect is
+one table and one DSP unit. The mixer's equalizer is an effect of a type no chain may hold.
+
+`Track::effects` is optional: none means the instrument's own chain (`default_chain`, an amp and
+cabinet for the overdriven and distorted programs), so files from before effects existed sound as
+they did and changing the program changes the sound. A sampled instrument plays no default chain,
+because its recording already carries its amp (the FreePats distorted guitar is recorded through
+one). Editing the chain copies the default into the track first. A default equalizer and master
+are left out of saved files, so older files and the demos are unchanged by a resave.
+
+The cabinet is a set of filters (resonance, cone notch, presence, a steep roll-off moved by the
+microphone position), not a convolution with recorded impulse responses: the filters cost little,
+need no licensed assets, and sound like a speaker for practice. Loading a user's impulse response
+files by partitioned convolution is after beta (issue 121). The synth is mono, so a chain runs
+mono until a chorus or reverb widens it; whether a bus is mono is fixed by whether it plays a
+sampled instrument, never decided per sample, so every channel's filters and delay lines stay in
+step.
+

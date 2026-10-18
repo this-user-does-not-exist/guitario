@@ -222,6 +222,7 @@ fn main() {
     if args.iter().any(|a| a == "--paste-special") {
         run(&mut session, "edit.copy", Value::Null);
     }
+    let session_track = session.cursor().track;
     let mut app = GuitarioApp::new(session, None);
     if let Some(z) = value("--zoom").and_then(|z| z.parse::<f32>().ok()) {
         app.view.zoom = z;
@@ -248,6 +249,15 @@ fn main() {
     }
     if args.iter().any(|a| a == "--mixer") {
         app.open_mixer();
+    }
+    if args.iter().any(|a| a == "--equalizer") {
+        app.open_equalizer(session_track);
+    }
+    if let Some(slot) = value("--effect").and_then(|v| v.parse::<usize>().ok()) {
+        app.open_track_effect(session_track, slot);
+    }
+    if let Some(slot) = value("--mastering").and_then(|v| v.parse::<usize>().ok()) {
+        app.open_mastering(slot);
     }
     if let Some(dir) = value("--recovery") {
         app = app.with_autosave_dir(dir.into());

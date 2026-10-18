@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (moved here from `gaps.md`, which now lists only what is left) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: effect chains, track equalizer, master) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -176,6 +176,36 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   on a confirmed mapping of the channel-strip values.
 - **Landed 2026-10-16:** Sound › Audio Settings… (output device and buffer size, saved); FLAC
   export (File › Export › Audio…, lossless, pure Rust).
+- **Landed 2026-10-18:** the effect chain, the track equalizer and the master section, laid out as
+  Guitar Pro 8's manual shows them (Track Sound, Mixer, Sound Mastering). A track's chain holds up
+  to six effects (`Track::effects`, `crates/score/src/sound.rs`) of eleven original models in
+  `crates/playback/src/fx/`: compressor, noise gate, overdrive, distortion, amp (Clean, Crunch,
+  Lead and Bass voicings: one to three clipping stages, bass, middle and treble, presence,
+  master), cabinet (1x12 and 2x12 open, 4x12 closed, 4x10 bass, a microphone from the cone's
+  centre to its edge; a filter model), ten-band equalizer, chorus, tremolo, delay (up to 2 s, the
+  repeats darkened by a tone knob) and reverb (Schroeder and Moorer's combs and all-passes with a
+  pre-delay), each with presets. A track without its own chain plays its instrument's: the
+  overdriven and distorted programs get an amp and cabinet (and a gate) in place of the old fixed
+  drive; a sampled instrument plays none, its recording already has its amp. Every effect is a
+  table of parameters (`EffectType::params`), so validation, the commands and the knobs share it.
+  The mixer's equalizer (`Track::eq`) has Guitar Pro's five bands: low shelf, low-medium and
+  high-medium peaks with their frequencies, a medium peak with its Q, high shelf, an on switch
+  and presets for instrument types. The master (`Score::master`) has volume, pan and the three
+  mastering slots in Guitar Pro's fixed order: compressor, reverb, ten-band equalizer, off by
+  default so older files sound as they did. Commands: `track.setEffect`, `track.removeEffect`,
+  `track.moveEffect`, `track.resetEffects`, `track.setEq`, `score.setMaster`,
+  `score.setMastering`, and the queries `track.sound` and `sound.effectTypes` (every type's
+  parameters, ranges, units and presets). The inspector's Sounds section lists the chain (icon
+  opens the knobs, the name opens the library of presets and types, power, Move Up, Move Down,
+  Delete, and Reset to the instrument's chain); the Song tab's Sound Mastering rows are live; the
+  global view's Eq. button opens the equalizer popup (lit while it shapes the sound) and the
+  Master row's fader and pan work; the Mixer window has an EQ button per strip and a master
+  fader; Sound › Sound Settings… opens the track inspector. Knobs are heard while they turn and
+  make one undo step when let go; a knob moved during playback keeps the reverb's tail. WAV and
+  FLAC exports render the effects and wait for their tails. The synth runs its effects in mono
+  until a chorus or reverb widens it: rendering a six-track 400-bar score costs 30 ms a second
+  of sound (budget 50). Not yet: cabinet impulse responses from files, the chain in Guitar Pro
+  files, master automation, the pedalboard; nobody has listened on speakers.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

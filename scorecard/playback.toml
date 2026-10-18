@@ -1,4 +1,4 @@
-# Scorecard checklist: playback. Verified 2026-10-15 (crates/playback tests; nobody has listened
+# Scorecard checklist: playback. Verified 2026-10-18 (crates/playback tests; nobody has listened
 # to the output on real speakers yet).
 area = "playback"
 title = "Playback"
@@ -20,7 +20,7 @@ id = "PLAY-3"
 target = "Guitar and bass sound with palm mute, dead notes, bends, vibrato, legato hammer-ons and slides, let ring"
 status = "partial"
 stage = "beta"
-note = "physical-model synth (Karplus-Strong) with a natural decay by pitch (about 7 s near A2, never over 10 s); let ring holds a note past its length until it dies away, also past the end of the song, unless its string is struck again, which stops it within milliseconds (synth and samples; MIDI note-offs follow the same rule); not sampled articulations like Guitar Pro's RSE"
+note = "physical-model synth (Karplus-Strong) with a natural decay by pitch (about 7 s near A2, never over 10 s); let ring holds a note past its length until it dies away, also past the end of the song, unless its string is struck again, which stops it within milliseconds (synth and samples; MIDI note-offs follow the same rule); the overdriven and distorted programs play through an amp and cabinet model (PLAY-5); not sampled articulations like Guitar Pro's RSE"
 
 [[item]]
 id = "PLAY-4"
@@ -31,9 +31,8 @@ note = "synthesised kit (kick, snare, hats with choke, cymbals, toms), drums_sou
 [[item]]
 id = "PLAY-5"
 target = "Amp and effect chains per track, mixer with volume/pan/mute/solo"
-status = "partial"
-stage = "beta"
-note = "Sound › Mixer… (mixer.rs): a strip per track with instrument, pan, volume fader, mute and solo, heard live while playing (Player::set_mix, gains glide over 10 ms; faders heard while dragged, one undo step on release); track.setMix and track.setProgram take any track; Sound › Audio Settings… picks the output device and buffer size, saved in the preferences (a missing device falls back to the default and says so); one fixed amp model per program; no effect chain or master section"
+status = "done"
+note = "Sound › Mixer… (mixer.rs): a strip per track with instrument, pan, volume fader, mute, solo and EQ, and a master fader, heard live while playing (Player::set_mix, gains glide over 10 ms; faders heard while dragged, one undo step on release); Sound › Audio Settings… picks the output device and buffer size; an effect chain per track of up to six original effects (amp, cabinet, overdrive, distortion, noise gate, compressor, ten-band EQ, chorus, tremolo, delay, reverb; crates/playback/src/fx, track.setEffect and friends, the inspector's chain rows and knob windows), the overdriven programs default to an amp and cabinet; the mixer's five-band EQ with presets (track.setEq, the global view's Eq. popup); master volume and pan and the compressor, reverb and EQ mastering slots (score.setMaster, score.setMastering, the Song inspector); fx tests check each effect's response, bounds and tails; the cabinet is a filter model (impulse responses from files are 1.0, issue 121); not heard on speakers"
 
 [[item]]
 id = "PLAY-6"
@@ -60,7 +59,7 @@ id = "PLAY-9"
 target = "Pedalboard of original effect models (overdrive to wah) and mastering effects on the master bus"
 status = "missing"
 stage = "1.0"
-note = "Sound Mastering in the Song inspector is drawn greyed (issues 466 to 468, 482, 525, 526)"
+note = "the three mastering slots are live (PLAY-5); no pedalboard (issues 466 to 468, 482, 525, 526)"
 
 [[item]]
 id = "PLAY-10"

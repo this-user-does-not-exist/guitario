@@ -16,6 +16,9 @@ pub struct Score {
     /// Paper, orientation and margins for the page view, PDF and print.
     #[serde(default)]
     pub page: PageSetup,
+    /// Master volume, pan and the mastering effects.
+    #[serde(default, skip_serializing_if = "crate::Master::is_default")]
+    pub master: crate::Master,
 }
 
 /// A paper size.
@@ -480,6 +483,13 @@ pub struct Track {
     /// Which engine sounds the track.
     #[serde(default)]
     pub engine: SoundEngine,
+    /// The effect chain after the instrument, up to [`crate::MAX_TRACK_EFFECTS`]; none plays the
+    /// instrument's own chain ([`crate::default_chain`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<crate::Effect>>,
+    /// The mixer's equalizer.
+    #[serde(default = "crate::mixer_eq", skip_serializing_if = "crate::Effect::is_flat_mixer_eq")]
+    pub eq: crate::Effect,
 }
 
 /// Guitar Pro's audio engines: RSE plays recorded samples, MIDI a lighter synthesised sound.
@@ -617,6 +627,8 @@ impl Track {
             notation: Notations::default(),
             interpretation: Interpretation::default(),
             engine: SoundEngine::Rse,
+            effects: None,
+            eq: crate::mixer_eq(),
         }
     }
 
@@ -1274,7 +1286,7 @@ impl Score {
     pub fn new() -> Score {
         let headers = vec![MeasureHeader::new(TimeSignature::COMMON)];
         let tracks = vec![Track::new("Guitar", Tuning::standard(), &headers)];
-        Score { meta: Meta::default(), tempo: DEFAULT_TEMPO, headers, tracks, page: PageSetup::default() }
+        Score { meta: Meta::default(), tempo: DEFAULT_TEMPO, headers, tracks, page: PageSetup::default(), master: crate::Master::default() }
     }
 
     pub fn measure_count(&self) -> usize {

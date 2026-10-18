@@ -56,11 +56,32 @@ round robin (`seq_length`/`seq_position`, `lorand`/`hirand`), `set_ccN`/`set_hdc
 default keyswitch (`sw_default`/`sw_last`). Samples: WAV (16/24/32-bit, float) and FLAC. A note
 outside every region borrows the nearest one, transposed.
 
-Not yet: release-triggered samples (`trigger=release` regions are dropped), filters and EQ, LFOs,
-effects, live CC, OGG samples, embedded loop points in WAV files, generators (`*sine`). Bends and
+Not yet: release-triggered samples (`trigger=release` regions are dropped), SFZ filters and EQ
+opcodes, LFOs, live CC, OGG samples, embedded loop points in WAV files, generators (`*sine`). Bends and
 vibrato change the playback rate; hammer-ons, slides and palm mutes use plain note-on, a softer
 velocity and a short gate. Samples are decoded on the UI thread when Play is first pressed after
 starting the app (instruments are cached), so a large kit pauses briefly the first time.
+
+## Effects after the instrument
+
+Every track runs an effect chain after its instrument, then the mixer's equalizer, volume and pan;
+the master bus runs its compressor, reverb and equalizer, then the master volume and pan
+(`crates/playback/src/fx/`, [decisions](decisions.md)). A track that has not set its own chain
+plays its instrument's: the synth's overdriven (GM 29) and distorted (GM 30) guitars go through an
+amp and cabinet; a sampled instrument plays none, its recording has its own amp. So with the
+FreePats distorted guitar installed, add an amp only if you want more gain on top of it.
+
+```sh
+guitario-cli run song.gt fx.json --save song.gt
+# fx.json:
+[["track.setEffect", {"track": 0, "slot": 0, "type": "amp", "preset": "Metal Rhythm"}],
+ ["track.setEffect", {"track": 0, "slot": 1, "type": "cabinet", "params": {"model": 2}}],
+ ["track.setEq", {"track": 1, "preset": "Bass"}],
+ ["score.setMastering", {"slot": "reverb", "on": true, "preset": "Studio"}]]
+```
+
+`guitario-cli run - types.json` with `[["sound.effectTypes", {}]]` lists every type's parameters, ranges and
+presets. WAV and FLAC exports include the effects and their tails.
 
 ## Safety
 

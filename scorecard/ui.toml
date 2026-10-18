@@ -60,7 +60,7 @@ note = "theme and interface scale only; the light theme has had one pass"
 id = "UI-9"
 target = "Mixer window: a strip per track with instrument, pan, fader, mute and solo, live while playing"
 status = "done"
-note = "Sound › Mixer… (mixer.rs); no equalizer, master section or effect chain (PLAY-5)"
+note = "Sound › Mixer… (mixer.rs) with an EQ button per strip and a master fader; the effect chain and mastering are in the inspector (PLAY-5)"
 
 [[item]]
 id = "UI-10"

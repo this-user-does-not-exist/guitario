@@ -43,6 +43,7 @@ enum Act {
     ToggleHidden(usize),
     ToggleMultitrack,
     Automation(usize, MixKind),
+    Equalizer(usize),
     AddTrack,
 }
 
@@ -133,6 +134,8 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let mut acts: Vec<Act> = Vec::new();
     let mut vol_slots: Vec<(usize, Rect)> = Vec::new();
     let mut pan_knobs: Vec<(usize, Rect)> = Vec::new();
+    // The Master row's fader and pan knob.
+    let mut master_slots: Option<(Rect, Rect)> = None;
     let bars = score.headers.len();
     let n = score.tracks.len();
     let dim = t.text_dim.gamma_multiply(0.55);
@@ -250,7 +253,12 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 let pan_a = cell(col::PAN_A, 18.0);
                 auto_badge(&p, at(col::PAN_A), automated(tr, MixKind::Pan), hovered(pan_a), true);
                 let eq = cell(col::EQ, 22.0);
-                draw(&p, Rect::from_center_size(at(col::EQ), vec2(16.0, 16.0)), Icon::Equalizer, dim);
+                // Lit while the track's equalizer is on and shaping the sound.
+                let shaping = tr.eq.on && !tr.eq.is_neutral();
+                if hovered(eq) {
+                    p.rect_filled(eq, 3.0, t.control_hover);
+                }
+                draw(&p, Rect::from_center_size(at(col::EQ), vec2(16.0, 16.0)), Icon::Equalizer, if shaping { t.accent } else { t.text });
                 if resp.clicked()
                     && let Some(pos) = resp.interact_pointer_pos()
                     && !slot.contains(pos)
@@ -274,14 +282,14 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     acts.extend(row_click(i, tr, part));
                 }
                 if hovered(eq) {
-                    resp.clone().on_hover_text("Equalizer (not in Guitario yet)");
+                    resp.clone().on_hover_text("Equalizer");
                 } else if hovered(eye) {
                     resp.clone().on_hover_text(if shown { "Hide from the multitrack view" } else { "Show in the multitrack view" });
                 } else if hovered(vol_a) || hovered(pan_a) {
                     resp.clone().on_hover_text("Edit the automation");
                 }
             }
-            // The Master row: master volume, pan and focus are not built yet.
+            // The Master row: volume and pan; focus and the master automations are not built yet.
             let (row, _) = ui.allocate_exact_size(vec2(LEFT, ROW), Sense::hover());
             let p = ui.painter().clone();
             p.rect_filled(row, 0.0, t.chrome_dark);
@@ -289,13 +297,16 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             p.text(pos2(row.left() + 44.0, cy), egui::Align2::LEFT_CENTER, "Master", egui::FontId::proportional(14.0), t.text);
             let at = |x: f32| pos2(row.right() - x, cy);
             knob(&p, at(col::MUTE - 13.0), 0.0, false);
-            fader(&p, Rect::from_min_size(pos2(row.right() - col::FADER_END - FADER, row.top() + 3.0), vec2(FADER, ROW - 6.0)), 100.0, false, false);
+            let slot = Rect::from_min_size(pos2(row.right() - col::FADER_END - FADER, row.top() + 3.0), vec2(FADER, ROW - 6.0));
+            let master = &score.master;
+            fader(&p, slot, live(usize::MAX, Control::MasterVolume, i64::from(master.volume)) as f32, true, false);
             auto_badge(&p, at(col::VOL_A), false, false, false);
-            knob(&p, at(col::PAN), 0.0, false);
+            knob(&p, at(col::PAN), live(usize::MAX, Control::MasterPan, i64::from(master.pan)) as f32, true);
             auto_badge(&p, at(col::PAN_A), false, false, false);
+            master_slots = Some((slot, Rect::from_center_size(at(col::PAN), vec2(24.0, ROW - 4.0))));
             let _ = ui
-                .interact(Rect::from_min_max(pos2(row.right() - col::EYE, row.top()), row.max), egui::Id::new("global-master"), Sense::hover())
-                .on_hover_text("Master volume, pan and focus are not in Guitario yet");
+                .interact(Rect::from_center_size(at(col::MUTE - 13.0), vec2(24.0, ROW - 4.0)), egui::Id::new("global-master-focus"), Sense::hover())
+                .on_hover_text("Focus on the current track (not in Guitario yet)");
         });
         // Bar grid.
         egui::ScrollArea::horizontal().id_salt("global-bars").show(ui, |ui| {
@@ -409,6 +420,34 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             drag = None;
         }
     }
+    if let Some((slot, pan)) = master_slots {
+        let r = ui.interact(slot.expand(2.0), egui::Id::new("global-master-volume"), Sense::click_and_drag()).on_hover_text("Master volume");
+        if let Some(pos) = r.interact_pointer_pos().filter(|_| r.dragged() || r.clicked() || r.drag_stopped()) {
+            let v = (((pos.x - slot.left() - 3.0) / (slot.width() - 6.0)).clamp(0.0, 1.0) * 127.0).round() as i64;
+            drag = Some((usize::MAX, Control::MasterVolume, v));
+            if r.drag_stopped() || (r.clicked() && !r.dragged()) {
+                acts.push(Act::Run("score.setMaster", json!({"volume": v})));
+                drag = None;
+            }
+        }
+        let r = ui.interact(pan, egui::Id::new("global-master-pan"), Sense::click_and_drag()).on_hover_text("Master pan (drag; double-click to centre)");
+        if r.double_clicked() {
+            acts.push(Act::Run("score.setMaster", json!({"pan": 0})));
+            drag = None;
+        } else if r.dragged() {
+            let from = match drag {
+                Some((_, Control::MasterPan, v)) => v,
+                _ => i64::from(score.master.pan),
+            };
+            let d = r.drag_delta();
+            drag = Some((usize::MAX, Control::MasterPan, pan_step(from, d.x - d.y)));
+        } else if r.drag_stopped()
+            && let Some((_, Control::MasterPan, v)) = drag
+        {
+            acts.push(Act::Run("score.setMaster", json!({"pan": v})));
+            drag = None;
+        }
+    }
     let dragging = drag.is_some();
     app.mixer.drag = drag;
     for act in acts {
@@ -423,6 +462,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             }
             Act::ToggleMultitrack => app.ui_action(crate::menu_catalog::UiAction::ToggleMultitrack),
             Act::AddTrack => app.open_add_track(None),
+            Act::Equalizer(i) => app.open_equalizer(i),
             Act::Automation(i, kind) => {
                 app.run("track.select", json!({"index": i}));
                 app.open_mix_automation(kind);
@@ -472,7 +512,7 @@ fn row_click(i: usize, tr: &guitario_score::Track, part: RowPart) -> Option<Act>
         RowPart::Eye => Act::ToggleHidden(i),
         RowPart::VolumeAutomation => Act::Automation(i, MixKind::Volume),
         RowPart::PanAutomation => Act::Automation(i, MixKind::Pan),
-        RowPart::Equalizer => return None,
+        RowPart::Equalizer => Act::Equalizer(i),
     })
 }
 
@@ -511,7 +551,7 @@ mod tests {
         assert!(matches!(row_click(2, &s.score().tracks[2], RowPart::Name), Some(Act::Run("track.select", _))));
         assert!(matches!(row_click(2, &s.score().tracks[2], RowPart::Eye), Some(Act::ToggleHidden(2))));
         assert!(matches!(row_click(1, &s.score().tracks[1], RowPart::PanAutomation), Some(Act::Automation(1, MixKind::Pan))));
-        assert!(row_click(1, &s.score().tracks[1], RowPart::Equalizer).is_none());
+        assert!(matches!(row_click(1, &s.score().tracks[1], RowPart::Equalizer), Some(Act::Equalizer(1))));
     }
 
     #[test]
