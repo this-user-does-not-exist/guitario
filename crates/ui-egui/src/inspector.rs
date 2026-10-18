@@ -657,6 +657,69 @@ fn sounds(app: &mut GuitarioApp, ui: &mut egui::Ui, tr: &guitario_score::Track, 
         speaker(&p, sr.shrink(7.0), t.text_dim.gamma_multiply(0.6));
         sresp.on_hover_text(format!("Lock this sound over sound automations{later}"));
     });
+    ui.add_space(4.0);
+    bank_row(app, ui, tr, ti, actions);
+}
+
+/// What a track plays from the sound bank, and the choice of it: its instrument's role, another
+/// role, or an `.sfz` file.
+fn bank_row(app: &mut GuitarioApp, ui: &mut egui::Ui, tr: &guitario_score::Track, ti: usize, actions: &mut Vec<(&'static str, Value)>) {
+    use crate::bank_window::role_label;
+    use guitario_playback::Role;
+    let bank = app.sounds.clone();
+    // What a role plays: the library's (short) name, or the synth where the bank has none.
+    let source = |role: Role| {
+        bank.as_ref().and_then(|b| b.path_for(role)).map_or_else(
+            || "built-in synth".to_string(),
+            |p| {
+                let lib = guitario_playback::install::LIBRARIES.iter().find(|l| l.role == role && bank.as_ref().is_some_and(|b| p.starts_with(l.dir(b.dir()))));
+                lib.map_or_else(
+                    || p.file_stem().unwrap_or_default().to_string_lossy().into_owned(),
+                    |l| l.title.split(" (").next().unwrap_or(l.title).to_string(),
+                )
+            },
+        )
+    };
+    let shown = match (tr.engine, tr.bank.as_deref()) {
+        (guitario_score::SoundEngine::Midi, _) => "Synthesiser (MIDI engine)".to_string(),
+        (_, Some(name)) => match Role::from_key(name) {
+            Some(role) => format!("{}: {}", role_label(role), source(role)),
+            None => std::path::Path::new(name).file_name().map_or_else(|| name.to_string(), |f| f.to_string_lossy().into_owned()),
+        },
+        (_, None) => Role::of(tr).map_or_else(|| "Built-in synth".to_string(), |role| format!("{}: {}", role_label(role), source(role))),
+    };
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new("Bank").color(tokens().text_dim));
+        let rse = tr.engine == guitario_score::SoundEngine::Rse;
+        let resp = ui.add_enabled(rse, egui::Button::new(egui::RichText::new(shown).size(13.0)).truncate().min_size(egui::vec2(ui.available_width(), 24.0)));
+        let resp = resp
+            .on_hover_text("The recorded instrument this track plays; Automatic follows its instrument")
+            .on_disabled_hover_text("The MIDI engine plays the synthesiser");
+        egui::Popup::menu(&resp).show(|ui| {
+            if ui.selectable_label(tr.bank.is_none(), "Automatic (by instrument)").clicked() {
+                actions.push(("track.setBank", json!({"track": ti, "bank": null})));
+                ui.close();
+            }
+            for role in Role::ALL {
+                let text = format!("{}: {}", role_label(role), source(role));
+                if ui.selectable_label(tr.bank.as_deref() == Some(role.key()), text).clicked() {
+                    actions.push(("track.setBank", json!({"track": ti, "bank": role.key()})));
+                    ui.close();
+                }
+            }
+            ui.separator();
+            if ui.button("Choose an SFZ File…").clicked() {
+                ui.close();
+                if let Some(p) = rfd::FileDialog::new().add_filter("SFZ instrument", &["sfz"]).pick_file() {
+                    actions.push(("track.setBank", json!({"track": ti, "bank": p.display().to_string()})));
+                }
+            }
+            if ui.button("Sound Bank…").clicked() {
+                ui.close();
+                app.open_sound_bank();
+            }
+        });
+    });
 }
 
 /// A loudspeaker with sound waves.

@@ -43,6 +43,7 @@ enum Act {
     ToggleHidden(usize),
     ToggleMultitrack,
     Automation(usize, MixKind),
+    MasterAutomation(MixKind),
     Equalizer(usize),
     AddTrack,
 }
@@ -289,7 +290,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     resp.clone().on_hover_text("Edit the automation");
                 }
             }
-            // The Master row: volume and pan; focus and the master automations are not built yet.
+            // The Master row: volume and pan with their automations; focus is not built yet.
             let (row, _) = ui.allocate_exact_size(vec2(LEFT, ROW), Sense::hover());
             let p = ui.painter().clone();
             p.rect_filled(row, 0.0, t.chrome_dark);
@@ -300,9 +301,19 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             let slot = Rect::from_min_size(pos2(row.right() - col::FADER_END - FADER, row.top() + 3.0), vec2(FADER, ROW - 6.0));
             let master = &score.master;
             fader(&p, slot, live(usize::MAX, Control::MasterVolume, i64::from(master.volume)) as f32, true, false);
-            auto_badge(&p, at(col::VOL_A), false, false, false);
+            for (x, kind, id, tip) in [
+                (col::VOL_A, MixKind::Volume, "global-master-volume-automation", "Master volume automation"),
+                (col::PAN_A, MixKind::Pan, "global-master-pan-automation", "Master pan automation"),
+            ] {
+                let cell = Rect::from_center_size(at(x), vec2(18.0, ROW - 4.0));
+                let r = ui.interact(cell, egui::Id::new(id), Sense::click()).on_hover_text(tip);
+                let on = score.headers.iter().any(|h| if kind == MixKind::Volume { h.master.volume.is_some() } else { h.master.pan.is_some() });
+                auto_badge(&p, at(x), on, r.hovered(), true);
+                if r.clicked() {
+                    acts.push(Act::MasterAutomation(kind));
+                }
+            }
             knob(&p, at(col::PAN), live(usize::MAX, Control::MasterPan, i64::from(master.pan)) as f32, true);
-            auto_badge(&p, at(col::PAN_A), false, false, false);
             master_slots = Some((slot, Rect::from_center_size(at(col::PAN), vec2(24.0, ROW - 4.0))));
             let _ = ui
                 .interact(Rect::from_center_size(at(col::MUTE - 13.0), vec2(24.0, ROW - 4.0)), egui::Id::new("global-master-focus"), Sense::hover())
@@ -467,6 +478,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 app.run("track.select", json!({"index": i}));
                 app.open_mix_automation(kind);
             }
+            Act::MasterAutomation(kind) => app.open_master_automation(kind),
         }
     }
     if dragging {

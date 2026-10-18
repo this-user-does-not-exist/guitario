@@ -10,11 +10,11 @@ pub struct WhammyTime {
 }
 
 /// How far a note's pitch is moved at `t` (song seconds), in semitones: its bend, followed from
-/// `start` to `end`, plus the whammy bar.
-pub fn curve_semis(bend: Option<guitario_score::Bend>, whammy: Option<WhammyTime>, t: f64, start: f64, end: f64) -> f32 {
+/// `start` to `end`, plus the whammy bar and a slide.
+pub fn curve_semis(bend: Option<guitario_score::Bend>, whammy: Option<WhammyTime>, slide: Option<SlideTime>, t: f64, start: f64, end: f64) -> f32 {
     let b = bend.map_or(0.0, |b| b.semitones_at(((t - start) / (end - start).max(1e-3)) as f32));
     let w = whammy.filter(|w| t >= w.start).map_or(0.0, |w| w.curve.semitones_at(((t - w.start) / (w.end - w.start).max(1e-3)) as f32));
-    b + w
+    b + w + slide.map_or(0.0, |s| s.semitones_at(t))
 }
 
 /// Deterministic noise so renders are reproducible.
@@ -39,8 +39,23 @@ pub struct Pluck {
     pub velocity: f32,
     /// 0 = dark (palm mute, bass), 1 = bright.
     pub brightness: f32,
-    /// Per-sample loss while sounding, close to 1.
-    pub sustain: f32,
+    /// Seconds to fade by 60 dB when that is sooner than the string would on its own (a palm
+    /// mute, a dead note); `None` rings naturally.
+    pub decay: Option<f32>,
+    /// How much the highs die away faster than the lows while it rings: 0 as plucked, 1 with a
+    /// palm resting on the string.
+    pub damping: f32,
+    /// The partial heard, for a harmonic (1 for a plain note), and how much of the plain note
+    /// still sounds under it (0 to 1).
+    pub partial: u8,
+    pub fundamental: f32,
+}
+
+impl Pluck {
+    /// A plain note: natural decay, undamped, no harmonic.
+    pub fn plain(freq: f32, velocity: f32, brightness: f32) -> Pluck {
+        Pluck { freq, velocity, brightness, decay: None, damping: 0.0, partial: 1, fundamental: 1.0 }
+    }
 }
 
 pub struct StringVoice {
@@ -63,6 +78,13 @@ pub struct StringVoice {
     pub fade: Option<guitario_score::Fade>,
     vib_phase: f32,
     loss: f32,
+    /// The loss once released: the finger lifts and the string stops in a fraction of a second.
+    release_loss: f32,
+    /// The loop's extra lowpass (1 leaves it open) and its state, and the delay it adds at the
+    /// note's pitch, taken off the delay line so the pitch stays true.
+    loop_lp: f32,
+    loop_state: f32,
+    loop_delay: f32,
     pub released: bool,
     pub let_ring: bool,
     /// Song time of the note driving this voice, for its end and bend.
@@ -72,12 +94,43 @@ pub struct StringVoice {
     pub bend: Option<guitario_score::Bend>,
     /// The whammy bar's curve moving the note.
     pub whammy: Option<WhammyTime>,
+    /// A slide moving the note, in song time.
+    pub slide: Option<SlideTime>,
     level: f32,
     age: u32,
     sr: f32,
     /// The string was struck again: the old vibration dies within milliseconds.
     damped: bool,
     damp_gain: f32,
+}
+
+/// A slide in song time: the pitch moves from `from` to `to` semitones (off the note's pitch)
+/// between `start` and `end` seconds, and the note fades out over it when `fade` is set (sliding
+/// off the string).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SlideTime {
+    pub start: f64,
+    pub end: f64,
+    pub from: f32,
+    pub to: f32,
+    pub fade: bool,
+}
+
+impl SlideTime {
+    /// The slide's pitch offset at `t`: `from` before it, `to` after it.
+    pub fn semitones_at(&self, t: f64) -> f32 {
+        let x = if self.end > self.start { ((t - self.start) / (self.end - self.start)).clamp(0.0, 1.0) as f32 } else { f32::from(u8::from(t >= self.start)) };
+        self.from + (self.to - self.from) * x
+    }
+
+    /// The gain left at `t`: 1 until a fading slide starts, then down to silence at its end.
+    pub fn gain_at(&self, t: f64) -> f32 {
+        if !self.fade || t <= self.start {
+            return 1.0;
+        }
+        let x = if self.end > self.start { ((t - self.start) / (self.end - self.start)).clamp(0.0, 1.0) as f32 } else { 1.0 };
+        (1.0 - x) * (1.0 - x)
+    }
 }
 
 const MIN_FREQ: f32 = 25.0;
@@ -89,8 +142,25 @@ fn natural_loss(freq: f32) -> f32 {
     let t60 = (7.0 * (110.0 / f).sqrt()).clamp(1.5, 10.0);
     10f32.powf(-3.0 / (t60 * f))
 }
+
+/// The loss per period that fades a string at `freq` by 60 dB in `t60` seconds.
+fn loss_for(freq: f32, t60: f32) -> f32 {
+    10f32.powf(-3.0 / (t60.max(0.005) * freq.max(MIN_FREQ)))
+}
+
+/// The delay, in samples, a one-pole lowpass `y += a (x - y)` adds at `freq`: its phase over the
+/// angular frequency.
+fn one_pole_delay(a: f32, freq: f32, sr: f32) -> f32 {
+    let w = std::f32::consts::TAU * freq.max(MIN_FREQ) / sr;
+    let b = 1.0 - a;
+    let phase = (b * w.sin()).atan2(1.0 - b * w.cos());
+    if w > 0.0 { (phase / w).max(0.0) } else { 0.0 }
+}
+
 /// How long a string's old vibration lasts once it is struck again, in seconds.
 const RESTRIKE: f32 = 0.015;
+/// How long a note takes to fade by 60 dB after it ends, in seconds: the fretting finger lifts.
+const RELEASE: f32 = 0.25;
 /// Longest a voice may sound, whatever its decay.
 const MAX_RING: f32 = 30.0;
 
@@ -99,20 +169,47 @@ impl StringVoice {
         let len = ((sr / MIN_FREQ) as usize + 4).max(8);
         let mut buf = vec![0.0f32; len];
         let period = (sr / p.freq.max(MIN_FREQ)).max(2.0) as usize;
+        let n = period.min(len).max(1);
         // Excite with filtered noise: darker picks lowpass it more.
         let a = 0.15 + 0.8 * p.brightness.clamp(0.0, 1.0);
         let mut lp = 0.0f32;
-        for x in buf.iter_mut().take(period.min(len)) {
+        for x in buf.iter_mut().take(n) {
             lp += a * (noise.next() - lp);
             *x = lp * p.velocity;
         }
+        // A harmonic: the string is touched at a node, which silences every partial without one
+        // there. Averaging copies of the excitation shifted by 1/k of the period keeps only the
+        // multiples of the k-th partial; some of the plain note stays for pinch and semi-harmonics.
+        let k = usize::from(p.partial.max(1));
+        if k > 1 {
+            let src: Vec<f32> = buf.iter().take(n).copied().collect();
+            let shift = n as f32 / k as f32;
+            let keep = p.fundamental.clamp(0.0, 1.0);
+            // The comb passes a k-th of the energy; a harmonic is softer than the note, but not that much.
+            let lift = (k as f32).sqrt() * 0.8;
+            for (i, x) in buf.iter_mut().take(n).enumerate() {
+                let mut acc = 0.0;
+                for j in 0..k {
+                    let pos = i as f32 + j as f32 * shift;
+                    let (i0, frac) = (pos.floor() as usize, pos - pos.floor());
+                    let at = |m: usize| src.get(m % n).copied().unwrap_or(0.0);
+                    acc += at(i0) * (1.0 - frac) + at(i0 + 1) * frac;
+                }
+                *x = keep * *x + (1.0 - keep) * acc / k as f32 * lift;
+            }
+        }
         // Remove DC so the string does not thump.
-        let n = period.min(len).max(1) as f32;
-        let mean = buf.iter().take(period.min(len)).sum::<f32>() / n;
-        for x in buf.iter_mut().take(period.min(len)) {
+        let mean = buf.iter().take(n).sum::<f32>() / n as f32;
+        for x in buf.iter_mut().take(n) {
             *x -= mean;
         }
         let lf = p.freq.max(MIN_FREQ).log2();
+        let natural = natural_loss(p.freq);
+        let loss = p.decay.map_or(natural, |t60| loss_for(p.freq, t60).min(natural));
+        // A palm on the string: a lowpass in the loop takes the highs off sooner, down to some 900 Hz.
+        let damping = p.damping.clamp(0.0, 1.0);
+        let loop_lp = if damping > 0.0 { 1.0 - (-std::f32::consts::TAU * (6000.0 - 5100.0 * damping) / sr).exp() } else { 1.0 };
+        let loop_delay = if loop_lp < 1.0 { one_pole_delay(loop_lp, p.freq, sr) } else { 0.0 };
         StringVoice {
             track,
             string,
@@ -129,13 +226,18 @@ impl StringVoice {
             gain: 1.0,
             fade: None,
             vib_phase: 0.0,
-            loss: p.sustain.min(natural_loss(p.freq)),
+            loss,
+            release_loss: loss,
+            loop_lp,
+            loop_state: 0.0,
+            loop_delay,
             released: false,
             let_ring: false,
             note_start: 0.0,
             note_end: f64::MAX,
             bend: None,
             whammy: None,
+            slide: None,
             level: 1.0,
             age: 0,
             sr,
@@ -144,9 +246,31 @@ impl StringVoice {
         }
     }
 
+    /// Puts energy back into the ringing string without a pick: a finger hammering on, pulling
+    /// off or tapping. `amount` is like a pluck's velocity; the burst is dark (no pick click).
+    pub fn excite(&mut self, amount: f32, noise: &mut Noise) {
+        let len = self.buf.len();
+        let period = ((self.sr / self.target.exp2()) as usize).clamp(2, len.saturating_sub(2).max(2));
+        let mut lp = 0.0f32;
+        let mut burst: Vec<f32> = (0..period)
+            .map(|_| {
+                lp += 0.3 * (noise.next() - lp);
+                lp * amount.clamp(0.0, 1.0)
+            })
+            .collect();
+        let mean = burst.iter().sum::<f32>() / period as f32;
+        burst.iter_mut().for_each(|x| *x -= mean);
+        // Into the period about to be read.
+        for (j, b) in burst.into_iter().enumerate() {
+            if let Some(slot) = self.buf.get_mut((self.w + len - period + j) % len) {
+                *slot += b;
+            }
+        }
+    }
+
     /// Another note on the same string: this one stops at once (a let-ring note too).
     pub fn damp(&mut self) {
-        self.released = true;
+        self.release();
         self.damped = true;
     }
 
@@ -161,10 +285,16 @@ impl StringVoice {
         }
         self.bend_semis = 0.0;
         self.released = false;
+        if self.loop_lp < 1.0 {
+            self.loop_delay = one_pole_delay(self.loop_lp, freq, self.sr);
+        }
     }
 
     pub fn release(&mut self) {
-        self.released = true;
+        if !self.released {
+            self.released = true;
+            self.release_loss = loss_for(self.log_freq.exp2(), RELEASE).min(self.loss);
+        }
     }
 
     /// Done when released and quiet, or, ringing on, once it has decayed to silence on its own.
@@ -192,16 +322,20 @@ impl StringVoice {
             lf += self.vibrato_depth * (self.vib_phase * std::f32::consts::TAU).sin();
         }
         let len = self.buf.len();
-        // The two-point average delays half a sample; compensate.
-        let delay = (self.sr / lf.exp2() - 0.5).clamp(1.0, (len - 2) as f32);
+        // The two-point average delays half a sample, the damping lowpass some more; compensate.
+        let delay = (self.sr / lf.exp2() - 0.5 - self.loop_delay).clamp(1.0, (len - 2) as f32);
         let read = self.w as f32 + len as f32 - delay;
         let i0 = read.floor() as usize % len;
         let i1 = (i0 + 1) % len;
         let frac = read - read.floor();
         let y = self.buf.get(i0).copied().unwrap_or(0.0) * (1.0 - frac) + self.buf.get(i1).copied().unwrap_or(0.0) * frac;
-        let loss = if self.released { 0.985 } else { self.loss };
-        let next = 0.5 * (y + self.prev) * loss;
+        let loss = if self.released { self.release_loss } else { self.loss };
+        let mut next = 0.5 * (y + self.prev) * loss;
         self.prev = y;
+        if self.loop_lp < 1.0 {
+            self.loop_state += self.loop_lp * (next - self.loop_state);
+            next = self.loop_state;
+        }
         if let Some(slot) = self.buf.get_mut(self.w) {
             *slot = next;
         }

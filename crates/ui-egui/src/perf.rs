@@ -142,6 +142,7 @@ mod tests {
             let t = Instant::now();
             let notes = bank.preload(&score);
             results.push(("sounds_preload", t.elapsed().as_secs_f64() * 1000.0));
+            results.push(("sounds_memory_mb", bank.memory() as f64 / 1_048_576.0));
             assert!(notes.is_empty(), "{notes:?}");
             results.push(("sounds_ready_check", time(9, || assert!(bank.ready(&score)))));
             let mut p = guitario_playback::Player::new(&score, 48_000, guitario_playback::Options::default());

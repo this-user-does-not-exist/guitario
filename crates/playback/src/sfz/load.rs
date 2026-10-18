@@ -47,6 +47,11 @@ fn read_limited(path: &Path, max: u64) -> Result<Vec<u8>, SfzError> {
 impl Instrument {
     /// Loads `path` (an `.sfz` file). With `keys`, decodes only the samples those keys need.
     pub fn load(path: &Path, keys: Option<&[u8]>) -> Result<Instrument, SfzError> {
+        Instrument::load_switched(path, keys, None)
+    }
+
+    /// [`load`](Self::load) with `switch` as the active keyswitch.
+    pub fn load_switched(path: &Path, keys: Option<&[u8]>, switch: Option<u8>) -> Result<Instrument, SfzError> {
         let base = path.parent().unwrap_or(Path::new("."));
         let text = String::from_utf8_lossy(&read_limited(path, MAX_SFZ_BYTES)?).into_owned();
         let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("instrument").to_string();
@@ -58,7 +63,7 @@ impl Instrument {
             let p = confined(base, rel).ok_or_else(|| SfzError::Io(format!("{rel}: path leaves the library")))?;
             Sample::decode(&read_limited(&p, MAX_SAMPLE_BYTES)?, rel)
         };
-        Instrument::build(&name, &text, &mut include, &load, keys)
+        Instrument::build_switched(&name, &text, &mut include, &load, keys, switch)
     }
 }
 

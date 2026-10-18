@@ -187,6 +187,28 @@ pub struct MeasureHeader {
     /// grouping ([`default_beaming`]).
     #[serde(default)]
     pub beams: Vec<u8>,
+    /// The master's volume and pan automation points on this bar.
+    #[serde(default, skip_serializing_if = "MasterAutomation::is_empty")]
+    pub master: MasterAutomation,
+}
+
+/// The master's volume and pan from a bar on (Sound › Automations, the global view's Master row),
+/// each jumping there or gliding from the point before, as a track's do on its own bars.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MasterAutomation {
+    /// 0..=127, 100 is unity.
+    pub volume: Option<u8>,
+    pub volume_linear: bool,
+    /// -63 (left) ..= 63 (right).
+    pub pan: Option<i8>,
+    pub pan_linear: bool,
+}
+
+impl MasterAutomation {
+    pub fn is_empty(&self) -> bool {
+        *self == MasterAutomation::default()
+    }
 }
 
 /// Most beam groups a bar may list.
@@ -405,6 +427,7 @@ impl MeasureHeader {
             jump: None,
             fermatas: Vec::new(),
             beams: Vec::new(),
+            master: MasterAutomation::default(),
         }
     }
 
@@ -490,7 +513,15 @@ pub struct Track {
     /// The mixer's equalizer.
     #[serde(default = "crate::mixer_eq", skip_serializing_if = "crate::Effect::is_flat_mixer_eq")]
     pub eq: crate::Effect,
+    /// The sampled instrument it plays on the RSE engine when not the one its instrument picks: a
+    /// sound bank role (`guitar_clean`, `bass`, `drums` …) or an `.sfz` file (absolute, or relative
+    /// to the bank's folder).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bank: Option<String>,
 }
+
+/// The longest sound bank name or `.sfz` path a track may hold, in bytes.
+pub const MAX_BANK_NAME: usize = 4096;
 
 /// Guitar Pro's audio engines: RSE plays recorded samples, MIDI a lighter synthesised sound.
 /// Guitario's RSE is the sampled sound bank (the synth where the bank has no such instrument).
@@ -629,6 +660,7 @@ impl Track {
             engine: SoundEngine::Rse,
             effects: None,
             eq: crate::mixer_eq(),
+            bank: None,
         }
     }
 
@@ -1151,6 +1183,44 @@ pub enum Harmonic {
     Semi,
 }
 
+/// How a harmonic sounds: the fret the vibrating length is stopped at (counted from the capo; the
+/// open string for a natural harmonic), the partial heard (2 is an octave above it, 3 an octave and
+/// a fifth, 4 two octaves) and how much of the plain note still sounds under it (0 to 1).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HarmonicSound {
+    pub fret: u8,
+    pub partial: u8,
+    pub fundamental: f32,
+}
+
+/// The highest partial a natural harmonic is looked for at: higher ones barely sound.
+const MAX_NATURAL_PARTIAL: u8 = 9;
+
+/// The partial a natural harmonic touched at `fret` sounds: the lowest whose node lies there (2 at
+/// the 12th fret, 3 at the 7th and 19th, 4 at the 5th and 24th, 5 at the 4th, 9th and 16th, 6 at
+/// the 3rd …). None where the string has no node close to the fret (the 1st, 11th, 13th …).
+pub fn natural_harmonic(fret: u8) -> Option<u8> {
+    // Where the fret lies along the string, from the nut (0) to the bridge (1).
+    let x = 1.0 - 2f64.powf(-f64::from(fret) / 12.0);
+    (2..=MAX_NATURAL_PARTIAL).find(|&n| (1..n).any(|k| (x - f64::from(k) / f64::from(n)).abs() <= 0.012))
+}
+
+impl Harmonic {
+    /// How this harmonic sounds on a note at `fret`. Artificial and tapped harmonics sound an
+    /// octave above the fretted note (touched or tapped twelve frets higher); a pinch harmonic two
+    /// octaves above it with a little of the note, a semi-harmonic the same with more of the note.
+    /// None for a natural harmonic at a fret without a node: it sounds as the plain note.
+    pub fn sound(self, fret: u8) -> Option<HarmonicSound> {
+        let (fret, partial, fundamental) = match self {
+            Harmonic::Natural => (0, natural_harmonic(fret)?, 0.0),
+            Harmonic::Artificial | Harmonic::Tapped => (fret, 2, 0.0),
+            Harmonic::Pinch => (fret, 4, 0.25),
+            Harmonic::Semi => (fret, 4, 0.6),
+        };
+        Some(HarmonicSound { fret, partial, fundamental })
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NoteEffects {
     /// Hammer-on or pull-off into the next note on this string.
@@ -1346,6 +1416,18 @@ impl Score {
         }
         starts.push(tick);
         starts
+    }
+
+    /// The master's volume and pan automation at each bar's start and end; `None` where it has no
+    /// point yet (the master's own value applies).
+    pub fn master_curves(&self) -> (Curve, Curve) {
+        let starts = self.bar_starts();
+        let point = |b: usize, v: Option<f64>, linear: bool| Some((b, v?, linear));
+        let volume: Vec<(usize, f64, bool)> =
+            self.headers.iter().enumerate().filter_map(|(b, h)| point(b, h.master.volume.map(f64::from), h.master.volume_linear)).collect();
+        let pan: Vec<(usize, f64, bool)> =
+            self.headers.iter().enumerate().filter_map(|(b, h)| point(b, h.master.pan.map(f64::from), h.master.pan_linear)).collect();
+        (automation_curves(&starts, None, &volume), automation_curves(&starts, None, &pan))
     }
 
     /// A track's volume and pan automation at each bar's start and end; `None` where it has no

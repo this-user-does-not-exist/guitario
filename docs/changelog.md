@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: effect chains, track equalizer, master) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: master automation, 16-bit samples) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -206,6 +206,85 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   until a chorus or reverb widens it: rendering a six-track 400-bar score costs 30 ms a second
   of sound (budget 50). Not yet: cabinet impulse responses from files, the chain in Guitar Pro
   files, master automation, the pedalboard; nobody has listened on speakers.
+- **Landed 2026-10-18:** articulations (#111, #112). The synth plays each one
+  (`crates/playback/src/synth.rs`, `player.rs`): palm mutes put a lowpass in the string loop and
+  die in 0.7 s to 0.15 s by the track's palm-mute weight, with the filter's delay taken off the
+  string so the pitch stays true; dead notes are a 45 ms click; harmonics excite the string
+  through a comb that keeps only the partial's multiples, so they ring at the partial (natural
+  harmonics by the node at the fret, pure: 2 at the 12th, 3 at the 7th and 19th, 4 at the 5th, 5
+  at the 4th, 9th and 16th …; artificial and tapped an octave over the fretted note; pinch and
+  semi two octaves over it with some of the note) and longer than a fretted note at that pitch;
+  shift and legato slides glide over the end of the first note and arrive on the second, which a
+  shift slide picks again; slides in scoop from three semitones away, slides out fall or rise
+  eight while fading; hammer-ons, pull-offs and taps carry on the string with a little of the
+  finger's energy (a tap on a silent string plucks it without a pick click); staccato plays half
+  the note; slap and pop, and harder notes, are brighter. A note's end now fades it by 60 dB in a
+  quarter second at any pitch, where a low string used to ring for seconds after its note. The
+  timeline carries what a harmonic sounds (`PlayedHarmonic`, `Harmonic::sound`,
+  `natural_harmonic`) and the beat's technique, keeping `pitch` the fretted note. A sound bank's
+  role can name a program per articulation (`sustain`, `palm_mute`, `dead`, `harmonic`,
+  `legato`), each a file or a keyswitch held in one (`parse_switched`); each loads only the keys
+  its notes play (`used_keys_by_articulation`), and an articulation without one plays from the
+  sustain program, as before for palm mutes and dead notes. Without legato samples, a hammer-on,
+  pull-off or legato slide moves the sample already sounding to the new pitch instead of starting
+  a softer one. MIDI export sounds harmonics at their partial (a semi-harmonic with the note under
+  it) and staccato at half length; the three demos with such notes were regenerated. Checked by
+  tests: every pitch within 1.2 % (harmonics, palm mutes, slides), decay and release times,
+  plucks counted, programs chosen. Not yet: the libraries `cargo xtask sounds` installs are
+  mapped for sustain only, bends are not written to MIDI as pitch bends, and nobody has listened.
+- **Landed 2026-10-18:** the sampler's depth (#103, #104, #106, #108, #109;
+  `crates/playback/src/sfz/`). Release regions (`trigger=release`) start when a note ends, quieter
+  by `rt_decay` dB for each second it was held, and not after a let-ring note or a string struck
+  again before the note's end; a hammer-on moved onto the next note carries its release along.
+  `trigger=first` regions sound only when the note is picked, `trigger=legato` regions only for
+  hammer-ons, pull-offs and legato slides, so a library's own legato samples play them. Each
+  voice can run a filter: one- to six-pole low- and high-passes, band-pass and band-reject, its
+  cutoff moved by `cutoff_onccN` (in cents), the key, the velocity and its own AHDSR envelope
+  (`fileg_*`, recomputed every 32 samples), with resonance in dB over a Butterworth response.
+  `amp_velcurve_N` points replace `amp_veltrack` with a curve. A WAV file's `smpl` loop is used
+  where the SFZ names none, and loops the region unless it says `no_loop`; `loop_crossfade` fades
+  a loop's end into what comes before its start, so the seam does not click. OGG Vorbis samples
+  decode through lewton (pure Rust), capped like the others, a decoder failure contained as an
+  error; a generated fixture and 300 corrupted copies check it. The amplitude and filter
+  envelopes share one generator. Tests measure each: a 500 Hz low-pass takes a 4 kHz tone below
+  5 %, the envelope opens it four octaves and closes it in half a second, curves give their
+  gains, a ramp's loop seam drops from 0.8 to under 0.02 with a 2 ms crossfade, release noises at
+  their key and 30 dB quieter after a note held 1.5 s longer. Not yet: streaming from disk, LFOs,
+  EQ and pitch-envelope opcodes, `<curve>` headers.
+- **Landed 2026-10-18:** the sound bank in the app (#113, #114, #275). One installer
+  (`crates/playback/src/install.rs`) serves the app, the engine and `cargo xtask sounds`: it
+  downloads with `curl` (resuming a download that stopped, starting afresh when the address
+  changed), unpacks zip and 7z archives in Rust (`zip`, and `sevenz-rust2` with its pure-Rust
+  bzip2 and deflate), clones the drum kit with `git` or downloads GitHub's zip of it, writes each
+  library's licence and credit beside it, and merges `bank.json` so a user's own entries stay.
+  The **Sound Bank** window (Sound › Audio Settings… › Sound Bank…, and the inspector's Bank row)
+  shows the folder, what plays each kind of track, each library with its licence, size and an
+  Install button, Install All with progress and Cancel, and the credits the installed libraries
+  need; installing runs on a worker thread and the bank is reopened when it ends. At first start
+  without a bank, the desktop app offers to download them (Download, Not Now, Don't Ask Again,
+  remembered in the preferences). A track can name its instrument (`Track::bank`, saved in the
+  score and left out while unset): a role or an `.sfz` file, chosen from the inspector's new Bank
+  row or with `track.setBank`; a role the bank lacks or a missing file plays the synth and says so.
+  `sound.bank` reports the bank (folder, roles, libraries, credits) and `sound.installLibraries`
+  installs named libraries for agents and scripts. The bass now plays Growlybass's `dirty` program,
+  sustain with release noises; of the four libraries it is the only one that records more than
+  sustain. Checked by installing three libraries for real (Growlybass's zip, both FreePats 7z,
+  which needed the bzip2 and deflate codecs), by file:// installs in the tests (zip, 7z, a
+  resumed download, stale and broken archives, cancel), and by renders of the window, the offer
+  and the inspector. Computing what a score needs from the bank once per Play and finding legato
+  notes in timeline order made handing instruments to the player 2.9 ms (was 12.3) and the check
+  after an edit 3.0 ms on a 400-bar score. Not yet: the drum kit's download from inside this
+  build's sandbox (GitHub's repository archives were not reachable), a memory budget.
+- **Landed 2026-10-18:** master volume and pan automation (the rest of #265): points on the master
+  bar (`MeasureHeader::master`, left out of files while empty, not copied to new bars), jumping or
+  gliding like a track's, `score.setMasterAutomation`, played over the master's own volume and pan
+  from wherever playback starts (`Score::master_curves`, the player's master ramps); the global
+  view's Master row has live A buttons, lit while automated, that open the Volume and Pan
+  Automation window on the Master (which its track list also offers). Samples are held as 16-bit
+  values: the 400-bar, six-track perf score's decoded guitars and bass went from 1,000 MB to 500
+  MB, recorded as `sounds_memory_mb` in the perf budgets (#110, first half), and a real Growlybass
+  render is unchanged. Not yet: streaming long samples from disk; master automation in MIDI and
+  Guitar Pro files (track automation is not exchanged either).
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

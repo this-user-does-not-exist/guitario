@@ -294,3 +294,57 @@ mono until a chorus or reverb widens it; whether a bus is mono is fixed by wheth
 sampled instrument, never decided per sample, so every channel's filters and delay lines stay in
 step.
 
+## 2026-10-18: Articulations: the synth plays them, a bank may record them
+
+Guitar Pro's RSE plays palm mutes, harmonics, slides and legato from recordings of each. Guitario
+plays them in two ways. The plucked-string synth models each one, because it is what everyone
+hears without a sound bank: a palm mute is a lowpass inside the string loop plus a short decay (the
+filter's delay is taken off the delay line at the note's pitch, or a muted note would sound flat);
+a harmonic is the same string excited through a comb that cancels every partial without a node
+at the touched point, so it rings at the partial for as long as that partial would (pure, not
+tempered, as on a guitar); legato is the vibration already on the string, moved to the new pitch
+with a little energy added. A sampled instrument takes a program per articulation from the bank,
+or a keyswitch within one program; whatever a bank does not record is borrowed from the sustain
+program and shaped as before (cut short, moved in pitch).
+
+Which articulation a note is and whether it carries on its string are decided once
+(`crates/playback/src/articulation.rs`) and used both to load samples and to play them, so a
+program never lacks the keys the player asks of it. The timeline keeps `pitch` as the fretted
+note, which the views and the clipboard need, and adds what a harmonic sounds beside it; MIDI
+export uses that too. A shift slide picks the second note and a legato slide does not, as Guitar
+Pro's manual defines them; before, both flowed on. Natural harmonics are looked for up to the
+ninth partial within about a third of a fret, because the model stores whole frets (Guitar Pro's
+2.4, 3.2 and 5.8 cannot be written); a fret without a node plays the plain note.
+
+
+## 2026-10-18: The app downloads sound libraries with curl and unpacks them itself
+
+Guitar Pro's installer offers its sound banks; Guitario's are open libraries hosted by their
+authors (GitHub releases, a git repository), about 0.9 GB. The app, the engine's
+`sound.installLibraries` and `cargo xtask sounds` share one installer (`crates/playback/src/install.rs`).
+It downloads with `curl` rather than an HTTP and TLS stack in the app: curl ships with macOS,
+Windows 10 and later and Linux desktops, follows redirects, resumes a broken download (`-C -`) and
+uses the system's certificates, and the app gains no network code of its own. Unpacking is done in
+Rust (the `zip` crate already in the tree, `sevenz-rust2` with its pure-Rust bzip2 for FreePats'
+7z archives), because `unzip` is missing on some systems and GNU tar cannot read 7z. Both reject
+entries that would land outside the library's folder. The drum kit is a git repository: cloned
+with `git` when it is installed, else downloaded as GitHub's zip of it.
+
+An install writes into `<id>.partial` and renames it only when the program is found, then marks
+it complete, so a failed or cancelled install never looks installed; the archive stays (with the
+address it came from) to carry on next time, and is dropped once unpacked or when it cannot be.
+`bank.json` is merged, not rewritten: the installer fills a role that is empty or already points
+into its library, and leaves a user's own entries (another library, articulation programs). A
+track can name its instrument (`Track::bank`): a role, or an `.sfz` file, absolute or relative to
+the bank's folder so a score and a bank can move together. The first-run offer is armed by the
+desktop app only, so tests and offscreen renders never see it.
+
+## 2026-10-18: Samples are kept as 16-bit values
+
+A score's sampled instruments are decoded into memory for the keys it plays; with the default
+guitars and bass, the 400-bar perf score held 1 GB as floats. The libraries ship 16- and 24-bit
+recordings, so samples are now held as `i16`: exact for 16-bit files, and for 24-bit ones the
+loss is below -96 dBFS, under the recordings' own noise. Memory halves, playback converts on read
+at no measurable cost, and `sounds_memory_mb` in `perf/budgets.toml` watches it. Streaming the
+tails of long samples from disk (#110) would cut it further and is the remaining part.
+

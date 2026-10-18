@@ -65,6 +65,7 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .chain(crate::recover::specs())
         .chain(crate::automation::specs())
         .chain(crate::sound::specs())
+        .chain(crate::sound_bank::specs())
         .chain(crate::sections::specs())
         .collect()
 });
@@ -672,6 +673,7 @@ fn measure_insert(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
         endings: 0,
         targets: Vec::new(),
         jump: None,
+        master: guitario_score::MasterAutomation::default(),
         ..template
     };
     for t in &mut score.tracks {

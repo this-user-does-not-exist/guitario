@@ -165,16 +165,21 @@ impl MixKind {
     }
 }
 
-/// Sound › Automations › Volume Automation… and Pan Automation…, for one track at a time.
+/// Sound › Automations › Volume Automation… and Pan Automation…, for one track at a time or for
+/// the master.
 #[derive(Default)]
 pub(crate) struct MixAutomation {
     pub(crate) open: bool,
     pub(crate) kind: MixKind,
+    /// A track's index, or [`MASTER`].
     pub(crate) track: usize,
     add_bar: usize,
     add_value: i64,
     add_linear: bool,
 }
+
+/// The automation window's target when it edits the master rather than a track.
+pub(crate) const MASTER: usize = usize::MAX;
 
 impl GuitarioApp {
     /// Opens the volume or pan automation of the cursor's track, ready to add a point at its bar.
@@ -190,32 +195,62 @@ impl GuitarioApp {
         self.mix_automation = MixAutomation { open: true, kind, track: c.track, add_bar: c.measure + 1, add_value: value, add_linear: true };
     }
 
+    /// Opens the master's volume automation (the snapshot example uses it).
+    pub fn open_master_volume_automation(&mut self) {
+        self.open_master_automation(MixKind::Volume);
+    }
+
+    /// Opens the master's volume or pan automation (the global view's Master row).
+    pub(crate) fn open_master_automation(&mut self, kind: MixKind) {
+        let m = &self.session.score().master;
+        let value = if kind == MixKind::Volume { i64::from(m.volume) } else { i64::from(m.pan) };
+        self.mix_automation = MixAutomation { open: true, kind, track: MASTER, add_bar: self.session.cursor().measure + 1, add_value: value, add_linear: true };
+    }
+
     pub(crate) fn mix_automation_dialog(&mut self, ctx: &egui::Context) {
         if !self.mix_automation.open {
             return;
         }
         let score = std::sync::Arc::clone(self.session.score());
         let d = &mut self.mix_automation;
-        d.track = d.track.min(score.tracks.len().saturating_sub(1));
-        let Some(track) = score.tracks.get(d.track) else { return };
+        let master = d.track == MASTER;
+        if !master {
+            d.track = d.track.min(score.tracks.len().saturating_sub(1));
+        }
         let bars = score.headers.len().max(1);
         let kind = d.kind;
         let (lo, hi) = kind.range();
-        let (vol, pan) = score.mix_curves(d.track);
-        let (curves, fallback) = match kind {
-            MixKind::Volume => (vol, f64::from(track.volume)),
-            MixKind::Pan => (pan, f64::from(track.pan)),
+        // The curve, the value before the first point, and the points: the master's or a track's.
+        let ((vol, pan), (own_volume, own_pan), points): (_, _, Vec<(usize, i64, bool)>) = if master {
+            let points = score
+                .headers
+                .iter()
+                .enumerate()
+                .filter_map(|(i, h)| match kind {
+                    MixKind::Volume => Some((i, i64::from(h.master.volume?), h.master.volume_linear)),
+                    MixKind::Pan => Some((i, i64::from(h.master.pan?), h.master.pan_linear)),
+                })
+                .collect();
+            (score.master_curves(), (f64::from(score.master.volume), f64::from(score.master.pan)), points)
+        } else {
+            let Some(track) = score.tracks.get(d.track) else { return };
+            let points = track
+                .measures
+                .iter()
+                .enumerate()
+                .filter_map(|(i, m)| match kind {
+                    MixKind::Volume => Some((i, i64::from(m.volume?), m.volume_linear)),
+                    MixKind::Pan => Some((i, i64::from(m.pan?), m.pan_linear)),
+                })
+                .collect();
+            (score.mix_curves(d.track), (f64::from(track.volume), f64::from(track.pan)), points)
         };
-        let points: Vec<(usize, i64, bool)> = track
-            .measures
-            .iter()
-            .enumerate()
-            .filter_map(|(i, m)| match kind {
-                MixKind::Volume => Some((i, i64::from(m.volume?), m.volume_linear)),
-                MixKind::Pan => Some((i, i64::from(m.pan?), m.pan_linear)),
-            })
-            .collect();
+        let (curves, fallback) = match kind {
+            MixKind::Volume => (vol, own_volume),
+            MixKind::Pan => (pan, own_pan),
+        };
         let names: Vec<String> = score.tracks.iter().map(|t| t.name.clone()).collect();
+        let target = |track: usize| if track == MASTER { "Master".to_string() } else { names.get(track).cloned().unwrap_or_default() };
         let mut actions: Vec<Value> = Vec::new();
         let mut open = true;
         let title = if kind == MixKind::Volume { "Volume Automation" } else { "Pan Automation" };
@@ -225,28 +260,38 @@ impl GuitarioApp {
                 ui.horizontal(|ui| {
                     ui.selectable_value(&mut d.kind, MixKind::Volume, "Volume");
                     ui.selectable_value(&mut d.kind, MixKind::Pan, "Pan");
-                    egui::ComboBox::from_id_salt("mix-automation-track").selected_text(names.get(d.track).cloned().unwrap_or_default()).show_ui(ui, |ui| {
+                    egui::ComboBox::from_id_salt("mix-automation-track").selected_text(target(d.track)).show_ui(ui, |ui| {
                         for (i, n) in names.iter().enumerate() {
                             ui.selectable_value(&mut d.track, i, n);
                         }
+                        ui.selectable_value(&mut d.track, MASTER, "Master");
                     });
                 });
                 curve(ui, &curves, fallback, Some((lo as f64, hi as f64)));
-                ui.label(egui::RichText::new(format!("Before the first point the mixer's {} applies ({}).", kind.key(), fallback)).small().weak());
+                let whose = if master { "master's" } else { "mixer's" };
+                ui.label(egui::RichText::new(format!("Before the first point the {whose} {} applies ({}).", kind.key(), fallback)).small().weak());
+                // A point's parameters: the master's command takes no track.
+                let at = |bar: usize, value: Value, linear: bool| {
+                    let mut p = json!({"kind": kind.key(), "value": value, "linear": linear, "measure": bar});
+                    if let Some(o) = p.as_object_mut().filter(|_| !master) {
+                        o.insert("track".into(), json!(d.track));
+                    }
+                    p
+                };
                 egui::Grid::new("mix-points").num_columns(4).spacing([10.0, 6.0]).show(ui, |ui| {
                     for &(bar, value, linear) in &points {
                         ui.label(format!("Bar {}", bar + 1));
                         let mut v = value;
                         let r = ui.add(egui::DragValue::new(&mut v).range(lo..=hi));
                         if (r.drag_stopped() || r.lost_focus() || (r.changed() && !r.dragged() && !r.has_focus())) && v != value {
-                            actions.push(json!({"kind": kind.key(), "value": v, "linear": linear, "measure": bar, "track": d.track}));
+                            actions.push(at(bar, json!(v), linear));
                         }
                         let mut gradual = linear;
                         if ui.checkbox(&mut gradual, "Gradual").changed() {
-                            actions.push(json!({"kind": kind.key(), "value": value, "linear": gradual, "measure": bar, "track": d.track}));
+                            actions.push(at(bar, json!(value), gradual));
                         }
                         if ui.small_button("Remove").clicked() {
-                            actions.push(json!({"kind": kind.key(), "value": null, "measure": bar, "track": d.track}));
+                            actions.push(at(bar, Value::Null, false));
                         }
                         ui.end_row();
                     }
@@ -260,14 +305,15 @@ impl GuitarioApp {
                     ui.checkbox(&mut d.add_linear, "Gradual");
                     if ui.button("Add").clicked() {
                         let bar = d.add_bar.clamp(1, bars) - 1;
-                        actions.push(json!({"kind": kind.key(), "value": d.add_value, "linear": d.add_linear, "measure": bar, "track": d.track}));
+                        actions.push(at(bar, json!(d.add_value), d.add_linear));
                     }
                 });
             },
         );
         self.mix_automation.open = open;
+        let id = if master { "score.setMasterAutomation" } else { "track.setAutomation" };
         for params in actions {
-            self.run("track.setAutomation", params);
+            self.run(id, params);
         }
     }
 }
@@ -298,6 +344,12 @@ mod tests {
         app.mix_automation.track = 9;
         ctx.run_ui(egui::RawInput::default(), |ui| app.mix_automation_dialog(ui.ctx())).textures_delta.clear();
         assert_eq!(app.mix_automation.track, 1);
+        // The master's own window edits the master's points.
+        app.open_master_automation(MixKind::Volume);
+        assert_eq!(app.mix_automation.track, MASTER);
+        app.run("score.setMasterAutomation", json!({"kind": "volume", "value": 64, "measure": 1}));
+        ctx.run_ui(egui::RawInput::default(), |ui| app.mix_automation_dialog(ui.ctx())).textures_delta.clear();
+        assert_eq!((app.mix_automation.track, app.session.score().headers[1].master.volume), (MASTER, Some(64)));
     }
 
     #[test]

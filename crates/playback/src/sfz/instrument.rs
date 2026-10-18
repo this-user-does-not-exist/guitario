@@ -1,13 +1,16 @@
 //! A sampled instrument: parsed regions plus the decoded audio they play.
 
-use super::parse::{Region, parse};
+use super::parse::{Region, Trigger, parse_switched};
 use super::sample::{Sample, SfzError};
 use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct Instrument {
     pub name: String,
+    /// What a note-on can start (attack, first and legato triggers).
     regions: Vec<(Region, Arc<Sample>)>,
+    /// What a note-off starts: release noises.
+    releases: Vec<(Region, Arc<Sample>)>,
     pub warnings: Vec<String>,
 }
 
@@ -80,7 +83,19 @@ impl Instrument {
         load: &(dyn Fn(&str) -> Result<Sample, SfzError> + Sync),
         keys: Option<&[u8]>,
     ) -> Result<Instrument, SfzError> {
-        let parsed = parse(text, include);
+        Instrument::build_switched(name, text, include, load, keys, None)
+    }
+
+    /// [`build`](Self::build) with `switch` as the active keyswitch (see [`parse_switched`]).
+    pub fn build_switched(
+        name: &str,
+        text: &str,
+        include: &mut dyn FnMut(&str) -> Option<String>,
+        load: &(dyn Fn(&str) -> Result<Sample, SfzError> + Sync),
+        keys: Option<&[u8]>,
+        switch: Option<u8>,
+    ) -> Result<Instrument, SfzError> {
+        let parsed = parse_switched(text, include, switch);
         let mut warnings = parsed.warnings;
         let needed = keys.map(|ks| needed_regions(&parsed.regions, ks));
         let kept: Vec<Region> = parsed
@@ -109,48 +124,84 @@ impl Instrument {
             };
             cache.insert(name, sample);
         }
-        let mut regions = Vec::new();
+        let (mut regions, mut releases) = (Vec::new(), Vec::new());
         for r in &kept {
             if let Some(Some(s)) = cache.get(r.sample.as_str()) {
-                regions.push((r.clone(), Arc::clone(s)));
+                let list = if r.trigger == Trigger::Release { &mut releases } else { &mut regions };
+                list.push((r.clone(), Arc::clone(s)));
             }
         }
-        if regions.is_empty() {
+        if regions.is_empty() && releases.is_empty() {
             return Err(SfzError::Empty(name.to_string()));
         }
-        Ok(Instrument { name: name.to_string(), regions, warnings })
+        Ok(Instrument { name: name.to_string(), regions, releases, warnings })
     }
 
     pub fn region_count(&self) -> usize {
-        self.regions.len()
+        self.regions.len() + self.releases.len()
+    }
+
+    /// The decoded samples it holds, each once, so `seen` (sample addresses already counted
+    /// elsewhere) can sum several instruments without counting a shared one twice.
+    pub fn memory(&self, seen: &mut std::collections::HashSet<usize>) -> usize {
+        self.regions.iter().chain(&self.releases).filter(|(_, s)| seen.insert(Arc::as_ptr(s) as usize)).map(|(_, s)| s.bytes()).sum()
+    }
+
+    /// Whether a note-off starts anything.
+    pub fn has_release(&self) -> bool {
+        !self.releases.is_empty()
+    }
+
+    /// Whether the instrument has samples of its own for legato notes (`trigger=legato`).
+    pub fn has_legato(&self) -> bool {
+        self.regions.iter().any(|(r, _)| r.trigger == Trigger::Legato)
     }
 
     /// Regions that sound for `key` at `velocity` (0..=127). `seq` is the instrument's note counter
-    /// (round robin) and `rand` a uniform 0..1 draw. A key outside every range borrows the nearest
-    /// region and is transposed by the voice.
-    pub fn select(&self, key: u8, velocity: u8, seq: u32, rand: f32) -> Vec<Hit<'_>> {
-        let by_vel = |r: &Region| velocity >= r.lovel && velocity <= r.hivel && rand >= r.lorand && (rand < r.hirand || r.hirand >= 1.0);
-        let round_robin = |r: &Region| r.seq_length <= 1 || seq % r.seq_length + 1 == r.seq_position;
-        let hits = |range: &dyn Fn(&Region) -> bool| -> Vec<Hit<'_>> {
-            self.regions.iter().filter(|(r, _)| range(r) && by_vel(r) && round_robin(r)).map(|(r, s)| Hit { region: r, sample: s }).collect()
+    /// (round robin) and `rand` a uniform 0..1 draw; `legato` says another note is held, which
+    /// picks the `trigger=legato` regions over the `trigger=first` ones. A key outside every range
+    /// borrows the nearest region and is transposed by the voice.
+    pub fn select(&self, key: u8, velocity: u8, seq: u32, rand: f32, legato: bool) -> Vec<Hit<'_>> {
+        let trigger = |r: &Region| match r.trigger {
+            Trigger::Attack => true,
+            Trigger::First => !legato,
+            Trigger::Legato => legato,
+            Trigger::Release => false,
         };
-        let exact = hits(&|r| key >= r.lokey && key <= r.hikey);
-        if !exact.is_empty() {
-            return exact;
-        }
-        let distance = |r: &Region| if key < r.lokey { r.lokey - key } else { key.saturating_sub(r.hikey) };
-        let nearest = self.regions.iter().filter(|(r, _)| by_vel(r)).map(|(r, _)| distance(r)).min();
-        match nearest {
-            Some(d) => hits(&|r| distance(r) == d),
-            None => Vec::new(),
-        }
+        pick(&self.regions, key, velocity, seq, rand, &trigger)
+    }
+
+    /// The release regions a note-off on `key` at `velocity` starts.
+    pub fn select_release(&self, key: u8, velocity: u8, seq: u32, rand: f32) -> Vec<Hit<'_>> {
+        pick(&self.releases, key, velocity, seq, rand, &|_| true)
     }
 
     /// The (lowest, highest) key any region covers.
     pub fn key_range(&self) -> (u8, u8) {
-        let lo = self.regions.iter().map(|(r, _)| r.lokey).min().unwrap_or(0);
-        let hi = self.regions.iter().map(|(r, _)| r.hikey).max().unwrap_or(127);
+        let all = || self.regions.iter().chain(&self.releases);
+        let lo = all().map(|(r, _)| r.lokey).min().unwrap_or(0);
+        let hi = all().map(|(r, _)| r.hikey).max().unwrap_or(127);
         (lo, hi)
+    }
+}
+
+/// The regions of `list` that sound for `key`: in range, velocity, random draw, round robin and
+/// `trigger`, or the nearest ones when none covers the key.
+fn pick<'a>(list: &'a [(Region, Arc<Sample>)], key: u8, velocity: u8, seq: u32, rand: f32, trigger: &dyn Fn(&Region) -> bool) -> Vec<Hit<'a>> {
+    let by_vel = |r: &Region| velocity >= r.lovel && velocity <= r.hivel && rand >= r.lorand && (rand < r.hirand || r.hirand >= 1.0) && trigger(r);
+    let round_robin = |r: &Region| r.seq_length <= 1 || seq % r.seq_length + 1 == r.seq_position;
+    let hits = |range: &dyn Fn(&Region) -> bool| -> Vec<Hit<'a>> {
+        list.iter().filter(|(r, _)| range(r) && by_vel(r) && round_robin(r)).map(|(r, s)| Hit { region: r, sample: s }).collect()
+    };
+    let exact = hits(&|r| key >= r.lokey && key <= r.hikey);
+    if !exact.is_empty() {
+        return exact;
+    }
+    let distance = |r: &Region| if key < r.lokey { r.lokey - key } else { key.saturating_sub(r.hikey) };
+    let nearest = list.iter().filter(|(r, _)| by_vel(r)).map(|(r, _)| distance(r)).min();
+    match nearest {
+        Some(d) => hits(&|r| distance(r) == d),
+        None => Vec::new(),
     }
 }
 
@@ -159,7 +210,7 @@ mod tests {
     use super::*;
 
     fn tone(rate: u32) -> Sample {
-        Sample { rate, left: vec![0.5; 100], right: None }
+        Sample::from_f32(rate, &[0.5; 100], None)
     }
 
     fn inst(text: &str) -> Instrument {
@@ -171,18 +222,18 @@ mod tests {
         let i = inst(
             "<region> sample=a.wav lokey=40 hikey=50 hivel=60\n<region> sample=b.wav lokey=40 hikey=50 lovel=61\n<region> sample=c.wav key=60 seq_length=2 seq_position=1\n<region> sample=d.wav key=60 seq_length=2 seq_position=2",
         );
-        assert_eq!(i.select(45, 30, 0, 0.5).first().map(|h| h.region.sample.as_str()), Some("a.wav"));
-        assert_eq!(i.select(45, 100, 0, 0.5).first().map(|h| h.region.sample.as_str()), Some("b.wav"));
-        assert_eq!(i.select(60, 100, 0, 0.5).first().map(|h| h.region.sample.as_str()), Some("c.wav"));
-        assert_eq!(i.select(60, 100, 1, 0.5).first().map(|h| h.region.sample.as_str()), Some("d.wav"));
+        assert_eq!(i.select(45, 30, 0, 0.5, false).first().map(|h| h.region.sample.as_str()), Some("a.wav"));
+        assert_eq!(i.select(45, 100, 0, 0.5, false).first().map(|h| h.region.sample.as_str()), Some("b.wav"));
+        assert_eq!(i.select(60, 100, 0, 0.5, false).first().map(|h| h.region.sample.as_str()), Some("c.wav"));
+        assert_eq!(i.select(60, 100, 1, 0.5, false).first().map(|h| h.region.sample.as_str()), Some("d.wav"));
         assert_eq!(i.key_range(), (40, 60));
     }
 
     #[test]
     fn out_of_range_borrows_the_nearest_region() {
         let i = inst("<region> sample=a.wav lokey=40 hikey=50\n<region> sample=b.wav lokey=60 hikey=70");
-        assert_eq!(i.select(30, 100, 0, 0.5).first().map(|h| h.region.sample.as_str()), Some("a.wav"));
-        assert_eq!(i.select(120, 100, 0, 0.5).first().map(|h| h.region.sample.as_str()), Some("b.wav"));
+        assert_eq!(i.select(30, 100, 0, 0.5, false).first().map(|h| h.region.sample.as_str()), Some("a.wav"));
+        assert_eq!(i.select(120, 100, 0, 0.5, false).first().map(|h| h.region.sample.as_str()), Some("b.wav"));
     }
 
     #[test]
@@ -210,7 +261,7 @@ mod tests {
             Ok(tone(8000))
         };
         let i = Instrument::build("t", text, &mut |_| None, &load, Some(&[30])).unwrap();
-        assert_eq!(i.select(30, 100, 0, 0.5).len(), 1);
+        assert_eq!(i.select(30, 100, 0, 0.5, false).len(), 1);
         assert_eq!(*loaded.lock().unwrap(), ["a.wav"]);
     }
 
@@ -244,7 +295,7 @@ mod tests {
             &|n| {
                 calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 let k: usize = n.trim_start_matches('s').trim_end_matches(".wav").parse().unwrap();
-                if k == 7 { Err(SfzError::Io("gone".into())) } else { Ok(Sample { rate: 8000, left: vec![k as f32; 10], right: None }) }
+                if k == 7 { Err(SfzError::Io("gone".into())) } else { Ok(Sample::from_f32(8000, &[k as f32 / 100.0; 10], None)) }
             },
             None,
         )
@@ -252,8 +303,8 @@ mod tests {
         assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 20);
         assert_eq!((i.region_count(), i.warnings.len()), (57, 1));
         for key in [0u8, 21, 59] {
-            let hit = i.select(key, 100, 0, 0.5);
-            assert_eq!(hit[0].sample.left[0], f32::from(key % 20), "key {key}");
+            let hit = i.select(key, 100, 0, 0.5, false);
+            assert!((hit[0].sample.get(0).0 - f32::from(key % 20) / 100.0).abs() < 1e-4, "key {key}");
         }
     }
 }

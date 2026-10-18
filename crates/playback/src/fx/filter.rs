@@ -18,6 +18,9 @@ pub(crate) fn db_to_gain(db: f32) -> f32 {
 pub(crate) enum Shape {
     LowPass,
     HighPass,
+    /// Unity gain at its centre.
+    BandPass,
+    Notch,
     Peak,
     LowShelf,
     HighShelf,
@@ -61,6 +64,8 @@ impl Biquad {
         let (b0, b1, b2, a0, a1, a2) = match shape {
             Shape::LowPass => ((1.0 - cos) / 2.0, 1.0 - cos, (1.0 - cos) / 2.0, 1.0 + alpha, -2.0 * cos, 1.0 - alpha),
             Shape::HighPass => ((1.0 + cos) / 2.0, -(1.0 + cos), (1.0 + cos) / 2.0, 1.0 + alpha, -2.0 * cos, 1.0 - alpha),
+            Shape::BandPass => (alpha, 0.0, -alpha, 1.0 + alpha, -2.0 * cos, 1.0 - alpha),
+            Shape::Notch => (1.0, -2.0 * cos, 1.0, 1.0 + alpha, -2.0 * cos, 1.0 - alpha),
             Shape::Peak => (1.0 + alpha * a, -2.0 * cos, 1.0 - alpha * a, 1.0 + alpha / a, -2.0 * cos, 1.0 - alpha / a),
             Shape::LowShelf => {
                 let s = 2.0 * a.sqrt() * alpha;
@@ -220,6 +225,12 @@ mod tests {
         assert!((gain_at(|x| peak.tick(0, x), 1000.0, sr) - db_to_gain(6.0)).abs() < 0.05);
         let mut shelf = Biquad::new(Shape::LowShelf, 200.0, 0.707, -12.0, sr);
         assert!((gain_at(|x| shelf.tick(0, x), 30.0, sr) - db_to_gain(-12.0)).abs() < 0.05);
+        let mut bp = Biquad::new(Shape::BandPass, 1000.0, 2.0, 0.0, sr);
+        assert!(gain_at(|x| bp.tick(0, x), 1000.0, sr) > 0.95);
+        let mut bp = Biquad::new(Shape::BandPass, 1000.0, 2.0, 0.0, sr);
+        assert!(gain_at(|x| bp.tick(0, x), 8000.0, sr) < 0.1);
+        let mut notch = Biquad::new(Shape::Notch, 1000.0, 2.0, 0.0, sr);
+        assert!(gain_at(|x| notch.tick(0, x), 1000.0, sr) < 0.05);
         let mut hs = Biquad::new(Shape::HighShelf, 4000.0, 0.707, 6.0, sr);
         assert!((gain_at(|x| hs.tick(1, x), 100.0, sr) - 1.0).abs() < 0.05);
         // Hostile settings give a stable, finite filter.

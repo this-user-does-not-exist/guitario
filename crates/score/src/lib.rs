@@ -16,7 +16,7 @@ mod whammy;
 pub use bend::{BEND_END, BEND_MAX, BEND_MAX_POINTS, Bend, BendKind, BendPoint};
 pub use lyrics::{Syllable, dispatch_lyrics, syllables};
 pub use model::*;
-pub use playback::{PlayedBeat, PlayedWhammy, playback_order, timeline};
+pub use playback::{PlayedBeat, PlayedHarmonic, PlayedWhammy, playback_order, timeline};
 pub use sound::{
     AMP_MODELS, CABINET_MODELS, Effect, EffectCategory, EffectType, GRAPHIC_BANDS, MASTER_SLOTS, MAX_TRACK_EFFECTS, Master, ParamSpec, Unit, default_chain,
     mixer_eq,

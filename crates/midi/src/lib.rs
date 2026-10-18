@@ -168,8 +168,16 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
                 let Some(p) = n.pitch.or_else(|| n.dead.then(|| track.tuning.pitch(usize::from(n.string), 0, 0)).flatten()) else {
                     continue;
                 };
-                let (vel, len) = if n.dead { (n.velocity / 2, 120) } else { (n.velocity, n.ticks) };
-                ev.push((n.start_tick, 3, vec![0x90 | ch, p.0, vel.max(1)]));
+                let (vel, mut len) = if n.dead { (n.velocity / 2, 120) } else { (n.velocity, n.ticks) };
+                // A staccato note sounds for half its length.
+                if n.effects.staccato && !n.dead {
+                    len = (len / 2).max(1);
+                }
+                // A harmonic sounds its partial; a semi-harmonic keeps the plain note under it.
+                let mut keys = vec![(n.harmonic.map_or(p.0, |h| h.key()), vel)];
+                if let Some(h) = n.harmonic.filter(|h| h.fundamental >= 0.5) {
+                    keys.push((p.0, (f32::from(vel) * h.fundamental) as u8));
+                }
                 // Let ring holds the note until its string is played again (or past the end).
                 let off = if n.effects.let_ring && !n.dead {
                     notes
@@ -181,8 +189,11 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
                 } else {
                     n.start_tick + u64::from(len)
                 };
-                // Offs sort before ons at the same tick, so repeated notes retrigger cleanly.
-                ev.push((off, 2, vec![0x80 | ch, p.0, 0]));
+                for (key, vel) in keys {
+                    ev.push((n.start_tick, 3, vec![0x90 | ch, key, vel.max(1)]));
+                    // Offs sort before ons at the same tick, so repeated notes retrigger cleanly.
+                    ev.push((off, 2, vec![0x80 | ch, key, 0]));
+                }
             }
         }
         chunk(&mut out, b"MTrk", &write_events(ev));
@@ -287,42 +298,67 @@ mod tests {
         assert!(cc(10, 1), "pan left");
     }
 
-    #[test]
-    fn a_let_ring_note_is_held_until_its_string_is_played_again() {
-        // Absolute ticks of each event matching `bytes` in the first note track.
-        fn at(b: &[u8], bytes: [u8; 3]) -> Vec<u64> {
-            let tracks: Vec<usize> = b.windows(4).enumerate().filter(|(_, w)| *w == b"MTrk").map(|(i, _)| i).collect();
-            let start = tracks[1] + 8;
-            let mut i = start;
-            let (mut tick, mut out) = (0u64, Vec::new());
-            while i < b.len() {
-                let mut d = 0u64;
-                loop {
-                    let x = b[i];
-                    i += 1;
-                    d = (d << 7) | u64::from(x & 0x7f);
-                    if x & 0x80 == 0 {
-                        break;
-                    }
-                }
-                tick += d;
-                let len = if b[i] == 0xff {
-                    3 + usize::from(b[i + 2])
-                } else if b[i] & 0xf0 == 0xc0 {
-                    2
-                } else {
-                    3
-                };
-                if b[i..i + 3] == bytes {
-                    out.push(tick);
-                }
-                if b[i] == 0xff && b[i + 1] == 0x2f {
+    /// Absolute ticks of each event matching `bytes` in the first note track.
+    fn at(b: &[u8], bytes: [u8; 3]) -> Vec<u64> {
+        let tracks: Vec<usize> = b.windows(4).enumerate().filter(|(_, w)| *w == b"MTrk").map(|(i, _)| i).collect();
+        let start = tracks[1] + 8;
+        let mut i = start;
+        let (mut tick, mut out) = (0u64, Vec::new());
+        while i < b.len() {
+            let mut d = 0u64;
+            loop {
+                let x = b[i];
+                i += 1;
+                d = (d << 7) | u64::from(x & 0x7f);
+                if x & 0x80 == 0 {
                     break;
                 }
-                i += len;
             }
-            out
+            tick += d;
+            let len = if b[i] == 0xff {
+                3 + usize::from(b[i + 2])
+            } else if b[i] & 0xf0 == 0xc0 {
+                2
+            } else {
+                3
+            };
+            if b[i..i + 3] == bytes {
+                out.push(tick);
+            }
+            if b[i] == 0xff && b[i + 1] == 0x2f {
+                break;
+            }
+            i += len;
         }
+        out
+    }
+
+    #[test]
+    fn harmonics_sound_their_partial_and_staccato_half_the_note() {
+        use guitario_score::Harmonic;
+        let q = u64::from(TICKS_PER_QUARTER);
+        let note = |string: u8, fret: u8, f: &dyn Fn(&mut Note)| {
+            let mut n = Note::new(string, fret);
+            f(&mut n);
+            Beat { rest: false, notes: vec![n], ..Beat::rest(Duration::QUARTER) }
+        };
+        let mut s = Score::new();
+        s.tracks[0].measures[0].voices[0].beats = vec![
+            note(0, 12, &|n| n.effects.harmonic = Some(Harmonic::Natural)),
+            note(1, 3, &|n| n.effects.harmonic = Some(Harmonic::Semi)),
+            note(2, 0, &|n| n.effects.staccato = true),
+            note(3, 0, &|_| {}),
+        ];
+        let b = export(&s).unwrap();
+        let on = |key: u8| b.windows(2).any(|w| w == [0x90, key]);
+        assert!(on(76) && !on(64), "the open E's octave, not the fretted note");
+        assert!(on(86) && on(62), "a semi-harmonic sounds two octaves up and the note under it");
+        assert_eq!(at(&b, [0x80, 55, 0]), vec![2 * q + q / 2], "the staccato G stops halfway through its beat");
+        assert_eq!(at(&b, [0x80, 50, 0]), vec![4 * q]);
+    }
+
+    #[test]
+    fn a_let_ring_note_is_held_until_its_string_is_played_again() {
         let q = u64::from(TICKS_PER_QUARTER);
         let note = |string: u8, fret: u8, ring: bool| {
             let mut n = Note::new(string, fret);

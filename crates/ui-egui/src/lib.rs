@@ -8,6 +8,7 @@ pub mod app_icon;
 mod audio_settings;
 mod automation_dialog;
 mod autosave;
+mod bank_window;
 mod bar_check;
 mod bend_dialog;
 mod bend_draw;
@@ -134,6 +135,8 @@ pub struct GuitarioApp {
     preloaded: Option<std::sync::Arc<guitario_score::Score>>,
     /// Play was pressed while sounds were loading: it starts when they are ready.
     play_when_ready: bool,
+    /// The Sound Bank window, its installer and the first-run offer.
+    bank_window: bank_window::BankWindow,
     settings: prefs::Store,
     /// A New/Open/Close waiting on the unsaved-changes prompt.
     pending: Option<Pending>,
@@ -222,6 +225,7 @@ impl GuitarioApp {
             preload: None,
             preloaded: None,
             play_when_ready: false,
+            bank_window: bank_window::BankWindow::default(),
             // In memory until the app hands over the real store, so tests and offscreen renders
             // never touch the user's profile.
             settings: prefs::Store::open(craft_settings::Location::Memory).0,
@@ -869,6 +873,7 @@ impl GuitarioApp {
             || !self.autosave.found.is_empty()
             || self.transpose.open
             || self.audio_dialog.open
+            || self.bank_window.offering
             || self.prefs_dialog.open
             || self.add_track.open
     }
@@ -975,6 +980,7 @@ impl GuitarioApp {
         self.tempo_automation_dialog(&ctx);
         self.mix_automation_dialog(&ctx);
         self.audio_settings_dialog(&ctx);
+        self.sound_bank_window(&ctx);
         self.preferences_dialog(&ctx);
         self.shortcuts_window(&ctx);
         self.add_track_window(&ctx);

@@ -12,6 +12,15 @@ guitario-theory = { workspace = true }
 guitario-score = { workspace = true }
 hound = "3.5.1"
 claxon = "0.4.3"
+lewton = "0.10.2"
 flacenc = { version = "0.5.1", default-features = false }
 thiserror.workspace = true
 serde_json.workspace = true
+
+# Installing the sound libraries (install.rs): unpacking their zip and 7z archives.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+zip = { version = "2", default-features = false, features = ["deflate"] }
+sevenz-rust2 = { version = "0.24.1", default-features = false, features = ["util", "bzip2", "deflate", "ppmd"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+sevenz-rust2 = { version = "0.24.1", default-features = false, features = ["util", "bzip2", "deflate", "ppmd", "compress"] }

@@ -8,18 +8,24 @@
 //! sound card, and WAV export renders it offline. A track can instead play a sampled SFZ
 //! instrument ([`sfz::Instrument`], [`Player::set_instrument`]).
 
+mod articulation;
 #[cfg(not(target_arch = "wasm32"))]
 mod bank;
 mod fx;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod install;
 mod player;
+mod role;
 pub mod sfz;
 mod synth;
 mod tempo;
 pub mod tuner;
 mod wav;
 
+pub use articulation::{Articulation, used_keys_by_articulation};
 #[cfg(not(target_arch = "wasm32"))]
-pub use bank::{BANK_FILE, Role, SoundBank};
+pub use bank::{BANK_FILE, Program, SoundBank};
 pub use player::{Mix, Options, Player, TrackSound, used_keys, used_keys_by_track};
+pub use role::Role;
 pub use tempo::{BeatTime, TempoMap};
 pub use wav::{flac_bytes, render_player, render_wav, wav_bytes};

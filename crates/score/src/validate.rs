@@ -57,6 +57,9 @@ impl crate::Score {
             if h.beams.len() > crate::MAX_BEAM_GROUPS || h.beams.contains(&0) {
                 return Err(ScoreError::Beams(mi));
             }
+            if h.master.volume.is_some_and(|v| v > 127) || h.master.pan.is_some_and(|p| !(-63..=63).contains(&p)) {
+                return Err(ScoreError::Master(format!("bar {}: a master automation point is out of range", mi + 1)));
+            }
         }
         for t in self.headers.iter().filter_map(|h| h.tempo).chain([self.tempo]) {
             if !(20..=400).contains(&t) {
@@ -93,6 +96,9 @@ impl crate::Score {
             return Err(sound(format!("its equalizer is a {}", track.eq.kind.label())));
         }
         track.eq.check().map_err(sound)?;
+        if track.bank.as_ref().is_some_and(|b| b.trim().is_empty() || b.len() > crate::MAX_BANK_NAME || b.contains('\0')) {
+            return Err(sound(format!("its sound bank name is empty, has a NUL or is longer than {} bytes", crate::MAX_BANK_NAME)));
+        }
         if track.lyrics.len() > crate::MAX_LYRIC_LINES {
             return Err(ScoreError::Track { track: ti, what: format!("has {} lines of lyrics; at most {}", track.lyrics.len(), crate::MAX_LYRIC_LINES) });
         }
