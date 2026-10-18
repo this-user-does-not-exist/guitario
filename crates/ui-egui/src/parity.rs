@@ -7,7 +7,7 @@ use crate::menu_catalog::{Action, CATALOG, MenuItem, TOP};
 use guitario_engine::registry;
 
 /// Live menu items on `main`. A test fails if parity drops below this.
-pub const FLOOR: usize = 162;
+pub const FLOOR: usize = 165;
 
 pub fn is_live(item: &MenuItem) -> bool {
     match item.action {

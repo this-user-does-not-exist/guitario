@@ -214,6 +214,10 @@ fn main() {
             run(&mut session, "track.setNotation", json!({"track": track, "standard": false}));
         }
     }
+    // `--paste-special`: copies the cursor's beat, then opens Edit › Paste Special….
+    if args.iter().any(|a| a == "--paste-special") {
+        run(&mut session, "edit.copy", Value::Null);
+    }
     let mut app = GuitarioApp::new(session, None);
     if let Some(z) = value("--zoom").and_then(|z| z.parse::<f32>().ok()) {
         app.view.zoom = z;
@@ -295,6 +299,9 @@ fn main() {
     }
     if args.iter().any(|a| a == "--whammy") {
         app.open_whammy();
+    }
+    if args.iter().any(|a| a == "--paste-special") {
+        app.open_paste_special();
     }
     if args.iter().any(|a| a == "--trill") {
         app.open_trill();

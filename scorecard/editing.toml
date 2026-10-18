@@ -44,15 +44,16 @@ note = "selection.rs; shift_arrows_select_and_copy_paste_overwrites test"
 
 [[item]]
 id = "EDIT-7"
-target = "Copy, cut, paste (overwrite, flowing into new bars); transpose by semitone"
+target = "Copy, cut, paste (Guitar Pro's rules), All-Track Copy and Cut; transpose by semitone"
 status = "done"
-note = "edit.copy/cut/paste/transposeUp/Down; paste_flows_into_new_measures test"
+note = "clipboard.rs: edit.copy/cut/paste (a one-bar clip overwrites from the cursor, several bars fill empty bars then insert, drums and pitched tracks exchange rhythm only), edit.copyAllTracks/cutAllTracks (⇧⌘C, ⇧⌘X, whole bars with headers); edit.transposeUp/Down"
 
 [[item]]
 id = "EDIT-8"
 target = "Paste Special (insert, repeat count, selected tracks)"
-status = "missing"
+status = "done"
 stage = "beta"
+note = "edit.pasteSpecial (count 1-100, insert or replace, tracks) and the Paste Special window (paste_dialog.rs); Tools › Check Bar Durations (F4) lists bad bars in a window (bar_check.rs)"
 
 [[item]]
 id = "EDIT-9"

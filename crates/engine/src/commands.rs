@@ -43,6 +43,7 @@ pub fn registry() -> &'static [CommandSpec] {
 static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::new(|| {
     CORE.into_iter()
         .chain(crate::selection::specs())
+        .chain(crate::clipboard::specs())
         .chain(crate::drums::specs())
         .chain(crate::bars::specs())
         .chain(crate::tracks::specs())
@@ -427,7 +428,7 @@ fn set_fret(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 
 fn clear_note(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     if s.selection.is_some() {
-        crate::selection::clear_range(s)?;
+        crate::clipboard::clear_range(s)?;
         return ok();
     }
     let string = s.cursor.string as u8;

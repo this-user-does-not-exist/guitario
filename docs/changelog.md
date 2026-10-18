@@ -198,6 +198,19 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   the vibrato. Playback moves every note of the beat along the curve, on top of any bend: at rest
   before it, held after it, joined through ties, shared by tremolo picks; vibrato with the bar
   shakes the beat's notes. Shown in `snapshot --whammies [--whammy]`.
+- **Landed 2026-10-17:** the clipboard as Guitar Pro 8's manual describes it (`clipboard.rs`, moved out
+  of `selection.rs`). A one-bar clip overwrites from the cursor; a clip of several bars fills the
+  empty bars from the cursor's first, then inserts new bars (before the next bar with notes, with
+  the cursor bar's meter and key); between drum and pitched tracks only the rhythm is pasted, as
+  rests. All-Track Copy and Cut (⇧⌘C, ⇧⌘X; `edit.copyAllTracks`, `edit.cutAllTracks`) take whole
+  bars of every track with their headers; pasting them inserts the bars on every track (a track
+  that cannot hold a bar's notes gets its rhythm), and cutting every bar leaves one empty bar.
+  Edit › Paste Special… (`edit.pasteSpecial`): 1 to 100 times, Replace (from the cursor, a
+  fragment that does not fit moving to the next bar) or Insert (new bars before the cursor's bar),
+  into any tracks; an all-track clip always inserts on every track. A paste may add at most 10,000
+  bars. Tools › Check Bar Durations (F4) opens a window listing the track, bar and voice of every
+  bar that does not fill its time signature, too short or too long in quarters; a click puts the
+  cursor there and Check Again reruns it. The menu catalog gains GP8's All-Track Copy and Cut.
 ### G7. Tools
 - **Landed 2026-10-16:** Tools › Chord Diagrams…: a clickable diagram for the beat under the
   cursor (fingers, open and muted strings, first fret), filled from the beat's notes and named by a

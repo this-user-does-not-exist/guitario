@@ -9,6 +9,7 @@ mod automation;
 mod bars;
 mod bends;
 mod chords;
+mod clipboard;
 mod commands;
 mod drums;
 mod error;
@@ -30,11 +31,12 @@ mod voices;
 mod whammy;
 
 pub use bars::direction_targets;
+pub use clipboard::{Clip, TrackBars};
 pub use commands::{CommandSpec, registry};
 pub use error::EngineError;
 pub use print::{DuplexMode, MAX_COPIES, PrintJob, PrintReceipt, PrintTask, PrinterInfo, Spooler};
 pub use render::{PageRenderer, PdfDocument, PdfRequest};
-pub use selection::{Clip, Selection};
+pub use selection::Selection;
 
 /// File extensions `file.open` imports as Guitar Pro.
 pub const GUITAR_PRO_EXTENSIONS: [&str; 5] = guitario_gp::EXTENSIONS;
