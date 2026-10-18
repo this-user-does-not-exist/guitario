@@ -207,6 +207,8 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                 && let Some(&Some(idx)) = ties.get(s)
                             {
                                 if let Some(prev) = out.get_mut(idx) {
+                                    // A bend carries on through the tie: held, or followed by the tied note's own curve.
+                                    prev.effects.bend = crate::Bend::join(prev.effects.bend, prev.ticks, note.effects.bend, ticks_swung);
                                     prev.ticks += ticks_swung;
                                 }
                                 continue;
@@ -281,7 +283,7 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                             (Some(g), Some(p)) if p.0 > g.0 => p.0 - g.0,
                                             _ => 0,
                                         };
-                                        effects.bend = (up > 0).then(|| up.saturating_mul(2));
+                                        effects.bend = (up > 0).then(|| crate::Bend::to(up.saturating_mul(2)));
                                         effects.hammer = true;
                                     }
                                 }
@@ -534,6 +536,34 @@ mod tests {
         assert_eq!(t[0].pitch.map(|p| p.0), Some(69));
     }
 
+    #[test]
+    fn a_bend_carries_on_through_a_tie() {
+        use crate::{Beat, Bend, BendKind, Note};
+        use guitario_theory::Duration;
+        let tied_after = |bend: Option<Bend>| {
+            let mut s = score_with(1);
+            let mut head = Note::new(0, 5);
+            head.effects.bend = Some(Bend::to(4));
+            let mut tail = Note::new(0, 5);
+            tail.kind = NoteKind::Tie;
+            tail.effects.bend = bend;
+            s.tracks[0].measures[0].voices[0].beats = vec![
+                Beat { rest: false, notes: vec![head], ..Beat::rest(Duration::QUARTER) },
+                Beat { rest: false, notes: vec![tail], ..Beat::rest(Duration::QUARTER) },
+                Beat::rest(Duration::new(guitario_theory::NoteValue::Half)),
+            ];
+            let t = timeline(&s);
+            assert_eq!(t.len(), 1, "the tie adds no attack");
+            t[0].effects.bend.unwrap()
+        };
+        // Held: up by the middle of the first half, then kept.
+        let held = tied_after(None);
+        assert_eq!((held.value_at(7.5), held.value_at(30.0), held.value_at(60.0)), (2.0, 4.0, 4.0));
+        // Let down on the tied note.
+        let released = tied_after(Some(Bend::preset(BendKind::Release, 4)));
+        assert_eq!((released.value_at(30.0), released.value_at(60.0)), (4.0, 0.0));
+    }
+
     /// Quarter notes on the top string: `frets`, `None` for a rest.
     fn quarters(s: &mut Score, frets: &[Option<u8>]) {
         use crate::{Beat, Note};
@@ -767,7 +797,7 @@ mod tests {
         one_beat(&mut s, Beat { rest: false, notes: vec![main], ..Beat::rest(Duration::new(NoteValue::SixtyFourth)) });
         let t = timeline(&s);
         assert_eq!(t.len(), 2);
-        assert_eq!((t[0].effects.bend, t[0].effects.hammer), (Some(4), true), "a whole tone up");
+        assert_eq!((t[0].effects.bend, t[0].effects.hammer), (Some(crate::Bend::to(4)), true), "a whole tone up");
         assert!(t.iter().all(|p| p.ticks >= 1));
         let total = Duration::new(NoteValue::SixtyFourth).ticks();
         assert_eq!(t[0].ticks + t[1].ticks, total, "{t:?}");

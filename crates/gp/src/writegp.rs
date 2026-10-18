@@ -73,6 +73,58 @@ fn interpretation_xml(t: &Track) -> String {
 }
 
 /// Text safe inside an attribute value: no control characters, and markup escaped.
+/// A bend curve as Guitar Pro 7/8 holds it: an origin, a destination and one plateau between them
+/// (two middle offsets sharing one value), with offsets as a percentage of the note and values in
+/// hundredths of a whole tone (a quarter tone is 25). A curve with more shape than that loses its
+/// least important points.
+/// The points of `b` a `.gp` file can hold: a flat end is left to the reader (a destination before
+/// the end of the note holds), and what remains is at most four points whose two middle ones share a
+/// value. A curve with more shape than that loses its least important points.
+fn gpif_points(b: &Bend) -> Vec<BendPoint> {
+    let mut pts = b.points().to_vec();
+    while pts.len() > 2 && matches!(pts.as_slice(), [.., a, z] if a.value == z.value) {
+        pts.pop();
+    }
+    let kept = Bend::from_points(&pts).map_or(pts, |b| b.thinned(4));
+    if let [_, m1, m2, _] = kept.as_slice()
+        && m1.value != m2.value
+        && let Some(b) = Bend::from_points(&kept)
+    {
+        return b.thinned(3);
+    }
+    kept
+}
+
+/// The curve as it comes back from a `.gp` file.
+pub fn gpif_bend(b: &Bend) -> Bend {
+    Bend::from_points(&gpif_points(b)).unwrap_or(*b)
+}
+
+fn bend_props(b: &Bend) -> String {
+    let pts = gpif_points(b);
+    let (Some(first), Some(last)) = (pts.first().copied(), pts.last().copied()) else { return String::new() };
+    let interior: Vec<BendPoint> = pts.iter().skip(1).take(pts.len().saturating_sub(2)).copied().collect();
+    let (m1, m2) = match interior.as_slice() {
+        [a, b] => (*a, *b),
+        [a] => (*a, *a),
+        _ => {
+            let mid = BendPoint::new(BEND_END / 2, ((u16::from(first.value) + u16::from(last.value)) / 2) as u8);
+            (mid, mid)
+        }
+    };
+    let percent = |pos: u8| f32::from(pos) * 100.0 / f32::from(BEND_END);
+    let props = [
+        ("BendOriginValue", u32::from(first.value) as f32 * 25.0),
+        ("BendMiddleValue", u32::from(m1.value) as f32 * 25.0),
+        ("BendDestinationValue", u32::from(last.value) as f32 * 25.0),
+        ("BendOriginOffset", percent(first.pos)),
+        ("BendMiddleOffset1", percent(m1.pos)),
+        ("BendMiddleOffset2", percent(m2.pos)),
+        ("BendDestinationOffset", percent(last.pos)),
+    ];
+    props.iter().map(|(name, value)| format!("<Property name=\"{name}\"><Float>{value}</Float></Property>")).collect()
+}
+
 fn attr(s: &str) -> String {
     s.chars()
         .filter(|c| !c.is_control())
@@ -569,7 +621,7 @@ impl Gpif {
                 let top = u32::from(n.fret.saturating_sub(g.fret)).saturating_mul(50).max(25);
                 out.props.push_str(&enable("Bended"));
                 out.props.push_str(&format!(
-                    "<Property name=\"BendOriginValue\"><Float>0</Float></Property><Property name=\"BendDestinationValue\"><Float>{top}</Float></Property><Property name=\"BendDestinationOffset\"><Float>60</Float></Property>"
+                    "<Property name=\"BendOriginValue\"><Float>0</Float></Property><Property name=\"BendDestinationValue\"><Float>{top}</Float></Property><Property name=\"BendDestinationOffset\"><Float>100</Float></Property>"
                 ));
             }
         }
@@ -671,17 +723,9 @@ impl Gpif {
             };
             out.props.push_str(&format!("{}<Property name=\"HarmonicType\"><HType>{name}</HType></Property>", enable("Harmonic")));
         }
-        if let Some(q) = e.bend {
-            // Curve values are hundredths of a whole tone (a quarter tone is 25): up to the height
-            // by the middle of the note and held.
-            let top = u32::from(q) * 25;
+        if let Some(b) = e.bend {
             out.props.push_str(&enable("Bended"));
-            for (name, value) in [("BendOriginValue", 0), ("BendMiddleValue", top / 2), ("BendDestinationValue", top)] {
-                out.props.push_str(&format!("<Property name=\"{name}\"><Float>{value}</Float></Property>"));
-            }
-            for (name, value) in [("BendOriginOffset", 0), ("BendMiddleOffset1", 12), ("BendMiddleOffset2", 12), ("BendDestinationOffset", 60)] {
-                out.props.push_str(&format!("<Property name=\"{name}\"><Float>{value}</Float></Property>"));
-            }
+            out.props.push_str(&bend_props(&b));
         }
         // A tie joins the last note on this string of this voice: mark both ends.
         let key = (ti, vi, n.string);

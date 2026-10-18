@@ -22,7 +22,7 @@ use std::io::Read;
 
 pub use gpif::parse_gpif;
 pub use write5::{Export, export_gp5};
-pub use writegp::export_gp;
+pub use writegp::{export_gp, gpif_bend};
 
 /// Largest `PartConfiguration` read.
 const MAX_PARTS: u64 = 64 * 1024;

@@ -79,7 +79,7 @@ pub fn riff() -> Score {
     n.effects.palm_mute = true;
     n.effects.grace = Some(Grace { transition: GraceTransition::Hammer, ..Grace::new(2) });
     let mut bend = Note::new(1, 7);
-    bend.effects.bend = Some(4);
+    bend.effects.bend = Some(Bend::to(4));
     bend.effects.vibrato = true;
     bend.effects.left_finger = Some(Finger::Ring);
     bend.effects.right_finger = Some(Finger::Index);
@@ -159,6 +159,8 @@ pub fn as_gp(s: &Score) -> Score {
                     if n.effects.wide_vibrato {
                         n.effects.vibrato = false;
                     }
+                    // A bend keeps the shape a `.gp` file can hold.
+                    n.effects.bend = n.effects.bend.map(|x| guitario_gp::gpif_bend(&x));
                 }
                 if let Some(br) = &mut b.brush {
                     *br = if br.kind == BrushKind::Rasgueado {

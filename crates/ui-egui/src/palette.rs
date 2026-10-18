@@ -70,6 +70,7 @@ enum Window {
     Grace,
     Fingering,
     Tremolo,
+    Bend,
 }
 
 #[derive(Clone, Debug)]
@@ -288,13 +289,7 @@ fn sections(s: &State) -> Vec<(&'static str, Vec<Button>)> {
             run("note.setHarmonic", json!({"harmonic": if harmonic == Some(Harmonic::Natural) { "none" } else { "natural" }})),
         ),
         b(Art::Draw(draw_harmonic_artificial), "Artificial harmonic", harmonic.is_some_and(|h| h != Harmonic::Natural), hn, Act::Pop(Pop::Harmonic)),
-        b(
-            Art::Draw(draw_bend),
-            "Bend, full step (B)",
-            e.bend.is_some(),
-            hn,
-            run("note.setBend", json!({"quarterTones": if e.bend.is_some() { 0 } else { 4 }})),
-        ),
+        b(Art::Draw(draw_bend), "Bend… (B)", e.bend.is_some(), hn, Act::Window(Window::Bend)),
         later(Art::Draw(draw_whammy), "Whammy bar"),
         b(Art::Draw(draw_vibrato), "Slight vibrato (V)", e.vibrato, hn, toggle("vibrato")).options(),
         b(Art::Draw(draw_wide_vibrato), "Wide vibrato (W)", e.wide_vibrato, hn, toggle("wideVibrato")).options(),
@@ -622,6 +617,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 Window::Grace => app.open_grace(),
                 Window::Fingering => app.open_fingering(),
                 Window::Tremolo => app.open_tremolo(),
+                Window::Bend => app.open_bend(),
             },
             Act::Pop(_) | Act::Off => {}
         }

@@ -24,8 +24,9 @@
 
 > [!WARNING]
 > Guitario is **alpha**. Writing, arranging with drums, playing, practising, Guitar Pro exchange
-> and PDF export and printing work end to end; notation depth, sampled sound and tools do not
-> yet. See [ROADMAP.md](ROADMAP.md).
+> and PDF export and printing work end to end. Beta needs sampled guitar with articulations and an
+> amp, a bend editor, MusicXML and MIDI, the tuner and chord tools, and installers; see the
+> [beta gate](docs/roadmap.md#beta-gate) and [ROADMAP.md](ROADMAP.md).
 
 <p align="center">
   <a href="#features">Features</a> ·

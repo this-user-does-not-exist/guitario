@@ -1039,19 +1039,24 @@ impl Parser<'_> {
         Ok(())
     }
 
-    /// A bend or tremolo-bar curve; returns its peak in quarter tones (Guitar Pro counts 25 per
-    /// quarter tone).
-    fn bend(&mut self) -> Result<Option<u8>, GpError> {
+    /// A bend or tremolo-bar curve. Positions run 0..=60 across the note and values count 25 per
+    /// quarter tone, which is the model's own scale; a curve that never rises above the string is none.
+    fn bend(&mut self) -> Result<Option<Bend>, GpError> {
         self.r.skip(1 + 4)?; // kind, overall height
-        let points = self.r.count(self.r.remaining() / 9, "bend points")?;
-        let mut peak = 0i32;
-        for _ in 0..points {
-            self.r.skip(4)?; // position, 0..=60 across the note
-            peak = peak.max(self.r.i32()?);
+        let count = self.r.count(self.r.remaining() / 9, "bend points")?;
+        let mut points = Vec::with_capacity(count.min(64));
+        for _ in 0..count {
+            let pos = self.r.i32()?;
+            let value = self.r.i32()?;
             self.r.skip(1)?; // vibrato
+            if points.len() < 64 {
+                points.push(BendPoint::new(
+                    u8::try_from(pos.clamp(0, i32::from(BEND_END))).unwrap_or(0),
+                    u8::try_from(((value.clamp(0, 300) + 12) / 25).min(i32::from(BEND_MAX))).unwrap_or(0),
+                ));
+            }
         }
-        let quarters = u8::try_from(((peak.clamp(0, 300) + 12) / 25).min(12)).unwrap_or(0);
-        Ok((quarters > 0).then_some(quarters))
+        Ok(Bend::from_points(&points))
     }
 
     /// Tempo changes from mix tables move to the nearest bar line: the model holds one tempo per bar.

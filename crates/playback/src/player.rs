@@ -43,8 +43,8 @@ struct NoteEvent {
     mute: f32,
     let_ring: bool,
     vibrato: bool,
-    /// Bend height in semitones, reached over the first half of the note.
-    bend: f32,
+    /// How the string is pulled while the note rings.
+    bend: Option<guitario_score::Bend>,
     /// The MIDI note: the drum number on a drum track.
     midi: u8,
     /// This note continues the previous one on its string without a pluck.
@@ -244,7 +244,7 @@ impl Player {
                 vibrato: p.effects.vibrato || p.effects.wide_vibrato,
                 wide_vibrato: p.effects.wide_vibrato,
                 fade: p.fade,
-                bend: p.effects.bend.map_or(0.0, |q| f32::from(q) / 2.0),
+                bend: p.effects.bend,
                 legato_from_prev: legato,
                 slide_glide,
             });
@@ -546,7 +546,8 @@ impl Player {
             v.gain = fade_gain(n.fade, 0.0);
             v.let_ring = n.let_ring && !damped;
             let end = if damped { n.end.min(n.start + if n.dead { 0.08 } else { f64::from(muted_for) }) } else { n.end };
-            (v.note_start, v.note_end, v.bend_to) = (n.start, end, n.bend);
+            (v.note_start, v.note_end, v.bend) = (n.start, end, n.bend);
+            v.bend_semis = n.bend.map_or(0.0, |b| b.semitones_at(0.0));
             if self.sampled.len() >= MAX_SAMPLE_VOICES {
                 self.sampled.remove(0);
             }
@@ -594,7 +595,8 @@ impl Player {
             v.glide_to(freq, if n.slide_glide { 0.06 } else { 0.0 });
             v.vibrato = n.vibrato;
             v.let_ring = n.let_ring;
-            (v.note_start, v.note_end, v.bend_to) = (n.start, n.end, n.bend);
+            (v.note_start, v.note_end, v.bend) = (n.start, n.end, n.bend);
+            v.bend_semis = n.bend.map_or(0.0, |b| b.semitones_at(0.0));
             return;
         }
         // A string sounds one note at a time: a new note stops the one ringing there (a let-ring
@@ -623,7 +625,8 @@ impl Player {
         v.fade = n.fade;
         v.gain = fade_gain(n.fade, 0.0);
         v.let_ring = n.let_ring;
-        (v.note_start, v.note_end, v.bend_to) = (n.start, n.end, n.bend);
+        (v.note_start, v.note_end, v.bend) = (n.start, n.end, n.bend);
+        v.bend_semis = n.bend.map_or(0.0, |b| b.semitones_at(0.0));
         if self.voices.len() >= MAX_VOICES {
             self.voices.remove(0);
         }
@@ -682,9 +685,8 @@ impl Player {
                     if v.fade.is_some() {
                         v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3));
                     }
-                    if v.bend_to > 0.0 {
-                        let half = ((v.note_end - v.note_start) * 0.5).max(1e-3);
-                        v.bend_semis = v.bend_to * ((t - v.note_start) / half).clamp(0.0, 1.0) as f32;
+                    if let Some(b) = v.bend {
+                        v.bend_semis = b.semitones_at(((t - v.note_start) / (v.note_end - v.note_start).max(1e-3)) as f32);
                     }
                 }
                 for v in &mut self.sampled {
@@ -694,9 +696,8 @@ impl Player {
                     if v.fade.is_some() {
                         v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3));
                     }
-                    if v.bend_to > 0.0 {
-                        let half = ((v.note_end - v.note_start) * 0.5).max(1e-3);
-                        v.bend_semis = v.bend_to * ((t - v.note_start) / half).clamp(0.0, 1.0) as f32;
+                    if let Some(b) = v.bend {
+                        v.bend_semis = b.semitones_at(((t - v.note_start) / (v.note_end - v.note_start).max(1e-3)) as f32);
                     }
                 }
                 self.t += dt;

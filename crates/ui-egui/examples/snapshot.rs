@@ -145,6 +145,21 @@ fn main() {
         run(s, "measure.setEndings", json!({"endings": [1]}));
         run(s, "measure.setDirections", json!({"targets": ["coda"], "jump": "dalSegno"}));
     }
+    // `--bends`: every kind of bend on a row of notes in a fresh bar, then `--bend` opens the window on one.
+    if args.iter().any(|a| a == "--bends") {
+        let s = &mut session;
+        run(s, "file.new", json!({}));
+        run(s, "cursor.set", json!({"measure": 0, "beat": 0, "string": 2}));
+        for (fret, kind, q) in
+            [(7, "bend", 2), (7, "bend", 4), (7, "bend_release", 4), (7, "prebend", 4), (7, "prebend_release", 4), (7, "prebend_bend", 8), (9, "bend", 12)]
+        {
+            run(s, "beat.setDuration", json!({"value": 8}));
+            run(s, "note.setFret", json!({"fret": fret}));
+            run(s, "note.setBend", json!({"quarterTones": q, "kind": kind}));
+            run(s, "cursor.right", Value::Null);
+        }
+        run(s, "cursor.set", json!({"measure": 0, "beat": 2, "string": 2}));
+    }
     if let Some(t) = value("--track").and_then(|t| t.parse::<usize>().ok()) {
         run(&mut session, "track.select", json!({"index": t}));
     }
@@ -248,6 +263,9 @@ fn main() {
     }
     if args.iter().any(|a| a == "--page-setup") {
         app.open_page_setup();
+    }
+    if args.iter().any(|a| a == "--bend") {
+        app.open_bend();
     }
     if args.iter().any(|a| a == "--trill") {
         app.open_trill();

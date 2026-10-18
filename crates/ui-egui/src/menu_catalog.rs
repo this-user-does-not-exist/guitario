@@ -26,6 +26,7 @@ pub enum UiAction {
     PrintPreview,
     PageSetup,
     Trill,
+    Bend,
     TremoloPicking,
     GraceNote,
     Fingering,
@@ -233,8 +234,8 @@ pub static CATALOG: &[MenuItem] = &[
     // Effects
     c("Effects", "Vibrato", "note.toggleEffect", r#"{"effect":"vibrato"}"#, "V"),
     c("Effects", "Wide Vibrato", "note.toggleEffect", r#"{"effect":"wideVibrato"}"#, ""),
-    c("Effects", "Bend (Full)", "note.setBend", r#"{"quarterTones":4}"#, "B"),
-    m("Effects", "Bend…"),
+    c("Effects", "Bend (Full)", "note.setBend", r#"{"quarterTones":4}"#, ""),
+    u("Effects", "Bend…", U::Bend, "B"),
     m("Effects", "Whammy Bar…"),
     c("Effects", "Hammer-On / Pull-Off", "note.toggleEffect", r#"{"effect":"hammer"}"#, "H"),
     c("Effects/Slide", "Shift Slide", "note.setSlide", r#"{"slide":"shift"}"#, "S"),

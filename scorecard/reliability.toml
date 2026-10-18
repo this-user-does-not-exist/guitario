@@ -29,6 +29,7 @@ note = "Session::run catches a panicking command (every command, file import inc
 id = "REL-5"
 target = "Fuzz targets for the .gp and .gt readers"
 status = "partial"
+stage = "beta"
 note = "crates/gp/tests/fuzz.rs: seeded mutation fuzzing on stable Rust of the .gp5, .gp (archive and bare score.gpif XML), .gpx (BCFS and BCFZ) readers, 400 cases each in every test run, deeper with GUITARIO_FUZZ_CASES (150,000 cases clean); failures saved with their seed; Guitar Pro 3 and 4 only reach depth with a local corpus (GUITARIO_GP_CORPUS); the .gt reader is not fuzzed yet"
 
 [[item]]
@@ -36,3 +37,10 @@ id = "REL-6"
 target = "Autosave and crash recovery"
 status = "done"
 note = "unsaved work is written every 30 s to recovery/ beside the preferences on a worker thread with the atomic .gt save, removed on save or a clean close; a heartbeat tells a stopped run from one still open; at start a dialog offers each left-behind score (Recover, Discard, Later) and file.recover reopens it unsaved, to be saved where it came from (ui-egui autosave.rs, engine recover.rs); off when the preferences are in memory (tests, agents) unless with_autosave_dir is used"
+
+[[item]]
+id = "REL-7"
+target = "Performance budgets run in CI, with memory and startup budgets and a 1,000-bar session"
+status = "partial"
+stage = "beta"
+note = "`cargo xtask perf` and perf/budgets.toml measure the stages on a 400-bar, six-track score (gap G9); CI does not run them, and memory and startup are unmeasured"

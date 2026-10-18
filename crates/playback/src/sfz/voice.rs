@@ -26,7 +26,8 @@ pub struct SampleVoice {
     /// Song time of the note driving this voice, for its end and bend.
     pub note_start: f64,
     pub note_end: f64,
-    pub bend_to: f32,
+    /// The bend curve of the note, followed from its start to its end.
+    pub bend: Option<guitario_score::Bend>,
     pub bend_semis: f32,
     /// Vibrato depth in semitones (wide vibrato is deeper).
     pub vibrato_depth: f32,
@@ -93,7 +94,7 @@ impl SampleVoice {
             vibrato: false,
             note_start: 0.0,
             note_end: f64::MAX,
-            bend_to: 0.0,
+            bend: None,
             bend_semis: 0.0,
             vibrato_depth: 0.12,
             gain: 1.0,

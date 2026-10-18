@@ -1,3 +1,4 @@
+use crate::bend::Bend;
 use guitario_theory::{Duration, TimeSignature, Tuning};
 use serde::{Deserialize, Serialize};
 
@@ -1121,9 +1122,9 @@ pub struct NoteEffects {
     pub slide: Option<Slide>,
     #[serde(default)]
     pub harmonic: Option<Harmonic>,
-    /// Bend height in quarter tones (4 is a full step).
+    /// How far the string is pulled while the note rings: a [`Bend`] curve.
     #[serde(default)]
-    pub bend: Option<u8>,
+    pub bend: Option<Bend>,
     #[serde(default)]
     pub vibrato: bool,
     #[serde(default)]

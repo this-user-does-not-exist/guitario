@@ -762,15 +762,19 @@ impl Writer {
         }
         self.u8(f1);
         self.u8(f2);
-        if let Some(q) = e.bend {
-            // A plain bend: up to the height by the middle of the note, held to its end.
-            let height = i32::from(q) * 25;
-            self.i8(1);
-            self.i32(height);
-            self.i32(3);
-            for (pos, value) in [(0, 0), (30, height), (60, height)] {
-                self.i32(pos);
-                self.i32(value);
+        if let Some(b) = e.bend {
+            // The curve as it is: positions 0..=60 along the note, 25 per quarter tone.
+            self.i8(match b.kind(false) {
+                Some(BendKind::BendRelease) => 2,
+                Some(BendKind::Prebend | BendKind::Hold) => 4,
+                Some(BendKind::PrebendRelease | BendKind::Release) => 5,
+                _ => 1,
+            });
+            self.i32(i32::from(b.peak()) * 25);
+            self.i32(i32::try_from(b.points().len()).unwrap_or(0));
+            for pt in b.points() {
+                self.i32(i32::from(pt.pos));
+                self.i32(i32::from(pt.value) * 25);
                 self.u8(0);
             }
         }

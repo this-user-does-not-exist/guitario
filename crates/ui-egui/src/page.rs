@@ -1814,25 +1814,11 @@ impl<'a> Ctx<'a> {
                     g::arc(self.p(), pos2(a.x, y - m.tab_gap * 0.55), pos2(b.x, y - m.tab_gap * 0.55), -0.8 * s, fx);
                 }
             }
-            if let Some(q) = n.effects.bend {
-                let a = pos2(pb.x + fw + 1.0, y);
-                let top = tt - 2.2 * s;
-                let b = pos2(pb.x + fw + 1.6 * s, top);
-                self.p().add(egui::epaint::QuadraticBezierShape::from_points_stroke([a, pos2(b.x, a.y), b], false, Color32::TRANSPARENT, fx));
-                self.p().add(egui::Shape::convex_polygon(
-                    vec![b + vec2(0.0, -0.6 * s), b + vec2(-0.4 * s, 0.2 * s), b + vec2(0.4 * s, 0.2 * s)],
-                    t.effect_ink,
-                    Stroke::NONE,
-                ));
-                let label = match q {
-                    1 => "¼".to_string(),
-                    2 => "½".to_string(),
-                    4 => "full".to_string(),
-                    6 => "1½".to_string(),
-                    8 => "2".to_string(),
-                    q => format!("{:.2}", f32::from(q) / 4.0),
-                };
-                self.p().text(b - vec2(0.0, 0.8 * s), egui::Align2::CENTER_BOTTOM, label, serif(8.0 * m.zoom), t.effect_ink);
+            if let Some(bend) = n.effects.bend {
+                let x0 = pb.x + fw + 1.0;
+                let x1 = next.map_or(pb.x + pb.w, |(x2, _)| x2 - fw - 1.0);
+                let geom = crate::bend_draw::BendBox { x0, x1, y, top: tt - 2.2 * s, s, tied: n.kind == NoteKind::Tie };
+                crate::bend_draw::paint_bend(self.p(), &bend, &geom, fx, t.effect_ink, serif(8.0 * m.zoom));
             }
         }
     }

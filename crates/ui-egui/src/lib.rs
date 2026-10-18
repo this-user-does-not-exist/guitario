@@ -8,6 +8,8 @@ pub mod app_icon;
 mod audio_settings;
 mod automation_dialog;
 mod autosave;
+mod bend_dialog;
+mod bend_draw;
 mod chord_dialog;
 mod fonts;
 mod fretboard;
@@ -132,6 +134,7 @@ pub struct GuitarioApp {
     page_setup: page_setup::PageSetupDialog,
     preview: preview::Preview,
     ornaments: ornaments::OrnamentDialog,
+    bend: bend_dialog::BendDialog,
     chord: chord_dialog::ChordDialog,
     lyrics: lyrics_dialog::LyricsDialog,
     transpose: transpose_dialog::TransposeDialog,
@@ -210,6 +213,7 @@ impl GuitarioApp {
             page_setup: page_setup::PageSetupDialog::default(),
             preview: preview::Preview::default(),
             ornaments: ornaments::OrnamentDialog::default(),
+            bend: bend_dialog::BendDialog::default(),
             chord: chord_dialog::ChordDialog::default(),
             lyrics: lyrics_dialog::LyricsDialog::default(),
             autosave: autosave::Autosave::off(),
@@ -418,6 +422,7 @@ impl GuitarioApp {
             U::PrintPreview => self.open_preview(),
             U::PageSetup => self.open_page_setup(),
             U::Trill => self.open_trill(),
+            U::Bend => self.open_bend(),
             U::TremoloPicking => self.open_tremolo(),
             U::GraceNote => self.open_grace(),
             U::Fingering => self.open_fingering(),
@@ -821,6 +826,7 @@ impl GuitarioApp {
             || self.preview.open
             || self.page_setup.open
             || self.ornaments.is_open()
+            || self.bend.open
             || self.chord.open
             || self.lyrics.open
             || !self.autosave.found.is_empty()
@@ -917,6 +923,7 @@ impl GuitarioApp {
         self.preview_dialog(&ctx);
         self.page_setup_dialog(&ctx);
         self.ornament_dialog(&ctx);
+        self.bend_dialog(&ctx);
         self.chord_dialog(&ctx);
         self.lyrics_dialog(&ctx);
         self.transpose_dialog(&ctx);

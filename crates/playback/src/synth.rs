@@ -51,8 +51,8 @@ pub struct StringVoice {
     /// Song time of the note driving this voice, for its end and bend.
     pub note_start: f64,
     pub note_end: f64,
-    /// Bend height in semitones, reached over the first half of the note.
-    pub bend_to: f32,
+    /// The bend curve of the note, followed from its start to its end.
+    pub bend: Option<guitario_score::Bend>,
     level: f32,
     age: u32,
     sr: f32,
@@ -115,7 +115,7 @@ impl StringVoice {
             let_ring: false,
             note_start: 0.0,
             note_end: f64::MAX,
-            bend_to: 0.0,
+            bend: None,
             level: 1.0,
             age: 0,
             sr,

@@ -7,6 +7,7 @@
 mod ascii;
 mod automation;
 mod bars;
+mod bends;
 mod chords;
 mod commands;
 mod drums;

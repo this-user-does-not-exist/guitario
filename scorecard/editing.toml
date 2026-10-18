@@ -20,6 +20,7 @@ note = "beat.setDuration/lengthen/shorten/toggleDot/toggleTriplet; palette and N
 id = "EDIT-3"
 target = "Other tuplets (5, 6, 7, 9 …) and nested tuplets"
 status = "partial"
+stage = "1.0"
 note = "beat.setTuplet: 3:2, 5:4, 6:4, 7:4, 9:8, 10:8 exact at 20160 ticks per quarter (Note › Duration › Tuplet…); nested tuplets not yet"
 
 [[item]]
@@ -30,9 +31,10 @@ note = "toggle commands and Guitar Pro single-key shortcuts (R L X G A I P)"
 
 [[item]]
 id = "EDIT-5"
-target = "Bends, slides (6 kinds), hammer-ons and pull-offs, vibrato, harmonics (5 kinds)"
+target = "Bends with curves, whammy bar, slides (6 kinds), hammer-ons and pull-offs, vibrato, harmonics (5 kinds)"
 status = "partial"
-note = "on/off with one bend height (full); wide vibrato, tapping and left-hand tapping; no bend-curve editor (pre-bend, release, multi-point)"
+stage = "beta"
+note = "bend curves of up to eight points (Bend in crates/score/src/bend.rs; the seven Guitar Pro types or free-form), edited in Effects › Bend… (B; bend_dialog.rs) and note.setBend, drawn as arrows with ¼ to 3 heights in the tab (bend_draw.rs), played along the curve and carried through ties, read and written in Guitar Pro 3-5 (all points) and 7/8 (origin, plateau and destination); wide vibrato, tapping and left-hand tapping; no whammy bar yet (issue 67)"
 
 [[item]]
 id = "EDIT-6"
@@ -50,6 +52,7 @@ note = "edit.copy/cut/paste/transposeUp/Down; paste_flows_into_new_measures test
 id = "EDIT-8"
 target = "Paste Special (insert, repeat count, selected tracks)"
 status = "missing"
+stage = "beta"
 
 [[item]]
 id = "EDIT-9"
@@ -91,6 +94,7 @@ note = "Session::run snapshots; failed_command_changes_nothing test"
 id = "EDIT-15"
 target = "Drum tracks and a percussion editor"
 status = "partial"
+stage = "beta"
 note = "track.addDrums, note.setDrum, drum pad and two-digit GM entry (crates/engine/src/drums.rs, drum_tracks_take_kit_pieces_on_their_lanes); Voice 2 holds the feet (stems down) as Guitar Pro writes drums; no step grid"
 
 [[item]]

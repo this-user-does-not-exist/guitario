@@ -1,111 +1,110 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-16 · **Last updated:** 2026-10-16 · **Change:** minor (live mixer, transpose dialogs, tempo, volume and pan automation, audio settings, FLAC export: menus 149/173; performance measured; percentages otherwise not recomputed) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** major (percentages recomputed from stated weights, the readiness method made reproducible, the opaque 29% "ready" figure and the per-audience percentages replaced by gate results, hours re-summed from the gaps, calibration measured) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
-The one-page summary is [`ROADMAP.md`](../ROADMAP.md); the ranked work list is [`gaps.md`](gaps.md);
-the measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`) and
+The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
+has been reached is [`roadmap.md`](roadmap.md); the ranked work list is [`gaps.md`](gaps.md); the
+measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`) and
 [`parity-checklist.md`](parity-checklist.md) (`cargo xtask parity`). Detail by dimension:
 [file formats](file-format-parity.md), [UI](ui-parity.md).
 
-## Headline (2026-10-16, Guitario 0.1.0)
+## Headline (2026-10-17, Guitario 0.1.0)
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Guitar Pro feature exist?) | **~61%** | partly measured (menus 149/173), weights below |
-| **Ready for real work** (could a guitarist replace Guitar Pro with it?) | **~29%** (range 24–34%) | estimated, evidence below |
-| **Mainstream user** (writes and learns tab every week) | **~39%** (34–44%) | estimated, [method](#readiness-by-audience) |
-| **Essentials user** (enter a riff, hear it, save it) | **~76%** (68–84%) | estimated |
-| **Stage** | **alpha** | the [alpha gate](roadmap.md#alpha-gate) passes; open human checks: a real printer, `.gp` in Guitar Pro 8 |
-| Remaining to **alpha** | **reached** | |
-| Remaining to **beta** (~75% ready) | **~770–1,310 Opus 5.5 agent-hours** | estimated |
-| Remaining to **full parity** (~95–100%) | **~1,800–3,215 Opus 5.5 agent-hours** | estimated; sampled-instrument playback (RSE) dominates |
+| **Stage** | **alpha** | measured: the [alpha gate](roadmap.md#alpha-gate) passes (two human checks open) |
+| **Beta gate** | **0 of 8 workflows pass** | measured by running them: [beta gate](roadmap.md#beta-gate) |
+| **Scorecard** | 47 done · 22 partial · 24 missing; **30 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
+| **Menu parity** | 161 of 177 items live (91 %) | measured: `cargo xtask parity` |
+| **Feature breadth** (does each Guitar Pro feature exist?) | **~63 %** | partly measured, weights [below](#feature-breadth-63-weighted) |
+| **Readiness** (how deep is each dimension, weighted?) | **~54 %** (range 48–60) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
+| Remaining to **beta** | **~540–1,060 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~1,230–2,410 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
-### Readiness by audience
-
-| Audience | Ready % | Opus 5.5 agent-hours to ~95% | Work that dominates |
-|---|---:|---:|---|
-| Full target (ready for real work) | ~29% | 1,750–3,165 | Everything below, plus sampled playback, tools (tuner, chords, scales), PowerTab and TablEdit, distribution |
-| Mainstream user (band arranger, teacher, learner) | ~39% | 770–1,410 | playback that sounds like an instrument, notation depth |
-| Essentials user | ~76% | 50–120 | editing polish, print depth (headers and footers) |
-
-Each tier is a subset of the one above. A mainstream Guitar Pro user, by the tabs shared online
-and the features GP's own lessons cover, weekly: enters and edits tab, reads standard notation,
-plays back with drums, loops and slows passages, opens files from others (mostly `.gp5` and
-`.gp`), prints or exports PDF, and occasionally uses the tuner and chord tools.
+What changed in this review: the previous headline said "ready for real work ~29 %" and gave
+audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
+dimension table (weighting those dimensions gives ~50 %), and "beta at ~75 % ready" had no
+definition behind it. Stages are now defined by gates that are run, not read off a percentage;
+the readiness number is kept only as a dimension average whose weights are written down. The
+audiences map to stages: an *essentials user* needs alpha (reached), a *mainstream user* needs
+beta, a *full* user needs 1.0 (definitions in [roadmap](roadmap.md#stages)).
 
 ## Target measured
 
 - **Guitar Pro 8** (Arobas Music), the current major version; the format notes in the author's
   `Guitar Pro 7 File Format` folder cover files written by GP 7.0 to 8.1.3.
 - **Not measured from the installed app.** Guitar Pro is not installed on the machine this was
-  written on, so unlike another app (which reads Photoshop's bundle without launching it), the
-  menu catalog (`crates/ui-egui/src/menu_catalog.rs`) and these feature lists come from Guitar
-  Pro's documentation, its file format (the `.gp` notes and corpus findings) and observation.
-  Re-measure against an installed copy when one is available: menu resources, preset tunings,
-  shortcut defaults and sound banks.
+  written on. The menu catalog (`crates/ui-egui/src/menu_catalog.rs`) and these feature lists
+  come from Guitar Pro 8's documentation, its file format (the `.gp` notes and corpus findings),
+  and, since 2026-10-17, a review of the Guitar Pro 8 manual's text and screenshots that produced
+  307 issues (label `source: gp8-manual`). Re-measure against an installed copy when one is
+  available: menu resources, preset tunings, shortcut defaults and sound banks (#154).
 - Clean-room: behaviour and look only. No Guitar Pro code, sounds, fonts or stylesheets are used.
 
-## Feature breadth: ~61% (weighted)
+## Feature breadth: ~63% (weighted)
 
 | Component | Weight | Ours / Guitar Pro | % | Kind |
 |---|---:|---|---:|---|
-| Menu commands | 30% | 149 / 173 catalog items live | 86% | measured (`cargo xtask parity`) |
-| Notation and engraving | 15% | page view, notation + tab, drum staff, effects lanes, alternate endings, directions, chord names and text, ties, slurs, up to four voices, tremolo picking slashes, trill marks, grace notes, chord diagrams, lyrics, fermatas, fingering, beaming by the signature, sloped beams; page, screen and horizontal layouts and the multitrack view; chord list, Multivoice Editing, full-score printing, key changes inside a system, courtesy signatures, voice heads stepping aside | ~78% | estimated ([scorecard](scorecard.md#notation-and-engraving)) |
-| Instruments and track types | 10% | fretted strings in any tuning (4–12 strings, 12 presets) and a GM drum kit; no keys or other instruments | ~50% | estimated |
-| Playback | 15% | physical-model guitar/bass, synthesised drums, SFZ sampler with a sound bank (decoded in the background), transport, loop, speed, metronome, count-in, live mixer, tempo, volume and pan automation, audio settings, WAV and FLAC export; no articulation samples, effects, MP3/OGG | ~50% | estimated ([scorecard](scorecard.md#playback)) |
-| File formats (usage-weighted) | 15% | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` import (checked on 76 real files), `.gp`/`.gp5`/MIDI/WAV/FLAC/ASCII export (`.gp` not yet opened in Guitar Pro itself), PDF export, print preview, page setup and printing (not yet tried on a real printer); chords and lyrics both ways in every Guitar Pro format that has them; no MusicXML export, no MIDI/MusicXML/PowerTab import | ~57% | estimated ([file-format-parity](file-format-parity.md)) |
-| Tools (tuner, chord engine, scales, line in) | 10% | chord diagram editor and a chord namer (Tools › Chord Diagrams…); no chord dictionary, tuner, scales or line in | ~8% | estimated |
+| Menu commands | 30% | 161 / 177 catalog items live | 91% | measured (`cargo xtask parity`) |
+| Notation and engraving | 15% | page, screen and horizontal layouts and the multitrack view; notation over tab, drum staff, effects lanes, endings, directions, chord names and diagrams, lyrics, ties, slurs, up to four voices, tremolo picking, trills, grace notes, fermatas, fingering, beaming and beam breaks, key changes and courtesy signatures, the page details of Guitar Pro 8's default stylesheet; no slash or numbered notation, grand staff, clef changes, simile, multirests or stylesheet | ~80% | estimated ([scorecard](scorecard.md#notation-and-engraving)) |
+| Instruments and track types | 10% | fretted strings in any tuning (4–12 strings, presets for guitars, basses, banjo, mandolin and bowed strings) and a GM drum kit, chosen in an Add Track window; no keyboards, winds or MIDI instruments | ~50% | estimated |
+| Playback | 15% | physical-model guitar and bass, synthesised drums, SFZ sampler with a sound bank, RSE or MIDI per track, interpretation settings, transport, loop, speed, metronome, count-in, live mixer, tempo, volume and pan automation, audio settings, WAV and FLAC; no articulation samples, amp, cabinet or effects, no MP3 or OGG | ~52% | estimated ([scorecard](scorecard.md#playback)) |
+| File formats (usage-weighted) | 15% | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` import (checked on 76 real files), `.gp`, `.gp5`, MIDI, WAV, FLAC and ASCII export, PDF export, print, preview, page setup; chords, lyrics and fingering both ways; no MusicXML, no MIDI, MusicXML, PowerTab or TablEdit import, no image export | ~57% | estimated ([file-format-parity](file-format-parity.md)) |
+| Tools (tuner, chord engine, scales, line in) | 10% | chord diagram editor and a chord namer; no chord window, tuner, scales or line in | ~8% | estimated |
 | Ecosystem and automation | 5% | engine commands, CLI, scripts; no control channel or MCP | ~30% | estimated |
-| **Weighted** | 100% | | **~61%** (60.9%) | |
+| **Weighted** | 100% | 0.30·91 + 0.15·80 + 0.10·50 + 0.15·52 + 0.15·57 + 0.10·8 + 0.05·30 | **~63%** (63.0%) | |
 
-## Ready for real work, by dimension
+## Readiness by dimension
 
-| Dimension | % ready | Hours to full | Evidence |
-|---|---:|---:|---|
-| Editing | 55% | 110–200 | [scorecard › Editing](scorecard.md#editing) |
-| Notation | 68% | 30–80 | user-placed slurs, Guitar Pro's per-beat beam breaks and voice picking in notation missing |
-| Playback | 38% | 320–650 | sampler, mixer and automations in; no articulation samples or effects; checked by tests, not yet by ear |
-| Files and exchange | 56% | 130–250 | [file-format-parity](file-format-parity.md) |
-| UI/UX fidelity | 50% | 180–320 | [ui-parity](ui-parity.md); workspace and view modes match GP, depth (preferences, themes, inspector tabs) does not |
-| Tools | 5% | 110–185 | tuner, chord dictionary, scales, line in |
-| Stability | 60% | 45–90 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and crash recovery; no field reports yet, no fuzzers on readers |
-| Performance | 70% | 15–30 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; no CI run, memory or startup budgets ([gaps G9](gaps.md#g9-performance-budgets)) |
-| Platforms | 15% | 80–150 + human | macOS source builds only; no releases |
+How deep each dimension is, not whether a feature exists. Weights say how much a dimension
+matters to a mainstream user's week and are fixed here so the average is reproducible. Percentages
+are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 
-## Remaining effort and calibration
+| Dimension | Weight | % ready | Beta h | After beta h | Gaps | Evidence |
+|---|---:|---:|---:|---:|---|---|
+| Editing | 20% | 62% | 40–80 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends have curves and an editor; no whammy bar or Paste Special, no drum step grid |
+| Notation | 15% | 74% | 6–22 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): all done; voice picking in notation is left |
+| Playback | 15% | 42% | 150–300 | 130–260 | G5 | sampler, mixer and automations in; no articulation samples, amp or effects; checked by tests, not by ear |
+| Files and exchange | 10% | 56% | 65–120 | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
+| UI/UX fidelity | 10% | 62% | 75–140 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view and homepage match Guitar Pro 8; depth (several documents, preferences, stylesheet) does not |
+| Tools | 5% | 8% | 55–100 | 70–130 | G7 | tuner, chord window, scales, line in |
+| Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
+| Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
+| Platforms and automation | 10% | 25% | 120–230 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; no installers or releases, no control channel or MCP |
+| **Weighted** | 100% | **~54%** | **~540–1,060** | **~690–1,350** | | 0.20·62 + 0.15·74 + 0.15·42 + 0.10·56 + 0.10·62 + 0.05·8 + 0.10·65 + 0.05·70 + 0.10·25 = 54.5 |
+
+Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
+is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
+sixties or better while the 1.0 tail (stylesheet, Design Mode, translations) stays open.
+
+## Calibration
 
 Hours are Opus 5.5 agent wall-clock hours for one agent working sequentially, including tests.
-**Uncalibrated:** Guitario has no merged-PR history yet, so the per-item rates are borrowed from
-another app's calibration (2–9 h per checklist item, 8–20 h per format or subsystem, from its 1,004
-merged PRs). Re-calibrate after the first 100 PRs here. About 70% of the work parallelizes
-(independent crates and command modules); the notation engine and playback are the serial parts.
+The rates were first borrowed from another app (2–9 h per checklist item, 8–20 h per format or
+subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17:
+
+- **33 pull requests merged in 35 hours of calendar time** (2026-10-16 11:08 to 2026-10-17
+  21:51 UTC), about one batch an hour, about 99,000 lines added and 26,000 removed.
+- On 2026-10-15 the alpha gate was estimated at 220–420 h; it passed 2026-10-16.
+- So the estimates are an **upper bound**, high by a factor that parallel agents explain only
+  in part (about 70 % of the work parallelizes). Read the hour figures as relative sizes between
+  gaps, and plan in batches: the beta gate is roughly 60 to 120 batches at the observed size.
+- The figures stay in agent-hours because 33 PRs is too few to recalibrate (issue #194 asks
+  for 100). The wall-clock rate does not apply to the human steps in the [roadmap](roadmap.md#current-focus):
+  a listening pass, a real printer, signing accounts.
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-16 | minor | FLAC export (File › Export › Audio…): menus 148/173 → 149/173. Breadth recomputed for the day's work: menus 81% → 86%, notation ~72% → ~78%, playback ~35% → ~50%, files ~56% → ~57%: 56.0% → 60.9% (~61%); readiness dimensions notation 64% → 68%, playback 30% → 38% (estimated); the readiness headline (~29%) is left for a full review |
-| 2026-10-16 | minor | Sound › Audio Settings… (output device, buffer size): menus 147/173 → 148/173 |
-| 2026-10-16 | minor | Volume and pan automation (Sound › Automations): menus 145/173 → 147/173; PLAY-6 done |
-| 2026-10-16 | minor | Tempo automation with gradual changes (Sound › Automations › Tempo Automation…): menus 144/173 → 145/173 |
-| 2026-10-16 | minor | Live mixer (Sound › Mixer…), Transpose… and Transpose Track… dialogs: menus 141/173 → 144/173 |
-| 2026-10-16 | minor | Performance measured for the first time (70%, estimated from the budgets met); the 5.5 s stall on Play with sampled sounds removed; headline not recomputed |
-| 2026-10-16 | minor | Panic guard and autosave with crash recovery: stability 50% → 60% (estimated); notation hours 45–110 → 35–90; headline not recomputed |
-| 2026-10-16 | minor | Chord list under the title, Multivoice Editing (menus 141/173), full-score printing, key changes inside a system, courtesy signatures, voice heads stepping aside, transpose track; G4 8–28 h |
-| 2026-10-16 | minor | Page, screen and horizontal layouts and the multitrack view: menus 140/173, breadth ~56% (54.7% → 56.0%), notation 61% → 64%, UI 45% → 50%, ready ~29%, mainstream ~39%; beta ~770–1,310 h |
-| 2026-10-16 | minor | Beaming by the time signature (and per bar, kept in `.gp5`) and sloped beams: breadth ~55% (54.4% → 54.7%), notation 59% → 61%, ready ~28%, mainstream ~38% (notation depth for the batch: grace notes, chord diagrams, lyrics, fermatas, fingering, beams); beta ~800–1,360 h |
-| 2026-10-16 | minor | Fingering for both hands (Note › Fingering…, notation, Guitar Pro 3-8 both ways): menus 136/173, breadth ~54% (54.1% → 54.4%), notation 58% → 59% |
-| 2026-10-16 | minor | Fermatas (drawn, held in playback and MIDI, GPIF both ways): breadth ~54% (53.8% → 54.1%), notation 56% → 58%; beta ~810–1,375 h |
-| 2026-10-16 | minor | Lyrics (five lines per track, Track › Lyrics…, drawn under the tab, Guitar Pro 4-8 both ways): menus 135/173, breadth ~54% (52.9% → 53.8%), notation 53% → 56%, files 55% → 56%; beta ~815–1,385 h |
-| 2026-10-16 | minor | Chord diagrams drawn, edited (Tools › Chord Diagrams…) and named from their notes, and kept in `.gp`: menus 134/173, breadth ~53% (51.1% → 52.9%), notation 50% → 53%, tools 0% → 5%; beta ~830–1,410 h |
-| 2026-10-16 | minor | Grace notes (model, Note › Grace Note…, playback, engraving, Guitar Pro 3-8 both ways): menus 133/173, breadth ~51% (50.5% → 51.1%), notation 47% → 50%; beta ~850–1,440 h |
-| 2026-10-16 | minor | Tremolo picking and trills: menus 132/173, breadth still ~50% (49.9% → 50.5%), notation 45% → 47%; beta ~860–1,455 h |
-| 2026-10-16 | minor | Print preview and page setup: menus 130/173, breadth ~50%, files 52% → 54%; beta ~870–1,470 h |
-| 2026-10-16 | minor | PDF export and printing: menus 128/172, breadth ~49%, ready ~27%, files 45% → 52%; alpha gate passes; beta ~880–1,490 h (G2's 60–100 h done, 20–40 h of print depth added) |
-| 2026-10-16 | minor | `.gp` export: menus 126/172, breadth ~48%, ready ~26% |
-| 2026-10-16 | minor | Ties, slurs and four voices: menus 125/172, breadth ~47%, ready ~25%, alpha ~70–120 h |
-| 2026-10-16 | minor | Guitar Pro 3-6 import, `.gp5` export, chord names: menus 121/172, breadth ~45%, ready ~22%, alpha ~130–230 h |
-| 2026-10-16 | minor | Bar/track/technique commands, tuplets, triplet feel: menus 117/172, breadth ~41% |
-| 2026-10-15 | minor | Drums landed (G1 mostly closed): breadth ~37%, ready ~20%, alpha ~220–420 h |
+| 2026-10-17 | minor | Bend curves and the Bend window (Effects › Bend…, B): menus 161/177; editing 60% → 62%; beta hours 560–1,090 → 540–1,060 |
+| 2026-10-17 | major | Method fixed: breadth recomputed from stated weights (menus 160/177; ~61% to ~63%); readiness is the weighted dimension average (~54%, replacing the unreproducible ~29%) and the audience percentages are gone, replaced by stages with gates; hours re-summed from the gaps (beta ~540–1,060 h, full ~1,230–2,410 h, was ~770–1,310 and ~1,800–3,215); calibration measured (33 PRs in 35 h); the 307 manual-review issues counted in |
+| 2026-10-16 | minor | FLAC export: menus 148/173 → 149/173. Breadth recomputed for the day's work: menus 81% → 86%, notation ~72% → ~78%, playback ~35% → ~50%, files ~56% → ~57%: 56.0% → 60.9% (~61%); readiness dimensions notation 64% → 68%, playback 30% → 38% |
+| 2026-10-16 | minor | Live mixer, tempo, volume and pan automation, audio settings, Transpose dialogs: menus 141/173 → 148/173; performance measured for the first time (70%); panic guard and autosave: stability 50% → 60% |
+| 2026-10-16 | minor | Chord list, Multivoice Editing, full-score printing, key changes, courtesy signatures; layouts and the multitrack view: breadth ~56% (54.7% → 56.0%), notation 61% → 64%, UI 45% → 50% |
+| 2026-10-16 | minor | Beaming, fingering, fermatas, lyrics, chord diagrams, grace notes, tremolo picking and trills: breadth ~50% to ~55% (49.9% → 54.7%), notation 45% → 61% |
+| 2026-10-16 | minor | Print preview and page setup, PDF export and printing: menus 130/173, breadth ~50%, files 45% → 54%; **alpha gate passes** |
+| 2026-10-16 | minor | `.gp` export, ties, slurs and four voices, Guitar Pro 3-6 import and `.gp5` export, bar and technique commands: breadth ~41% → ~48%, ready ~22% → ~26% |
+| 2026-10-15 | minor | Drums landed: breadth ~37%, ready ~20%, alpha ~220–420 h |
 | 2026-10-15 | major | First assessment: breadth ~33%, ready ~15%, pre-alpha; menu catalog and scorecard introduced |

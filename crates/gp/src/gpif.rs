@@ -51,6 +51,31 @@ fn prop_num<T: std::str::FromStr>(n: Node, name: &str) -> Option<T> {
     prop_value(n, name)?.parse().ok()
 }
 
+/// A note's bend curve from its four points (origin, two middle, destination). Offsets are percentages
+/// of the note's length and values hundredths of a whole tone (a quarter tone is 25). Guitar Pro
+/// leaves its middle points in place when only the destination matters, so middle points that do
+/// not fall before the destination, in order, are ignored. A destination before the end of the note
+/// holds there.
+fn read_bend(nn: Node) -> Option<Bend> {
+    let num = |k: &str| prop_num::<f32>(nn, k).filter(|v| v.is_finite());
+    let pos = |percent: f32| u8::try_from((percent.clamp(0.0, 100.0) * f32::from(BEND_END) / 100.0).round() as i32).unwrap_or(0);
+    let value = |hundredths: f32| u8::try_from(((hundredths / 25.0).round() as i32).clamp(0, i32::from(BEND_MAX))).unwrap_or(0);
+    let origin = num("BendOriginValue").unwrap_or(0.0);
+    let dest = num("BendDestinationValue").unwrap_or(0.0);
+    let dest_at = num("BendDestinationOffset").unwrap_or(100.0);
+    let mut pts = vec![BendPoint::new(0, value(origin))];
+    if let (Some(mid), Some(m1), Some(m2)) = (num("BendMiddleValue"), num("BendMiddleOffset1"), num("BendMiddleOffset2")) {
+        if m1 > 0.0 && m1 < dest_at {
+            pts.push(BendPoint::new(pos(m1), value(mid)));
+        }
+        if m2 > m1 && m2 < dest_at {
+            pts.push(BendPoint::new(pos(m2), value(mid)));
+        }
+    }
+    pts.push(BendPoint::new(pos(dest_at), value(dest)));
+    Bend::from_points(&pts)
+}
+
 pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
     let doc = Document::parse(xml).map_err(|e| GpError::Xml(e.to_string()))?;
     let root = doc.root_element();
@@ -762,10 +787,7 @@ fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chor
             e.trill = Some(Trill { fret: u8::try_from(alt).unwrap_or(0), speed });
         }
         if prop_on(nn, "Bended") {
-            // Curve values are hundredths of a whole tone; a quarter tone is 25.
-            let peak = ["BendOriginValue", "BendMiddleValue", "BendDestinationValue"].iter().filter_map(|k| prop_num::<f32>(nn, k)).fold(0.0f32, f32::max);
-            let q = (peak / 25.0).round().clamp(0.0, 12.0) as u8;
-            e.bend = (q > 0).then_some(q);
+            e.bend = read_bend(nn);
         }
         beat.notes.push(note);
     }

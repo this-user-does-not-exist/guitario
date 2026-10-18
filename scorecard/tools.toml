@@ -1,0 +1,45 @@
+# Scorecard checklist: tools. Verified 2026-10-17.
+area = "tools"
+title = "Tools"
+order = 5
+
+[[item]]
+id = "TOOL-1"
+target = "Chord diagram editor that names a chord from its notes (Tools › Chord Diagrams…)"
+status = "done"
+note = "crates/engine/src/chords.rs, guitario_theory::chord_name; diagrams are drawn in the score and kept in .gp"
+
+[[item]]
+id = "TOOL-2"
+target = "Tuner from the microphone or line in (Tools › Tuner), within ±2 cents on test tones"
+status = "missing"
+stage = "beta"
+note = "needs audio input in crates/audio (issue 134) and a pitch detector; the toolbar button is greyed"
+
+[[item]]
+id = "TOOL-3"
+target = "Chord window: build a chord from root, type, extension and alterations, and list its voicings by difficulty"
+status = "missing"
+stage = "beta"
+note = "the namer goes notes to name; the dictionary goes name to every voicing (issues 316, 317)"
+
+[[item]]
+id = "TOOL-4"
+target = "Scale tool: pick a scale, see it on the fretboard and keyboard, find scales in a selection"
+status = "missing"
+stage = "beta"
+note = "Tools › Scale Tool… is greyed (issues 138, 306, 333)"
+
+[[item]]
+id = "TOOL-5"
+target = "Line In: play a real guitar through the track's amp and effects"
+status = "missing"
+stage = "1.0"
+note = "needs low-latency input and the effect chain (PLAY-5)"
+
+[[item]]
+id = "TOOL-6"
+target = "MIDI capture, Command Palette, Action List, Expression Text, Fretlight"
+status = "missing"
+stage = "1.0"
+note = "Guitar Pro 8's smaller tools (issues 324 to 331, 339, 341)"
