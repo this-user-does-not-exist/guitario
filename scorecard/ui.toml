@@ -19,24 +19,28 @@ status = "done"
 id = "UI-3"
 target = "Inspector: Song and Track tabs"
 status = "partial"
-note = "no Bar or Note tab, no bend editor"
+stage = "1.0"
+note = "Guitar Pro 8 has only these two tabs; master effects behind Sound Mastering, tuning window and transposition are greyed"
 
 [[item]]
 id = "UI-4"
 target = "Global view in Guitar Pro 8's columns: icon, name, multitrack eye, mute, solo, volume, volume automation, pan, pan automation, equalizer; Master row with sections; bar grid with selection and playback"
 status = "partial"
+stage = "beta"
 note = "no equalizer, master volume/pan or focus (shown greyed); track visibility is not saved"
 
 [[item]]
 id = "UI-5"
 target = "Instrument views: fretboard (click to enter), keyboard, drum pad"
 status = "partial"
+stage = "1.0"
 note = "all three, with toolbar buttons; no hover note names, scales or left-handed fretboard"
 
 [[item]]
 id = "UI-6"
 target = "Menu bar with Guitar Pro's menus; items not built yet shown greyed out"
 status = "partial"
+stage = "beta"
 note = "docs/parity-checklist.md"
 
 [[item]]
@@ -49,14 +53,53 @@ note = "prefs.rs on craft-settings"
 id = "UI-8"
 target = "Preferences dialog, themes (light and dark), UI scale"
 status = "partial"
+stage = "beta"
 note = "theme and interface scale only; the light theme has had one pass"
 
 [[item]]
 id = "UI-9"
-target = "Mixer panel, tuner, chord and scale tools"
-status = "missing"
+target = "Mixer window: a strip per track with instrument, pan, fader, mute and solo, live while playing"
+status = "done"
+note = "Sound › Mixer… (mixer.rs); no equalizer, master section or effect chain (PLAY-5)"
 
 [[item]]
 id = "UI-10"
-target = "Localization beyond English"
+target = "Localization framework: every user-facing string extracted and looked up by language"
 status = "missing"
+stage = "beta"
+note = "gap G13; translations themselves are UI-11"
+
+[[item]]
+id = "UI-11"
+target = "Translations (French, German, Spanish, Italian, Portuguese, Japanese, Chinese, Russian, Korean, Dutch, Polish)"
+status = "missing"
+stage = "1.0"
+note = "needs human review per language"
+
+[[item]]
+id = "UI-12"
+target = "Several documents open at once (document tabs, Window › Next Document)"
+status = "missing"
+stage = "beta"
+note = "the tab bar looks right but holds one document"
+
+[[item]]
+id = "UI-13"
+target = "Default shortcuts match Guitar Pro 8's (navigation, entry, effects, bars, tracks, files, views)"
+status = "partial"
+stage = "beta"
+note = "the common ones match; the audit against the manual's tables is open (issues 528 to 531)"
+
+[[item]]
+id = "UI-14"
+target = "Stylesheet window (File › Stylesheet, F7): sizes, staves, texts, symbols, fingerings, header and footer"
+status = "missing"
+stage = "1.0"
+note = "page setup (paper, margins) exists; the rest of the stylesheet is fixed to Guitar Pro 8's defaults"
+
+[[item]]
+id = "UI-15"
+target = "Help › user book: getting started, entering tab, playback, files, sounds"
+status = "missing"
+stage = "beta"
+note = "book/ (mdBook) has introduction, getting started, editing, playback, files and shortcuts; no page on sounds, and Help › Guitario Help does not open it"

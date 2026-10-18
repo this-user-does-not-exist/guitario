@@ -135,6 +135,28 @@ pub struct PlayedBeat {
     pub effects: crate::NoteEffects,
     /// The beat's fade in, fade out or swell.
     pub fade: Option<Fade>,
+    /// The whammy bar's curve moving this note.
+    pub whammy: Option<PlayedWhammy>,
+}
+
+/// A whammy curve in playback time: it runs over `ticks` from `from_tick`. Before that the bar is
+/// at rest; after it, it stays where the curve ends.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PlayedWhammy {
+    pub curve: crate::Whammy,
+    pub from_tick: u64,
+    pub ticks: u32,
+}
+
+impl PlayedWhammy {
+    /// The pitch at `tick`, in semitones.
+    pub fn semitones_at(&self, tick: f64) -> f32 {
+        let from = self.from_tick as f64;
+        if tick < from {
+            return 0.0;
+        }
+        self.curve.semitones_at(((tick - from) / f64::from(self.ticks.max(1))) as f32)
+    }
 }
 
 /// Most attacks one note makes inside one beat, so a hostile duration cannot make a huge timeline.
@@ -207,6 +229,21 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                 && let Some(&Some(idx)) = ties.get(s)
                             {
                                 if let Some(prev) = out.get_mut(idx) {
+                                    // A bend carries on through the tie: held, or followed by the tied note's own curve.
+                                    prev.effects.bend = crate::Bend::join(prev.effects.bend, prev.ticks, note.effects.bend, ticks_swung);
+                                    // So does the whammy: the tied beat's curve follows the one before, if any.
+                                    prev.whammy = match (prev.whammy, beat.whammy) {
+                                        (Some(w), Some(next)) => {
+                                            let before = u32::try_from(s0.saturating_sub(w.from_tick)).unwrap_or(u32::MAX);
+                                            Some(PlayedWhammy {
+                                                curve: crate::Whammy::join(Some(w.curve), before, Some(next), ticks_swung).unwrap_or(w.curve),
+                                                ticks: before.saturating_add(ticks_swung),
+                                                ..w
+                                            })
+                                        }
+                                        (None, Some(next)) => Some(PlayedWhammy { curve: next, from_tick: s0, ticks: ticks_swung }),
+                                        (held, None) => held,
+                                    };
                                     prev.ticks += ticks_swung;
                                 }
                                 continue;
@@ -281,7 +318,7 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                             (Some(g), Some(p)) if p.0 > g.0 => p.0 - g.0,
                                             _ => 0,
                                         };
-                                        effects.bend = (up > 0).then(|| up.saturating_mul(2));
+                                        effects.bend = (up > 0).then(|| crate::Bend::to(up.saturating_mul(2)));
                                         effects.hammer = true;
                                     }
                                 }
@@ -296,6 +333,7 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                     dead: grace.dead || grace_pitch.is_none(),
                                     effects,
                                     fade: None,
+                                    whammy: None,
                                 });
                             }
                             // A trill alternates with another fret; tremolo picking repeats the note.
@@ -308,8 +346,15 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                             let other = trill.and_then(|t| track.tuning.pitch(s, t.fret, track.capo));
                             let parts = attacks(period, ticks_swung, lead);
                             let picks = parts.len();
+                            let whammy = beat.whammy.map(|curve| PlayedWhammy { curve, from_tick: s0, ticks: ticks_swung });
                             for (k, (start, len)) in parts.into_iter().enumerate() {
                                 let mut effects = note.effects;
+                                // Vibrato with the bar shakes every note of the beat.
+                                match beat.bar_vibrato {
+                                    Some(crate::BarVibrato::Slight) => effects.vibrato = true,
+                                    Some(crate::BarVibrato::Wide) => effects.wide_vibrato = true,
+                                    None => {}
+                                }
                                 // Each trill note flows into the next without a new pluck.
                                 effects.hammer |= other.is_some() && k + 1 < picks;
                                 if k + 1 == picks
@@ -336,6 +381,7 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                     dead,
                                     effects,
                                     fade: beat.fade,
+                                    whammy,
                                 });
                             }
                         }
@@ -532,6 +578,68 @@ mod tests {
         assert_eq!(t.len(), 1);
         assert_eq!(t[0].ticks, 2 * guitario_theory::TICKS_PER_QUARTER);
         assert_eq!(t[0].pitch.map(|p| p.0), Some(69));
+    }
+
+    #[test]
+    fn a_bend_carries_on_through_a_tie() {
+        use crate::{Beat, Bend, BendKind, Note};
+        use guitario_theory::Duration;
+        let tied_after = |bend: Option<Bend>| {
+            let mut s = score_with(1);
+            let mut head = Note::new(0, 5);
+            head.effects.bend = Some(Bend::to(4));
+            let mut tail = Note::new(0, 5);
+            tail.kind = NoteKind::Tie;
+            tail.effects.bend = bend;
+            s.tracks[0].measures[0].voices[0].beats = vec![
+                Beat { rest: false, notes: vec![head], ..Beat::rest(Duration::QUARTER) },
+                Beat { rest: false, notes: vec![tail], ..Beat::rest(Duration::QUARTER) },
+                Beat::rest(Duration::new(guitario_theory::NoteValue::Half)),
+            ];
+            let t = timeline(&s);
+            assert_eq!(t.len(), 1, "the tie adds no attack");
+            t[0].effects.bend.unwrap()
+        };
+        // Held: up by the middle of the first half, then kept.
+        let held = tied_after(None);
+        assert_eq!((held.value_at(7.5), held.value_at(30.0), held.value_at(60.0)), (2.0, 4.0, 4.0));
+        // Let down on the tied note.
+        let released = tied_after(Some(Bend::preset(BendKind::Release, 4)));
+        assert_eq!((released.value_at(30.0), released.value_at(60.0)), (4.0, 0.0));
+    }
+
+    #[test]
+    fn the_whammy_moves_every_note_of_its_beat_and_carries_on_through_a_tie() {
+        use crate::{BarVibrato, Beat, Note, Whammy, WhammyKind};
+        use guitario_theory::Duration;
+        let q = Duration::QUARTER;
+        let dive = Whammy::preset(WhammyKind::Dive, -8);
+        let mut s = score_with(1);
+        let mut tail = Note::new(1, 5);
+        tail.kind = NoteKind::Tie;
+        s.tracks[0].measures[0].voices[0].beats = vec![
+            Beat { rest: false, notes: vec![Note::new(0, 3), Note::new(1, 5)], whammy: Some(dive), ..Beat::rest(q) },
+            Beat { rest: false, notes: vec![tail], whammy: Some(Whammy::preset(WhammyKind::Return, -8)), ..Beat::rest(q) },
+            Beat { rest: false, notes: vec![Note::new(2, 0)], bar_vibrato: Some(BarVibrato::Wide), ..Beat::rest(q) },
+            Beat { rest: false, notes: vec![Note::new(2, 0)], tremolo: Some(crate::TremoloSpeed::Eighth), whammy: Some(dive), ..Beat::rest(q) },
+        ];
+        let t = timeline(&s);
+        let on = |string: u8, tick: u64| t.iter().find(|p| p.string == string && p.start_tick == tick).unwrap();
+        let qt = u64::from(q.ticks());
+        // The untied string follows the dive and stays down.
+        let w = on(0, 0).whammy.unwrap();
+        assert_eq!((w.from_tick, w.ticks, w.semitones_at(qt as f64), w.semitones_at(4.0 * qt as f64)), (0, q.ticks(), -4.0, -4.0));
+        // The tied one dives over the first beat, then comes back over the second.
+        let w = on(1, 0).whammy.unwrap();
+        assert_eq!((w.ticks, w.semitones_at(qt as f64), w.semitones_at(2.0 * qt as f64)), (2 * q.ticks(), -4.0, 0.0));
+        // Vibrato with the bar shakes the note; no whammy there.
+        let n = on(2, 2 * qt);
+        assert!(n.effects.wide_vibrato && n.whammy.is_none());
+        // Tremolo picking: every pick follows the one curve of the beat.
+        let picks: Vec<&PlayedBeat> = t.iter().filter(|p| p.start_tick >= 3 * qt).collect();
+        assert!(picks.len() > 1);
+        assert!(picks.iter().all(|p| p.whammy.is_some_and(|w| w.from_tick == 3 * qt && w.semitones_at(0.0) == 0.0)));
+        assert_eq!(picks[0].whammy.unwrap().semitones_at(2.0 * qt as f64), 0.0, "before its beat the bar is at rest");
     }
 
     /// Quarter notes on the top string: `frets`, `None` for a rest.
@@ -767,7 +875,7 @@ mod tests {
         one_beat(&mut s, Beat { rest: false, notes: vec![main], ..Beat::rest(Duration::new(NoteValue::SixtyFourth)) });
         let t = timeline(&s);
         assert_eq!(t.len(), 2);
-        assert_eq!((t[0].effects.bend, t[0].effects.hammer), (Some(4), true), "a whole tone up");
+        assert_eq!((t[0].effects.bend, t[0].effects.hammer), (Some(crate::Bend::to(4)), true), "a whole tone up");
         assert!(t.iter().all(|p| p.ticks >= 1));
         let total = Duration::new(NoteValue::SixtyFourth).ticks();
         assert_eq!(t[0].ticks + t[1].ticks, total, "{t:?}");

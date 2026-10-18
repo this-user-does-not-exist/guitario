@@ -119,7 +119,7 @@ fn set_fingering(s: &mut Session, params: &Value) -> Result<Value, EngineError> 
 }
 
 /// Applies `f` to every selected beat, or to the cursor beat.
-fn each_beat(s: &mut Session, mut f: impl FnMut(&mut Beat)) -> Result<Value, EngineError> {
+pub(crate) fn each_beat(s: &mut Session, mut f: impl FnMut(&mut Beat)) -> Result<Value, EngineError> {
     if s.selection.is_some() {
         for b in s.selected_beats_mut()? {
             f(b);

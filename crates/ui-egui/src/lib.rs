@@ -4,9 +4,13 @@
 //! shortcuts are generated from the engine's command registry.
 
 mod add_track;
+pub mod app_icon;
 mod audio_settings;
 mod automation_dialog;
 mod autosave;
+mod bar_check;
+mod bend_dialog;
+mod bend_draw;
 mod chord_dialog;
 mod fonts;
 mod fretboard;
@@ -29,6 +33,7 @@ mod page;
 mod page_setup;
 mod palette;
 pub mod parity;
+mod paste_dialog;
 mod pdf;
 mod perf;
 mod preferences;
@@ -43,6 +48,8 @@ mod tabbar;
 mod theme;
 mod topbar;
 mod transpose_dialog;
+mod whammy_dialog;
+mod whammy_draw;
 
 pub use layout::LayoutMode;
 pub use pdf::PdfRenderer;
@@ -131,6 +138,10 @@ pub struct GuitarioApp {
     page_setup: page_setup::PageSetupDialog,
     preview: preview::Preview,
     ornaments: ornaments::OrnamentDialog,
+    bend: bend_dialog::BendDialog,
+    whammy: whammy_dialog::WhammyDialog,
+    paste: paste_dialog::PasteDialog,
+    bar_check: bar_check::BarCheck,
     chord: chord_dialog::ChordDialog,
     lyrics: lyrics_dialog::LyricsDialog,
     transpose: transpose_dialog::TransposeDialog,
@@ -209,6 +220,10 @@ impl GuitarioApp {
             page_setup: page_setup::PageSetupDialog::default(),
             preview: preview::Preview::default(),
             ornaments: ornaments::OrnamentDialog::default(),
+            bend: bend_dialog::BendDialog::default(),
+            whammy: whammy_dialog::WhammyDialog::default(),
+            paste: paste_dialog::PasteDialog::default(),
+            bar_check: bar_check::BarCheck::default(),
             chord: chord_dialog::ChordDialog::default(),
             lyrics: lyrics_dialog::LyricsDialog::default(),
             autosave: autosave::Autosave::off(),
@@ -417,6 +432,9 @@ impl GuitarioApp {
             U::PrintPreview => self.open_preview(),
             U::PageSetup => self.open_page_setup(),
             U::Trill => self.open_trill(),
+            U::Bend => self.open_bend(),
+            U::Whammy => self.open_whammy(),
+            U::PasteSpecial => self.open_paste_special(),
             U::TremoloPicking => self.open_tremolo(),
             U::GraceNote => self.open_grace(),
             U::Fingering => self.open_fingering(),
@@ -502,22 +520,6 @@ impl GuitarioApp {
             U::ToggleFretboard => self.panels.fretboard = !self.panels.fretboard,
             U::ToggleKeyboard => self.panels.keyboard = !self.panels.keyboard,
             U::About => self.about_open = true,
-        }
-    }
-
-    /// Tools › Check Bar Durations: reports incomplete bars and moves to the first one.
-    fn check_bar_durations(&mut self) {
-        let Some(r) = self.run("tools.checkBarDurations", Value::Null) else { return };
-        let bars = r.get("bars").and_then(Value::as_array).cloned().unwrap_or_default();
-        match bars.first() {
-            None => self.status = "Every bar is complete.".into(),
-            Some(first) => {
-                let track = first.get("track").and_then(Value::as_u64).unwrap_or(0);
-                let measure = first.get("measure").and_then(Value::as_u64).unwrap_or(0);
-                self.run("cursor.set", json!({"track": track, "measure": measure, "beat": 0}));
-                self.status = format!("{} incomplete bar(s); the first is bar {} of track {}.", bars.len(), measure + 1, track + 1);
-                self.status_is_error = true;
-            }
         }
     }
 
@@ -820,6 +822,7 @@ impl GuitarioApp {
             || self.preview.open
             || self.page_setup.open
             || self.ornaments.is_open()
+            || self.bend.open
             || self.chord.open
             || self.lyrics.open
             || !self.autosave.found.is_empty()
@@ -916,6 +919,10 @@ impl GuitarioApp {
         self.preview_dialog(&ctx);
         self.page_setup_dialog(&ctx);
         self.ornament_dialog(&ctx);
+        self.bend_dialog(&ctx);
+        self.whammy_dialog(&ctx);
+        self.paste_dialog(&ctx);
+        self.bar_check_window(&ctx);
         self.chord_dialog(&ctx);
         self.lyrics_dialog(&ctx);
         self.transpose_dialog(&ctx);

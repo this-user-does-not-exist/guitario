@@ -1,5 +1,5 @@
 use crate::sfz::{Instrument, SampleVoice};
-use crate::synth::{Click, DrumVoice, Noise, Pluck, StringVoice};
+use crate::synth::{Click, DrumVoice, Noise, Pluck, StringVoice, WhammyTime, curve_semis};
 use crate::tempo::{BeatTime, TempoMap, locate};
 use guitario_score::{Fade, PlayingStyle, Score, Slide, timeline};
 use std::sync::Arc;
@@ -43,8 +43,10 @@ struct NoteEvent {
     mute: f32,
     let_ring: bool,
     vibrato: bool,
-    /// Bend height in semitones, reached over the first half of the note.
-    bend: f32,
+    /// How the string is pulled while the note rings.
+    bend: Option<guitario_score::Bend>,
+    /// The whammy bar's curve over the note's beat.
+    whammy: Option<WhammyTime>,
     /// The MIDI note: the drum number on a drum track.
     midi: u8,
     /// This note continues the previous one on its string without a pluck.
@@ -244,7 +246,12 @@ impl Player {
                 vibrato: p.effects.vibrato || p.effects.wide_vibrato,
                 wide_vibrato: p.effects.wide_vibrato,
                 fade: p.fade,
-                bend: p.effects.bend.map_or(0.0, |q| f32::from(q) / 2.0),
+                bend: p.effects.bend,
+                whammy: p.whammy.map(|w| WhammyTime {
+                    curve: w.curve,
+                    start: map.tick_to_sec(w.from_tick),
+                    end: map.tick_to_sec(w.from_tick + u64::from(w.ticks)),
+                }),
                 legato_from_prev: legato,
                 slide_glide,
             });
@@ -546,7 +553,8 @@ impl Player {
             v.gain = fade_gain(n.fade, 0.0);
             v.let_ring = n.let_ring && !damped;
             let end = if damped { n.end.min(n.start + if n.dead { 0.08 } else { f64::from(muted_for) }) } else { n.end };
-            (v.note_start, v.note_end, v.bend_to) = (n.start, end, n.bend);
+            (v.note_start, v.note_end, v.bend, v.whammy) = (n.start, end, n.bend, n.whammy);
+            v.bend_semis = curve_semis(n.bend, n.whammy, n.start, n.start, end);
             if self.sampled.len() >= MAX_SAMPLE_VOICES {
                 self.sampled.remove(0);
             }
@@ -594,7 +602,8 @@ impl Player {
             v.glide_to(freq, if n.slide_glide { 0.06 } else { 0.0 });
             v.vibrato = n.vibrato;
             v.let_ring = n.let_ring;
-            (v.note_start, v.note_end, v.bend_to) = (n.start, n.end, n.bend);
+            (v.note_start, v.note_end, v.bend, v.whammy) = (n.start, n.end, n.bend, n.whammy);
+            v.bend_semis = curve_semis(n.bend, n.whammy, n.start, n.start, n.end);
             return;
         }
         // A string sounds one note at a time: a new note stops the one ringing there (a let-ring
@@ -623,7 +632,8 @@ impl Player {
         v.fade = n.fade;
         v.gain = fade_gain(n.fade, 0.0);
         v.let_ring = n.let_ring;
-        (v.note_start, v.note_end, v.bend_to) = (n.start, n.end, n.bend);
+        (v.note_start, v.note_end, v.bend, v.whammy) = (n.start, n.end, n.bend, n.whammy);
+        v.bend_semis = curve_semis(n.bend, n.whammy, n.start, n.start, n.end);
         if self.voices.len() >= MAX_VOICES {
             self.voices.remove(0);
         }
@@ -682,9 +692,8 @@ impl Player {
                     if v.fade.is_some() {
                         v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3));
                     }
-                    if v.bend_to > 0.0 {
-                        let half = ((v.note_end - v.note_start) * 0.5).max(1e-3);
-                        v.bend_semis = v.bend_to * ((t - v.note_start) / half).clamp(0.0, 1.0) as f32;
+                    if v.bend.is_some() || v.whammy.is_some() {
+                        v.bend_semis = curve_semis(v.bend, v.whammy, t, v.note_start, v.note_end);
                     }
                 }
                 for v in &mut self.sampled {
@@ -694,9 +703,8 @@ impl Player {
                     if v.fade.is_some() {
                         v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3));
                     }
-                    if v.bend_to > 0.0 {
-                        let half = ((v.note_end - v.note_start) * 0.5).max(1e-3);
-                        v.bend_semis = v.bend_to * ((t - v.note_start) / half).clamp(0.0, 1.0) as f32;
+                    if v.bend.is_some() || v.whammy.is_some() {
+                        v.bend_semis = curve_semis(v.bend, v.whammy, t, v.note_start, v.note_end);
                     }
                 }
                 self.t += dt;
@@ -830,6 +838,20 @@ mod tests {
         let ac = |lag: usize| seg.iter().zip(seg.iter().skip(lag)).map(|(a, b)| a * b).sum::<f32>();
         let best = (60..600).max_by(|a, b| ac(*a).total_cmp(&ac(*b))).unwrap();
         48_000.0 / best as f32
+    }
+
+    #[test]
+    fn the_whammy_bar_moves_the_pitch() {
+        // Open high E (329.6 Hz) held two whole tones down by the bar is C (261.6 Hz).
+        let mut s = one_note(0);
+        s.tracks[0].measures[0].voices[0].beats[0].whammy = Some(guitario_score::Whammy::preset(guitario_score::WhammyKind::Predive, -8));
+        let hz = measured_hz(Player::new(&s, 48_000, Options::default()));
+        assert!((hz - 261.6).abs() < 4.0, "measured {hz} Hz");
+        // The curve in song time: at rest before it, held after it.
+        let w = WhammyTime { curve: guitario_score::Whammy::preset(guitario_score::WhammyKind::Dive, -4), start: 1.0, end: 2.0 };
+        assert_eq!((curve_semis(None, Some(w), 0.5, 0.0, 4.0), curve_semis(None, Some(w), 9.0, 0.0, 4.0)), (0.0, -2.0));
+        let up = guitario_score::Bend::to(4);
+        assert_eq!(curve_semis(Some(up), Some(w), 9.0, 0.0, 4.0), 0.0, "a full-step bend and a full-step dive cancel out");
     }
 
     #[test]

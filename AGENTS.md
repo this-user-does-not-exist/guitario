@@ -11,9 +11,10 @@ Guitario is an open-source, native, Guitar Pro-comparable tablature and notation
 | `docs/contributing.md` | Rules: clean-room, tests, layering, style, commits; the "add a command" checklist |
 | `docs/ui-design.md` | Tokens and Guitar Pro's layout grammar |
 | `ROADMAP.md` | One-page summary: stage, headline numbers, every dimension, what's next |
-| `docs/target-app-parity.md` | The authoritative parity assessment against Guitar Pro 8: numbers, weights, evidence, hours |
-| `docs/gaps.md` | Every known shortfall, ranked: the work list to pick from |
-| `docs/roadmap.md` | Alpha gate, milestones, **current focus**, what's next with estimates |
+| `docs/target-app-parity.md` | The authoritative parity assessment against Guitar Pro 8: numbers, weights, calibration |
+| `docs/gaps.md` | Every known shortfall, ranked, split into what the beta needs and what waits for 1.0: the work list to pick from |
+| `docs/roadmap.md` | The stages, the alpha and **beta gates**, milestones, **current focus**, releases |
+| `docs/changelog.md` | What has landed, by gap (moved out of `gaps.md`) |
 | `docs/file-format-parity.md`, `docs/ui-parity.md` | Per-dimension parity checklists |
 | `docs/parity-checklist.md` | Generated list of every Guitar Pro menu item, live or missing |
 | `docs/scorecard.md` | Generated scorecard: per-area checklists and counts from the tree |
@@ -66,9 +67,9 @@ People trust Guitario with their work, and a crash loses it. A malformed file, a
 
 ## 4. Picking work
 
-1. **Read `ROADMAP.md`, then `docs/gaps.md`.** Take the highest-ranked gap nobody is working on. When your work moves a number or closes a gap, update the parity doc and gap entry, with the date, and bump their status line and revision history (shared-rules `standards/progress-docs.md`).
-2. **Check `docs/scorecard.md`** for `missing` and `partial` rows in your area.
-3. `docs/roadmap.md` → **Current focus**.
+1. **Read `ROADMAP.md`, then `docs/roadmap.md` → Current focus and `docs/gaps.md`.** The target is the **beta gate** (eight workflows in `docs/roadmap.md`); take the highest-ranked gap with beta work in it that nobody is working on. When your work lands, move its text from `docs/gaps.md` to `docs/changelog.md`, update the gap's hours, the parity doc and the scorecard, with the date, and bump their status line and revision history (shared-rules `standards/progress-docs.md`).
+2. **Check `docs/scorecard.md`** for `missing` and `partial` rows in your area. Every row that is not done carries a stage (`beta` or `1.0`, in `scorecard/*.toml`); the summary counts what is still open for beta, and a new row needs a stage too.
+3. **GitHub issues** hold the detail (milestones Alpha, Beta, 1.0 Guitar Pro parity; label `source: gp8-manual` for the manual review). Labels lag the code: check the scorecard before starting an open issue, and close it with the PR that finishes it.
 4. `docs/parity-checklist.md` → missing menu items; low-hanging fruit is a menu item whose logic already exists.
 5. `log/devlog.md` → the "Still open" bullets of recent entries.
 

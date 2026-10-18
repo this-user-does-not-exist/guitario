@@ -13,13 +13,15 @@ note = "crates/format tests"
 id = "FILE-2"
 target = "Guitar Pro 7/8 (.gp) import"
 status = "partial"
-note = "notes, rhythms, effects, repeats, tempo, tunings, drum kits (articulation index or Midi number), shared objects; alternate endings, directions, triplet feel, free time, double bars, strums, pick strokes, slap/pop, fades, wide vibrato, heavy accents and tapping too; voices 1-4 are read (rest-only voices dropped); grace notes and lyrics are dropped; tested on demos/guitar-pro/import-test.gp; the format is told by content, so File › Open takes any Guitar Pro file"
+stage = "beta"
+note = "notes, rhythms, effects, repeats, tempo, tunings, drum kits (articulation index or Midi number), shared objects; alternate endings, directions, triplet feel, free time, double bars, strums, pick strokes, slap/pop, fades, wide vibrato, heavy accents and tapping too; voices 1-4 are read (rest-only voices dropped); grace notes, chords, lyrics, fermatas and fingering are read; whammy curves (`<Whammy>`) and vibrato with the bar are read and written; tested on demos/guitar-pro/import-test.gp; the format is told by content, so File › Open takes any Guitar Pro file"
 
 [[item]]
 id = "FILE-3"
 target = "Guitar Pro 6 (.gpx) and 3-5 (.gp3/.gp4/.gp5) import"
 status = "partial"
-note = "crates/gp/src/legacy.rs and gpx.rs: two voices, chords, repeats and endings, directions, triplet feel, techniques; 39 real GP3-5 and 37 real GP6 files import (local corpus, crates/gp/tests/corpus.rs); GP6 drum hits (kit element and variation) are dropped; tremolo picking and trills are read; grace notes, whammy dives and lyrics wait on the model (G4)"
+stage = "beta"
+note = "crates/gp/src/legacy.rs and gpx.rs: two voices, chords, repeats and endings, directions, triplet feel, techniques; 39 real GP3-5 and 37 real GP6 files import (local corpus, crates/gp/tests/corpus.rs); GP6 drum hits (kit element and variation) are dropped; tremolo picking and trills are read; whammy dives are read (GP3 depth as a dip, GP4-5 curves, GP6 `WhammyBar…` properties) and written to `.gp5`"
 
 [[item]]
 id = "FILE-4"
@@ -31,17 +33,20 @@ note = "crates/gp/src/writegp.rs, file.exportGp (File › Export › Guitar Pro 
 id = "FILE-5"
 target = "MIDI export (format 1, repeats unrolled, ties merged); MIDI import"
 status = "partial"
+stage = "beta"
 note = "export only"
 
 [[item]]
 id = "FILE-6"
 target = "MusicXML import and export"
 status = "missing"
+stage = "beta"
 
 [[item]]
 id = "FILE-7"
 target = "PDF export and printing"
 status = "partial"
+stage = "beta"
 note = "File › Export › PDF… and `guitario-cli convert in out.pdf` write A4 vector pages with embedded font subsets and selectable text, for one track, each track in turn or all stacked as a full score (`together`, `--score`), with or without notation, on the score's own paper (crates/ui-egui/src/pdf.rs); File › Print… (Cmd+P) sends the same pages through craft-print with printer, copies, collate, sides and black and white, on a worker thread (file.print, file.printers); every demo exports without warnings and its pages were looked at as rasters; not yet sent to a real printer (human check)"
 
 [[item]]
@@ -65,4 +70,19 @@ note = "crates/gp/src/write5.rs, file.exportGp5: every demo round-trips (crates/
 id = "FILE-11"
 target = "Print preview, page setup (paper size, margins), headers and footers, print selected bars"
 status = "partial"
+stage = "beta"
 note = "File › Print Preview… shows the pages exactly as the PDF has them (one track or all, page by page); File › Page Setup… sets A4, A5, Letter or Legal, portrait or landscape and the four margins (score.setPage, saved in the .gt file, one undo step), used by the page view, the PDF and the print job; the page setup is read from and written to Guitar Pro 5 and 6/7/8 files (checked on a real Letter file); no headers and footers, no printing of selected bars, no other paper (gap G2)"
+
+[[item]]
+id = "FILE-12"
+target = "Import PowerTab (.ptb), TablEdit (.tef), Guitar Pro 1-2 (.gtp) and ASCII tab"
+status = "missing"
+stage = "1.0"
+note = "issues 27 to 30"
+
+[[item]]
+id = "FILE-13"
+target = "Export PNG and SVG pages, Guitar Pro 6 (.gpx), AIFF; batch converter"
+status = "missing"
+stage = "1.0"
+note = "issues 36, 256, 257, 490, 493"

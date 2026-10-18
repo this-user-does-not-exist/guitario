@@ -5,9 +5,14 @@
     "meta": {
       "title": "Metal Technique Showcase",
       "artist": "Guitario",
+      "subtitle": "",
       "album": "",
+      "words": "",
+      "music": "",
+      "copyright": "",
       "author": "Guitario demo",
-      "notes": "One bar per technique: use it to check how every effect is drawn and played back."
+      "notes": "One bar per technique: use it to check how every effect is drawn and played back.",
+      "instructions": ""
     },
     "tempo": 120,
     "headers": [
@@ -18,9 +23,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Hammer-ons and pull-offs",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -37,9 +44,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Shift slides",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -56,9 +65,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Slides in and out",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -75,9 +86,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Bends and vibrato",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -94,9 +107,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Natural harmonics",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -113,9 +128,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Pinch and artificial harmonics",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -132,9 +149,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Palm mute, let ring",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -151,9 +170,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Gallop",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -170,9 +191,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Tremolo picking",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -189,9 +212,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Tremolo speeds",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -208,9 +233,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Trills",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -227,9 +254,32 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
+        "repeat_open": false,
+        "repeat_close": 0,
+        "marker": "Whammy bar",
+        "section_letter": null,
+        "double_bar": false,
+        "free_time": false,
+        "triplet_feel": "none",
+        "endings": 0,
+        "targets": [],
+        "jump": null,
+        "fermatas": [],
+        "beams": []
+      },
+      {
+        "time_signature": {
+          "numerator": 4,
+          "denominator": 4
+        },
+        "key": 0,
+        "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Grace notes",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -246,9 +296,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Fingering",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -265,9 +317,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Dead, ghost, accent",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -284,9 +338,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Ties and dynamics",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -303,9 +359,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": "Triplets",
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -322,9 +380,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": null,
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -405,7 +465,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -451,7 +515,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -497,7 +565,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -543,7 +615,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -589,7 +665,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -635,7 +715,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -681,7 +765,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -727,11 +815,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -781,7 +877,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -827,7 +927,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -873,7 +977,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -919,11 +1027,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -973,7 +1089,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1019,7 +1139,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1065,7 +1189,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1111,11 +1239,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -1165,7 +1301,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1211,7 +1351,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1257,7 +1401,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1303,11 +1451,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -1357,7 +1513,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1403,7 +1563,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1449,7 +1613,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1495,11 +1663,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -1549,7 +1725,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1595,7 +1775,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1641,7 +1825,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1661,11 +1849,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -1715,7 +1911,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1761,7 +1961,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1807,7 +2011,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1853,7 +2061,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -1999,11 +2211,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -2053,7 +2273,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2099,7 +2323,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2145,7 +2373,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2191,7 +2423,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2237,7 +2473,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2283,7 +2523,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2329,7 +2573,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2375,7 +2623,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2421,7 +2673,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2467,7 +2723,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2513,7 +2773,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2559,11 +2823,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -2613,7 +2885,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": "thirty_second"
+                    "tremolo": "thirty_second",
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2659,7 +2935,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": "thirty_second"
+                    "tremolo": "thirty_second",
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2705,7 +2985,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": "thirty_second"
+                    "tremolo": "thirty_second",
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2751,11 +3035,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": "thirty_second"
+                    "tremolo": "thirty_second",
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -2805,7 +3097,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": "eighth"
+                    "tremolo": "eighth",
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2851,7 +3147,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": "sixteenth"
+                    "tremolo": "sixteenth",
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2897,7 +3197,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": "thirty_second"
+                    "tremolo": "thirty_second",
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -2968,11 +3272,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": "sixteenth"
+                    "tremolo": "sixteenth",
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -3025,7 +3337,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3074,7 +3390,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3123,7 +3443,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3143,11 +3467,329 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
+          },
+          {
+            "voices": [
+              {
+                "beats": [
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "fret": 0,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": [
+                      {
+                        "pos": 0,
+                        "value": 0
+                      },
+                      {
+                        "pos": 45,
+                        "value": -8
+                      },
+                      {
+                        "pos": 60,
+                        "value": -8
+                      }
+                    ],
+                    "bar_vibrato": null
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "fret": 0,
+                        "kind": "tie",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": [
+                      {
+                        "pos": 0,
+                        "value": -8
+                      },
+                      {
+                        "pos": 45,
+                        "value": 0
+                      },
+                      {
+                        "pos": 60,
+                        "value": 0
+                      }
+                    ],
+                    "bar_vibrato": null
+                  },
+                  {
+                    "duration": {
+                      "value": "quarter",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 9,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": [
+                      {
+                        "pos": 0,
+                        "value": 0
+                      },
+                      {
+                        "pos": 30,
+                        "value": -6
+                      },
+                      {
+                        "pos": 60,
+                        "value": 0
+                      }
+                    ],
+                    "bar_vibrato": null
+                  },
+                  {
+                    "duration": {
+                      "value": "eighth",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 12,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": [
+                      {
+                        "pos": 0,
+                        "value": -2
+                      },
+                      {
+                        "pos": 60,
+                        "value": -2
+                      }
+                    ],
+                    "bar_vibrato": null
+                  },
+                  {
+                    "duration": {
+                      "value": "eighth",
+                      "dots": 0,
+                      "tuplet": [
+                        1,
+                        1
+                      ]
+                    },
+                    "rest": false,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 12,
+                        "kind": "normal",
+                        "effects": {
+                          "hammer": false,
+                          "slide": null,
+                          "harmonic": null,
+                          "bend": null,
+                          "vibrato": false,
+                          "palm_mute": false,
+                          "let_ring": false,
+                          "ghost": false,
+                          "accent": false,
+                          "staccato": false,
+                          "heavy_accent": false,
+                          "wide_vibrato": false,
+                          "tapped": false,
+                          "left_hand_tapped": false,
+                          "trill": null,
+                          "grace": null,
+                          "left_finger": null,
+                          "right_finger": null
+                        }
+                      }
+                    ],
+                    "dynamic": "mf",
+                    "text": null,
+                    "stroke": null,
+                    "technique": null,
+                    "fade": null,
+                    "brush": null,
+                    "chord": null,
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": "wide"
+                  }
+                ]
+              }
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -3203,7 +3845,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3255,7 +3901,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3307,7 +3957,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3359,11 +4013,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -3413,7 +4075,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3459,7 +4125,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3505,7 +4175,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3551,11 +4225,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -3605,7 +4287,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3651,7 +4337,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3697,7 +4387,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3743,7 +4437,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3789,7 +4487,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3835,7 +4537,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3881,7 +4587,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -3927,11 +4637,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -3981,7 +4699,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4027,7 +4749,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4073,11 +4799,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -4127,7 +4861,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4173,7 +4911,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4219,7 +4961,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4265,7 +5011,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4311,7 +5061,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4357,7 +5111,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4403,7 +5161,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4423,11 +5185,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -4602,7 +5372,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4622,7 +5396,11 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   },
                   {
                     "duration": {
@@ -4642,14 +5420,39 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           }
         ],
-        "lyrics": []
+        "lyrics": [],
+        "short_name": "",
+        "color": null,
+        "notation": {
+          "standard": true,
+          "tab": true,
+          "slash": false,
+          "numbered": false
+        },
+        "interpretation": {
+          "style": "default",
+          "palm_mute": 0,
+          "accentuation": 0,
+          "auto_let_ring": false,
+          "auto_brush": false,
+          "stringed": true
+        },
+        "engine": "rse"
       }
     ],
     "page": {

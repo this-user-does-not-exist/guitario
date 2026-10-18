@@ -17,11 +17,13 @@ status = "done"
 id = "AUTO-3"
 target = "JSON control channel to drive and screenshot the running app"
 status = "missing"
+stage = "beta"
 
 [[item]]
 id = "AUTO-4"
 target = "MCP server"
 status = "missing"
+stage = "beta"
 
 [[item]]
 id = "AUTO-5"

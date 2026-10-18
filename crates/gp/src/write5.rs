@@ -537,6 +537,9 @@ impl Writer {
             flags |= 0x04;
         }
         let fx = beat_fx(b, &notes);
+        if b.bar_vibrato.is_some() && !notes.is_empty() {
+            self.drop("vibrato with the whammy bar");
+        }
         if fx.any() {
             flags |= 0x08;
         }
@@ -634,10 +637,28 @@ impl Writer {
         if fx.pick.is_some() {
             f2 |= 0x02;
         }
+        if fx.whammy.is_some() {
+            f2 |= 0x04;
+        }
         self.u8(f1);
         self.u8(f2);
         if let Some(kind) = fx.slap {
             self.u8(kind);
+        }
+        if let Some(w) = fx.whammy {
+            // The bend's structure: positions 0..=60 along the beat, 25 per quarter tone, below 0 for a dive.
+            self.i8(match w.kind(false) {
+                Some(WhammyKind::Dip) => 2,
+                Some(WhammyKind::Return) => 5,
+                _ => 1,
+            });
+            self.i32(i32::from(w.depth()) * 25);
+            self.i32(i32::try_from(w.points().len()).unwrap_or(0));
+            for pt in w.points() {
+                self.i32(i32::from(pt.pos));
+                self.i32(i32::from(pt.value) * 25);
+                self.u8(0);
+            }
         }
         if let Some((down, speed)) = fx.stroke {
             // Guitar Pro 5 writes the up-stroke speed first.
@@ -762,15 +783,19 @@ impl Writer {
         }
         self.u8(f1);
         self.u8(f2);
-        if let Some(q) = e.bend {
-            // A plain bend: up to the height by the middle of the note, held to its end.
-            let height = i32::from(q) * 25;
-            self.i8(1);
-            self.i32(height);
-            self.i32(3);
-            for (pos, value) in [(0, 0), (30, height), (60, height)] {
-                self.i32(pos);
-                self.i32(value);
+        if let Some(b) = e.bend {
+            // The curve as it is: positions 0..=60 along the note, 25 per quarter tone.
+            self.i8(match b.kind(false) {
+                Some(BendKind::BendRelease) => 2,
+                Some(BendKind::Prebend | BendKind::Hold) => 4,
+                Some(BendKind::PrebendRelease | BendKind::Release) => 5,
+                _ => 1,
+            });
+            self.i32(i32::from(b.peak()) * 25);
+            self.i32(i32::try_from(b.points().len()).unwrap_or(0));
+            for pt in b.points() {
+                self.i32(i32::from(pt.pos));
+                self.i32(i32::from(pt.value) * 25);
                 self.u8(0);
             }
         }
@@ -839,11 +864,12 @@ struct Fx {
     stroke: Option<(bool, i8)>,
     rasgueado: bool,
     pick: Option<StrokeDirection>,
+    whammy: Option<Whammy>,
 }
 
 impl Fx {
     fn any(&self) -> bool {
-        self.wide_vibrato || self.fade_in || self.slap.is_some() || self.stroke.is_some() || self.rasgueado || self.pick.is_some()
+        self.wide_vibrato || self.fade_in || self.slap.is_some() || self.stroke.is_some() || self.rasgueado || self.pick.is_some() || self.whammy.is_some()
     }
 }
 
@@ -859,5 +885,13 @@ fn beat_fx(b: &Beat, notes: &[(usize, &Note)]) -> Fx {
         Some(br) => (Some((br.down, stroke_speed(br.ticks))), false),
         None => (None, false),
     };
-    Fx { wide_vibrato: notes.iter().any(|(_, n)| n.effects.wide_vibrato), fade_in: b.fade == Some(Fade::In), slap, stroke, rasgueado, pick: b.stroke }
+    Fx {
+        wide_vibrato: notes.iter().any(|(_, n)| n.effects.wide_vibrato),
+        fade_in: b.fade == Some(Fade::In),
+        slap,
+        stroke,
+        rasgueado,
+        pick: b.stroke,
+        whammy: b.whammy.filter(|_| !notes.is_empty()),
+    }
 }

@@ -420,3 +420,34 @@ fn tempo_ramps_go_out_and_come_back_and_points_inside_bars_move_to_a_bar_line() 
     let xml = xml.replace("<Position>0.75</Position>", "<Position>0.25</Position>");
     assert_eq!(guitario_gp::parse_gpif(&xml).unwrap().score.headers[1].tempo, Some(160));
 }
+
+#[test]
+fn whammy_curves_are_written_as_guitar_pro_8_does_and_the_guitar_pro_6_form_reads() {
+    let xml = score_gpif(&export_gp(&riff()).unwrap().bytes);
+    // The dip an octave down: hundredths of a whole tone, offsets in percent, and the bar enabled.
+    assert!(xml.contains("<Whammy originValue=\"0\" middleValue=\"-600\" destinationValue=\"0\" originOffset=\"0\" middleOffset1=\"50\" middleOffset2=\"50\" destinationOffset=\"100\"/>"), "{xml}");
+    assert!(xml.contains("<Property name=\"WhammyBar\"><Enable/></Property>"));
+    assert!(xml.contains("<Property name=\"VibratoWTremBar\"><Strength>Wide</Strength></Property>"));
+    // Guitar Pro 6 writes the same numbers as properties.
+    let gp6 = xml.replacen(
+        "<Whammy originValue=\"0\" middleValue=\"-600\" destinationValue=\"0\" originOffset=\"0\" middleOffset1=\"50\" middleOffset2=\"50\" destinationOffset=\"100\"/>",
+        "",
+        1,
+    );
+    let gp6 = gp6.replacen(
+        "<Property name=\"WhammyBar\"><Enable/></Property>",
+        "<Property name=\"WhammyBar\"><Enable/></Property><Property name=\"WhammyBarOriginValue\"><Float>0</Float></Property><Property name=\"WhammyBarDestinationValue\"><Float>-200</Float></Property><Property name=\"WhammyBarDestinationOffset\"><Float>75</Float></Property>",
+        1,
+    );
+    let back = guitario_gp::parse_gpif(&gp6).unwrap().score;
+    assert_eq!(back.tracks[0].measures[0].voices[0].beats[2].whammy, Some(Whammy::preset(WhammyKind::Dive, -8)));
+    // Hostile numbers are clamped or ignored, never trusted.
+    for bad in ["NaN", "-1e30", "1e30", "x", ""] {
+        let hostile =
+            xml.replacen("middleValue=\"-600\"", &format!("middleValue=\"{bad}\""), 1).replacen("destinationOffset=\"100\"", "destinationOffset=\"-5\"", 1);
+        let back = guitario_gp::parse_gpif(&hostile).unwrap().score;
+        assert!(back.validate().is_ok(), "{bad}");
+        let w = back.tracks[0].measures[0].voices[0].beats[2].whammy;
+        assert!(w.is_none_or(|w| (WHAMMY_MIN..=WHAMMY_MAX).contains(&w.depth())), "{bad}: {w:?}");
+    }
+}

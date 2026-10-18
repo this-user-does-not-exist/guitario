@@ -15,7 +15,8 @@
 //! modifier to every note in the beat so far; `@mf` sets the beat's dynamic; `%Am` names the
 //! beat's chord and `%Am=x02210` adds its diagram (frets from the low string, `x` not played); `&tp8`, `&tp16` and
 //! `&tp32` make the beat tremolo-picked at that note value; `&fs`, `&fm` and `&fl` put a short,
-//! medium or long fermata over the beat. On a drum track a beat
+//! medium or long fermata over the beat; `&wdive:-8` moves the whammy bar (a shape, then the depth
+//! in quarter tones, negative for a dive) and `&wvs`/`&wvw` add slight or wide vibrato with the bar. On a drum track a beat
 //! lists kit pieces by their short names: `bd` kick, `sd` snare, `hh`/`oh`/`ph` hi-hat closed, open
 //! and pedal, `cr` crash, `ch` china, `sp` splash, `rd`/`rb` ride and bell, `t1`-`t4` and `ft` toms.
 
@@ -179,6 +180,18 @@ fn enter_beat(s: &mut Session, spec: &str, advance: bool) -> R {
                     run(s, "beat.setChord", json!({"name": name, "frets": frets}))?;
                 }
             }
+        } else if let Some(v) = tok.strip_prefix("&wv") {
+            let vibrato = match v {
+                "s" => "slight",
+                "w" => "wide",
+                other => return Err(format!("bad bar vibrato `{other}`")),
+            };
+            run(s, "beat.setBarVibrato", json!({"vibrato": vibrato}))?;
+        } else if let Some(w) = tok.strip_prefix("&w") {
+            // `&wdive:-8`: the whammy bar's shape and depth in quarter tones (negative dives).
+            let (kind, depth) = w.split_once(':').ok_or_else(|| format!("bad whammy `{tok}`"))?;
+            let depth: i8 = depth.parse().map_err(|_| format!("bad whammy depth in `{tok}`"))?;
+            run(s, "beat.setWhammy", json!({"depth": depth, "kind": kind}))?;
         } else if let Some(kind) = tok.strip_prefix("&f") {
             let kind = match kind {
                 "s" => "short",
@@ -884,6 +897,7 @@ fn techniques() -> R<Session> {
             bar("4 6:0 +pm &tp32, 4 6:1 +pm &tp32, 4 6:3 +pm &tp32, 4 6:1 +pm &tp32").mark("Tremolo picking"),
             bar("4 5:0 &tp8, 4 5:0 &tp16, 4 5:0 &tp32, 4 5:0 4:2 *pm &tp16").mark("Tremolo speeds"),
             bar("4 1:12 +tr14, 4 1:12 +tr14:32, 4 1:10 +tr12:64, 4 r").mark("Trills"),
+            bar("4 6:0 &wdive:-8, 4 6:0 ~ &wreturn:-8, 4 3:9 &wdip:-6, 8 3:12 &wpredive:-2, 8 3:12 &wvw").mark("Whammy bar"),
             bar("4 3:7 +gr5, 4 3:7 +gr5h, 4 3:9 +gr7s, 4 2:8 +gr6bo").mark("Grace notes"),
             bar("4 3:5 +lf1 +rfp, 4 3:7 +lf3 +rfi, 4 2:5 +lf1 +rfm, 4 2:6 +lf2 +rfa").mark("Fingering"),
             bar("8 6:0 +pm, 8 6:x, 8 5:2 +g, 8 6:x, 8 6:0, 8 6:x, 8 5:2 +a, 8 6:x").mark("Dead, ghost, accent"),

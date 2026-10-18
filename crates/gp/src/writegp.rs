@@ -73,6 +73,98 @@ fn interpretation_xml(t: &Track) -> String {
 }
 
 /// Text safe inside an attribute value: no control characters, and markup escaped.
+/// A bend curve as Guitar Pro 7/8 holds it: an origin, a destination and one plateau between them
+/// (two middle offsets sharing one value), with offsets as a percentage of the note and values in
+/// hundredths of a whole tone (a quarter tone is 25). A curve with more shape than that loses its
+/// least important points.
+/// The points of a curve a `.gp` file can hold: a flat end is left to the reader (a destination
+/// before the end holds), and what remains is at most four points whose two middle ones share a
+/// value. A curve with more shape than that loses its least important points (`thin` keeps at most
+/// that many).
+fn gpif_points(points: &[(u8, i16)], thin: impl Fn(&[(u8, i16)], usize) -> Vec<(u8, i16)>) -> Vec<(u8, i16)> {
+    let mut pts = points.to_vec();
+    while pts.len() > 2 && matches!(pts.as_slice(), [.., a, z] if a.1 == z.1) {
+        pts.pop();
+    }
+    let kept = thin(&pts, 4);
+    if let [_, m1, m2, _] = kept.as_slice()
+        && m1.1 != m2.1
+    {
+        return thin(&kept, 3);
+    }
+    kept
+}
+
+fn bend_pts(b: &Bend) -> Vec<(u8, i16)> {
+    gpif_points(&b.points().iter().map(|p| (p.pos, i16::from(p.value))).collect::<Vec<_>>(), |pts, max| {
+        let v: Vec<BendPoint> = pts.iter().map(|&(pos, value)| BendPoint::new(pos, u8::try_from(value).unwrap_or(0))).collect();
+        Bend::from_points(&v).map_or_else(|| pts.to_vec(), |b| b.thinned(max).iter().map(|p| (p.pos, i16::from(p.value))).collect())
+    })
+}
+
+fn whammy_pts(w: &Whammy) -> Vec<(u8, i16)> {
+    gpif_points(&w.points().iter().map(|p| (p.pos, i16::from(p.value))).collect::<Vec<_>>(), |pts, max| {
+        let v: Vec<WhammyPoint> = pts.iter().map(|&(pos, value)| WhammyPoint::new(pos, i8::try_from(value).unwrap_or(0))).collect();
+        Whammy::from_points(&v).map_or_else(|| pts.to_vec(), |w| w.thinned(max).iter().map(|p| (p.pos, i16::from(p.value))).collect())
+    })
+}
+
+/// The curve as it comes back from a `.gp` file.
+pub fn gpif_bend(b: &Bend) -> Bend {
+    let v: Vec<BendPoint> = bend_pts(b).iter().map(|&(pos, value)| BendPoint::new(pos, u8::try_from(value).unwrap_or(0))).collect();
+    Bend::from_points(&v).unwrap_or(*b)
+}
+
+/// The whammy curve as it comes back from a `.gp` file.
+pub fn gpif_whammy(w: &Whammy) -> Whammy {
+    let v: Vec<WhammyPoint> = whammy_pts(w).iter().map(|&(pos, value)| WhammyPoint::new(pos, i8::try_from(value).unwrap_or(0))).collect();
+    Whammy::from_points(&v).unwrap_or(*w)
+}
+
+/// The seven numbers Guitar Pro keeps for a curve, named as its properties end: origin, middle
+/// and destination values in hundredths of a whole tone, then the four offsets in percent.
+fn four_values(pts: &[(u8, i16)]) -> [(&'static str, f32); 7] {
+    let first = pts.first().copied().unwrap_or((0, 0));
+    let last = pts.last().copied().unwrap_or(first);
+    let interior = pts.get(1..pts.len().saturating_sub(1)).unwrap_or_default();
+    let (m1, m2) = match interior {
+        [a, b] => (*a, *b),
+        [a] => (*a, *a),
+        _ => {
+            let mid = (BEND_END / 2, (first.1 + last.1) / 2);
+            (mid, mid)
+        }
+    };
+    let percent = |pos: u8| f32::from(pos) * 100.0 / f32::from(BEND_END);
+    let value = |q: i16| f32::from(q) * 25.0;
+    [
+        ("OriginValue", value(first.1)),
+        ("MiddleValue", value(m1.1)),
+        ("DestinationValue", value(last.1)),
+        ("OriginOffset", percent(first.0)),
+        ("MiddleOffset1", percent(m1.0)),
+        ("MiddleOffset2", percent(m2.0)),
+        ("DestinationOffset", percent(last.0)),
+    ]
+}
+
+fn bend_props(b: &Bend) -> String {
+    four_values(&bend_pts(b)).iter().map(|(name, value)| format!("<Property name=\"Bend{name}\"><Float>{value}</Float></Property>")).collect()
+}
+
+/// The `<Whammy …/>` element Guitar Pro 7 and 8 write: the same numbers as attributes.
+fn whammy_element(w: &Whammy) -> String {
+    let attrs: Vec<String> = four_values(&whammy_pts(w))
+        .iter()
+        .map(|(name, value)| {
+            let mut n = name.to_string();
+            n.replace_range(..1, &name[..1].to_ascii_lowercase());
+            format!("{n}=\"{value}\"")
+        })
+        .collect();
+    format!("<Whammy {}/>", attrs.join(" "))
+}
+
 fn attr(s: &str) -> String {
     s.chars()
         .filter(|c| !c.is_control())
@@ -450,6 +542,9 @@ impl Gpif {
             None => {}
         }
         xml.push_str(&format!("<Rhythm ref=\"{rhythm}\"/>"));
+        if let Some(w) = b.whammy.filter(|_| !b.rest && !t.is_drums()) {
+            xml.push_str(&whammy_element(&w));
+        }
         match b.tremolo.filter(|_| !b.rest) {
             Some(TremoloSpeed::Eighth) => xml.push_str("<Tremolo>1/8</Tremolo>"),
             Some(TremoloSpeed::Sixteenth) => xml.push_str("<Tremolo>1/4</Tremolo>"),
@@ -491,6 +586,16 @@ impl Gpif {
             Some(BeatTechnique::Slap) => props.push_str("<Property name=\"Slapped\"><Enable/></Property>"),
             Some(BeatTechnique::Pop) => props.push_str("<Property name=\"Popped\"><Enable/></Property>"),
             None => {}
+        }
+        if !b.rest && !t.is_drums() {
+            match b.bar_vibrato {
+                Some(BarVibrato::Slight) => props.push_str("<Property name=\"VibratoWTremBar\"><Strength>Slight</Strength></Property>"),
+                Some(BarVibrato::Wide) => props.push_str("<Property name=\"VibratoWTremBar\"><Strength>Wide</Strength></Property>"),
+                None => {}
+            }
+            if b.whammy.is_some() {
+                props.push_str("<Property name=\"WhammyBar\"><Enable/></Property>");
+            }
         }
         if !props.is_empty() {
             xml.push_str(&format!("<Properties>{props}</Properties>"));
@@ -569,7 +674,7 @@ impl Gpif {
                 let top = u32::from(n.fret.saturating_sub(g.fret)).saturating_mul(50).max(25);
                 out.props.push_str(&enable("Bended"));
                 out.props.push_str(&format!(
-                    "<Property name=\"BendOriginValue\"><Float>0</Float></Property><Property name=\"BendDestinationValue\"><Float>{top}</Float></Property><Property name=\"BendDestinationOffset\"><Float>60</Float></Property>"
+                    "<Property name=\"BendOriginValue\"><Float>0</Float></Property><Property name=\"BendDestinationValue\"><Float>{top}</Float></Property><Property name=\"BendDestinationOffset\"><Float>100</Float></Property>"
                 ));
             }
         }
@@ -671,17 +776,9 @@ impl Gpif {
             };
             out.props.push_str(&format!("{}<Property name=\"HarmonicType\"><HType>{name}</HType></Property>", enable("Harmonic")));
         }
-        if let Some(q) = e.bend {
-            // Curve values are hundredths of a whole tone (a quarter tone is 25): up to the height
-            // by the middle of the note and held.
-            let top = u32::from(q) * 25;
+        if let Some(b) = e.bend {
             out.props.push_str(&enable("Bended"));
-            for (name, value) in [("BendOriginValue", 0), ("BendMiddleValue", top / 2), ("BendDestinationValue", top)] {
-                out.props.push_str(&format!("<Property name=\"{name}\"><Float>{value}</Float></Property>"));
-            }
-            for (name, value) in [("BendOriginOffset", 0), ("BendMiddleOffset1", 12), ("BendMiddleOffset2", 12), ("BendDestinationOffset", 60)] {
-                out.props.push_str(&format!("<Property name=\"{name}\"><Float>{value}</Float></Property>"));
-            }
+            out.props.push_str(&bend_props(&b));
         }
         // A tie joins the last note on this string of this voice: mark both ends.
         let key = (ti, vi, n.string);

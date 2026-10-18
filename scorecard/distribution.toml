@@ -1,4 +1,4 @@
-# Scorecard checklist: distribution. Verified 2026-10-15.
+# Scorecard checklist: distribution. Verified 2026-10-17.
 area = "distribution"
 title = "Distribution"
 order = 8
@@ -7,7 +7,8 @@ order = 8
 id = "DIST-1"
 target = "Builds from source on macOS (primary), Linux and Windows"
 status = "partial"
-note = "built and tested on macOS only; CI workflow covers all three but has not run (no remote yet)"
+stage = "beta"
+note = "CI builds and tests every PR on macOS, Linux and Windows (green on 2026-10-17); only macOS has been run by hand"
 
 [[item]]
 id = "DIST-2"
@@ -18,13 +19,31 @@ status = "done"
 id = "DIST-3"
 target = "Browser build of the app"
 status = "missing"
+stage = "1.0"
 
 [[item]]
 id = "DIST-4"
 target = "Signed, notarized macOS and signed Windows releases; Linux packages"
 status = "missing"
+stage = "beta"
 
 [[item]]
 id = "DIST-5"
 target = "App icon and file associations for .gt and .gp"
+status = "partial"
+stage = "beta"
+note = "icon in every format (assets/app-icon: .icns, .ico in the exe, hicolor, window icon); no app bundle yet, so no file associations"
+
+[[item]]
+id = "DIST-6"
+target = "Release workflow: a tag builds installers for macOS, Windows and Linux"
 status = "missing"
+stage = "beta"
+note = "issue 179; signing material and store accounts are human work (issues 176, 177)"
+
+[[item]]
+id = "DIST-7"
+target = "Update check (weekly, from GitHub releases)"
+status = "missing"
+stage = "1.0"
+note = "issue 276"

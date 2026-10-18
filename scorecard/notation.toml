@@ -72,3 +72,17 @@ id = "NOTE-12"
 target = "Chord diagrams and chord names above the staff"
 status = "done"
 note = "chord names and beat text drawn above the system in a lane that grows when a track has them; diagrams drawn under the names (nut or first fret, dots, open and muted marks, barres; page.rs chord_diagram, layout.rs), edited in Tools › Chord Diagrams… (a clickable diagram, named from its notes by guitario_theory::chord_name) and read and written in Guitar Pro 3-5 and GPIF; the chord list under the title on the first page (each distinct diagram once, in order of first use, at most 48, wrapping into rows; layout.rs chord_list), in the page view, print and PDF; no stylesheet switch to hide it"
+
+[[item]]
+id = "NOTE-13"
+target = "Slash and numbered (jianpu) notation, grand staff, clef changes, simile marks, multirests, octave lines"
+status = "missing"
+stage = "1.0"
+note = "the Notation buttons are drawn greyed (issues 54, 294, 309, 310, 370, 372, 375, 356, 376)"
+
+[[item]]
+id = "NOTE-14"
+target = "Design Mode: resize bars, drag beats, align bars, bars per system, reset spacing"
+status = "missing"
+stage = "1.0"
+note = "the palette button is drawn dimmed (issues 295 to 300)"

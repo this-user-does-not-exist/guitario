@@ -1,19 +1,38 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (beam breaks and user-placed slurs, live mixer, transpose dialogs, tempo, volume and pan automation, audio settings, FLAC export, performance budgets, background sample loading; menus 149/173; ready ~29%) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (Paste Special landed; focus item 1 is the last beta editing items) · **Target:** Guitar Pro 8
 
-Forward-looking plan: milestones, the **Current focus** list, and what's next with estimates.
-Where we stand today is in [`target-app-parity.md`](target-app-parity.md) (headline numbers, by
-dimension) and the ranked work list in [`gaps.md`](gaps.md); the one-page summary is
-[`ROADMAP.md`](../ROADMAP.md). Measured numbers: [`scorecard.md`](scorecard.md)
-(`cargo xtask scorecard`) and [`parity-checklist.md`](parity-checklist.md) (`cargo xtask parity`:
-menu wiring, which says nothing about behaviour).
+Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
+build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
+by dimension); the ranked work list is [`gaps.md`](gaps.md); the one-page summary is
+[`ROADMAP.md`](../ROADMAP.md). Measured: [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
+and [`parity-checklist.md`](parity-checklist.md) (`cargo xtask parity`: menu wiring, which says
+nothing about behaviour).
 
 Status legend: ✅ done · 🟡 in progress · ⬜ not started. Hours are Opus 5.5 agent wall-clock hours
-for one agent working sequentially (uncalibrated, see
-[`target-app-parity.md`](target-app-parity.md#remaining-effort-and-calibration)).
+for one agent working sequentially, and an upper bound (see
+[calibration](target-app-parity.md#calibration)).
 
-**Stage: alpha** (ready for real work ~29%). The alpha gate below passes; beta is ~770–1,310 h away.
+**Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
+today; ~520–1,025 h of work are left, ordered under [Current focus](#current-focus).
+
+## Stages
+
+A stage is a promise about who can use Guitario, checked by running real workflows, not by a
+percentage. The percentages in the other docs say how far along we are; the gates say whether a
+stage has been reached.
+
+| Stage | Who it is for | How we know | GitHub milestone |
+|---|---|---|---|
+| **Alpha** (reached 2026-10-16) | us and brave testers: the essentials work end to end | the [alpha gate](#alpha-gate): six workflows | Alpha |
+| **Beta** | a mainstream Guitar Pro user who is willing to switch for everyday work, and installs it themselves | the [beta gate](#beta-gate): eight workflows, the beta rows of the scorecard done, installers on three platforms | Beta |
+| **1.0** | full parity with Guitar Pro 8 | the [1.0 gate](#10-gate): every scorecard row done, every menu item live, eleven languages | 1.0 Guitar Pro parity |
+
+A *mainstream user* writes and learns tab every week: enters and edits tab, reads standard
+notation, plays back with drums, loops and slows passages, opens files from others (mostly `.gp5`
+and `.gp`), prints or exports PDF, bends and slides, and occasionally uses the tuner and chord
+tools. An *essentials user* only enters a riff, hears it and saves it (alpha). A *full* user
+also needs everything else in Guitar Pro 8.
 
 ## Alpha gate
 
@@ -21,53 +40,112 @@ The core workflows a typical Guitar Pro user runs every week, checked end to end
 platform (macOS, 0.1.0), including saving and reopening the work. Any **no**, or a **partial**
 that blocks the workflow, keeps Guitario pre-alpha.
 
-| Core workflow | Works end to end? | Evidence | Hours to pass |
-|---|---|---|---:|
-| Transcribe a riff: enter notes, rhythm and techniques, play it back, save and reopen | yes | keyboard entry, palette, playback, `.gt` round trip (`crates/engine/tests`) | 0 |
-| Practise: loop a passage, slow it down, metronome and count-in | yes | selection loop, speed 25–200 %, metronome, count-in (`crates/playback` tests) | 0 |
-| Arrange a band song: guitars, bass and drums, sections, repeats | yes | drum tracks, pad, notation and playback; 12 band demos with drums (`crates/engine/tests/demos.rs`) | 0 |
-| Open a tab someone sent (`.gp5` or `.gp`), play it, edit it | yes | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` through File › Open; 76 real files import (G3); every voice is kept, drawn and played | 0 |
-| Share: print or export PDF, or send a `.gp` back | yes | File › Export › PDF… writes A4 vector pages for every demo without warnings (`crates/ui-egui/src/pdf.rs` tests; pages checked as rasters); File › Print… sends them through craft-print (not yet tried on a real printer); `.gp` and `.gp5` go back to Guitar Pro users (`.gp` read back by us for every demo and 76 real files, not yet opened in Guitar Pro itself) | 0 |
-| Read and write standard notation with ties and two voices | yes | up to four voices (Edit › Voice 1-4), ties across bars, slurs for hammer-ons and legato; `crates/ui-egui/src/page.rs` tests, `demos/15-two-voices.gt` | 0 |
+| Core workflow | Works end to end? | Evidence |
+|---|---|---|
+| Transcribe a riff: enter notes, rhythm and techniques, play it back, save and reopen | yes | keyboard entry, palette, playback, `.gt` round trip (`crates/engine/tests`) |
+| Practise: loop a passage, slow it down, metronome and count-in | yes | selection loop, speed 25–200 %, metronome, count-in (`crates/playback` tests) |
+| Arrange a band song: guitars, bass and drums, sections, repeats | yes | drum tracks, pad, notation and playback; 12 band demos with drums (`crates/engine/tests/demos.rs`) |
+| Open a tab someone sent (`.gp5` or `.gp`), play it, edit it | yes | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` through File › Open; 76 real files import; every voice is kept, drawn and played |
+| Share: print or export PDF, or send a `.gp` back | yes | File › Export › PDF… writes vector pages for every demo; File › Print… sends them through craft-print; `.gp` and `.gp5` go back to Guitar Pro users (read back by us, not yet opened in Guitar Pro itself) |
+| Read and write standard notation with ties and two voices | yes | up to four voices, ties across bars, slurs; `demos/15-two-voices.gt` |
 
-**Result: passes.** Every workflow works end to end, so the stage is alpha. Two human checks are
-still open and the pass does not hide them: a page on a real printer, and a `.gp` export opened
-in Guitar Pro 8.
+**Result: passes.** Two human checks are open and the pass does not hide them: a page on a real
+printer, and a `.gp` export opened in Guitar Pro 8. Both are also beta work (B4, B6).
+
+## Beta gate
+
+Beta is reached when a mainstream user can install Guitario, replace Guitar Pro for the week's
+work, and nothing they do every week is missing, crashes or sounds wrong. Each workflow below is
+run end to end like the alpha gate's; a **no**, or a **partial** that blocks it, keeps the stage
+at alpha. Beyond the workflows, three bars must hold: `cargo xtask ci` is green on macOS, Linux
+and Windows; the scorecard shows **0 open for beta** (it counts them); and every menu item is
+live except the ones the scorecard stages for 1.0.
+
+| # | Beta workflow | Today | What is missing | Gap |
+|---|---|---|---|---|
+| B1 | **Install and open.** Download a signed build for macOS, Windows or Linux; double-click a `.gp` or `.gt` and it opens; the sound bank installs itself on first run | no | no installers, signing, file associations or in-app sound bank install; only macOS has been run by hand | [G12](gaps.md#g12-platforms-and-distribution), [G5](gaps.md#g5-playback-realism) |
+| B2 | **Hear a band.** Guitar with palm mutes, harmonics and slides, bass, and sampled drums, through an amp and room, and a guitarist accepts how it sounds | partial | sampled instruments play, but articulations, legato, amp, cabinet, reverb and delay are not built; nobody has listened on speakers | [G5](gaps.md#g5-playback-realism) |
+| B3 | **Transcribe a solo.** Bends with their curves, whammy dives, grace notes, tuplets, a drum groove on a step grid, Paste Special | partial | the drum step grid (bend curves, the whammy bar and Paste Special landed 2026-10-17) | [G6](gaps.md#g6-editing-depth), [G1](gaps.md#g1-drums-depth) |
+| B4 | **Exchange.** Open any Guitar Pro 3 to 8 file (at least 95 % of a real corpus without warnings); a `.gp` export opens in Guitar Pro 8; MIDI and MusicXML go in and out | partial | MusicXML, MIDI import, Guitar Pro 6 drums, the `.gp` check in Guitar Pro 8 (human) | [G3](gaps.md#g3-guitar-pro-exchange) |
+| B5 | **Practise with the tools.** Tune the guitar, look up a chord's voicings, show a scale on the fretboard | no | tuner, chord window, scale tool | [G7](gaps.md#g7-tools) |
+| B6 | **Print properly.** Headers and footers, selected bars, other paper; a page leaves a real printer on all three platforms | partial | headers and footers, selected bars, the real-printer check (human) | [G2](gaps.md#g2-print-depth) |
+| B7 | **Work for hours.** Several scores open, a 1,000-bar score inside the performance budgets in CI, autosave and recovery, every reader fuzzed | partial | several documents, CI budgets, memory and startup budgets, `.gt` and decoder fuzzing, a guard around painting | [G8](gaps.md#g8-ui-depth), [G9](gaps.md#g9-performance-budgets), [G11](gaps.md#g11-reliability-depth) |
+| B8 | **Drive it by agent.** An agent completes ten scripted edit tasks over MCP and takes screenshots of the running app | no | control channel, MCP server | [G10](gaps.md#g10-automation) |
+
+**Result: fails (0 of 8).** Closest: B4, B6 and B7 (partial with a few named pieces); farthest:
+B1, B5 and B8 (nothing built) and B2 (the biggest piece).
+
+## 1.0 gate
+
+Full parity with Guitar Pro 8: every [scorecard](scorecard.md) row done; every item of the
+[menu checklist](parity-checklist.md) live; the corpus of real files imports at 98 % without
+warnings; PowerTab and TablEdit files open; the Stylesheet window, Design Mode, slash and numbered
+notation, the audio track, the pedalboard and mastering are in; the app is translated into the
+eleven languages Guitar Pro ships (human-reviewed); a human has compared the demo suite with
+Guitar Pro 8 renders and a guitarist has compared the sound. ~690–1,350 h after beta.
 
 ## Milestones
 
-| M | Status | Where we are |
-|---|---|---|
-| M0 Skeleton | ✅ | workspace, xtask (layers / wasm / ci / stats / parity / scorecard / version), CI workflow, never-crash lints |
-| M1 Model + engine | ✅ | theory, score (validation, timeline), 64 commands with undo, CLI, `.gt` with craft-atomic saves |
-| M2 Tab editor | 🟡 | keyboard entry, Guitar Pro shortcuts, palette, selection and clipboard, four voices; no bend editor |
-| M3 Notation | 🟡 | page view, notation over tab, beams, accidentals, effect lanes, ties, slurs, voices, chord names and diagrams, lyrics, tremolo picking, trills, grace notes, fermatas, fingering, drums, page/screen/horizontal layouts, multitrack view |
-| M4 Playback | 🟡 | plucked-string synth, transport, loop, speed, metronome, count-in, WAV export; no drums or samples |
-| M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 and GP6 drums remain |
-| M6 Drums | 🟡 | kit tracks, drum pad, notation, GM playback, `.gp` drum import, drum demos, a second voice for the feet; a step editor missing |
-| M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, page setup; no MusicXML, headers and footers |
-| M8 Tools | 🟡 | chord diagram editor and namer; no tuner, chord dictionary or scales |
-| M9 Automation | ⬜ | control channel, MCP |
-| M10 Distribution | ⬜ | packaging, signing, icon, web build |
+Engineering milestones, each with a definition of done. The GitHub milestones Alpha, Beta and
+1.0 group the same work by stage; M-numbers say what to build, stages say when it counts.
+
+| M | Status | Where we are | Stage |
+|---|---|---|---|
+| M0 Skeleton | ✅ | workspace, xtask (layers / wasm / ci / stats / parity / scorecard / perf / sounds / version), CI on three platforms, never-crash lints | alpha |
+| M1 Model + engine | ✅ | theory, score (validation, timeline), 117 commands with undo, CLI, `.gt` with atomic saves | alpha |
+| M2 Tab editor | 🟡 | keyboard entry, Guitar Pro shortcuts, palette, selection and clipboard, four voices, bend curves and the whammy bar with their editors, Paste Special and All-Track Copy | beta |
+| M3 Notation | 🟡 | page, screen and horizontal layouts, multitrack, everything the model holds; slash/numbered notation, grand staff and the stylesheet are missing | beta (rest 1.0) |
+| M4 Playback | 🟡 | physical-model synth, SFZ sampler and sound bank, drums, mixer, automations, WAV and FLAC; no articulations, amp, cabinet or effects | beta |
+| M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 remains | beta |
+| M6 Drums | 🟡 | kit tracks, pad, notation, GM playback, `.gp` drum import, two voices; step editor and articulations missing | beta |
+| M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, page setup; no MusicXML, headers and footers | beta |
+| M8 Tools | 🟡 | chord diagram editor and namer; no tuner, chord window or scale tool | beta |
+| M9 Automation | ⬜ | control channel, MCP | beta |
+| M10 Distribution | 🟡 | icon in every format, CI green on three platforms; no installers, signing, file associations or release workflow | beta |
 
 ## Current focus
 
-Ranked; each item links to its gap entry. Pick from the top unless an issue is assigned to you.
+Ranked for the beta gate; each item links to its gap. Take the top one nobody is working on, or the
+issue assigned to you. Work in **batches**: one pull request, one slice of a gap, with tests, docs
+and a snapshot where it is visible. The order puts what an agent can fully verify first and
+what needs a human ear or signing material last, so the human steps overlap with other work.
 
-1. **Notation depth** ([G4](gaps.md#g4-notation-depth)): picking a voice by its notehead, voice shortcuts, menu access and tab slurs for the new beam and slur commands. 6–22 h.
-2. **Guitar Pro import depth** ([G3](gaps.md#g3-guitar-pro-exchange)): Guitar Pro 6 drums, MIDI and MusicXML import, a human check of `.gp` exports. 40–80 h.
-3. **Print depth** ([G2](gaps.md#g2-print-depth)): headers and footers, layouts, selected bars, a real-printer check. 10–20 h.
+1. **Unset, bends through ties in Guitar Pro 3-5, quarter tones** ([G6](gaps.md#g6-editing-depth)):
+   the last beta editing items (#332, #437, #438). The bend editor, the whammy bar and Paste
+   Special landed 2026-10-17. 5–15 h.
+2. **MIDI and MusicXML** ([G3](gaps.md#g3-guitar-pro-exchange)): import and export, Guitar Pro 6
+   drum hits. 55–100 h.
+3. **Chord window, scale tool, tuner** ([G7](gaps.md#g7-tools)): the first two are pure theory and
+   UI; the tuner needs audio input. 55–100 h.
+4. **Sound** ([G5](gaps.md#g5-playback-realism)): articulation mapping and legato, then amp,
+   cabinet, reverb and delay, then the first-run sound bank install. A listening pass closes it.
+   150–300 h.
+5. **Release workflow and packages** ([G12](gaps.md#g12-platforms-and-distribution)): tag to
+   artifacts for three platforms, an app bundle with file associations; signing waits on accounts.
+   80–150 h + human.
+6. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 60–110 h.
+7. **Drum step grid and articulations** ([G1](gaps.md#g1-drums-depth)); **headers, footers,
+   selected bars** ([G2](gaps.md#g2-print-depth)); **voice picking** ([G4](gaps.md#g4-notation-depth)).
+   30–70 h.
+8. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
+   cache** ([G11](gaps.md#g11-reliability-depth), [G9](gaps.md#g9-performance-budgets)); **the
+   localization framework** ([G13](gaps.md#g13-languages)). 85–175 h.
 
-## What's next, with estimates
+Human steps, to schedule early because they wait on a person: a listening pass (#115, #133), a
+real-printer page on three platforms, `.gp` exports opened in Guitar Pro 8 (#19), signing
+accounts (#176, #177), and re-measuring the menus and shortcuts from an installed Guitar Pro 8
+(#154).
 
-| Next milestone | Scope | Estimate |
-|---|---|---:|
-| 0.2 "the band" | ✅ drums landed 2026-10-15 (kit tracks, notation, playback, import, demo parts) | done |
-| 0.3 "files from friends" | ✅ `.gp5`/`.gp4`/`.gp3`/`.gpx` import and `.gp5` export landed 2026-10-16, checked on a local real-file corpus | done |
-| 0.4 "ties and voices" | ✅ ties, slurs and up to four voices landed 2026-10-16 | done |
-| 0.5 "print it" | ✅ PDF export and printing landed 2026-10-16 | done |
-| Alpha | ✅ the alpha gate passes (2026-10-16) | done |
-| Beta | sampled playback for guitar/bass/drums, tools, layouts, print depth, releases on three platforms | ~770–1,310 h total |
+## Releases
+
+| Release | Scope | Status |
+|---|---|---|
+| 0.1 | alpha: write, arrange with drums, play, open and send Guitar Pro files, print and export PDF | ✅ 2026-10-16 |
+| 0.2 "the craft" | focus items 1 to 3: the editor and exchange gaps closed, tools | next |
+| 0.3 "the sound" | focus item 4: articulated, amped, roomy playback | |
+| 0.4 "installable" | focus items 5 and 6: installers, several documents, the book | |
+| **Beta** | the beta gate passes | |
+| 1.0 | the 1.0 gate passes | |
 
 ## Milestone definitions
 
@@ -80,36 +158,21 @@ and `cargo xtask wasm`.
 | **M1** | Model + engine | Score model, command registry with undo, CLI, native format | Every edit runs headless; `panic_hunt` green |
 | **M2** | Tab editor | Entry, durations, techniques, selection, clipboard, voices 1–4, bend editor | A guitarist can transcribe a two-voice part without the mouse |
 | **M3** | Notation | Engraving of everything the model holds, layouts, multitrack | Offscreen renders of the demo suite reviewed against Guitar Pro |
-| **M4** | Playback | Synth, transport, mixer, automations, swing, export | The demo suite plays in time; budgets met (G9) |
+| **M4** | Playback | Synth, samples with articulations, amp and effects, mixer, automations, export | The demo suite plays in time; budgets met (G9); a guitarist accepts the sound (human) |
 | **M5** | Guitar Pro exchange | `.gp`/`.gpx`/`.gp5`/`.gp4`/`.gp3` import, `.gp` export | ≥ 95% of a real-file corpus imports without warnings; `.gp` exports open in Guitar Pro (human check) |
-| **M6** | Drums | Kit tracks, percussion notation and editor, GM playback, import | A metal demo with drums plays and round-trips through `.gp` |
+| **M6** | Drums | Kit tracks, percussion notation and step editor, GM playback, import | A metal demo with drums plays and round-trips through `.gp` |
 | **M7** | Print, PDF, MusicXML | craft-pdf export, craft-print, MusicXML both ways | PDF of every demo matches the page view |
-| **M8** | Tools | Tuner, chord engine and diagrams, scales, line in | Tuner within ±2 cents on test tones |
+| **M8** | Tools | Tuner, chord window and diagrams, scales | Tuner within ±2 cents on test tones |
 | **M9** | Automation | JSON control channel, MCP server | An agent completes 10 scripted edit tasks over MCP |
-| **M10** | Distribution | Signed releases on macOS, Windows, Linux; icon; web build | Install and open a `.gp` on each platform |
+| **M10** | Distribution | Signed releases on macOS, Windows, Linux; icon; file associations | Install and open a `.gp` on each platform |
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-16 | minor | FLAC export; menus 149/173 |
-| 2026-10-16 | minor | Audio settings: output device and buffer size; menus 148/173 |
-| 2026-10-16 | minor | Volume and pan automation, played and exported to MIDI; menus 147/173 |
-| 2026-10-16 | minor | Tempo automation: gradual tempo changes played, drawn, edited and exchanged; menus 145/173 |
-| 2026-10-16 | minor | Live mixer, Transpose… and Transpose Track… dialogs, performance budgets and background sample loading; menus 144/173 |
-| 2026-10-16 | minor | Chord list under the title, Multivoice Editing, full-score printing, key changes inside a system, courtesy signatures, voice heads stepping aside, transpose track; G4 left 8–28 h; menus 141/173 |
-| 2026-10-16 | minor | Page, screen and horizontal layouts and the multitrack view; G4 left 25–55 h, G8 100–170 h; ready ~29%; beta ~770–1,310 h |
-| 2026-10-16 | minor | Beaming by the signature (per bar too, kept in `.gp5`) and sloped beams; G4 left 35–70 h; ready ~28%; beta ~800–1,360 h |
-| 2026-10-16 | minor | Fingering for both hands (dialog, notation, Guitar Pro 3-8 both ways); menus 136/173; G4 left 40–80 h |
-| 2026-10-16 | minor | Fermatas (drawn, held in playback and MIDI, GPIF both ways); G4 left 45–85 h; beta ~810–1,375 h |
-| 2026-10-16 | minor | Lyrics (model, command and dialog, engraving under the tab, Guitar Pro 4-8 both ways); G4 left 50–95 h; beta ~815–1,385 h |
-| 2026-10-16 | minor | Chord diagrams drawn and kept in `.gp`; Tools › Chord Diagrams… with a chord namer (M8 started); G4 left 60–115 h; beta ~830–1,410 h |
-| 2026-10-16 | minor | Grace notes (model, command and dialog, playback, engraving, Guitar Pro 3-8 both ways); G4 left 70–130 h; beta ~850–1,440 h |
-| 2026-10-16 | minor | Tremolo picking and trills (model, commands, playback, drawing, Guitar Pro 3-5 and GPIF); G4 left 80–145 h; beta ~860–1,455 h |
-| 2026-10-16 | minor | Print preview and page setup (Letter, Legal, A5, landscape, margins; kept in `.gt`, `.gp` and `.gp5`); G2 left 10–20 h; beta ~870–1,470 h |
-| 2026-10-16 | minor | PDF export and printing: the share workflow passes, so the alpha gate passes; stage alpha; beta ~880–1,490 h (G2's 60–100 h done, 20–40 h of print depth added) |
-| 2026-10-16 | minor | `.gp` export: the share workflow only lacks print/PDF; beta ~920–1,550 h |
-| 2026-10-16 | minor | Ties, slurs and up to four voices: the notation workflow passes; alpha ~70–120 h; print/PDF is the focus |
-| 2026-10-16 | minor | Guitar Pro 3-6 import and `.gp5` export: the open-a-tab workflow passes; alpha ~130–230 h; focus re-ranked |
-| 2026-10-15 | minor | Drums landed: band-song workflow passes; M6 in progress; focus re-ranked |
+| 2026-10-17 | minor | Paste Special, All-Track Copy/Cut and the Check Bar Durations window landed: focus item 1 is the last beta editing items; beta ~520–1,025 h |
+| 2026-10-17 | minor | The whammy bar landed: focus item 1 is now Paste Special; beta ~530–1,045 h |
+| 2026-10-17 | minor | Bend curves and the Bend window landed: focus item 1 is now the whammy bar and Paste Special; beta ~540–1,060 h |
+| 2026-10-17 | major | Stages defined (alpha, beta, 1.0) with a beta gate of eight workflows (0 pass today) and a 1.0 gate; milestones aligned with GitHub's and given stages; M4, M10 rows refreshed (they still said no drums or samples, and no CI run); current focus re-ranked on the beta gaps (bend editor first); releases 0.2 to 0.4 named; earlier per-feature history moved to [`changelog.md`](changelog.md) |
+| 2026-10-16 | minor | Alpha reached when the share workflow (PDF, print) landed; before it: ties, slurs and voices, Guitar Pro 3-6 import, drums |
 | 2026-10-15 | major | Milestones M0–M10, alpha gate (fails), current focus |

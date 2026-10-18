@@ -14,3 +14,7 @@ eframe = { workspace = true }
 egui = { workspace = true }
 serde_json = { workspace = true }
 craft-quit = { workspace = true }
+
+[build-dependencies]
+# Icon + VERSIONINFO for guitario.exe; build.rs only uses it when targeting Windows.
+winresource = "0.1"

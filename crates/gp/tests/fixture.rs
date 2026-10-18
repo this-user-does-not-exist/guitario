@@ -60,7 +60,7 @@ fn shared_beats_notes_and_effects() {
     assert!(a.effects.let_ring && a.effects.vibrato);
     assert_eq!(a.effects.slide, Some(Slide::Shift));
     let b = &bar2[1].notes[0];
-    assert_eq!((b.fret, b.kind, b.effects.bend), (7, NoteKind::Tie, Some(4)));
+    assert_eq!((b.fret, b.kind, b.effects.bend.map(|x| x.peak())), (7, NoteKind::Tie, Some(4)));
 
     // The grace beat takes no time, so bar 3 holds exactly three quarters.
     let bar3 = &t.measures[2].voices[0].beats;

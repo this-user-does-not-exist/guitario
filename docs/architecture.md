@@ -1,14 +1,14 @@
 # Guitario architecture
 
-> **Last reviewed:** 2026-10-15 · **Last updated:** 2026-10-15 · **Change:** major (first version) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (counts refreshed) · **Target:** Guitar Pro 8
 
-## Current state (2026-10-15)
+## Current state (2026-10-17)
 
-- **Workspace:** 10 library crates under `crates/`, 2 apps (`guitario` desktop,
-  `guitario-cli`), `xtask`; ~10,600 lines of Rust in 57 files; 92 `#[test]` functions
+- **Workspace:** 9 library crates under `crates/`, 2 apps (`guitario` desktop,
+  `guitario-cli`), `xtask`; ~38,300 lines of Rust in 122 files; 417 `#[test]` functions
   (`cargo xtask stats`).
 - **UI toolkit:** egui/eframe on wgpu, no webview and no JavaScript.
-- **Engine:** 64 commands (`CommandSpec` in `crates/engine/src/commands.rs` and module `specs()`);
+- **Engine:** 117 commands (`CommandSpec` in `crates/engine/src/commands.rs` and module `specs()`);
   the UI, CLI and tests dispatch by id through `Session::run`.
 - **Shared libraries:** craft-atomic, craft-settings, craft-quit from
   [craft-libs](https://github.com/storytold/craft-libs), pinned by revision in the root `Cargo.toml`.

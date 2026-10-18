@@ -259,3 +259,12 @@ These are fixed until a stylesheet window exists.
 Guitar Pro has no status bar, so Guitario dropped its own: messages show as a toast over the
 bottom of the score, a few seconds (longer for errors), dismissed by a click. The cursor position
 it used to show is in the LCD.
+
+## 2026-10-17: Fixed rows above the staff, in Guitar Pro's order
+
+Guitar Pro packs what goes above a system per system; Guitario's layout gives every system of a
+track the same height, so the lane above the top track has fixed rows, top down as Guitar Pro
+stacks them: tempo marks (with accel./rit. and the swing indication beside the tempo), section
+markers, segno and coda, endings, bar numbers. The section row is kept only when the score has a
+section (`Metrics::sections`), so scores without sections lose no height. The header keeps room
+for the tuning legend (`Metrics::legend_lines`), which could run into the first system before.

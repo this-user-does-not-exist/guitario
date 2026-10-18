@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--section] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--section] [--crowded] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -130,6 +130,62 @@ fn main() {
         session = Session::new();
         run(&mut session, "file.open", json!({"path": path}));
     }
+    // `--crowded`: everything above the staff at once on the first bars (section, segno, triplet
+    // feel, a tempo change, an ending), with Drop D and a capo, to check nothing collides.
+    if args.iter().any(|a| a == "--crowded") {
+        let s = &mut session;
+        run(s, "track.setTuning", json!({"preset": "Drop D"}));
+        run(s, "track.setCapo", json!({"fret": 2}));
+        run(s, "cursor.set", json!({"measure": 0, "beat": 0}));
+        run(s, "measure.setDirections", json!({"targets": ["segno"]}));
+        run(s, "measure.setTripletFeel", json!({"feel": "triplet8th"}));
+        run(s, "cursor.set", json!({"measure": 1, "beat": 0}));
+        run(s, "measure.setMarker", json!({"text": "[Pre-Chorus]", "letter": "C"}));
+        run(s, "measure.setTempo", json!({"bpm": 140}));
+        run(s, "measure.setEndings", json!({"endings": [1]}));
+        run(s, "measure.setDirections", json!({"targets": ["coda"], "jump": "dalSegno"}));
+    }
+    // `--bends`: every kind of bend on a row of notes in a fresh bar, then `--bend` opens the window on one.
+    if args.iter().any(|a| a == "--bends") {
+        let s = &mut session;
+        run(s, "file.new", json!({}));
+        run(s, "cursor.set", json!({"measure": 0, "beat": 0, "string": 2}));
+        for (fret, kind, q) in
+            [(7, "bend", 2), (7, "bend", 4), (7, "bend_release", 4), (7, "prebend", 4), (7, "prebend_release", 4), (7, "prebend_bend", 8), (9, "bend", 12)]
+        {
+            run(s, "beat.setDuration", json!({"value": 8}));
+            run(s, "note.setFret", json!({"fret": fret}));
+            run(s, "note.setBend", json!({"quarterTones": q, "kind": kind}));
+            run(s, "cursor.right", Value::Null);
+        }
+        run(s, "cursor.set", json!({"measure": 0, "beat": 2, "string": 2}));
+    }
+    // `--whammies`: every whammy shape and both bar vibratos on a row of beats in a fresh bar, then
+    // `--whammy` opens the window on one.
+    if args.iter().any(|a| a == "--whammies") {
+        let s = &mut session;
+        run(s, "file.new", json!({}));
+        run(s, "cursor.set", json!({"measure": 0, "beat": 0, "string": 1}));
+        let shapes = [
+            json!({"depth": -8, "kind": "dive"}),
+            json!({"depth": -8, "kind": "hold"}),
+            json!({"depth": -8, "kind": "return"}),
+            json!({"depth": -6, "kind": "dip"}),
+            json!({"depth": -2, "kind": "predive"}),
+            json!({"depth": -12, "kind": "predive_dive"}),
+            json!({"depth": 2, "kind": "dive"}),
+        ];
+        for params in shapes {
+            run(s, "beat.setDuration", json!({"value": 8}));
+            run(s, "note.setFret", json!({"fret": 5}));
+            run(s, "beat.setWhammy", params);
+            run(s, "cursor.right", Value::Null);
+        }
+        run(s, "beat.setDuration", json!({"value": 8}));
+        run(s, "note.setFret", json!({"fret": 7}));
+        run(s, "beat.setBarVibrato", json!({"vibrato": "wide"}));
+        run(s, "cursor.set", json!({"measure": 0, "beat": 3, "string": 1}));
+    }
     if let Some(t) = value("--track").and_then(|t| t.parse::<usize>().ok()) {
         run(&mut session, "track.select", json!({"index": t}));
     }
@@ -157,6 +213,10 @@ fn main() {
         for track in 0..session.score().tracks.len() {
             run(&mut session, "track.setNotation", json!({"track": track, "standard": false}));
         }
+    }
+    // `--paste-special`: copies the cursor's beat, then opens Edit › Paste Special….
+    if args.iter().any(|a| a == "--paste-special") {
+        run(&mut session, "edit.copy", Value::Null);
     }
     let mut app = GuitarioApp::new(session, None);
     if let Some(z) = value("--zoom").and_then(|z| z.parse::<f32>().ok()) {
@@ -233,6 +293,15 @@ fn main() {
     }
     if args.iter().any(|a| a == "--page-setup") {
         app.open_page_setup();
+    }
+    if args.iter().any(|a| a == "--bend") {
+        app.open_bend();
+    }
+    if args.iter().any(|a| a == "--whammy") {
+        app.open_whammy();
+    }
+    if args.iter().any(|a| a == "--paste-special") {
+        app.open_paste_special();
     }
     if args.iter().any(|a| a == "--trill") {
         app.open_trill();

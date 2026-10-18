@@ -173,7 +173,7 @@ fn fx(n: &guitario_score::Note) -> String {
         s += &format!(" harm={x:?}");
     }
     if let Some(x) = e.bend {
-        s += &format!(" bend={x}");
+        s += &format!(" bend={:?}", x.points());
     }
     s
 }

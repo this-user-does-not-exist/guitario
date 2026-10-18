@@ -684,6 +684,7 @@ impl Parser<'_> {
         beat.rest = status != 1 || beat.notes.is_empty();
         if beat.rest {
             beat.notes.clear();
+            beat.whammy = None;
         } else {
             beat.tremolo = self.tremolo.take();
         }
@@ -763,15 +764,16 @@ impl Parser<'_> {
                 _ => {}
             }
             if v == Version::V3 {
-                // The tremolo bar's depth when `kind` is 0; unused otherwise.
-                if self.r.i32()? != 0 && kind == 0 {
-                    self.drop("tremolo bar dives");
+                // Kind 0 is the tremolo bar: Guitar Pro 3 keeps only how deep it dips, on the
+                // tremolo bar's scale; unused for the other kinds.
+                let depth = self.r.i32()?;
+                if kind == 0 && depth != 0 {
+                    beat.whammy = Some(Whammy::preset(WhammyKind::Dip, whammy_value(depth.saturating_neg())));
                 }
             }
         }
         if v >= Version::V4 && f2 & 0x04 != 0 {
-            self.bend()?;
-            self.drop("tremolo bar dives");
+            beat.whammy = self.whammy()?;
         }
         if f1 & 0x40 != 0 {
             let (a, b) = (self.r.i8()?, self.r.i8()?);
@@ -1039,19 +1041,40 @@ impl Parser<'_> {
         Ok(())
     }
 
-    /// A bend or tremolo-bar curve; returns its peak in quarter tones (Guitar Pro counts 25 per
-    /// quarter tone).
-    fn bend(&mut self) -> Result<Option<u8>, GpError> {
+    /// The points of a bend or tremolo-bar curve as written: positions 0..=60 across the note or
+    /// beat, values 25 per quarter tone. At most 64 points are kept.
+    fn curve_points(&mut self) -> Result<Vec<(i32, i32)>, GpError> {
         self.r.skip(1 + 4)?; // kind, overall height
-        let points = self.r.count(self.r.remaining() / 9, "bend points")?;
-        let mut peak = 0i32;
-        for _ in 0..points {
-            self.r.skip(4)?; // position, 0..=60 across the note
-            peak = peak.max(self.r.i32()?);
+        let count = self.r.count(self.r.remaining() / 9, "bend points")?;
+        let mut points = Vec::with_capacity(count.min(64));
+        for _ in 0..count {
+            let pos = self.r.i32()?;
+            let value = self.r.i32()?;
             self.r.skip(1)?; // vibrato
+            if points.len() < 64 {
+                points.push((pos.clamp(0, i32::from(BEND_END)), value));
+            }
         }
-        let quarters = u8::try_from(((peak.clamp(0, 300) + 12) / 25).min(12)).unwrap_or(0);
-        Ok((quarters > 0).then_some(quarters))
+        Ok(points)
+    }
+
+    /// A bend curve, in the model's quarter tones; a curve that never rises above the string is none.
+    fn bend(&mut self) -> Result<Option<Bend>, GpError> {
+        let points: Vec<BendPoint> = self
+            .curve_points()?
+            .into_iter()
+            .map(|(pos, value)| {
+                BendPoint::new(u8::try_from(pos).unwrap_or(0), u8::try_from(((value.clamp(0, 300) + 12) / 25).min(i32::from(BEND_MAX))).unwrap_or(0))
+            })
+            .collect();
+        Ok(Bend::from_points(&points))
+    }
+
+    /// A tremolo-bar curve: the bend's structure, with values below the string for a dive.
+    fn whammy(&mut self) -> Result<Option<Whammy>, GpError> {
+        let points: Vec<WhammyPoint> =
+            self.curve_points()?.into_iter().map(|(pos, value)| WhammyPoint::new(u8::try_from(pos).unwrap_or(0), whammy_value(value))).collect();
+        Ok(Whammy::from_points(&points))
     }
 
     /// Tempo changes from mix tables move to the nearest bar line: the model holds one tempo per bar.
@@ -1147,4 +1170,11 @@ fn apply_directions(headers: &mut [MeasureHeader], d: &[i16; 19]) {
             h.jump = Some(*jump);
         }
     }
+}
+
+/// A tremolo-bar value as written (25 per quarter tone, negative for a dive) in the model's
+/// quarter tones.
+fn whammy_value(raw: i32) -> i8 {
+    let q = (raw.clamp(-600, 600) + if raw < 0 { -12 } else { 12 }) / 25;
+    i8::try_from(q.clamp(i32::from(WHAMMY_MIN), i32::from(WHAMMY_MAX))).unwrap_or(0)
 }

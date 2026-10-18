@@ -23,6 +23,10 @@ playback cursor. Widgets read `theme::tokens()`; never hard-code a colour.
   staff only (in the tab when it stands alone); the abbreviated track name upright left of the
   first system, which alone is indented; small grey bar numbers on every bar (red on screen for a
   bar of the wrong length); sections as a boxed letter and a bold name, framed when bracketed.
+  Above each system, top down as Guitar Pro stacks them: tempo (with accel./rit. and the swing
+  indication beside it), sections (a row only when the score has any), segno and coda, endings,
+  bar numbers (`Metrics::tempo_row`, `section_row`).
+- The app icon (`assets/app-icon/`) is the window icon; its bare mark heads the Homepage.
 - Inspector on the right (Song, Track). Fretboard and global view along the bottom.
 - Menus mirror Guitar Pro's twelve, in its order (`menu_catalog.rs`); unbuilt items are greyed out.
 - No status bar (Guitar Pro has none): messages show as a toast over the bottom of the score.

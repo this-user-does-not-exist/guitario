@@ -79,7 +79,7 @@ pub fn riff() -> Score {
     n.effects.palm_mute = true;
     n.effects.grace = Some(Grace { transition: GraceTransition::Hammer, ..Grace::new(2) });
     let mut bend = Note::new(1, 7);
-    bend.effects.bend = Some(4);
+    bend.effects.bend = Some(Bend::to(4));
     bend.effects.vibrato = true;
     bend.effects.left_finger = Some(Finger::Ring);
     bend.effects.right_finger = Some(Finger::Index);
@@ -112,7 +112,13 @@ pub fn riff() -> Score {
     trilled.effects.grace = Some(Grace { duration: GraceDuration::SixtyFourth, dead: true, ..Grace::new(0) });
     let mut triplet = note(vec![slide], Duration { tuplet: (3, 2), ..e });
     triplet.dynamic = Dynamic::Pp;
-    t.measures[0].voices[0].beats = vec![chord, popped, note(vec![bend], e), note(vec![tie], Duration::QUARTER), triplet.clone(), triplet.clone(), triplet];
+    chord.bar_vibrato = Some(BarVibrato::Wide);
+    let mut bent = note(vec![bend], e);
+    bent.whammy = Some(Whammy::preset(WhammyKind::Dip, -24));
+    let mut held = note(vec![tie], Duration::QUARTER);
+    held.whammy = Some(Whammy::preset(WhammyKind::Return, -6));
+    held.bar_vibrato = Some(BarVibrato::Slight);
+    t.measures[0].voices[0].beats = vec![chord, popped, bent, held, triplet.clone(), triplet.clone(), triplet];
     t.measures[1].voices = vec![
         Voice { beats: vec![note(vec![dead], Duration { dots: 1, ..Duration::QUARTER }), Beat::rest(Duration { dots: 1, ..Duration::QUARTER })] },
         Voice { beats: vec![Beat::rest(Duration::QUARTER), note(vec![trilled], Duration::new(NoteValue::Half))] },
@@ -153,12 +159,17 @@ pub fn as_gp(s: &Score) -> Score {
             for b in m.voices.iter_mut().flat_map(|v| &mut v.beats) {
                 if drums {
                     b.chord = None;
+                    (b.whammy, b.bar_vibrato) = (None, None);
                 }
+                // The whammy keeps the shape a `.gp` file can hold.
+                b.whammy = b.whammy.map(|w| guitario_gp::gpif_whammy(&w));
                 // One vibrato element: wide wins over plain.
                 for n in &mut b.notes {
                     if n.effects.wide_vibrato {
                         n.effects.vibrato = false;
                     }
+                    // A bend keeps the shape a `.gp` file can hold.
+                    n.effects.bend = n.effects.bend.map(|x| guitario_gp::gpif_bend(&x));
                 }
                 if let Some(br) = &mut b.brush {
                     *br = if br.kind == BrushKind::Rasgueado {

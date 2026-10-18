@@ -43,10 +43,13 @@ pub fn registry() -> &'static [CommandSpec] {
 static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::new(|| {
     CORE.into_iter()
         .chain(crate::selection::specs())
+        .chain(crate::clipboard::specs())
         .chain(crate::drums::specs())
         .chain(crate::bars::specs())
         .chain(crate::tracks::specs())
         .chain(crate::techniques::specs())
+        .chain(crate::bends::specs())
+        .chain(crate::whammy::specs())
         .chain(crate::tools::specs())
         .chain(crate::exchange::specs())
         .chain(crate::chords::specs())
@@ -62,7 +65,7 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .collect()
 });
 
-const CORE: [CommandSpec; 55] = [
+const CORE: [CommandSpec; 54] = [
     cmd("file.new", "New", "File", Some("Cmd+N"), "", false, file_new),
     cmd("file.open", "Open…", "File", Some("Cmd+O"), "path (.gt, or a Guitar Pro .gp/.gpx/.gp5/.gp4/.gp3 to import)", false, file_open),
     cmd("file.importGp", "Import Guitar Pro…", "File/Import", None, "path (.gp, .gpx, .gp5, .gp4 or .gp3)", false, import_gp),
@@ -112,7 +115,6 @@ const CORE: [CommandSpec; 55] = [
         true,
         toggle_effect,
     ),
-    cmd("note.setBend", "Bend", "Note/Effects", None, "quarterTones (0 clears, max 12)", true, set_bend),
     cmd("note.setSlide", "Slide", "Note/Effects", None, "slide: shift|legato|intoFromBelow|intoFromAbove|outDown|outUp|none", true, set_slide),
     cmd("note.setHarmonic", "Harmonic", "Note/Effects", None, "harmonic: natural|artificial|pinch|tapped|semi|none", true, set_harmonic),
     cmd("beat.setDuration", "Duration", "Beat", None, "value (1..64 or name), dots?, tuplet?", true, set_duration),
@@ -426,7 +428,7 @@ fn set_fret(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 
 fn clear_note(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     if s.selection.is_some() {
-        crate::selection::clear_range(s)?;
+        crate::clipboard::clear_range(s)?;
         return ok();
     }
     let string = s.cursor.string as u8;
@@ -485,12 +487,6 @@ fn toggle_effect(s: &mut Session, params: &Value) -> Result<Value, EngineError> 
     if let Some(flag) = effect_flag(n, name) {
         *flag = !*flag;
     }
-    ok()
-}
-
-fn set_bend(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
-    let q = p::uint(params, "quarterTones", 12)? as u8;
-    s.note_mut()?.effects.bend = (q > 0).then_some(q);
     ok()
 }
 
