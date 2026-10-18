@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: articulations in the synth and the sampler; beta ~340–685 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: the sampler's release samples, filters, velocity curves, loops and OGG; beta ~325–655 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -20,7 +20,7 @@ Ranked by user impact on the way to beta.
 
 | Rank | Gap | Beta needs | Beta h | After beta (1.0) | After h |
 |---:|---|---|---:|---|---:|
-| 1 | [G5](#g5-playback-realism) Playback realism | sampler depth, first-run sound bank, instrument per track, the default libraries' articulations | 90–185 | pedalboard, cabinet impulse responses, effects in Guitar Pro files, audio track, MP3/OGG | 140–280 |
+| 1 | [G5](#g5-playback-realism) Playback realism | first-run sound bank, instrument per track, memory budget, the default libraries' articulations | 75–155 | pedalboard, cabinet impulse responses, effects in Guitar Pro files, audio track, MP3/OGG | 140–280 |
 | 2 | [G6](#g6-editing-depth) Editing depth | done | 0 | nested tuplets, ornaments, assistants, tuning window | 80–160 |
 | 3 | [G3](#g3-guitar-pro-exchange) Exchange | `.gp` checked in Guitar Pro (human) | 0 + human | PowerTab, TablEdit, `.gtp`, ASCII import, `.gpx` export | 90–180 |
 | 4 | [G7](#g7-tools) Tools | a tuning check with a real guitar (human) | 0 + human | line in, MIDI capture, command palette | 70–130 |
@@ -33,9 +33,9 @@ Ranked by user impact on the way to beta.
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~340–685 h** | | **~705–1,380 h** |
+| | **Total** | | **~325–655 h** | | **~705–1,380 h** |
 
-Beta plus after-beta is **~1,045–2,065 h** to full parity.
+Beta plus after-beta is **~1,030–2,035 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -49,10 +49,11 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
   harmonics at their partial, slides in, out and between notes, hammer-ons and taps, staccato,
   slap and pop; a sound bank can name a program (or a keyswitch) per articulation, and legato
   notes move the sounding sample; see the [changelog](changelog.md).
+- **Landed 2026-10-18:** the sampler's depth: release samples (#103), `trigger=legato` regions,
+  filters with their envelope (#104), velocity curves (#106), WAV loop points and loop crossfades
+  (#109), OGG Vorbis samples (#108); see the [changelog](changelog.md).
 - **Beta:** map what the libraries `cargo xtask sounds` installs record beyond sustain (palm
-  mutes, harmonics, slides) into the bank it writes; release samples (#103),
-  SFZ filters (#104), velocity curves (#106), loop points (#109), OGG samples (#108), a memory
-  budget with streaming (#110); install the sound bank from the app on first run (#275, #114) so a
+  mutes, harmonics, slides) into the bank it writes; a memory budget with streaming (#110); install the sound bank from the app on first run (#275, #114) so a
   download needs no `cargo xtask sounds`; pick the sampled instrument per track (#113); master
   volume and pan automation (the rest of #265).
 - **After beta:** an original pedalboard (#466 to 468, #525), cabinet impulse responses loaded
@@ -65,7 +66,7 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 - **Evidence:** PLAY-8 (beta), PLAY-9/10 (1.0); PLAY-3 and PLAY-5 are done. The synth, its
   articulations and the effects are checked by tests (pitch within 4 Hz or 1.2 %, decay times,
   clean release, no clipping, each effect's response), not by ear.
-- **Estimate:** 90–185 h beta, 140–280 h after.
+- **Estimate:** 75–155 h beta, 140–280 h after.
 
 ### G6. Editing depth
 - **Landed 2026-10-17:** bend curves and the Bend window; the whammy bar and vibrato with the bar;
@@ -215,6 +216,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | G5: release samples, legato regions, filters and their envelope, velocity curves, WAV loops and crossfades, OGG samples (#103, #104, #106, #108, #109; 90–185 h to 75–155 h beta) |
 | 2026-10-18 | minor | G5: articulations in the synth (palm mutes, dead notes, harmonics, slides, hammer-ons, taps, staccato, slap and pop) and per-articulation programs in the sound bank, sampled legato (#111, #112; 105–215 h to 90–185 h beta) |
 | 2026-10-18 | minor | G5: effect chains, amp, cabinet, reverb, delay and the rest, track equalizer, master volume, pan and mastering (150–300 h to 105–215 h beta; cabinet impulse responses moved after beta); G8: the track equalizer and master row (60–110 h to 55–100 h) |
 | 2026-10-18 | minor | G7: the tuner; no agent beta work left (20–40 h to 0) |

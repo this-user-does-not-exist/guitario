@@ -9,6 +9,6 @@ mod sample;
 mod voice;
 
 pub use instrument::{Hit, Instrument};
-pub use parse::{LoopMode, Parsed, Region, parse, parse_key, parse_switched};
+pub use parse::{Filter, FilterKind, LoopMode, Parsed, Region, Trigger, parse, parse_key, parse_switched};
 pub use sample::{Sample, SfzError};
 pub use voice::SampleVoice;

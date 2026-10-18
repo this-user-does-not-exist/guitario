@@ -73,19 +73,28 @@ sounding on the string to the new pitch without a new attack (a shift slide pick
 Headers `<control> <global> <master> <group> <region>` with inheritance; `#define`/`$VAR`, `#include`
 (several per line), `default_path`, comments; `sample`, `key`/`lokey`/`hikey`/`pitch_keycenter`,
 `lovel`/`hivel`, `tune`/`transpose`/`pitch_keytrack`, `volume`/`amplitude`/`pan`/`amp_veltrack`,
-`offset`/`end`, `loop_mode` (`one_shot`, `loop_continuous`, `loop_sustain`) with `loop_start`/`loop_end`,
-`delay` and an AHDSR amplitude envelope (`ampeg_*`), `group`/`off_by`/`off_mode` (hi-hat choke),
+velocity curves (`amp_velcurve_N`, straight between the points, 0 at velocity 0 and 1 at 127
+unless given), `offset`/`end`, `loop_mode` (`no_loop`, `one_shot`, `loop_continuous`,
+`loop_sustain`) with `loop_start`/`loop_end` and `loop_crossfade` (the loop's end fades into what
+comes before its start), `delay` and an AHDSR amplitude envelope (`ampeg_*`), filters (`fil_type`
+`lpf_1p`, `lpf_2p`, `lpf_4p`, `lpf_6p`, the same high-passes, `bpf_2p`, `brf_2p`; `cutoff` with its
+`cutoff_onccN` modulation in cents, `resonance` in dB, `fil_keytrack`/`fil_keycenter`,
+`fil_veltrack`, and the filter envelope `fileg_delay`/`attack`/`hold`/`decay`/`sustain`/`release`/
+`depth`), `trigger` (`attack`; `release` regions start when the note ends, `rt_decay` dB quieter
+for each second it was held, and not after a let-ring note; `first` and `legato`, the latter
+playing hammer-ons, pull-offs and legato slides), `group`/`off_by`/`off_mode` (hi-hat choke),
 round robin (`seq_length`/`seq_position`, `lorand`/`hirand`), `set_ccN`/`set_hdccN` defaults,
 `locc`/`hicc` region conditions and `_onccN`/`_ccN` modulation evaluated at those defaults, and the
 default keyswitch (`sw_default`/`sw_last`), or the one a bank names for an articulation. Samples:
-WAV (16/24/32-bit, float) and FLAC. A note outside every region borrows the nearest one,
-transposed.
+WAV (16/24/32-bit, float; the loop a `smpl` chunk marks is used where the SFZ names none, and makes
+the region loop unless it says `no_loop`), FLAC and OGG Vorbis (lewton, pure Rust). A note outside
+every region borrows the nearest one, transposed.
 
-Not yet: release-triggered samples (`trigger=release` regions are dropped), SFZ filters and EQ
-opcodes, LFOs, live CC (so articulations a library selects by controller cannot be mapped), OGG
-samples, embedded loop points in WAV files, generators (`*sine`). Bends, slides, vibrato and
-legato notes change the playback rate. Samples decode in the background whenever the score needs
-new notes, and Play waits for them.
+Not yet: EQ opcodes (`eq1_*`), LFOs, the pitch envelope, `<curve>` headers and `curvecc`, live CC (so
+articulations a library selects by controller cannot be mapped), generators (`*sine`), streaming
+from disk (every sample of the keys a score plays is decoded into memory). Bends, slides, vibrato
+and legato notes change the playback rate. Samples decode in the background whenever the score
+needs new notes, and Play waits for them.
 
 ## The built-in synth's articulations
 

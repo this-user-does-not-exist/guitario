@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: articulations) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: the sampler's depth) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -232,6 +232,25 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   tests: every pitch within 1.2 % (harmonics, palm mutes, slides), decay and release times,
   plucks counted, programs chosen. Not yet: the libraries `cargo xtask sounds` installs are
   mapped for sustain only, bends are not written to MIDI as pitch bends, and nobody has listened.
+- **Landed 2026-10-18:** the sampler's depth (#103, #104, #106, #108, #109;
+  `crates/playback/src/sfz/`). Release regions (`trigger=release`) start when a note ends, quieter
+  by `rt_decay` dB for each second it was held, and not after a let-ring note or a string struck
+  again before the note's end; a hammer-on moved onto the next note carries its release along.
+  `trigger=first` regions sound only when the note is picked, `trigger=legato` regions only for
+  hammer-ons, pull-offs and legato slides, so a library's own legato samples play them. Each
+  voice can run a filter: one- to six-pole low- and high-passes, band-pass and band-reject, its
+  cutoff moved by `cutoff_onccN` (in cents), the key, the velocity and its own AHDSR envelope
+  (`fileg_*`, recomputed every 32 samples), with resonance in dB over a Butterworth response.
+  `amp_velcurve_N` points replace `amp_veltrack` with a curve. A WAV file's `smpl` loop is used
+  where the SFZ names none, and loops the region unless it says `no_loop`; `loop_crossfade` fades
+  a loop's end into what comes before its start, so the seam does not click. OGG Vorbis samples
+  decode through lewton (pure Rust), capped like the others, a decoder failure contained as an
+  error; a generated fixture and 300 corrupted copies check it. The amplitude and filter
+  envelopes share one generator. Tests measure each: a 500 Hz low-pass takes a 4 kHz tone below
+  5 %, the envelope opens it four octaves and closes it in half a second, curves give their
+  gains, a ramp's loop seam drops from 0.8 to under 0.02 with a 2 ms crossfade, release noises at
+  their key and 30 dB quieter after a note held 1.5 s longer. Not yet: streaming from disk, LFOs,
+  EQ and pitch-envelope opcodes, `<curve>` headers.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

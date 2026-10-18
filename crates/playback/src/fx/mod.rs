@@ -3,7 +3,7 @@
 //! reverb, all stereo. A [`Chain`] runs a list of [`guitario_score::Effect`]s in order and takes new
 //! settings while it plays without losing its state (a reverb tail survives a knob move).
 
-mod filter;
+pub(crate) mod filter;
 mod units;
 
 use guitario_score::{Effect, EffectType};

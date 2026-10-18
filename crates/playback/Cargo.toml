@@ -12,6 +12,7 @@ guitario-theory = { workspace = true }
 guitario-score = { workspace = true }
 hound = "3.5.1"
 claxon = "0.4.3"
+lewton = "0.10.2"
 flacenc = { version = "0.5.1", default-features = false }
 thiserror.workspace = true
 serde_json.workspace = true

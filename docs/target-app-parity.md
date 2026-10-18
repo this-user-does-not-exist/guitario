@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (articulations: playback 57 %; stale tools and files breadth rows corrected, breadth ~74 %; beta ~340–685 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the sampler's depth: playback 60 %; beta ~325–655 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -19,8 +19,8 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 | **Menu parity** | 172 of 180 items live (96 %) | measured: `cargo xtask parity` |
 | **Feature breadth** (does each Guitar Pro feature exist?) | **~74 %** | partly measured, weights [below](#feature-breadth-74-weighted) |
 | **Readiness** (how deep is each dimension, weighted?) | **~63 %** (range 56–68) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~340–685 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~1,045–2,065 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| Remaining to **beta** | **~325–655 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~1,030–2,035 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -49,11 +49,11 @@ beta, a *full* user needs 1.0 (definitions in [roadmap](roadmap.md#stages)).
 | Menu commands | 30% | 172 / 180 catalog items live | 96% | measured (`cargo xtask parity`) |
 | Notation and engraving | 15% | page, screen and horizontal layouts and the multitrack view; notation over tab, drum staff, effects lanes, endings, directions, chord names and diagrams, lyrics, ties, slurs, up to four voices, tremolo picking, trills, grace notes, fermatas, fingering, beaming and beam breaks, key changes and courtesy signatures, the page details of Guitar Pro 8's default stylesheet; no slash or numbered notation, grand staff, clef changes, simile, multirests or stylesheet | ~80% | estimated ([scorecard](scorecard.md#notation-and-engraving)) |
 | Instruments and track types | 10% | fretted strings in any tuning (4–12 strings, presets for guitars, basses, banjo, mandolin and bowed strings) and a GM drum kit, chosen in an Add Track window; no keyboards, winds or MIDI instruments | ~50% | estimated |
-| Playback | 15% | physical-model guitar and bass, synthesised drums, SFZ sampler with a sound bank, RSE or MIDI per track, interpretation settings, transport, loop, speed, metronome, count-in, live mixer, tempo, volume and pan automation, audio settings, WAV and FLAC, an effect chain per track (amp, cabinet, drive, dynamics, modulation, delay, reverb), the mixer's equalizer, master volume, pan and mastering, every articulation in the synth and a program per articulation from a bank; no pedalboard, release samples, MP3 or OGG | ~65% | estimated ([scorecard](scorecard.md#playback)) |
+| Playback | 15% | physical-model guitar and bass, synthesised drums, SFZ sampler with a sound bank, RSE or MIDI per track, interpretation settings, transport, loop, speed, metronome, count-in, live mixer, tempo, volume and pan automation, audio settings, WAV and FLAC, an effect chain per track (amp, cabinet, drive, dynamics, modulation, delay, reverb), the mixer's equalizer, master volume, pan and mastering, every articulation in the synth and a program per articulation from a bank, a sampler with release samples, filters, curves and loops; no pedalboard, MP3 or OGG export | ~67% | estimated ([scorecard](scorecard.md#playback)) |
 | File formats (usage-weighted) | 15% | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` import (checked on 76 real files), `.gp`, `.gp5`, MIDI, WAV, FLAC and ASCII export, PDF export, print, preview, page setup; chords, lyrics and fingering both ways; MIDI import, MusicXML import and export; no PowerTab, TablEdit or ASCII import, `.gpx` export or image export | ~70% | estimated ([file-format-parity](file-format-parity.md)) |
 | Tools (tuner, chord engine, scales, line in) | 10% | chord diagram editor and namer, the Chord window, the Scale tool, the tuner; no line in, MIDI capture or command palette | ~60% | estimated |
 | Ecosystem and automation | 5% | engine commands, CLI, scripts; no control channel or MCP | ~30% | estimated |
-| **Weighted** | 100% | 0.30·96 + 0.15·80 + 0.10·50 + 0.15·65 + 0.15·70 + 0.10·60 + 0.05·30 | **~74%** (73.6%) | |
+| **Weighted** | 100% | 0.30·96 + 0.15·80 + 0.10·50 + 0.15·67 + 0.15·70 + 0.10·60 + 0.05·30 | **~74%** (73.9%) | |
 
 ## Readiness by dimension
 
@@ -65,14 +65,14 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 |---|---:|---:|---:|---:|---|---|
 | Editing | 20% | 70% | 15–30 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends and the whammy bar have curves and editors, Paste Special, All-Track Copy, Unset; no drum step grid (G1) |
 | Notation | 15% | 74% | 6–22 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): all done; voice picking in notation is left |
-| Playback | 15% | 57% | 90–185 | 140–280 | G5 | sampler, mixer, automations, effect chains, equalizer, mastering and articulations (synth and bank) in; no release samples, first-run bank or pedalboard; checked by tests, not by ear |
+| Playback | 15% | 60% | 75–155 | 140–280 | G5 | sampler (release samples, filters, curves, loops, OGG), mixer, automations, effect chains, equalizer, mastering and articulations (synth and bank) in; no first-run bank or pedalboard; checked by tests, not by ear |
 | Files and exchange | 10% | 70% | 10–20 | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 70–130 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view and homepage match Guitar Pro 8; depth (several documents, preferences, stylesheet) does not |
 | Tools | 5% | 65% | 0 + human | 80–150 | G7 | tuner, chord window, scales, line in |
 | Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
 | Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
 | Platforms and automation | 10% | 25% | 120–230 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; no installers or releases, no control channel or MCP |
-| **Weighted** | 100% | **~63%** | **~340–685** | **~710–1,390** | | 0.20·70 + 0.15·74 + 0.15·57 + 0.10·70 + 0.10·62 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·25 = 62.6 |
+| **Weighted** | 100% | **~63%** | **~325–655** | **~710–1,390** | | 0.20·70 + 0.15·74 + 0.15·60 + 0.10·70 + 0.10·62 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·25 = 63.1 |
 
 Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
 is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
@@ -98,6 +98,7 @@ subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | The sampler's depth (release samples, legato regions, filters, velocity curves, WAV loops and crossfades, OGG samples): playback 57% → 60%, breadth playback 65% → 67%; beta hours 340–685 → 325–655 |
 | 2026-10-18 | minor | Articulations in the synth and the sound bank, sampled legato: playback 52% → 57%, readiness ~62% → ~63%; beta hours 355–715 → 340–685. Breadth ~66% → ~74%, mostly a correction: the Tools row still said there was no chord window, tuner or scale tool (8% → 60%) and the Files row no MIDI import or MusicXML (57% → 70%), all landed earlier on 2026-10-18; playback 60% → 65% |
 | 2026-10-18 | minor | Effect chains (amp, cabinet, reverb, delay and seven more), the track equalizer, master volume, pan and mastering; Sound › Sound Settings… live: menus 172/180; playback 42% → 52%, breadth ~66%, readiness ~60% → ~62%; beta hours 405–810 → 355–715 |
 | 2026-10-17 | minor | Unset, the pitch bends reach in notation: editing 68% → 70%; beta hours 520–1,025 → 515–1,010 |

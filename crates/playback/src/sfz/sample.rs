@@ -1,4 +1,5 @@
-//! Decoded audio for sampled instruments: WAV (16/24/32-bit int, 32-bit float) and FLAC.
+//! Decoded audio for sampled instruments: WAV (16/24/32-bit int, 32-bit float, with the loop a
+//! `smpl` chunk carries), FLAC and OGG Vorbis.
 
 use std::io::Cursor;
 
@@ -22,6 +23,9 @@ pub struct Sample {
     pub rate: u32,
     pub left: Vec<f32>,
     pub right: Option<Vec<f32>>,
+    /// The loop the file itself marks (a WAV `smpl` chunk's first loop): its first and last
+    /// frame.
+    pub loop_points: Option<(u64, u64)>,
 }
 
 impl Sample {
@@ -57,15 +61,16 @@ impl Sample {
         if right.as_ref().is_some_and(|r| *r == left) {
             right = None;
         }
-        Ok(Sample { rate, left, right })
+        Ok(Sample { rate, left, right, loop_points: None })
     }
 
-    /// Decodes by file extension (`wav` or `flac`).
+    /// Decodes by file extension (`wav`, `flac` or `ogg`).
     pub fn decode(bytes: &[u8], name: &str) -> Result<Sample, SfzError> {
         let ext = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
         match ext.as_str() {
             "wav" | "wave" => decode_wav(bytes),
             "flac" => decode_flac(bytes),
+            "ogg" | "oga" => decode_ogg(bytes),
             other => Err(SfzError::Decode(format!("unsupported sample format .{other} ({name})"))),
         }
     }
@@ -85,7 +90,55 @@ fn decode_wav(bytes: &[u8]) -> Result<Sample, SfzError> {
             reader.samples::<i32>().map(|s| s.unwrap_or(0) as f32 * scale).collect()
         }
     };
-    Sample::from_interleaved(spec.sample_rate, channels, &data)
+    let mut sample = Sample::from_interleaved(spec.sample_rate, channels, &data)?;
+    sample.loop_points = smpl_loop(bytes).filter(|(_, end)| usize::try_from(*end).is_ok_and(|e| e < sample.frames()));
+    Ok(sample)
+}
+
+/// The first loop of a WAV file's `smpl` chunk: start and end frames (the end is played).
+fn smpl_loop(bytes: &[u8]) -> Option<(u64, u64)> {
+    let u32_at = |b: &[u8], at: usize| b.get(at..at + 4).and_then(|x| x.try_into().ok()).map(u32::from_le_bytes);
+    if bytes.get(0..4) != Some(b"RIFF".as_slice()) || bytes.get(8..12) != Some(b"WAVE".as_slice()) {
+        return None;
+    }
+    let mut at = 12usize;
+    while let (Some(id), Some(size)) = (bytes.get(at..at + 4), u32_at(bytes, at + 4)) {
+        let size = usize::try_from(size).ok()?;
+        let body = at.checked_add(8)?;
+        if id == b"smpl" {
+            let chunk = bytes.get(body..body.checked_add(size)?.min(bytes.len()))?;
+            if u32_at(chunk, 28)? == 0 {
+                return None;
+            }
+            let (start, end) = (u32_at(chunk, 36 + 8)?, u32_at(chunk, 36 + 12)?);
+            return (end > start).then_some((u64::from(start), u64::from(end)));
+        }
+        // Chunks are padded to an even length.
+        at = body.checked_add(size)?.checked_add(size % 2)?;
+    }
+    None
+}
+
+/// OGG Vorbis through lewton (pure Rust). A decoder bug on a hostile file is turned into an error
+/// rather than taking the app down.
+fn decode_ogg(bytes: &[u8]) -> Result<Sample, SfzError> {
+    let decode = || -> Result<Sample, SfzError> {
+        let mut reader = lewton::inside_ogg::OggStreamReader::new(Cursor::new(bytes)).map_err(|e| SfzError::Decode(e.to_string()))?;
+        let channels = usize::from(reader.ident_hdr.audio_channels);
+        if !(1..=8).contains(&channels) {
+            return Err(SfzError::Decode("bad sample format".into()));
+        }
+        let rate = reader.ident_hdr.audio_sample_rate;
+        let mut data: Vec<f32> = Vec::new();
+        while let Some(packet) = reader.read_dec_packet_itl().map_err(|e| SfzError::Decode(e.to_string()))? {
+            data.extend(packet.iter().map(|s| f32::from(*s) / 32_768.0));
+            if data.len() / channels > MAX_FRAMES {
+                return Err(SfzError::Decode("sample too long".into()));
+            }
+        }
+        Sample::from_interleaved(rate, channels, &data)
+    };
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(decode)).unwrap_or_else(|_| Err(SfzError::Decode("the OGG decoder failed on this file".into())))
 }
 
 fn decode_flac(bytes: &[u8]) -> Result<Sample, SfzError> {
@@ -138,11 +191,71 @@ mod tests {
         assert!(s.right.is_none());
     }
 
+    /// `wav` with a `smpl` chunk holding one loop from `start` to `end`.
+    fn with_loop(wav: &[u8], start: u32, end: u32) -> Vec<u8> {
+        let mut smpl = vec![0u8; 36 + 24];
+        smpl[28..32].copy_from_slice(&1u32.to_le_bytes());
+        smpl[36 + 8..36 + 12].copy_from_slice(&start.to_le_bytes());
+        smpl[36 + 12..36 + 16].copy_from_slice(&end.to_le_bytes());
+        let mut out = wav.to_vec();
+        out.extend(b"smpl");
+        out.extend((smpl.len() as u32).to_le_bytes());
+        out.extend(smpl);
+        let riff = (out.len() - 8) as u32;
+        out[4..8].copy_from_slice(&riff.to_le_bytes());
+        out
+    }
+
+    #[test]
+    fn a_wav_carries_its_loop() {
+        let frames: Vec<Vec<i16>> = (0..1000).map(|i| vec![i as i16]).collect();
+        let plain = wav_bytes(44_100, 1, &frames);
+        assert_eq!(Sample::decode(&plain, "a.wav").unwrap().loop_points, None);
+        assert_eq!(Sample::decode(&with_loop(&plain, 100, 899), "a.wav").unwrap().loop_points, Some((100, 899)));
+        // A loop past the end of the audio, or backwards, is ignored; a cut-short chunk too.
+        assert_eq!(Sample::decode(&with_loop(&plain, 100, 5000), "a.wav").unwrap().loop_points, None);
+        assert_eq!(Sample::decode(&with_loop(&plain, 500, 100), "a.wav").unwrap().loop_points, None);
+        let looped = with_loop(&plain, 100, 899);
+        assert_eq!(smpl_loop(&looped[..looped.len() - 10]), None);
+        assert_eq!(smpl_loop(b"RIFF\xff\xff\xff\xffWAVEsmpl\xff\xff\xff\xff"), None);
+    }
+
+    #[test]
+    fn ogg_vorbis_decodes_and_hostile_files_are_errors() {
+        let bytes = include_bytes!("../../tests/data/sine-440.ogg");
+        let s = Sample::decode(bytes, "sine.ogg").unwrap();
+        assert_eq!((s.rate, s.right.is_none()), (22_050, true));
+        assert!((s.frames() as i64 - 11_025).abs() < 600, "{} frames", s.frames());
+        // Half a second of 440 Hz: about 220 rising zero crossings.
+        let rising = s.left.windows(2).filter(|w| w[0] < 0.0 && w[1] >= 0.0).count();
+        assert!((rising as i64 - 220).abs() <= 6, "{rising}");
+        for cut in [0, 10, 58, 200, bytes.len() / 2, bytes.len() - 1] {
+            let _ = Sample::decode(&bytes[..cut], "t.ogg");
+        }
+        // Flipped bytes anywhere: an error or a sample, never a crash.
+        let mut seed = 0x2545_f491u32;
+        for _ in 0..300 {
+            let mut b = bytes.to_vec();
+            for _ in 0..4 {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                let i = seed as usize % b.len();
+                b[i] ^= (seed >> 8) as u8 | 1;
+            }
+            if let Ok(s) = Sample::decode(&b, "f.ogg") {
+                assert!(s.frames() <= MAX_FRAMES);
+            }
+        }
+    }
+
     #[test]
     fn rejects_garbage() {
         assert!(Sample::decode(b"nope", "a.wav").is_err());
         assert!(Sample::decode(b"nope", "a.flac").is_err());
         assert!(Sample::decode(b"", "a.ogg").is_err());
+        assert!(Sample::decode(b"OggS garbage", "a.ogg").is_err());
+        assert!(Sample::decode(b"", "a.mp3").is_err());
         assert!(Sample::from_interleaved(0, 2, &[0.0]).is_err());
         assert!(Sample::from_interleaved(44_100, 0, &[0.0]).is_err());
     }

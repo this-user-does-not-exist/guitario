@@ -1,8 +1,8 @@
 # Guitario roadmap
 
-**Stage: alpha** · next: beta, ~340–685 h away · then 1.0 (full parity), ~705–1,380 h further
+**Stage: alpha** · next: beta, ~325–655 h away · then 1.0 (full parity), ~705–1,380 h further
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (articulations landed in the synth and the sound bank; beta ~340–685 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the sampler's depth landed: release samples, filters, curves, loops, OGG; beta ~325–655 h) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [roadmap](docs/roadmap.md) (stages, gates, current focus), [target-app parity](docs/target-app-parity.md)
@@ -24,8 +24,8 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | Menus | 172 of 180 live (96 %) | measured |
 | Feature breadth | **~74 %** | partly measured: weights in [target-app parity](docs/target-app-parity.md#feature-breadth-74-weighted) |
 | Readiness | **~63 %** (56–68) | estimated: weighted dimension average |
-| Remaining to **beta** | **~340–685 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
-| Remaining to **full parity** | **~1,045–2,065 h** | beta plus the 1.0 column |
+| Remaining to **beta** | **~325–655 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
+| Remaining to **full parity** | **~1,030–2,035 h** | beta plus the 1.0 column |
 
 ## Stages
 
@@ -40,7 +40,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | # | Workflow | Today | The big missing piece |
 |---|---|---|---|
 | B1 | Install and open on macOS, Windows, Linux | no | installers, signing, file associations, in-app sound bank |
-| B2 | Hear a band: articulated guitar, bass, sampled drums through an amp | partial | the sampler's depth and the libraries' own articulations; a listening pass (articulations, amp, cabinet, effects and mastering are done) |
+| B2 | Hear a band: articulated guitar, bass, sampled drums through an amp | partial | the libraries' own articulations in the bank; a listening pass (articulations, the sampler's depth, amp, cabinet, effects and mastering are done) |
 | B3 | Transcribe a solo: bends, whammy, step-grid drums, Paste Special | partial | step grid (bends, whammy and Paste Special are done) |
 | B4 | Exchange: Guitar Pro 3-8, MIDI, MusicXML | partial | a `.gp` opened in Guitar Pro 8 (human; everything else is done) |
 | B5 | Practise with the tools | partial | a tuning check with a real guitar (human); tuner, chord window and scale tool are done |
@@ -54,7 +54,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 |---|---:|---:|---:|---|
 | Editing | 20% | 70% | 15–30 | [scorecard](docs/scorecard.md#editing) |
 | Notation | 15% | 74% | 6–22 | [scorecard](docs/scorecard.md#notation-and-engraving) |
-| Playback | 15% | 57% | 90–185 | [scorecard](docs/scorecard.md#playback) |
+| Playback | 15% | 60% | 75–155 | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 10% | 70% | 10–20 | [file-format-parity](docs/file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 75–140 | [ui-parity](docs/ui-parity.md) |
 | Tools | 5% | 65% | 0 + human | [gaps G7](docs/gaps.md#g7-tools) |
@@ -73,7 +73,7 @@ Ranked for the beta gate; the reasoning and the human steps are in [docs/roadmap
 
 | Rank | Work | Gap | Beta hours |
 |---|---|---|---:|
-| 1 | Sound: sampler depth, first-run sound bank, the libraries' articulations | [G5](docs/gaps.md#g5-playback-realism) | 90–185 |
+| 1 | Sound: first-run sound bank, instrument per track, the libraries' articulations | [G5](docs/gaps.md#g5-playback-realism) | 75–155 |
 | 2 | Release workflow, installers, file associations | [G12](docs/gaps.md#g12-platforms-and-distribution) | 80–150 + human |
 | 3 | Several documents, shortcuts audit, user book | [G8](docs/gaps.md#g8-ui-depth) | 55–100 |
 | 4 | Drum step grid, headers and footers, voice picking | [G1](docs/gaps.md#g1-drums-depth), [G2](docs/gaps.md#g2-print-depth), [G4](docs/gaps.md#g4-notation-depth) | 30–70 |

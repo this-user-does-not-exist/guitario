@@ -4,9 +4,11 @@
 //! Supported: `<control> <global> <master> <group> <region>` inheritance, `#define`/`$VAR`,
 //! `#include`, `default_path`, `set_ccN`, `_onccN`/`_ccN` modulation evaluated against the CC
 //! defaults, `locc/hicc` region conditions, key and velocity ranges, `pitch_keycenter`,
-//! `tune/transpose/volume/amplitude/pan`, `offset/end`, loops, an AHDSR amplitude envelope,
-//! `group/off_by/off_mode`, `trigger`, round robin (`seq_*`, `lorand/hirand`) and the default
-//! keyswitch (`sw_*`). Anything else is ignored, never an error.
+//! `tune/transpose/volume/amplitude/pan`, `offset/end`, loops and `loop_crossfade`, an AHDSR
+//! amplitude envelope, `amp_velcurve_N`, filters (`fil_type`, `cutoff`, `resonance`, key and
+//! velocity tracking, the `fileg_*` envelope), `group/off_by/off_mode`, `trigger` (attack, release
+//! with `rt_decay`, first, legato), round robin (`seq_*`, `lorand/hirand`) and keyswitches (`sw_*`).
+//! Anything else is ignored, never an error.
 
 use std::collections::HashMap;
 
@@ -21,6 +23,55 @@ pub enum LoopMode {
     OneShot,
     LoopContinuous,
     LoopSustain,
+}
+
+/// When a region sounds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Trigger {
+    /// At note-on.
+    Attack,
+    /// At note-off: string and fret noises after a note.
+    Release,
+    /// At note-on when no other note of the instrument is held.
+    First,
+    /// At note-on while another note is held: legato samples.
+    Legato,
+}
+
+/// A filter's response.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FilterKind {
+    LowPass1,
+    HighPass1,
+    /// Two-pole low-pass and high-pass, `stages` of them in a row (two for `lpf_4p`, three for `_6p`).
+    LowPass {
+        stages: u8,
+    },
+    HighPass {
+        stages: u8,
+    },
+    BandPass,
+    BandReject,
+}
+
+/// A region's filter: its response, cutoff and how it moves with the key, the velocity and its
+/// own envelope.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Filter {
+    pub kind: FilterKind,
+    /// Hz, with any CC modulation (in cents) applied at the CC defaults.
+    pub cutoff: f32,
+    /// Resonance in dB (0 to 40) at the cutoff.
+    pub resonance: f32,
+    /// Cents per key away from `keycenter`.
+    pub keytrack: f32,
+    pub keycenter: u8,
+    /// Cents at full velocity.
+    pub veltrack: f32,
+    /// The filter envelope: delay, attack, hold, decay, release in seconds, sustain 0..1, and its depth in cents.
+    pub eg: [f32; 5],
+    pub eg_sustain: f32,
+    pub eg_depth: f32,
 }
 
 /// One playable zone, fully resolved (inheritance and CC modulation already applied).
@@ -46,7 +97,8 @@ pub struct Region {
     pub veltrack: f32,
     pub offset: u64,
     pub end: Option<u64>,
-    pub loop_mode: LoopMode,
+    /// `None` when the file does not say: a sample with its own loop then loops.
+    pub loop_mode: Option<LoopMode>,
     pub loop_start: Option<u64>,
     pub loop_end: Option<u64>,
     pub delay: f32,
@@ -58,6 +110,14 @@ pub struct Region {
     pub group: u32,
     pub off_by: u32,
     pub off_fast: bool,
+    pub trigger: Trigger,
+    /// How much quieter a release sample is for each second the note was held, in dB.
+    pub rt_decay: f32,
+    /// Seconds the end of a loop is crossfaded into its start.
+    pub loop_crossfade: f32,
+    /// `amp_velcurve_N` points (velocity, gain 0..1), sorted; empty: `amp_veltrack` decides.
+    pub velcurve: Vec<(u8, f32)>,
+    pub filter: Option<Filter>,
 }
 
 #[derive(Debug, Default)]
@@ -319,9 +379,12 @@ fn build_region(map: &Opcodes, cc: &[f32; 128], default_path: &str, key_offset: 
     if sample.is_empty() || sample.starts_with('*') {
         return None; // generators are not supported
     }
-    if matches!(map.get("trigger").map(String::as_str), Some("release" | "release_key")) {
-        return None;
-    }
+    let trigger = match map.get("trigger").map(String::as_str) {
+        Some("release" | "release_key") => Trigger::Release,
+        Some("first") => Trigger::First,
+        Some("legato") => Trigger::Legato,
+        _ => Trigger::Attack,
+    };
     if !cc_ok(map, cc) {
         return None;
     }
@@ -336,10 +399,11 @@ fn build_region(map: &Opcodes, cc: &[f32; 128], default_path: &str, key_offset: 
     }
     let sample = format!("{}{}", default_path, sample.replace('\\', "/"));
     let loop_mode = match map.get("loop_mode").or_else(|| map.get("loopmode")).map(String::as_str) {
-        Some("one_shot") => LoopMode::OneShot,
-        Some("loop_continuous") => LoopMode::LoopContinuous,
-        Some("loop_sustain") => LoopMode::LoopSustain,
-        _ => LoopMode::NoLoop,
+        Some("one_shot") => Some(LoopMode::OneShot),
+        Some("loop_continuous") => Some(LoopMode::LoopContinuous),
+        Some("loop_sustain") => Some(LoopMode::LoopSustain),
+        Some("no_loop") => Some(LoopMode::NoLoop),
+        _ => None,
     };
     let to_u64 = |x: f32| if x >= 0.0 { x as u64 } else { 0 };
     let amplitude = modulated(map, "amplitude", 100.0, cc).clamp(0.0, 400.0) / 100.0;
@@ -376,6 +440,65 @@ fn build_region(map: &Opcodes, cc: &[f32; 128], default_path: &str, key_offset: 
         group: num(map, "group").map_or(0, |x| x.max(0.0) as u32),
         off_by: num(map, "off_by").map_or(0, |x| x.max(0.0) as u32),
         off_fast: map.get("off_mode").is_some_and(|m| m == "fast"),
+        trigger,
+        rt_decay: num(map, "rt_decay").unwrap_or(0.0).clamp(0.0, 200.0),
+        loop_crossfade: num(map, "loop_crossfade").unwrap_or(0.0).clamp(0.0, 10.0),
+        velcurve: velcurve(map),
+        filter: filter(map, cc),
+    })
+}
+
+/// The `amp_velcurve_N` points, sorted by velocity, with the ends SFZ assumes (0 at velocity 0,
+/// 1 at 127) where the file gives none. Empty when it gives no point at all.
+fn velcurve(map: &Opcodes) -> Vec<(u8, f32)> {
+    let mut points: Vec<(u8, f32)> = map
+        .iter()
+        .filter_map(|(k, v)| {
+            let vel = k.strip_prefix("amp_velcurve_")?.parse::<u8>().ok().filter(|v| *v <= 127)?;
+            Some((vel, v.parse::<f32>().ok().filter(|g| g.is_finite())?.clamp(0.0, 1.0)))
+        })
+        .collect();
+    if points.is_empty() {
+        return points;
+    }
+    points.sort_by_key(|p| p.0);
+    points.dedup_by_key(|p| p.0);
+    if points.first().is_some_and(|p| p.0 > 0) {
+        points.insert(0, (0, 0.0));
+    }
+    if points.last().is_some_and(|p| p.0 < 127) {
+        points.push((127, 1.0));
+    }
+    points
+}
+
+/// The region's filter, if it has a cutoff. Cutoff modulation (`cutoff_onccN`) is in cents.
+fn filter(map: &Opcodes, cc: &[f32; 128]) -> Option<Filter> {
+    let base = num(map, "cutoff").filter(|c| *c > 0.0)?;
+    let cents = modulated(map, "cutoff", 0.0, cc) - num(map, "cutoff").unwrap_or(0.0);
+    let kind = match map.get("fil_type").or_else(|| map.get("filtype")).map(String::as_str) {
+        Some("lpf_1p") => FilterKind::LowPass1,
+        Some("hpf_1p") => FilterKind::HighPass1,
+        Some("hpf_2p" | "hpf_2p_sv") => FilterKind::HighPass { stages: 1 },
+        Some("hpf_4p") => FilterKind::HighPass { stages: 2 },
+        Some("hpf_6p") => FilterKind::HighPass { stages: 3 },
+        Some("lpf_4p") => FilterKind::LowPass { stages: 2 },
+        Some("lpf_6p") => FilterKind::LowPass { stages: 3 },
+        Some("bpf_1p" | "bpf_2p" | "bpf_2p_sv") => FilterKind::BandPass,
+        Some("brf_1p" | "brf_2p" | "brf_2p_sv") => FilterKind::BandReject,
+        _ => FilterKind::LowPass { stages: 1 },
+    };
+    let secs = |name: &str| modulated(map, name, 0.0, cc).clamp(0.0, 20.0);
+    Some(Filter {
+        kind,
+        cutoff: (base * 2f32.powf(cents / 1200.0)).clamp(10.0, 40_000.0),
+        resonance: modulated(map, "resonance", 0.0, cc).clamp(0.0, 40.0),
+        keytrack: num(map, "fil_keytrack").unwrap_or(0.0).clamp(0.0, 1200.0),
+        keycenter: key_of(map, "fil_keycenter").unwrap_or(60),
+        veltrack: num(map, "fil_veltrack").unwrap_or(0.0).clamp(-9600.0, 9600.0),
+        eg: [secs("fileg_delay"), secs("fileg_attack"), secs("fileg_hold"), secs("fileg_decay"), secs("fileg_release")],
+        eg_sustain: (modulated(map, "fileg_sustain", 0.0, cc) / 100.0).clamp(0.0, 1.0),
+        eg_depth: modulated(map, "fileg_depth", 0.0, cc).clamp(-12_000.0, 12_000.0),
     })
 }
 
@@ -553,16 +676,35 @@ mod tests {
     #[test]
     fn keyswitch_default_and_release_triggers_and_generators() {
         let r = p(
-            "<global> sw_default=c2 sw_lokey=c2 sw_hikey=d2\n<region> sample=a.wav key=60 sw_last=c2\n<region> sample=b.wav key=60 sw_last=d2\n<region> sample=r.wav key=60 trigger=release\n<region> sample=*sine key=61",
+            "<global> sw_default=c2 sw_lokey=c2 sw_hikey=d2\n<region> sample=a.wav key=60 sw_last=c2\n<region> sample=b.wav key=60 sw_last=d2\n<region> sample=r.wav key=60 trigger=release rt_decay=6\n<region> sample=f.wav key=60 trigger=first\n<region> sample=l.wav key=60 trigger=legato\n<region> sample=*sine key=61",
         );
-        assert_eq!(r.regions.len(), 1);
-        assert_eq!(r.regions[0].sample, "a.wav");
+        let kept: Vec<(&str, Trigger)> = r.regions.iter().map(|r| (r.sample.as_str(), r.trigger)).collect();
+        assert_eq!(kept, [("a.wav", Trigger::Attack), ("r.wav", Trigger::Release), ("f.wav", Trigger::First), ("l.wav", Trigger::Legato)]);
+        assert_eq!(r.regions[1].rt_decay, 6.0);
         // Another switch picks the other articulation; regions without a switch stay.
         let text = "<global> sw_default=c2\n<region> sample=a.wav key=60 sw_last=c2\n<region> sample=b.wav key=60 sw_last=d2\n<region> sample=n.wav key=40";
         let names = |switch| parse_switched(text, &mut |_| None, switch).regions.into_iter().map(|r| r.sample).collect::<Vec<_>>();
         assert_eq!(names(parse_key("d2")), ["b.wav", "n.wav"]);
         assert_eq!(names(None), ["a.wav", "n.wav"]);
         assert_eq!(names(Some(0)), ["n.wav"], "a switch nothing uses keeps only the unswitched regions");
+    }
+
+    #[test]
+    fn filters_velocity_curves_and_loop_options() {
+        let r = p(
+            "<control> set_cc74=127\n<region> sample=a.wav key=60 cutoff=1000 cutoff_oncc74=1200 resonance=6 fil_type=hpf_4p fil_keytrack=100 fil_keycenter=c4 fil_veltrack=2400 fileg_attack=0.1 fileg_sustain=50 fileg_depth=-600 amp_velcurve_64=0.2 amp_velcurve_100=0.9 loop_crossfade=0.01\n<region> sample=b.wav key=61 loop_mode=no_loop\n<region> sample=c.wav key=62 fil_type=lpf_2p",
+        );
+        let a = &r.regions[0];
+        let f = a.filter.expect("a filter");
+        assert_eq!(f.kind, FilterKind::HighPass { stages: 2 });
+        assert!((f.cutoff - 2000.0).abs() < 1.0, "1200 cents up at full CC 74: {}", f.cutoff);
+        assert_eq!((f.resonance, f.keytrack, f.keycenter, f.veltrack, f.eg_sustain, f.eg_depth), (6.0, 100.0, 60, 2400.0, 0.5, -600.0));
+        assert_eq!(f.eg[1], 0.1);
+        assert_eq!(a.velcurve, vec![(0, 0.0), (64, 0.2), (100, 0.9), (127, 1.0)]);
+        assert_eq!((a.loop_mode, a.loop_crossfade), (None, 0.01));
+        assert_eq!(r.regions[1].loop_mode, Some(LoopMode::NoLoop));
+        assert!(r.regions[1].filter.is_none() && r.regions[1].velcurve.is_empty());
+        assert!(r.regions[2].filter.is_none(), "a filter type without a cutoff does nothing");
     }
 
     #[test]
@@ -583,6 +725,8 @@ mod tests {
             "/*",
             "//",
             "<region> sample=a.wav pan=NaN volume=inf tune=1e99 offset=-5 end=-1",
+            "<region> sample=a.wav cutoff=1e30 cutoff_oncc1=1e30 resonance=NaN fileg_depth=inf fil_keycenter=zz amp_velcurve_999=5 amp_velcurve_5=NaN loop_crossfade=-1 rt_decay=1e9",
+            "<region> sample=a.wav cutoff=-5 amp_velcurve_0=2",
         ] {
             let _ = p(t);
         }

@@ -9,6 +9,7 @@ same change that adds an asset, and keep the licence file next to the asset.
 | `docs/images/guitario-*.png` | Screenshots of the demo scores | Guitario contributors (offscreen renders of original scores) | `crates/ui-egui/examples/snapshot.rs` | MIT OR Apache-2.0 |
 | `assets/app-icon/` (all files) | Guitario app icon (headstock and treble clef in a pick) | The project owner (drawing, vectorised with potrace) | Original work, see [`assets/app-icon/README.md`](assets/app-icon/README.md) | MIT OR Apache-2.0, [`assets/app-icon/LICENSE.txt`](assets/app-icon/LICENSE.txt) |
 | `demos/guitar-pro/import-test.gp` | Guitar Pro import fixture | Guitario contributors | `crates/gp/examples/fixture.rs` | MIT OR Apache-2.0 |
+| `crates/playback/tests/data/sine-440.ogg` | OGG Vorbis decoder fixture (half a second of a 440 Hz sine) | Guitario contributors (synthesised, encoded with oggenc) | `crates/playback/src/sfz/sample.rs` tests | MIT OR Apache-2.0 |
 
 ## Used at run time, not bundled
 

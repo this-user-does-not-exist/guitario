@@ -200,6 +200,21 @@ struct TrackBus {
     wide: bool,
 }
 
+/// A note on a sampled instrument with release samples (`trigger=release`): they start when it
+/// ends, quieter the longer it was held.
+struct PendingRelease {
+    at: f64,
+    held_from: f64,
+    track: usize,
+    string: u8,
+    key: u8,
+    velocity: f32,
+    instrument: Arc<Instrument>,
+}
+
+/// The string a release sample is filed under: none, so a new note on its string does not cut it.
+const NO_STRING: u8 = u8::MAX;
+
 const MAX_VOICES: usize = 96;
 /// Sampled kits layer several microphones per hit, so they get a bigger pool.
 const MAX_SAMPLE_VOICES: usize = 256;
@@ -218,6 +233,8 @@ pub struct Player {
     /// articulation without one of its own; a track without it uses the built-in synth.
     instruments: Vec<[Option<Arc<Instrument>>; Articulation::COUNT]>,
     sampled: Vec<SampleVoice>,
+    /// Release samples waiting for their notes to end.
+    releases: Vec<PendingRelease>,
     sample_acc: Vec<(f32, f32)>,
     /// Note counter per track, for round-robin sample selection.
     seq: Vec<u32>,
@@ -449,6 +466,7 @@ impl Player {
             drums: Vec::new(),
             instruments: (0..score.tracks.len()).map(|_| Default::default()).collect(),
             sampled: Vec::new(),
+            releases: Vec::new(),
             sample_acc: vec![(0.0, 0.0); score.tracks.len()],
             seq: vec![0; score.tracks.len()],
             drum_track,
@@ -610,6 +628,7 @@ impl Player {
         self.voices.clear();
         self.drums.clear();
         self.sampled.clear();
+        self.releases.clear();
         self.active_clicks.clear();
         self.count_in_clicks.clear();
         self.count_in_end = sec;
@@ -670,6 +689,7 @@ impl Player {
         for v in &mut self.sampled {
             v.release();
         }
+        self.releases.clear();
     }
 
     fn start_drum(&mut self, n: &NoteEvent) {
@@ -691,8 +711,13 @@ impl Player {
         let own = self.instrument(n.track, art).cloned();
         let Some(inst) = own.clone().or_else(|| self.instrument(n.track, Articulation::Sustain).cloned()) else { return };
         // Without legato samples, a hammer-on, pull-off or legato slide moves the sample already
-        // sounding on the string to the new pitch, with no new attack.
-        if art == Articulation::Legato && own.is_none() {
+        // sounding on the string to the new pitch, with no new attack (and the finger lifts at the
+        // end of this note, not the one before).
+        if art == Articulation::Legato && own.is_none() && !inst.has_legato() {
+            let moved_from = self.releases.iter().position(|r| r.track == n.track && r.string == n.string && r.at >= n.start - 1e-9);
+            if let Some(r) = moved_from.and_then(|i| self.releases.get_mut(i)) {
+                (r.at, r.key) = (n.end, n.key);
+            }
             let mut moved = false;
             for v in self.sampled.iter_mut().filter(|v| v.track == n.track && v.string == n.string && !v.released) {
                 v.legato_to(n.pitch);
@@ -722,11 +747,13 @@ impl Player {
             _ => 1.0,
         };
         let velocity = (n.velocity * soft).clamp(0.0, 1.0);
-        // A string sounds one note at a time: a new note stops the one ringing there.
+        // A string sounds one note at a time: a new note stops the one ringing there, and the
+        // release noise of one struck again before its end.
         if !drum && self.buses.get(n.track).is_none_or(|b| b.stringed) {
             for v in self.sampled.iter_mut().filter(|v| v.track == n.track && v.string == n.string && !v.finished()) {
                 v.damp();
             }
+            self.releases.retain(|r| r.track != n.track || r.string != n.string || r.at <= n.start + 1e-9);
         }
         let damped = borrowed && (n.palm_mute || n.dead);
         // A heavier palm mute cuts the sample sooner.
@@ -735,7 +762,7 @@ impl Player {
         // A semi-harmonic sounds the plain note under the partial.
         let under = n.partial > 1 && n.fundamental >= 0.5 && !drum;
         let plain = self.instrument(n.track, Articulation::Sustain).cloned().unwrap_or_else(|| Arc::clone(&inst));
-        let keys = [Some((n.key, velocity, inst)), under.then_some((n.midi, velocity * n.fundamental, plain))];
+        let keys = [Some((n.key, velocity, Arc::clone(&inst))), under.then_some((n.midi, velocity * n.fundamental, plain))];
         let mut voices = Vec::new();
         for (key, velocity, inst) in keys.into_iter().flatten() {
             let counter = self.seq.get_mut(n.track).map_or(0, |c| {
@@ -743,7 +770,7 @@ impl Player {
                 *c
             });
             let rand = (self.noise.next() + 1.0) * 0.5;
-            let hits = inst.select(key, (velocity * 127.0).round() as u8, counter, rand);
+            let hits = inst.select(key, (velocity * 127.0).round() as u8, counter, rand, n.legato_from_prev);
             // A sound with a group chokes the sounds it is `off_by`.
             for h in &hits {
                 if h.region.group != 0 {
@@ -772,6 +799,38 @@ impl Player {
                 self.sampled.remove(0);
             }
             self.sampled.push(v);
+        }
+        // Lifting the finger at the end makes the instrument's release noise; a let-ring note
+        // rings on instead.
+        if inst.has_release() && !n.let_ring {
+            self.releases.push(PendingRelease { at: end, held_from: n.start, track: n.track, string: n.string, key: n.key, velocity, instrument: inst });
+        }
+    }
+
+    /// Starts the release samples of the notes that have ended by now.
+    fn start_releases(&mut self) {
+        let t = self.t;
+        let mut due = Vec::new();
+        self.releases.retain(|r| {
+            let now = r.at <= t;
+            if now {
+                due.push((r.track, r.key, r.velocity, (t - r.held_from).max(0.0) as f32, Arc::clone(&r.instrument)));
+            }
+            !now
+        });
+        let ratio = self.opts.pitch_ratio();
+        for (track, key, velocity, held, inst) in due {
+            let counter = self.seq.get(track).copied().unwrap_or(0);
+            let rand = (self.noise.next() + 1.0) * 0.5;
+            for h in inst.select_release(key, (velocity * 127.0).round() as u8, counter, rand) {
+                let mut v = SampleVoice::new(track, NO_STRING, h.region, h.sample, key, velocity, self.sr);
+                v.repitch(ratio);
+                v.attenuate(h.region.rt_decay * held);
+                if self.sampled.len() >= MAX_SAMPLE_VOICES {
+                    self.sampled.remove(0);
+                }
+                self.sampled.push(v);
+            }
         }
     }
 
@@ -907,6 +966,9 @@ impl Player {
                     while let Some(n) = self.notes.get(self.next_note).filter(|n| n.start <= self.t).cloned() {
                         self.start_note(&n);
                         self.next_note += 1;
+                    }
+                    if !self.releases.is_empty() {
+                        self.start_releases();
                     }
                     while let Some(&(at, accent)) = self.clicks.get(self.next_click) {
                         if at > self.t {
@@ -1194,6 +1256,7 @@ mod tests {
             rate,
             left: (0..rate as usize * 3).map(|n| (n as f32 / rate as f32 * hz * std::f32::consts::TAU).sin() * 0.8).collect(),
             right: None,
+            loop_points: None,
         };
         let load = |name: &str| Ok(tone(if name.starts_with("lo") { 110.0 } else { 440.0 }));
         Arc::new(Instrument::build("test", sfz, &mut |_| None, &load, None).unwrap())
@@ -1708,6 +1771,57 @@ mod tests {
         pitches.sort_by(f32::total_cmp);
         assert_eq!(pitches, vec![69.0, 93.0]);
         assert_eq!(used_keys(&s, 0), vec![69, 93]);
+    }
+
+    #[test]
+    fn release_samples_start_when_a_note_ends_and_fade_with_how_long_it_was_held() {
+        // A 440 Hz attack that stops at once when let go, and a 110 Hz release noise losing 20 dB
+        // a second the note was held.
+        let sfz = "<region> sample=hi.wav lokey=0 hikey=127 pitch_keycenter=69 ampeg_release=0.005\n<region> sample=lo.wav lokey=0 hikey=127 pitch_keycenter=69 trigger=release rt_decay=20";
+        let noise_after = |value: guitario_theory::NoteValue, ring: bool| {
+            let mut s = note_score(0, 5, |n| n.effects.let_ring = ring);
+            s.tracks[0].measures[0].voices[0].beats[0].duration = Duration::new(value);
+            let mut p = Player::new(&s, 48_000, Options::default());
+            p.set_instrument(0, Some(test_instrument(sfz, 48_000)));
+            p.play_from(0.0);
+            let note = 2.0 / f64::from(value.divisor());
+            let mut before = vec![0.0f32; (48_000.0 * note) as usize];
+            p.render(&mut before, 1);
+            let mut after = vec![0.0f32; 9600];
+            p.render(&mut after, 1);
+            let noises = p.sampled.iter().filter(|v| v.string == NO_STRING).count();
+            (noises, rms(&after[4800..]), pitch_hz(&after[2400..], 48_000.0))
+        };
+        let (n, quarter, hz) = noise_after(guitario_theory::NoteValue::Quarter, false);
+        assert!(n == 1 && (hz / 110.0 - 1.0).abs() < 0.02, "one release noise at the note's key (A4, the sample's root): {n}, {hz} Hz");
+        let (_, whole, _) = noise_after(guitario_theory::NoteValue::Whole, false);
+        assert!(whole < 0.1 * quarter, "held 2 s instead of 0.5 s: 30 dB quieter ({whole} vs {quarter})");
+        assert_eq!(noise_after(guitario_theory::NoteValue::Quarter, true).0, 0, "a let-ring note rings on");
+        // Stop forgets the noises still to come.
+        let s = note_score(0, 5, |_| {});
+        let mut p = Player::new(&s, 48_000, Options::default());
+        p.set_instrument(0, Some(test_instrument(sfz, 48_000)));
+        p.play_from(0.0);
+        p.render(&mut [0.0f32; 480], 1);
+        assert_eq!(p.releases.len(), 1);
+        p.stop();
+        assert!(p.releases.is_empty());
+    }
+
+    #[test]
+    fn a_library_s_own_legato_samples_play_hammer_ons() {
+        // The attack is a 440 Hz recording, the legato one 110 Hz, both rooted at A4.
+        let sfz = "<region> sample=hi.wav lokey=0 hikey=127 pitch_keycenter=69\n<region> sample=lo.wav lokey=0 hikey=127 pitch_keycenter=69 trigger=legato";
+        let s = pair(5, 7, |n| n.effects.hammer = true);
+        let mut p = Player::new(&s, 48_000, Options::default());
+        p.set_instrument(0, Some(test_instrument(sfz, 48_000)));
+        p.play_from(0.0);
+        let mut buf = vec![0.0f32; 36_000];
+        p.render(&mut buf, 1);
+        let first = pitch_hz(&buf[4800..14_400], 48_000.0);
+        let second = pitch_hz(&buf[26_400..36_000], 48_000.0);
+        assert!((first / 440.0 - 1.0).abs() < 0.012, "the first note from the attack sample: {first}");
+        assert!((second / 123.5 - 1.0).abs() < 0.012, "the hammer-on from the legato sample: {second}");
     }
 
     #[test]
