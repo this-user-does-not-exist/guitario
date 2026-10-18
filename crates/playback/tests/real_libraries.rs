@@ -79,6 +79,7 @@ fn renders_with_a_real_instrument() {
     let keys = used_keys(&s, 0);
     let t0 = std::time::Instant::now();
     let inst = Instrument::load(Path::new(&file), Some(&keys)).expect("instrument loads");
+    let releases = inst.has_release();
     println!("loaded {} regions for keys {keys:?} in {:?}; warnings {:?}", inst.region_count(), t0.elapsed(), inst.warnings.iter().take(3).collect::<Vec<_>>());
     let mut p = Player::new(&s, 44_100, Options::default());
     p.set_instrument(0, Some(Arc::new(inst)));
@@ -87,8 +88,14 @@ fn renders_with_a_real_instrument() {
     p.render(&mut out, 2);
     let rms = (out.iter().map(|x| x * x).sum::<f32>() / out.len() as f32).sqrt();
     let peak = out.iter().fold(0.0f32, |a, x| a.max(x.abs()));
-    println!("rms {rms:.4} peak {peak:.3}");
+    // The riff ends at 1.5 s: a program with release samples makes its noise after that.
+    let tail = out.get(44_100 * 2 * 3 / 2 + 2 * 2205..44_100 * 2 * 19 / 10).unwrap_or_default();
+    let tail_rms = (tail.iter().map(|x| x * x).sum::<f32>() / tail.len().max(1) as f32).sqrt();
+    println!("rms {rms:.4} peak {peak:.3}; release samples {releases}, tail rms {tail_rms:.5}");
     assert!(rms > 0.005 && peak <= 1.0 && out.iter().all(|x| x.is_finite()));
+    if releases {
+        assert!(tail_rms > 1e-4, "the program still sounds after the last note");
+    }
     if let Ok(path) = std::env::var("GUITARIO_SFZ_OUT") {
         std::fs::write(path, wav_bytes(&out, 44_100)).expect("write wav");
     }

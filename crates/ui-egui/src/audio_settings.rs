@@ -40,7 +40,7 @@ impl GuitarioApp {
             return;
         }
         let playing_on = self.audio.as_ref().map(|a| a.device.clone());
-        let (mut ok, mut cancel) = (false, false);
+        let (mut ok, mut cancel, mut bank) = (false, false, false);
         let d = &mut self.audio_dialog;
         egui::Modal::new(egui::Id::new("audio-settings")).show(ctx, |ui| {
             ui.set_width(380.0);
@@ -80,6 +80,9 @@ impl GuitarioApp {
                 if ui.button("OK").clicked() {
                     ok = true;
                 }
+                if ui.button("Sound Bank…").on_hover_text("The recorded instruments and their libraries").clicked() {
+                    bank = true;
+                }
                 if ui.button("Cancel").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                     cancel = true;
                 }
@@ -90,6 +93,9 @@ impl GuitarioApp {
             self.apply_audio_settings(choice);
         } else if cancel {
             self.audio_dialog.open = false;
+        } else if bank {
+            self.audio_dialog.open = false;
+            self.open_sound_bank();
         }
     }
 }

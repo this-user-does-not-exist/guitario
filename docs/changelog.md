@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: the sampler's depth) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: the sound bank in the app) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -251,6 +251,30 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   gains, a ramp's loop seam drops from 0.8 to under 0.02 with a 2 ms crossfade, release noises at
   their key and 30 dB quieter after a note held 1.5 s longer. Not yet: streaming from disk, LFOs,
   EQ and pitch-envelope opcodes, `<curve>` headers.
+- **Landed 2026-10-18:** the sound bank in the app (#113, #114, #275). One installer
+  (`crates/playback/src/install.rs`) serves the app, the engine and `cargo xtask sounds`: it
+  downloads with `curl` (resuming a download that stopped, starting afresh when the address
+  changed), unpacks zip and 7z archives in Rust (`zip`, and `sevenz-rust2` with its pure-Rust
+  bzip2 and deflate), clones the drum kit with `git` or downloads GitHub's zip of it, writes each
+  library's licence and credit beside it, and merges `bank.json` so a user's own entries stay.
+  The **Sound Bank** window (Sound › Audio Settings… › Sound Bank…, and the inspector's Bank row)
+  shows the folder, what plays each kind of track, each library with its licence, size and an
+  Install button, Install All with progress and Cancel, and the credits the installed libraries
+  need; installing runs on a worker thread and the bank is reopened when it ends. At first start
+  without a bank, the desktop app offers to download them (Download, Not Now, Don't Ask Again,
+  remembered in the preferences). A track can name its instrument (`Track::bank`, saved in the
+  score and left out while unset): a role or an `.sfz` file, chosen from the inspector's new Bank
+  row or with `track.setBank`; a role the bank lacks or a missing file plays the synth and says so.
+  `sound.bank` reports the bank (folder, roles, libraries, credits) and `sound.installLibraries`
+  installs named libraries for agents and scripts. The bass now plays Growlybass's `dirty` program,
+  sustain with release noises; of the four libraries it is the only one that records more than
+  sustain. Checked by installing three libraries for real (Growlybass's zip, both FreePats 7z,
+  which needed the bzip2 and deflate codecs), by file:// installs in the tests (zip, 7z, a
+  resumed download, stale and broken archives, cancel), and by renders of the window, the offer
+  and the inspector. Computing what a score needs from the bank once per Play and finding legato
+  notes in timeline order made handing instruments to the player 2.9 ms (was 12.3) and the check
+  after an edit 3.0 ms on a 400-bar score. Not yet: the drum kit's download from inside this
+  build's sandbox (GitHub's repository archives were not reachable), a memory budget.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

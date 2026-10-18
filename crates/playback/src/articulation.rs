@@ -75,6 +75,20 @@ pub fn legato_flags(played: &mut [PlayedBeat]) -> Vec<bool> {
     flags
 }
 
+/// [`legato_flags`] for `played` in the timeline's own order (by time), without sorting it: each
+/// note is checked against the last one seen on its string.
+pub fn legato_in_order(played: &[PlayedBeat]) -> Vec<bool> {
+    let mut last: std::collections::HashMap<(usize, u8), usize> = std::collections::HashMap::new();
+    played
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let prev = last.insert((p.track, p.string), i).and_then(|j| played.get(j));
+            prev.is_some_and(|q| q.start_tick + u64::from(q.ticks) == p.start_tick && flows_into(q, p))
+        })
+        .collect()
+}
+
 /// The key a note plays on a sampled instrument: the drum number, the pitch heard (a harmonic's
 /// partial), or for a dead note the open string's pitch. None for a note without one.
 pub fn sample_key(score: &Score, note: &PlayedBeat) -> Option<u8> {
@@ -93,8 +107,8 @@ pub fn sample_key(score: &Score, note: &PlayedBeat) -> Option<u8> {
 /// timeline: `[track][articulation]`.
 pub fn used_keys_by_articulation(score: &Score) -> Vec<[Vec<u8>; Articulation::COUNT]> {
     let mut keys: Vec<[Vec<u8>; Articulation::COUNT]> = (0..score.tracks.len()).map(|_| Default::default()).collect();
-    let mut played = guitario_score::timeline(score);
-    let legato = legato_flags(&mut played);
+    let played = guitario_score::timeline(score);
+    let legato = legato_in_order(&played);
     for (p, l) in played.iter().zip(legato) {
         let (Some(key), Some(slots), Some(track)) = (sample_key(score, p), keys.get_mut(p.track), score.tracks.get(p.track)) else { continue };
         // A drum kit plays every hit from its one program.
@@ -142,6 +156,7 @@ mod tests {
             fx(12, &|_| {}),
         ]);
         let mut played = guitario_score::timeline(&s);
+        assert_eq!(legato_in_order(&played), vec![false, true, false, true]);
         assert_eq!(legato_flags(&mut played), vec![false, true, false, true]);
         let mut tapped = beats(vec![Note::new(0, 5), fx(12, &|n| n.effects.tapped = true)]);
         let mut played = guitario_score::timeline(&tapped);

@@ -25,7 +25,7 @@ fn main() -> eframe::Result {
         Box::new(move |cc| {
             // Preferences, recent files, autosave and crash recovery all live behind the store.
             let (store, report) = GuitarioApp::open_settings();
-            let mut app = GuitarioApp::new(session, startup_error).with_default_sounds().with_settings(store, &report);
+            let mut app = GuitarioApp::new(session, startup_error).with_default_sounds().with_settings(store, &report).with_sound_offer();
             app.setup(&cc.egui_ctx);
             // Without a file to open, Guitario starts on its Homepage, as Guitar Pro does.
             if file.is_none() {

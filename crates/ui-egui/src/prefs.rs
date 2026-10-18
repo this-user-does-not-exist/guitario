@@ -14,6 +14,15 @@ pub struct Prefs {
     pub playback: PlaybackPrefs,
     pub files: FilePrefs,
     pub ui: UiPrefs,
+    pub sounds: SoundPrefs,
+}
+
+/// The sampled sound bank.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, Default)]
+#[serde(default)]
+pub struct SoundPrefs {
+    /// "Don't Ask Again" on the first-run offer to download the libraries.
+    pub offer_declined: bool,
 }
 
 /// File › Preferences…: how the app looks.

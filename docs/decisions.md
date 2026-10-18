@@ -316,3 +316,25 @@ Pro's manual defines them; before, both flowed on. Natural harmonics are looked 
 ninth partial within about a third of a fret, because the model stores whole frets (Guitar Pro's
 2.4, 3.2 and 5.8 cannot be written); a fret without a node plays the plain note.
 
+
+## 2026-10-18: The app downloads sound libraries with curl and unpacks them itself
+
+Guitar Pro's installer offers its sound banks; Guitario's are open libraries hosted by their
+authors (GitHub releases, a git repository), about 0.9 GB. The app, the engine's
+`sound.installLibraries` and `cargo xtask sounds` share one installer (`crates/playback/src/install.rs`).
+It downloads with `curl` rather than an HTTP and TLS stack in the app: curl ships with macOS,
+Windows 10 and later and Linux desktops, follows redirects, resumes a broken download (`-C -`) and
+uses the system's certificates, and the app gains no network code of its own. Unpacking is done in
+Rust (the `zip` crate already in the tree, `sevenz-rust2` with its pure-Rust bzip2 for FreePats'
+7z archives), because `unzip` is missing on some systems and GNU tar cannot read 7z. Both reject
+entries that would land outside the library's folder. The drum kit is a git repository: cloned
+with `git` when it is installed, else downloaded as GitHub's zip of it.
+
+An install writes into `<id>.partial` and renames it only when the program is found, then marks
+it complete, so a failed or cancelled install never looks installed; the archive stays (with the
+address it came from) to carry on next time, and is dropped once unpacked or when it cannot be.
+`bank.json` is merged, not rewritten: the installer fills a role that is empty or already points
+into its library, and leaves a user's own entries (another library, articulation programs). A
+track can name its instrument (`Track::bank`): a role, or an `.sfz` file, absolute or relative to
+the bank's folder so a score and a bank can move together. The first-run offer is armed by the
+desktop app only, so tests and offscreen renders never see it.

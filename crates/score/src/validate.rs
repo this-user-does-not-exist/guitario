@@ -93,6 +93,9 @@ impl crate::Score {
             return Err(sound(format!("its equalizer is a {}", track.eq.kind.label())));
         }
         track.eq.check().map_err(sound)?;
+        if track.bank.as_ref().is_some_and(|b| b.trim().is_empty() || b.len() > crate::MAX_BANK_NAME || b.contains('\0')) {
+            return Err(sound(format!("its sound bank name is empty, has a NUL or is longer than {} bytes", crate::MAX_BANK_NAME)));
+        }
         if track.lyrics.len() > crate::MAX_LYRIC_LINES {
             return Err(ScoreError::Track { track: ti, what: format!("has {} lines of lyrics; at most {}", track.lyrics.len(), crate::MAX_LYRIC_LINES) });
         }

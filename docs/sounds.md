@@ -7,22 +7,37 @@ plays which instrument).
 
 ## Install the recommended libraries
 
+**From the app:** the first time Guitario starts without a sound bank it offers to download the
+libraries (Download, Not Now, Don't Ask Again). Any time later, open the **Sound Bank** window
+(Sound › Audio Settings… › Sound Bank…, or the Bank row of the track inspector's Sounds › Sound
+Bank…): it shows the folder, what plays each kind of track, each library with its licence and size
+and an Install button, Install All, progress while downloading (Cancel keeps what came; the next
+attempt carries on from there), and the credits the installed libraries' licences ask for. Playback
+never waits on it: a track the bank does not cover plays the built-in synthesiser.
+
+**From a terminal** (or an agent: the `sound.installLibraries` command with `ids`, and `sound.bank`
+to see what is there):
+
 ```sh
 cargo xtask sounds --list          # what and how big
 cargo xtask sounds                 # download everything (about 0.9 GB) and write bank.json
 cargo xtask sounds --only karoryfer-growlybass,muldjordkit
 ```
 
-The folder is `$GUITARIO_SOUNDS`, else `~/Library/Application Support/Guitario/sounds` (macOS),
-`%APPDATA%\Guitario\sounds` (Windows) or `~/.local/share/guitario/sounds` (Linux). The app reads
-it when it starts. Needs `curl` and `unzip`, `tar` (bsdtar reads 7z) or `git`. The libraries are never
-committed to this repository.
+Both run the same installer (`crates/playback/src/install.rs`). The folder is `$GUITARIO_SOUNDS`,
+else `~/Library/Application Support/Guitario/sounds` (macOS), `%APPDATA%\Guitario\sounds`
+(Windows) or `~/.local/share/guitario/sounds` (Linux). Downloads go through `curl` (part of macOS,
+Windows 10 and later and Linux desktops) and resume where they stopped; the zip and 7z archives are
+unpacked by Guitario itself; the drum kit, a git repository, is cloned when `git` is installed and
+downloaded as GitHub's zip of it otherwise. Each library gets a `SOURCE.txt` with its title,
+licence and credit, and `bank.json` is updated only for the roles the installer filled before, so
+your own entries stay. The libraries are never committed to this repository.
 
 | Role | Library | Licence | Size |
 |---|---|---|---|
 | `guitar_distorted` (GM 29, 30) | [FreePats FSBS Electric Guitar Distorted #1](https://freepats.zenvoid.org/ElectricGuitar/distorted-electric-guitar.html): a Fender through an amp and effects rack | CC0 | 300 MB |
 | `guitar_clean` (GM 24–28, 31) | [FreePats FSBS Electric Guitar Clean #1](https://freepats.zenvoid.org/ElectricGuitar/clean-electric-guitar.html) | CC0 | 120 MB |
-| `bass` (GM 32–39) | [Karoryfer Growlybass](https://github.com/sfzinstruments/karoryfer.growlybass): Squier Jazz Bass, direct | CC0 | 160 MB |
+| `bass` (GM 32–39) | [Karoryfer Growlybass](https://github.com/sfzinstruments/karoryfer.growlybass): Squier Jazz Bass, direct; the `dirty` program, sustain with release noises | CC0 | 160 MB |
 | `drums` | [MuldjordKit](https://github.com/sfzinstruments/DrumGizmo.MuldjordKit): Tama Superstar, recorded for a death metal album | CC BY 4.0 (credit Lars Muldjord; mapping by kinwie) | 340 MB |
 
 Other open libraries that fit and are not installed by default (all CC0, from
@@ -36,11 +51,20 @@ listened to these on speakers yet; swap entries in `bank.json` freely.
 
 ```json
 { "drums": "muldjordkit/DrumGizmo/MuldjordKit/Stereo/DrumGizmo MuldjordKit.sfz",
-  "bass": "karoryfer-growlybass/Growlybass/growlybass_clean.sfz",
+  "bass": "karoryfer-growlybass/Growlybass/growlybass_dirty.sfz",
   "guitar_clean": "...", "guitar_distorted": "..." }
 ```
 
-Paths are relative to the folder. Any role may be left out. Use it from the CLI with
+Paths are relative to the folder. Any role may be left out.
+
+### A track's own instrument
+
+A track plays the role its instrument picks (the General MIDI program, or the drum kit) unless it
+names another: the Bank row in the track inspector's Sounds offers Automatic, each role with what
+plays it, an `.sfz` file of your own, and the Sound Bank window. The choice is saved with the score
+(`Track::bank`; `track.setBank` with a role, a path absolute or relative to the bank's folder, or
+null). A role the bank does not fill or a file that is not there plays the built-in synthesiser
+and says so. A file chosen this way plays every articulation from itself. Use it from the CLI with
 `guitario-cli convert song.gt song.wav --sounds <folder>` (the `file.exportWav` command takes
 a `sounds` parameter); the desktop app uses the default folder.
 

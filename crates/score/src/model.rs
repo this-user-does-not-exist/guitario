@@ -490,7 +490,15 @@ pub struct Track {
     /// The mixer's equalizer.
     #[serde(default = "crate::mixer_eq", skip_serializing_if = "crate::Effect::is_flat_mixer_eq")]
     pub eq: crate::Effect,
+    /// The sampled instrument it plays on the RSE engine when not the one its instrument picks: a
+    /// sound bank role (`guitar_clean`, `bass`, `drums` …) or an `.sfz` file (absolute, or relative
+    /// to the bank's folder).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bank: Option<String>,
 }
+
+/// The longest sound bank name or `.sfz` path a track may hold, in bytes.
+pub const MAX_BANK_NAME: usize = 4096;
 
 /// Guitar Pro's audio engines: RSE plays recorded samples, MIDI a lighter synthesised sound.
 /// Guitario's RSE is the sampled sound bank (the synth where the bank has no such instrument).
@@ -629,6 +637,7 @@ impl Track {
             engine: SoundEngine::Rse,
             effects: None,
             eq: crate::mixer_eq(),
+            bank: None,
         }
     }
 

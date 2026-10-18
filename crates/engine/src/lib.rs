@@ -26,6 +26,7 @@ mod sections;
 mod selection;
 mod session;
 mod sound;
+mod sound_bank;
 mod techniques;
 mod tools;
 mod tracks;

@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the sampler's depth landed; beta ~325–655 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the sound bank installs from the app, an instrument per track; beta ~270–550 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -14,7 +14,7 @@ for one agent working sequentially, and an upper bound (see
 [calibration](target-app-parity.md#calibration)).
 
 **Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
-today; ~325–655 h of work are left, ordered under [Current focus](#current-focus).
+today; ~270–550 h of work are left, ordered under [Current focus](#current-focus).
 
 ## Stages
 
@@ -63,8 +63,8 @@ live except the ones the scorecard stages for 1.0.
 
 | # | Beta workflow | Today | What is missing | Gap |
 |---|---|---|---|---|
-| B1 | **Install and open.** Download a signed build for macOS, Windows or Linux; double-click a `.gp` or `.gt` and it opens; the sound bank installs itself on first run | no | no installers, signing, file associations or in-app sound bank install; only macOS has been run by hand | [G12](gaps.md#g12-platforms-and-distribution), [G5](gaps.md#g5-playback-realism) |
-| B2 | **Hear a band.** Guitar with palm mutes, harmonics and slides, bass, and sampled drums, through an amp and room, and a guitarist accepts how it sounds | partial | sampled instruments play through effect chains (amp, cabinet, reverb, delay …), the mixer's equalizer and mastering; the synth plays every articulation and a bank can record each, and the sampler plays release samples, filters, velocity curves and loops (2026-10-18), but the libraries `cargo xtask sounds` installs are mapped for sustain only; nobody has listened on speakers | [G5](gaps.md#g5-playback-realism) |
+| B1 | **Install and open.** Download a signed build for macOS, Windows or Linux; double-click a `.gp` or `.gt` and it opens; the sound bank installs itself on first run | no | no installers, signing or file associations; the sound bank installs from the app (2026-10-18); only macOS has been run by hand | [G12](gaps.md#g12-platforms-and-distribution), [G5](gaps.md#g5-playback-realism) |
+| B2 | **Hear a band.** Guitar with palm mutes, harmonics and slides, bass, and sampled drums, through an amp and room, and a guitarist accepts how it sounds | partial | sampled instruments play through effect chains (amp, cabinet, reverb, delay …), the mixer's equalizer and mastering; the synth plays every articulation and a bank can record each, the sampler plays release samples, filters, velocity curves and loops, and the app installs the libraries (2026-10-18); nobody has listened on speakers | [G5](gaps.md#g5-playback-realism) |
 | B3 | **Transcribe a solo.** Bends with their curves, whammy dives, grace notes, tuplets, a drum groove on a step grid, Paste Special | partial | the drum step grid (bend curves, the whammy bar and Paste Special landed 2026-10-17) | [G6](gaps.md#g6-editing-depth), [G1](gaps.md#g1-drums-depth) |
 | B4 | **Exchange.** Open any Guitar Pro 3 to 8 file (at least 95 % of a real corpus without warnings); a `.gp` export opens in Guitar Pro 8; MIDI and MusicXML go in and out | partial | the `.gp` check in Guitar Pro 8 (human); MIDI import, MusicXML and Guitar Pro 6 drums landed 2026-10-18 | [G3](gaps.md#g3-guitar-pro-exchange) |
 | B5 | **Practise with the tools.** Tune the guitar, look up a chord's voicings, show a scale on the fretboard | partial | a tuning check with a real guitar (human); the tuner, chord window and scale tool are done | [G7](gaps.md#g7-tools) |
@@ -95,7 +95,7 @@ Engineering milestones, each with a definition of done. The GitHub milestones Al
 | M1 Model + engine | ✅ | theory, score (validation, timeline), 117 commands with undo, CLI, `.gt` with atomic saves | alpha |
 | M2 Tab editor | 🟡 | keyboard entry, Guitar Pro shortcuts, palette, selection and clipboard, four voices, bend curves and the whammy bar with their editors, Paste Special and All-Track Copy | beta |
 | M3 Notation | 🟡 | page, screen and horizontal layouts, multitrack, everything the model holds; slash/numbered notation, grand staff and the stylesheet are missing | beta (rest 1.0) |
-| M4 Playback | 🟡 | physical-model synth with every articulation, SFZ sampler and sound bank with a program per articulation, drums, mixer, automations, effect chains, equalizer, mastering, WAV and FLAC; release samples, filters, curves, loops and OGG in the sampler; no first-run bank or streaming | beta |
+| M4 Playback | 🟡 | physical-model synth with every articulation, SFZ sampler and sound bank with a program per articulation, drums, mixer, automations, effect chains, equalizer, mastering, WAV and FLAC; release samples, filters, curves, loops and OGG in the sampler; the bank installs from the app; no streaming | beta |
 | M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 remains | beta |
 | M6 Drums | 🟡 | kit tracks, pad, notation, GM playback, `.gp` drum import, two voices; step editor and articulations missing | beta |
 | M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, page setup; no MusicXML, headers and footers | beta |
@@ -110,10 +110,9 @@ issue assigned to you. Work in **batches**: one pull request, one slice of a gap
 and a snapshot where it is visible. The order puts what an agent can fully verify first and
 what needs a human ear or signing material last, so the human steps overlap with other work.
 
-1. **Sound** ([G5](gaps.md#g5-playback-realism)): the first-run sound bank install and the
-   instrument per track, the default libraries' articulations in the bank, a memory budget
-   (articulations, the sampler's depth, amp, cabinet, effects and mastering landed 2026-10-18). A
-   listening pass closes it. 75–155 h.
+1. **Sound** ([G5](gaps.md#g5-playback-realism)): a memory budget with streaming and master
+   automation (articulations, the sampler's depth, the sound bank in the app, amp, cabinet, effects
+   and mastering landed 2026-10-18). A listening pass closes it. 25–55 h.
 2. **Release workflow and packages** ([G12](gaps.md#g12-platforms-and-distribution)): tag to
    artifacts for three platforms, an app bundle with file associations; signing waits on accounts.
    80–150 h + human.
@@ -164,6 +163,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | The sound bank in the app (Sound Bank window, first-run offer) and an instrument per track landed; beta ~270–550 h |
 | 2026-10-18 | minor | The sampler's depth landed (release samples, legato regions, filters, velocity curves, loops, OGG); beta ~325–655 h |
 | 2026-10-18 | minor | Articulations landed (the synth plays each, a bank can record each, sampled legato): B2 lacks the sampler's depth and a listening pass; beta ~340–685 h |
 | 2026-10-18 | minor | Effect chains, the track equalizer and master landed: B2 lacks articulations and a listening pass; beta ~355–715 h |

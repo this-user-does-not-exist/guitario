@@ -17,4 +17,4 @@ same change that adds an asset, and keep the licence file next to the asset.
 |---|---|---|
 | Bravura or Leland (SMuFL music fonts) | SIL Open Font License 1.1 | system font folders, `CRAFT_FONTS_DIR`, `GUITARIO_FONTS_DIR`, `GUITARIO_MUSIC_FONT` (`crates/ui-egui/src/fonts.rs`) |
 | Times New Roman, Arial or Liberation/DejaVu equivalents | their own | system font folders |
-| SFZ instruments installed by `cargo xtask sounds` (not bundled) | FreePats FSBS electric guitars: CC0 1.0; Karoryfer Growlybass: CC0 1.0; MuldjordKit: **CC BY 4.0, credit Lars Muldjord (recording) and kinwie (SFZ mapping)** | `GUITARIO_SOUNDS` or the per-user data folder; details in `docs/sounds.md` |
+| SFZ instruments installed from the Sound Bank window or `cargo xtask sounds` (not bundled; each with its licence and credit in `SOURCE.txt`) | FreePats FSBS electric guitars: CC0 1.0; Karoryfer Growlybass: CC0 1.0; MuldjordKit: **CC BY 4.0, credit Lars Muldjord (recording) and kinwie (SFZ mapping)** | `GUITARIO_SOUNDS` or the per-user data folder; details in `docs/sounds.md` |

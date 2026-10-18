@@ -22,48 +22,14 @@
 //! role has no entry (or whose instrument fails to load) keeps the built-in synth.
 
 use crate::articulation::{Articulation, used_keys_by_articulation};
+pub use crate::role::Role;
 use crate::sfz::{Instrument, parse_key};
 use crate::{Options, Player};
-use guitario_score::{Score, Track};
+use guitario_score::Score;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub const BANK_FILE: &str = "bank.json";
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Role {
-    Drums,
-    Bass,
-    GuitarClean,
-    GuitarDistorted,
-}
-
-impl Role {
-    pub const ALL: [Role; 4] = [Role::Drums, Role::Bass, Role::GuitarClean, Role::GuitarDistorted];
-
-    pub fn key(self) -> &'static str {
-        match self {
-            Role::Drums => "drums",
-            Role::Bass => "bass",
-            Role::GuitarClean => "guitar_clean",
-            Role::GuitarDistorted => "guitar_distorted",
-        }
-    }
-
-    /// The role of a track, from its kind and General MIDI program. Programs this bank has no
-    /// sampled equivalent for (strings, pads, keys) return `None`.
-    pub fn of(track: &Track) -> Option<Role> {
-        if track.is_drums() {
-            return Some(Role::Drums);
-        }
-        match track.program {
-            29 | 30 => Some(Role::GuitarDistorted),
-            24..=28 | 31 => Some(Role::GuitarClean),
-            32..=39 => Some(Role::Bass),
-            _ => None,
-        }
-    }
-}
 
 /// One program of a bank: an `.sfz` file and, in a library that switches articulations by key,
 /// the keyswitch to hold (none: the file's own default).
@@ -196,20 +162,53 @@ impl SoundBank {
         self.cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
     }
 
-    /// What `score` needs from the bank: for each track with a mapped role, each articulation it
-    /// plays with its program and keys. An articulation without a program of its own is played
-    /// by the sustain program, which a role needs to be sampled at all.
+    /// A track's sustain program and the role whose articulation programs go with it: the
+    /// track's own choice (a role, or an `.sfz` file on its own), else the role its instrument
+    /// picks. None when the bank has nothing for it.
+    fn sustain_for(&self, track: &guitario_score::Track) -> Option<(Option<Role>, Program)> {
+        let role = match track.bank.as_deref() {
+            Some(name) => match Role::from_key(name) {
+                Some(role) => role,
+                None => return Some((None, Program { path: self.resolve(name), keyswitch: None })),
+            },
+            None => Role::of(track)?,
+        };
+        Some((Some(role), self.program(role, Articulation::Sustain)?.clone()))
+    }
+
+    /// An `.sfz` file a track names: absolute, or relative to the bank's folder.
+    fn resolve(&self, file: &str) -> PathBuf {
+        let p = Path::new(file);
+        if p.is_absolute() { p.to_path_buf() } else { self.dir.join(p) }
+    }
+
+    /// The roles tracks of `score` ask for by name that this bank does not fill, as messages.
+    pub fn missing(&self, score: &Score) -> Vec<String> {
+        score
+            .tracks
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| t.engine == guitario_score::SoundEngine::Rse)
+            .filter_map(|(ti, t)| {
+                let role = Role::from_key(t.bank.as_deref()?)?;
+                self.program(role, Articulation::Sustain).is_none().then(|| format!("track {} asks for the bank's {}, which has none", ti + 1, role.key()))
+            })
+            .collect()
+    }
+
+    /// What `score` needs from the bank: for each track it has an instrument for, each
+    /// articulation it plays with its program and keys. An articulation without a program of its
+    /// own is played by the sustain program, which a track needs to be sampled at all.
     fn needs(&self, score: &Score) -> Vec<Need> {
         let mut out = Vec::new();
         for (ti, (track, by_art)) in score.tracks.iter().zip(used_keys_by_articulation(score)).enumerate() {
             if track.engine != guitario_score::SoundEngine::Rse {
                 continue;
             }
-            let Some(role) = Role::of(track) else { continue };
-            let Some(sustain) = self.program(role, Articulation::Sustain) else { continue };
+            let Some((role, sustain)) = self.sustain_for(track) else { continue };
             let mut plain: Vec<u8> = Vec::new();
             for (art, keys) in Articulation::ALL.into_iter().zip(by_art) {
-                match self.program(role, art).filter(|_| art != Articulation::Sustain && !keys.is_empty()) {
+                match role.and_then(|r| self.program(r, art)).filter(|_| art != Articulation::Sustain && !keys.is_empty()) {
                     Some(p) => out.push((ti, art, p.clone(), keys)),
                     None => plain.extend(keys),
                 }
@@ -239,12 +238,16 @@ impl SoundBank {
     /// track asks of it plus those it had. Safe to run on a worker thread; returns one message per
     /// problem.
     pub fn preload(&self, score: &Score) -> Vec<String> {
+        self.preload_needs(&self.needs(score))
+    }
+
+    fn preload_needs(&self, needs: &[Need]) -> Vec<String> {
         // Keys wanted per program, across the tracks and articulations that share it.
         let mut wanted: Vec<(Program, Vec<u8>)> = Vec::new();
-        for (_, _, prog, keys) in self.needs(score) {
-            match wanted.iter_mut().find(|(p, _)| *p == prog) {
+        for (_, _, prog, keys) in needs {
+            match wanted.iter_mut().find(|(p, _)| p == prog) {
                 Some((_, k)) => k.extend(keys),
-                None => wanted.push((prog, keys)),
+                None => wanted.push((prog.clone(), keys.clone())),
             }
         }
         let mut notes = Vec::new();
@@ -278,9 +281,11 @@ impl SoundBank {
     /// score plays (nothing when [`preload`] already did). Returns one message per problem; a
     /// track whose sustain program fails keeps the built-in synth.
     pub fn apply(&self, player: &mut Player, score: &Score) -> Vec<String> {
-        let mut notes = self.preload(score);
+        let needs = self.needs(score);
+        let mut notes = self.preload_needs(&needs);
+        notes.extend(self.missing(score));
         let cache = self.cache();
-        for (ti, art, prog, _) in self.needs(score) {
+        for (ti, art, prog, _) in needs {
             match cache.iter().find(|(p, _, _)| *p == prog).map(|(_, _, i)| i) {
                 Some(Ok(inst)) => player.set_articulation(ti, art, Some(Arc::clone(inst))),
                 Some(Err(e)) if !notes.contains(e) => notes.push(e.clone()),
@@ -322,6 +327,8 @@ mod tests {
     fn roles_follow_the_program() {
         let s = Score::new();
         let mut t = s.tracks[0].clone();
+        assert_eq!(Role::from_key("guitar_clean"), Some(Role::GuitarClean));
+        assert_eq!(Role::from_key("piano"), None);
         t.program = 30;
         assert_eq!(Role::of(&t), Some(Role::GuitarDistorted));
         t.program = 33;
@@ -330,7 +337,7 @@ mod tests {
         assert_eq!(Role::of(&t), Some(Role::GuitarClean));
         t.program = 90;
         assert_eq!(Role::of(&t), None);
-        assert_eq!(Role::of(&Track::drums("d", &s.headers)), Some(Role::Drums));
+        assert_eq!(Role::of(&guitario_score::Track::drums("d", &s.headers)), Some(Role::Drums));
     }
 
     #[test]
@@ -442,6 +449,34 @@ mod tests {
             Some((_, _, Ok(inst))) => assert_eq!(inst.region_count(), 1),
             other => panic!("not loaded: {:?}", other.map(|o| &o.0)),
         }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_track_can_choose_its_instrument() {
+        let dir = bank_dir("choice");
+        std::fs::write(dir.join(BANK_FILE), r#"{"guitar_clean":"g/k.sfz"}"#).unwrap();
+        let bank = SoundBank::open(&dir).unwrap();
+        let mut s = Score::new();
+        s.tracks[0].program = 33;
+        s.tracks[0].measures[0].voices[0].beats = vec![Beat { rest: false, notes: vec![Note::new(0, 0)], ..Beat::rest(Duration::WHOLE) }];
+        assert!(bank.needs(&s).is_empty(), "a bass with no bass in the bank plays the synth");
+        // The track asks for the clean guitar by its role, then for the file by its path.
+        for choice in ["guitar_clean", "g/k.sfz", &dir.join("g/k.sfz").display().to_string()] {
+            s.tracks[0].bank = Some(choice.to_string());
+            let needs = bank.needs(&s);
+            assert_eq!(needs.len(), 1, "{choice}");
+            assert_eq!(needs[0].2.path, dir.join("g/k.sfz"), "{choice}");
+            let (pcm, notes) = bank.render(&s, 8000);
+            assert!(notes.is_empty() && pcm.iter().any(|x| x.abs() > 0.05), "{choice}: {notes:?}");
+        }
+        // A role the bank lacks, or a file that is not there: the synth, and a message.
+        s.tracks[0].bank = Some("drums".into());
+        let (pcm, notes) = bank.render(&s, 8000);
+        assert!(notes.iter().any(|n| n.contains("drums")) && pcm.iter().any(|x| x.abs() > 0.01), "{notes:?}");
+        s.tracks[0].bank = Some("g/nowhere.sfz".into());
+        let (pcm, notes) = bank.render(&s, 8000);
+        assert!(notes.len() == 1 && pcm.iter().any(|x| x.abs() > 0.01), "{notes:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
