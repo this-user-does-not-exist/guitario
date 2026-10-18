@@ -1,5 +1,22 @@
 //! A plucked string (Karplus–Strong with a fractional, time-varying delay) and a metronome click.
 
+/// A whammy curve in song time: it runs from `start` to `end` seconds. Before it the bar is at
+/// rest; after it, it stays where the curve ends.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WhammyTime {
+    pub curve: guitario_score::Whammy,
+    pub start: f64,
+    pub end: f64,
+}
+
+/// How far a note's pitch is moved at `t` (song seconds), in semitones: its bend, followed from
+/// `start` to `end`, plus the whammy bar.
+pub fn curve_semis(bend: Option<guitario_score::Bend>, whammy: Option<WhammyTime>, t: f64, start: f64, end: f64) -> f32 {
+    let b = bend.map_or(0.0, |b| b.semitones_at(((t - start) / (end - start).max(1e-3)) as f32));
+    let w = whammy.filter(|w| t >= w.start).map_or(0.0, |w| w.curve.semitones_at(((t - w.start) / (w.end - w.start).max(1e-3)) as f32));
+    b + w
+}
+
 /// Deterministic noise so renders are reproducible.
 pub struct Noise(u32);
 
@@ -53,6 +70,8 @@ pub struct StringVoice {
     pub note_end: f64,
     /// The bend curve of the note, followed from its start to its end.
     pub bend: Option<guitario_score::Bend>,
+    /// The whammy bar's curve moving the note.
+    pub whammy: Option<WhammyTime>,
     level: f32,
     age: u32,
     sr: f32,
@@ -116,6 +135,7 @@ impl StringVoice {
             note_start: 0.0,
             note_end: f64::MAX,
             bend: None,
+            whammy: None,
             level: 1.0,
             age: 0,
             sr,

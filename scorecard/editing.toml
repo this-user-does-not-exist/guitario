@@ -32,9 +32,9 @@ note = "toggle commands and Guitar Pro single-key shortcuts (R L X G A I P)"
 [[item]]
 id = "EDIT-5"
 target = "Bends with curves, whammy bar, slides (6 kinds), hammer-ons and pull-offs, vibrato, harmonics (5 kinds)"
-status = "partial"
+status = "done"
 stage = "beta"
-note = "bend curves of up to eight points (Bend in crates/score/src/bend.rs; the seven Guitar Pro types or free-form), edited in Effects › Bend… (B; bend_dialog.rs) and note.setBend, drawn as arrows with ¼ to 3 heights in the tab (bend_draw.rs), played along the curve and carried through ties, read and written in Guitar Pro 3-5 (all points) and 7/8 (origin, plateau and destination); wide vibrato, tapping and left-hand tapping; no whammy bar yet (issue 67)"
+note = "bend curves of up to eight points (Bend in crates/score/src/bend.rs; the seven Guitar Pro types or free-form), edited in Effects › Bend… (B; bend_dialog.rs) and note.setBend, drawn as arrows with ¼ to 3 heights in the tab (bend_draw.rs), played along the curve and carried through ties, read and written in Guitar Pro 3-5 (all points) and 7/8 (origin, plateau and destination); the whammy bar (Whammy in crates/score/src/whammy.rs: six shapes or a free curve, an octave down to an octave up) in Effects › Whammy Bar… (whammy_dialog.rs), beat.setWhammy and the palette, drawn in its own lane over the tab (whammy_draw.rs) and played on every note of the beat; vibrato with the bar (beat.setBarVibrato); wide vibrato, tapping and left-hand tapping. Still open: a bend held across a tie written to Guitar Pro 3-5 (#437), quarter tones in standard notation (#438)"
 
 [[item]]
 id = "EDIT-6"

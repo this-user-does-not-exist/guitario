@@ -55,6 +55,8 @@ pub struct Metrics {
     pub top: bool,
     /// The score has sections: the top track keeps a row for them under the tempo.
     pub sections: bool,
+    /// The track uses the whammy bar: a lane above the other effects holds its graph.
+    pub whammy: bool,
     /// Lines of tuning (and capo) under the title.
     pub legend_lines: usize,
 }
@@ -86,6 +88,7 @@ impl Metrics {
             mode: LayoutMode::Page,
             top: true,
             sections: false,
+            whammy: false,
             legend_lines: 0,
         }
     }
@@ -168,7 +171,8 @@ impl Metrics {
         let listed = chord_list(track);
         let chord_strings = listed.iter().map(|c| c.frets.len()).max().unwrap_or(6);
         let legend_lines = tuning_legend(track).lines() + usize::from(track.capo > 0);
-        Metrics { annotations, diagrams, lyric_lines, chord_list: listed.len(), chord_strings, legend_lines, ..self }
+        let whammy = !track.is_drums() && beats().any(|b| !b.rest && (b.whammy.is_some() || b.bar_vibrato.is_some()));
+        Metrics { annotations, diagrams, lyric_lines, chord_list: listed.len(), chord_strings, legend_lines, whammy, ..self }
     }
 
     /// Keeps a row for section markers when `score` has any.
@@ -297,7 +301,18 @@ impl Metrics {
 
     /// Between the notation staff and the tab: effect lanes (P.M., let ring, vibrato, bends).
     pub fn staff_gap(&self) -> f32 {
-        11.0 * self.space
+        11.0 * self.space + self.whammy_lane()
+    }
+
+    /// Height of the whammy bar's lane: nothing unless the track uses the bar.
+    pub fn whammy_lane(&self) -> f32 {
+        if self.whammy { 3.5 * self.space } else { 0.0 }
+    }
+
+    /// How far above the tab's top line the whammy graph's rest line sits: above the other effect
+    /// lanes, with room for a dive below it and a pull above.
+    pub fn whammy_row(&self) -> f32 {
+        8.8 * self.space
     }
 
     pub fn tab_h(&self) -> f32 {
@@ -316,7 +331,7 @@ impl Metrics {
         } else if self.notation {
             self.lane_above() + self.staff_h() + self.staff_gap()
         } else {
-            self.lane_above() + 2.0 * self.space
+            self.lane_above() + 2.0 * self.space + self.whammy_lane()
         }
     }
 

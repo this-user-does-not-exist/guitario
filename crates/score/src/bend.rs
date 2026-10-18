@@ -9,10 +9,12 @@
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::curve::{self, Pt};
+
 /// The position of a note's end on a curve.
-pub const BEND_END: u8 = 60;
+pub const BEND_END: u8 = curve::CURVE_END;
 /// Most points a curve holds.
-pub const BEND_MAX_POINTS: usize = 8;
+pub const BEND_MAX_POINTS: usize = curve::CURVE_MAX_POINTS;
 /// Highest bend: three whole tones, in quarter tones.
 pub const BEND_MAX: u8 = 12;
 
@@ -98,36 +100,24 @@ impl Bend {
     /// their middle points and the least important points go when more than
     /// [`BEND_MAX_POINTS`] remain. `None` when the pitch never leaves the fretted one.
     pub fn from_points(points: &[BendPoint]) -> Option<Bend> {
-        let mut v: Vec<BendPoint> = points.iter().map(|p| BendPoint::new(p.pos.min(BEND_END), p.value.min(BEND_MAX))).collect();
-        v.sort_by_key(|p| p.pos);
-        let mut out: Vec<BendPoint> = Vec::with_capacity(v.len() + 2);
-        for p in v {
-            match out.last_mut() {
-                Some(last) if last.pos == p.pos => *last = p,
-                _ => out.push(p),
-            }
-        }
-        let first = *out.first()?;
-        if first.pos > 0 {
-            out.insert(0, BendPoint::new(0, first.value));
-        }
-        let last = *out.last()?;
-        if last.pos < BEND_END {
-            out.push(BendPoint::new(BEND_END, last.value));
-        }
-        drop_straight(&mut out);
-        while out.len() > BEND_MAX_POINTS {
-            let Some(least) = least_important(&out) else { break };
-            out.remove(least);
-        }
-        if out.iter().all(|p| p.value == 0) {
+        let out = curve::tidy(points.iter().map(|p| (p.pos, i16::from(p.value.min(BEND_MAX)))));
+        if out.iter().all(|p| p.1 == 0) {
             return None;
         }
         let mut pts = [BendPoint::new(0, 0); BEND_MAX_POINTS];
-        for (slot, p) in pts.iter_mut().zip(&out) {
-            *slot = *p;
+        for (slot, &(pos, value)) in pts.iter_mut().zip(&out) {
+            *slot = BendPoint::new(pos, u8::try_from(value).unwrap_or(0));
         }
         Some(Bend { len: u8::try_from(out.len()).unwrap_or(0), pts })
+    }
+
+    fn pts(&self) -> Vec<Pt> {
+        self.points().iter().map(|p| (p.pos, i16::from(p.value))).collect()
+    }
+
+    fn from_pts(pts: &[Pt]) -> Option<Bend> {
+        let v: Vec<BendPoint> = pts.iter().map(|&(pos, value)| BendPoint::new(pos, u8::try_from(value.max(0)).unwrap_or(BEND_MAX))).collect();
+        Bend::from_points(&v)
     }
 
     /// The plain bend: up to `quarter_tones` by the middle of the note and held. At least a
@@ -180,12 +170,9 @@ impl Bend {
     /// The curve with at most `max` points (at least 2): the points that matter least go first.
     /// For formats that hold fewer points than a note can have.
     pub fn thinned(&self, max: usize) -> Vec<BendPoint> {
-        let mut v = self.points().to_vec();
-        while v.len() > max.max(2) {
-            let Some(least) = least_important(&v) else { break };
-            v.remove(least);
-        }
-        v
+        let mut v = self.pts();
+        curve::thin(&mut v, max);
+        v.iter().map(|&(pos, value)| BendPoint::new(pos, u8::try_from(value).unwrap_or(0))).collect()
     }
 
     /// The pitch at the attack, in quarter tones.
@@ -205,20 +192,7 @@ impl Bend {
 
     /// The pitch `pos` along the note (0 to [`BEND_END`]), in quarter tones.
     pub fn value_at(&self, pos: f32) -> f32 {
-        let pts = self.points();
-        let Some(first) = pts.first() else { return 0.0 };
-        if pos <= f32::from(first.pos) {
-            return f32::from(first.value);
-        }
-        for w in pts.windows(2) {
-            if let [a, b] = w
-                && pos <= f32::from(b.pos)
-            {
-                let span = f32::from(b.pos.saturating_sub(a.pos)).max(1.0);
-                return f32::from(a.value) + (f32::from(b.value) - f32::from(a.value)) * (pos - f32::from(a.pos)) / span;
-            }
-        }
-        f32::from(self.end())
+        curve::value_at(&self.pts(), pos)
     }
 
     /// The pitch `fraction` of the way through the note (0 to 1), in semitones.
@@ -279,62 +253,9 @@ impl Bend {
     /// next note's over its own. A note without a curve holds where the one before left the string
     /// (a first note without one starts straight).
     pub fn join(first: Option<Bend>, first_ticks: u32, next: Option<Bend>, next_ticks: u32) -> Option<Bend> {
-        let total = u64::from(first_ticks) + u64::from(next_ticks);
-        if total == 0 || (first.is_none() && next.is_none()) {
-            return first;
-        }
-        let map = |t: u64| u8::try_from((t * u64::from(BEND_END) + total / 2) / total).unwrap_or(BEND_END);
-        let mut pts: Vec<BendPoint> = Vec::new();
-        let cut = u64::from(first_ticks);
-        let scale = |b: &Bend, from: u64, len: u64| -> Vec<BendPoint> {
-            b.points().iter().map(|p| BendPoint::new(map(from + len * u64::from(p.pos) / u64::from(BEND_END)), p.value)).collect()
-        };
-        match &first {
-            Some(b) => pts.extend(scale(b, 0, cut)),
-            None => pts.extend([BendPoint::new(0, 0), BendPoint::new(map(cut), 0)]),
-        }
-        let held = pts.last().map_or(0, |p| p.value);
-        match &next {
-            Some(b) => pts.extend(scale(b, cut, u64::from(next_ticks))),
-            None => pts.extend([BendPoint::new(map(cut), held), BendPoint::new(BEND_END, held)]),
-        }
-        Bend::from_points(&pts)
+        let (a, b) = (first.map(|c| c.pts()), next.map(|c| c.pts()));
+        curve::join(a.as_deref(), first_ticks, b.as_deref(), next_ticks).map_or(first, |pts| Bend::from_pts(&pts))
     }
-}
-
-/// Removes points that lie on the straight line between their neighbours.
-fn drop_straight(v: &mut Vec<BendPoint>) {
-    let mut i = 1;
-    while i + 1 < v.len() {
-        let straight = match (v.get(i - 1), v.get(i), v.get(i + 1)) {
-            (Some(a), Some(b), Some(c)) => {
-                // b is on the line from a to c when the cross product of the steps is 0.
-                let (ax, ay) = (i32::from(a.pos), i32::from(a.value));
-                let (bx, by) = (i32::from(b.pos), i32::from(b.value));
-                let (cx, cy) = (i32::from(c.pos), i32::from(c.value));
-                (bx - ax) * (cy - ay) == (cx - ax) * (by - ay)
-            }
-            _ => false,
-        };
-        if straight {
-            v.remove(i);
-        } else {
-            i += 1;
-        }
-    }
-}
-
-/// The interior point that matters least: the one nearest the line between its neighbours.
-fn least_important(v: &[BendPoint]) -> Option<usize> {
-    (1..v.len().saturating_sub(1))
-        .filter_map(|i| {
-            let (a, b, c) = (v.get(i - 1)?, v.get(i)?, v.get(i + 1)?);
-            let span = f32::from(c.pos.saturating_sub(a.pos)).max(1.0);
-            let on_line = f32::from(a.value) + (f32::from(c.value) - f32::from(a.value)) * f32::from(b.pos.saturating_sub(a.pos)) / span;
-            Some((i, (f32::from(b.value) - on_line).abs()))
-        })
-        .min_by(|x, y| x.1.total_cmp(&y.1))
-        .map(|(i, _)| i)
 }
 
 /// A plain bend is saved as its height (as older files hold it), anything else as its points.

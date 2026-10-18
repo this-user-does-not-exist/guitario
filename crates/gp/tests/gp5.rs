@@ -4,7 +4,7 @@
 
 mod common;
 
-use common::{assert_same, demos, riff};
+use common::{assert_same, demos};
 use guitario_gp::{GpError, export_gp5, import};
 use guitario_score::*;
 use guitario_theory::{Duration, TICKS_PER_QUARTER};
@@ -44,6 +44,8 @@ fn as_gp5(s: &Score) -> Score {
             }
             for b in m.voices.iter_mut().flat_map(|v| &mut v.beats) {
                 b.duration.dots = b.duration.dots.min(1);
+                // Guitar Pro 5 has no vibrato with the bar.
+                b.bar_vibrato = None;
                 if b.rest {
                     b.dynamic = Dynamic::default();
                 }
@@ -75,6 +77,26 @@ fn as_gp5(s: &Score) -> Score {
         }
     }
     s
+}
+
+/// The shared riff without what Guitar Pro 5 cannot hold at all (vibrato with the bar), so its
+/// export warns of nothing.
+fn riff() -> Score {
+    let mut s = common::riff();
+    for b in s.tracks.iter_mut().flat_map(|t| &mut t.measures).flat_map(|m| &mut m.voices).flat_map(|v| &mut v.beats) {
+        b.bar_vibrato = None;
+    }
+    s
+}
+
+#[test]
+fn vibrato_with_the_bar_is_dropped_with_a_warning_and_dives_survive() {
+    let s = common::riff();
+    let (back, export_warnings, _) = round_trip(&s);
+    assert!(export_warnings.iter().any(|w| w.contains("vibrato with the whammy bar")), "{export_warnings:?}");
+    let beats = |s: &Score| s.tracks[0].measures[0].voices[0].beats.iter().map(|b| b.whammy).collect::<Vec<_>>();
+    assert_eq!(beats(&back), beats(&s), "every whammy curve comes back");
+    assert!(back.tracks[0].measures[0].voices[0].beats.iter().all(|b| b.bar_vibrato.is_none()));
 }
 
 fn round_trip(s: &Score) -> (Score, Vec<String>, Vec<String>) {

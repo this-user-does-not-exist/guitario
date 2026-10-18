@@ -71,6 +71,7 @@ enum Window {
     Fingering,
     Tremolo,
     Bend,
+    Whammy,
 }
 
 #[derive(Clone, Debug)]
@@ -268,6 +269,10 @@ fn sections(s: &State) -> Vec<(&'static str, Vec<Button>)> {
     let has_fade = |f: guitario_score::Fade| fade == Some(f);
     let tech =
         |t: guitario_score::BeatTechnique, id: &'static str| run("beat.setTechnique", json!({"technique": if technique == Some(t) { "none" } else { id }}));
+    let sounding = beat.is_some_and(|b| !b.rest);
+    let bar_vibrato = beat.and_then(|b| b.bar_vibrato);
+    let bar_vib =
+        |v: guitario_score::BarVibrato, id: &'static str| run("beat.setBarVibrato", json!({"vibrato": if bar_vibrato == Some(v) { "none" } else { id }}));
     let effects = vec![
         // Dynamics and articulation.
         b(Art::Draw(draw_ghost), "Ghost note (G)", e.ghost, hn, toggle("ghost")),
@@ -290,12 +295,24 @@ fn sections(s: &State) -> Vec<(&'static str, Vec<Button>)> {
         ),
         b(Art::Draw(draw_harmonic_artificial), "Artificial harmonic", harmonic.is_some_and(|h| h != Harmonic::Natural), hn, Act::Pop(Pop::Harmonic)),
         b(Art::Draw(draw_bend), "Bend… (B)", e.bend.is_some(), hn, Act::Window(Window::Bend)),
-        later(Art::Draw(draw_whammy), "Whammy bar"),
+        b(Art::Draw(draw_whammy), "Whammy bar…", beat.is_some_and(|b| b.whammy.is_some()), sounding, Act::Window(Window::Whammy)),
         b(Art::Draw(draw_vibrato), "Slight vibrato (V)", e.vibrato, hn, toggle("vibrato")).options(),
         b(Art::Draw(draw_wide_vibrato), "Wide vibrato (W)", e.wide_vibrato, hn, toggle("wideVibrato")).options(),
         // Bridge vibrato and slides.
-        later(Art::Draw(draw_bridge_vibrato), "Slight bridge vibrato"),
-        later(Art::Draw(draw_bridge_vibrato_wide), "Wide bridge vibrato"),
+        b(
+            Art::Draw(draw_bridge_vibrato),
+            "Slight bridge vibrato",
+            bar_vibrato == Some(guitario_score::BarVibrato::Slight),
+            sounding,
+            bar_vib(guitario_score::BarVibrato::Slight, "slight"),
+        ),
+        b(
+            Art::Draw(draw_bridge_vibrato_wide),
+            "Wide bridge vibrato",
+            bar_vibrato == Some(guitario_score::BarVibrato::Wide),
+            sounding,
+            bar_vib(guitario_score::BarVibrato::Wide, "wide"),
+        ),
         b(Art::Draw(draw_slide_legato), "Legato slide", e.slide == Some(Slide::Legato), hn, slide(Slide::Legato, "legato")),
         b(Art::Draw(draw_slide_shift), "Shift slide (S)", e.slide == Some(Slide::Shift), hn, slide(Slide::Shift, "shift")),
         b(Art::Draw(draw_slide_in_below), "Slide in from below", e.slide == Some(Slide::IntoFromBelow), hn, slide(Slide::IntoFromBelow, "intoFromBelow")),
@@ -618,6 +635,7 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 Window::Fingering => app.open_fingering(),
                 Window::Tremolo => app.open_tremolo(),
                 Window::Bend => app.open_bend(),
+                Window::Whammy => app.open_whammy(),
             },
             Act::Pop(_) | Act::Off => {}
         }

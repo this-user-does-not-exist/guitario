@@ -5,9 +5,14 @@
     "meta": {
       "title": "Blank score",
       "artist": "",
+      "subtitle": "",
       "album": "",
+      "words": "",
+      "music": "",
+      "copyright": "",
       "author": "Guitario demo",
-      "notes": "Eight empty bars in 4/4. Click a beat and type a fret number to start."
+      "notes": "Eight empty bars in 4/4. Click a beat and type a fret number to start.",
+      "instructions": ""
     },
     "tempo": 120,
     "headers": [
@@ -18,9 +23,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": null,
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -37,9 +44,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": null,
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -56,9 +65,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": null,
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -75,9 +86,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": null,
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -94,9 +107,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": null,
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -113,9 +128,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": null,
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -132,9 +149,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": null,
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -151,9 +170,11 @@
         },
         "key": 0,
         "tempo": null,
+        "tempo_linear": false,
         "repeat_open": false,
         "repeat_close": 0,
         "marker": null,
+        "section_letter": null,
         "double_bar": false,
         "free_time": false,
         "triplet_feel": "none",
@@ -208,11 +229,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -236,11 +265,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -264,11 +301,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -292,11 +337,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -320,11 +373,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -348,11 +409,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -376,11 +445,19 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           },
           {
             "voices": [
@@ -404,14 +481,39 @@
                     "fade": null,
                     "brush": null,
                     "chord": null,
-                    "tremolo": null
+                    "tremolo": null,
+                    "beam": null,
+                    "slur": null,
+                    "whammy": null,
+                    "bar_vibrato": null
                   }
                 ]
               }
-            ]
+            ],
+            "volume": null,
+            "volume_linear": false,
+            "pan": null,
+            "pan_linear": false
           }
         ],
-        "lyrics": []
+        "lyrics": [],
+        "short_name": "",
+        "color": null,
+        "notation": {
+          "standard": true,
+          "tab": true,
+          "slash": false,
+          "numbered": false
+        },
+        "interpretation": {
+          "style": "default",
+          "palm_mute": 0,
+          "accentuation": 0,
+          "auto_let_ring": false,
+          "auto_brush": false,
+          "stringed": true
+        },
+        "engine": "rse"
       }
     ],
     "page": {

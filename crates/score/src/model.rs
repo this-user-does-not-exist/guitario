@@ -785,6 +785,12 @@ pub struct Beat {
     /// (notation only; it does not change how the notes play).
     #[serde(default)]
     pub slur: Option<u8>,
+    /// The whammy bar's curve over the beat: it moves every note the beat plays.
+    #[serde(default)]
+    pub whammy: Option<crate::Whammy>,
+    /// Vibrato with the whammy bar over the beat.
+    #[serde(default)]
+    pub bar_vibrato: Option<crate::BarVibrato>,
 }
 
 /// A per-beat beam choice that beats the bar's grouping (Guitar Pro's beam break and join).
@@ -1073,6 +1079,8 @@ impl Beat {
             tremolo: None,
             beam: None,
             slur: None,
+            whammy: None,
+            bar_vibrato: None,
         }
     }
 

@@ -5,13 +5,16 @@
 //! lives here beyond queries and validation; edits are engine commands.
 
 mod bend;
+mod curve;
 mod lyrics;
 mod model;
 mod playback;
 mod validate;
+mod whammy;
 
 pub use bend::{BEND_END, BEND_MAX, BEND_MAX_POINTS, Bend, BendKind, BendPoint};
 pub use lyrics::{Syllable, dispatch_lyrics, syllables};
 pub use model::*;
-pub use playback::{PlayedBeat, playback_order, timeline};
+pub use playback::{PlayedBeat, PlayedWhammy, playback_order, timeline};
 pub use validate::{MAX_FERMATAS, MAX_LYRICS_TEXT, ScoreError};
+pub use whammy::{BarVibrato, WHAMMY_END, WHAMMY_MAX, WHAMMY_MAX_POINTS, WHAMMY_MIN, Whammy, WhammyKind, WhammyPoint};

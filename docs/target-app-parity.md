@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** major (percentages recomputed from stated weights, the readiness method made reproducible, the opaque 29% "ready" figure and the per-audience percentages replaced by gate results, hours re-summed from the gaps, calibration measured) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (the whammy bar: menus 162/177, editing 65 %, beta ~530–1,045 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -15,12 +15,12 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 |---|---|---|
 | **Stage** | **alpha** | measured: the [alpha gate](roadmap.md#alpha-gate) passes (two human checks open) |
 | **Beta gate** | **0 of 8 workflows pass** | measured by running them: [beta gate](roadmap.md#beta-gate) |
-| **Scorecard** | 47 done · 22 partial · 24 missing; **30 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
-| **Menu parity** | 161 of 177 items live (91 %) | measured: `cargo xtask parity` |
+| **Scorecard** | 48 done · 21 partial · 24 missing; **29 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
+| **Menu parity** | 162 of 177 items live (92 %) | measured: `cargo xtask parity` |
 | **Feature breadth** (does each Guitar Pro feature exist?) | **~63 %** | partly measured, weights [below](#feature-breadth-63-weighted) |
-| **Readiness** (how deep is each dimension, weighted?) | **~54 %** (range 48–60) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~540–1,060 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~1,230–2,410 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| **Readiness** (how deep is each dimension, weighted?) | **~55 %** (range 49–61) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
+| Remaining to **beta** | **~530–1,045 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~1,220–2,395 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -46,14 +46,14 @@ beta, a *full* user needs 1.0 (definitions in [roadmap](roadmap.md#stages)).
 
 | Component | Weight | Ours / Guitar Pro | % | Kind |
 |---|---:|---|---:|---|
-| Menu commands | 30% | 161 / 177 catalog items live | 91% | measured (`cargo xtask parity`) |
+| Menu commands | 30% | 162 / 177 catalog items live | 92% | measured (`cargo xtask parity`) |
 | Notation and engraving | 15% | page, screen and horizontal layouts and the multitrack view; notation over tab, drum staff, effects lanes, endings, directions, chord names and diagrams, lyrics, ties, slurs, up to four voices, tremolo picking, trills, grace notes, fermatas, fingering, beaming and beam breaks, key changes and courtesy signatures, the page details of Guitar Pro 8's default stylesheet; no slash or numbered notation, grand staff, clef changes, simile, multirests or stylesheet | ~80% | estimated ([scorecard](scorecard.md#notation-and-engraving)) |
 | Instruments and track types | 10% | fretted strings in any tuning (4–12 strings, presets for guitars, basses, banjo, mandolin and bowed strings) and a GM drum kit, chosen in an Add Track window; no keyboards, winds or MIDI instruments | ~50% | estimated |
 | Playback | 15% | physical-model guitar and bass, synthesised drums, SFZ sampler with a sound bank, RSE or MIDI per track, interpretation settings, transport, loop, speed, metronome, count-in, live mixer, tempo, volume and pan automation, audio settings, WAV and FLAC; no articulation samples, amp, cabinet or effects, no MP3 or OGG | ~52% | estimated ([scorecard](scorecard.md#playback)) |
 | File formats (usage-weighted) | 15% | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` import (checked on 76 real files), `.gp`, `.gp5`, MIDI, WAV, FLAC and ASCII export, PDF export, print, preview, page setup; chords, lyrics and fingering both ways; no MusicXML, no MIDI, MusicXML, PowerTab or TablEdit import, no image export | ~57% | estimated ([file-format-parity](file-format-parity.md)) |
 | Tools (tuner, chord engine, scales, line in) | 10% | chord diagram editor and a chord namer; no chord window, tuner, scales or line in | ~8% | estimated |
 | Ecosystem and automation | 5% | engine commands, CLI, scripts; no control channel or MCP | ~30% | estimated |
-| **Weighted** | 100% | 0.30·91 + 0.15·80 + 0.10·50 + 0.15·52 + 0.15·57 + 0.10·8 + 0.05·30 | **~63%** (63.0%) | |
+| **Weighted** | 100% | 0.30·92 + 0.15·80 + 0.10·50 + 0.15·52 + 0.15·57 + 0.10·8 + 0.05·30 | **~63%** (63.3%) | |
 
 ## Readiness by dimension
 
@@ -63,7 +63,7 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 
 | Dimension | Weight | % ready | Beta h | After beta h | Gaps | Evidence |
 |---|---:|---:|---:|---:|---|---|
-| Editing | 20% | 62% | 40–80 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends have curves and an editor; no whammy bar or Paste Special, no drum step grid |
+| Editing | 20% | 65% | 30–65 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends and the whammy bar have curves and editors; no Paste Special, no drum step grid |
 | Notation | 15% | 74% | 6–22 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): all done; voice picking in notation is left |
 | Playback | 15% | 42% | 150–300 | 130–260 | G5 | sampler, mixer and automations in; no articulation samples, amp or effects; checked by tests, not by ear |
 | Files and exchange | 10% | 56% | 65–120 | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
@@ -72,7 +72,7 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 | Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
 | Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
 | Platforms and automation | 10% | 25% | 120–230 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; no installers or releases, no control channel or MCP |
-| **Weighted** | 100% | **~54%** | **~540–1,060** | **~690–1,350** | | 0.20·62 + 0.15·74 + 0.15·42 + 0.10·56 + 0.10·62 + 0.05·8 + 0.10·65 + 0.05·70 + 0.10·25 = 54.5 |
+| **Weighted** | 100% | **~55%** | **~530–1,045** | **~690–1,350** | | 0.20·65 + 0.15·74 + 0.15·42 + 0.10·56 + 0.10·62 + 0.05·8 + 0.10·65 + 0.05·70 + 0.10·25 = 55.1 |
 
 Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
 is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
@@ -98,6 +98,7 @@ subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-17 | minor | The whammy bar and vibrato with the bar (Effects › Whammy Bar…, palette): menus 162/177; editing 62% → 65%, readiness ~54% → ~55%; beta hours 540–1,060 → 530–1,045 |
 | 2026-10-17 | minor | Bend curves and the Bend window (Effects › Bend…, B): menus 161/177; editing 60% → 62%; beta hours 560–1,090 → 540–1,060 |
 | 2026-10-17 | major | Method fixed: breadth recomputed from stated weights (menus 160/177; ~61% to ~63%); readiness is the weighted dimension average (~54%, replacing the unreproducible ~29%) and the audience percentages are gone, replaced by stages with gates; hours re-summed from the gaps (beta ~540–1,060 h, full ~1,230–2,410 h, was ~770–1,310 and ~1,800–3,215); calibration measured (33 PRs in 35 h); the 307 manual-review issues counted in |
 | 2026-10-16 | minor | FLAC export: menus 148/173 → 149/173. Breadth recomputed for the day's work: menus 81% → 86%, notation ~72% → ~78%, playback ~35% → ~50%, files ~56% → ~57%: 56.0% → 60.9% (~61%); readiness dimensions notation 64% → 68%, playback 30% → 38% |

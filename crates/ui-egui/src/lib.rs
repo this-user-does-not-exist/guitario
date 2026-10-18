@@ -46,6 +46,8 @@ mod tabbar;
 mod theme;
 mod topbar;
 mod transpose_dialog;
+mod whammy_dialog;
+mod whammy_draw;
 
 pub use layout::LayoutMode;
 pub use pdf::PdfRenderer;
@@ -135,6 +137,7 @@ pub struct GuitarioApp {
     preview: preview::Preview,
     ornaments: ornaments::OrnamentDialog,
     bend: bend_dialog::BendDialog,
+    whammy: whammy_dialog::WhammyDialog,
     chord: chord_dialog::ChordDialog,
     lyrics: lyrics_dialog::LyricsDialog,
     transpose: transpose_dialog::TransposeDialog,
@@ -214,6 +217,7 @@ impl GuitarioApp {
             preview: preview::Preview::default(),
             ornaments: ornaments::OrnamentDialog::default(),
             bend: bend_dialog::BendDialog::default(),
+            whammy: whammy_dialog::WhammyDialog::default(),
             chord: chord_dialog::ChordDialog::default(),
             lyrics: lyrics_dialog::LyricsDialog::default(),
             autosave: autosave::Autosave::off(),
@@ -423,6 +427,7 @@ impl GuitarioApp {
             U::PageSetup => self.open_page_setup(),
             U::Trill => self.open_trill(),
             U::Bend => self.open_bend(),
+            U::Whammy => self.open_whammy(),
             U::TremoloPicking => self.open_tremolo(),
             U::GraceNote => self.open_grace(),
             U::Fingering => self.open_fingering(),
@@ -924,6 +929,7 @@ impl GuitarioApp {
         self.page_setup_dialog(&ctx);
         self.ornament_dialog(&ctx);
         self.bend_dialog(&ctx);
+        self.whammy_dialog(&ctx);
         self.chord_dialog(&ctx);
         self.lyrics_dialog(&ctx);
         self.transpose_dialog(&ctx);

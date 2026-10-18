@@ -27,6 +27,7 @@ mod techniques;
 mod tools;
 mod tracks;
 mod voices;
+mod whammy;
 
 pub use bars::direction_targets;
 pub use commands::{CommandSpec, registry};

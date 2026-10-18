@@ -51,29 +51,63 @@ fn prop_num<T: std::str::FromStr>(n: Node, name: &str) -> Option<T> {
     prop_value(n, name)?.parse().ok()
 }
 
-/// A note's bend curve from its four points (origin, two middle, destination). Offsets are percentages
-/// of the note's length and values hundredths of a whole tone (a quarter tone is 25). Guitar Pro
-/// leaves its middle points in place when only the destination matters, so middle points that do
-/// not fall before the destination, in order, are ignored. A destination before the end of the note
-/// holds there.
-fn read_bend(nn: Node) -> Option<Bend> {
-    let num = |k: &str| prop_num::<f32>(nn, k).filter(|v| v.is_finite());
+/// A four-point curve (origin, two middle, destination) as positions 0 to 60 and values in
+/// hundredths of a whole tone (a quarter tone is 25), from `num` (which gives `OriginValue`,
+/// `MiddleOffset1` and so on). Offsets are percentages of the length. Guitar Pro leaves its middle
+/// points in place when only the destination matters, so middle points that do not fall before the
+/// destination, in order, are ignored. A destination before the end holds there.
+fn four_points(num: impl Fn(&str) -> Option<f32>) -> Vec<(u8, f32)> {
+    let num = |k: &str| num(k).filter(|v| v.is_finite());
     let pos = |percent: f32| u8::try_from((percent.clamp(0.0, 100.0) * f32::from(BEND_END) / 100.0).round() as i32).unwrap_or(0);
-    let value = |hundredths: f32| u8::try_from(((hundredths / 25.0).round() as i32).clamp(0, i32::from(BEND_MAX))).unwrap_or(0);
-    let origin = num("BendOriginValue").unwrap_or(0.0);
-    let dest = num("BendDestinationValue").unwrap_or(0.0);
-    let dest_at = num("BendDestinationOffset").unwrap_or(100.0);
-    let mut pts = vec![BendPoint::new(0, value(origin))];
-    if let (Some(mid), Some(m1), Some(m2)) = (num("BendMiddleValue"), num("BendMiddleOffset1"), num("BendMiddleOffset2")) {
+    let origin = num("OriginValue").unwrap_or(0.0);
+    let dest = num("DestinationValue").unwrap_or(0.0);
+    let dest_at = num("DestinationOffset").unwrap_or(100.0);
+    let mut pts = vec![(0, origin)];
+    if let (Some(mid), Some(m1), Some(m2)) = (num("MiddleValue"), num("MiddleOffset1"), num("MiddleOffset2")) {
         if m1 > 0.0 && m1 < dest_at {
-            pts.push(BendPoint::new(pos(m1), value(mid)));
+            pts.push((pos(m1), mid));
         }
         if m2 > m1 && m2 < dest_at {
-            pts.push(BendPoint::new(pos(m2), value(mid)));
+            pts.push((pos(m2), mid));
         }
     }
-    pts.push(BendPoint::new(pos(dest_at), value(dest)));
+    pts.push((pos(dest_at), dest));
+    pts
+}
+
+/// Hundredths of a whole tone as quarter tones.
+fn quarter_tones(hundredths: f32) -> i32 {
+    (hundredths / 25.0).round() as i32
+}
+
+/// A note's bend curve from its `Bend…` properties.
+fn read_bend(nn: Node) -> Option<Bend> {
+    let pts: Vec<BendPoint> = four_points(|k| prop_num::<f32>(nn, &format!("Bend{k}")))
+        .into_iter()
+        .map(|(pos, v)| BendPoint::new(pos, u8::try_from(quarter_tones(v).clamp(0, i32::from(BEND_MAX))).unwrap_or(0)))
+        .collect();
     Bend::from_points(&pts)
+}
+
+/// A beat's whammy curve: Guitar Pro 7 and 8 write a `<Whammy>` element with the points as
+/// attributes (`originValue`, `middleOffset1` …), Guitar Pro 6 `WhammyBar…` properties.
+fn read_whammy(bn: Node) -> Option<Whammy> {
+    let pts = if let Some(w) = child(bn, "Whammy") {
+        four_points(|k| {
+            let mut name = k.to_string();
+            name.replace_range(..1, &k[..1].to_ascii_lowercase());
+            w.attribute(name.as_str())?.trim().parse().ok()
+        })
+    } else if property(bn, "WhammyBarOriginValue").is_some() || property(bn, "WhammyBarDestinationValue").is_some() {
+        four_points(|k| prop_num::<f32>(bn, &format!("WhammyBar{k}")))
+    } else {
+        return None;
+    };
+    let pts: Vec<WhammyPoint> = pts
+        .into_iter()
+        .map(|(pos, v)| WhammyPoint::new(pos, i8::try_from(quarter_tones(v).clamp(i32::from(WHAMMY_MIN), i32::from(WHAMMY_MAX))).unwrap_or(0)))
+        .collect();
+    Whammy::from_points(&pts)
 }
 
 pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
@@ -686,6 +720,12 @@ fn beat_effects(bn: Node, beat: &mut Beat) {
         Some("VolumeSwell") => Some(Fade::Swell),
         _ => None,
     };
+    beat.whammy = read_whammy(bn);
+    beat.bar_vibrato = match property(bn, "VibratoWTremBar").and_then(|p| text(p, "Strength")) {
+        Some("Wide") => Some(BarVibrato::Wide),
+        Some(_) => Some(BarVibrato::Slight),
+        None => None,
+    };
 }
 
 fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chord>) -> Option<Beat> {
@@ -794,6 +834,9 @@ fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chor
     beat.notes.sort_by_key(|n| n.string);
     beat.rest = beat.notes.is_empty();
     beat.tremolo = tremolo.filter(|_| !beat.rest);
+    if beat.rest {
+        (beat.whammy, beat.bar_vibrato) = (None, None);
+    }
     Some(beat)
 }
 

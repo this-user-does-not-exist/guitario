@@ -160,6 +160,32 @@ fn main() {
         }
         run(s, "cursor.set", json!({"measure": 0, "beat": 2, "string": 2}));
     }
+    // `--whammies`: every whammy shape and both bar vibratos on a row of beats in a fresh bar, then
+    // `--whammy` opens the window on one.
+    if args.iter().any(|a| a == "--whammies") {
+        let s = &mut session;
+        run(s, "file.new", json!({}));
+        run(s, "cursor.set", json!({"measure": 0, "beat": 0, "string": 1}));
+        let shapes = [
+            json!({"depth": -8, "kind": "dive"}),
+            json!({"depth": -8, "kind": "hold"}),
+            json!({"depth": -8, "kind": "return"}),
+            json!({"depth": -6, "kind": "dip"}),
+            json!({"depth": -2, "kind": "predive"}),
+            json!({"depth": -12, "kind": "predive_dive"}),
+            json!({"depth": 2, "kind": "dive"}),
+        ];
+        for params in shapes {
+            run(s, "beat.setDuration", json!({"value": 8}));
+            run(s, "note.setFret", json!({"fret": 5}));
+            run(s, "beat.setWhammy", params);
+            run(s, "cursor.right", Value::Null);
+        }
+        run(s, "beat.setDuration", json!({"value": 8}));
+        run(s, "note.setFret", json!({"fret": 7}));
+        run(s, "beat.setBarVibrato", json!({"vibrato": "wide"}));
+        run(s, "cursor.set", json!({"measure": 0, "beat": 3, "string": 1}));
+    }
     if let Some(t) = value("--track").and_then(|t| t.parse::<usize>().ok()) {
         run(&mut session, "track.select", json!({"index": t}));
     }
@@ -266,6 +292,9 @@ fn main() {
     }
     if args.iter().any(|a| a == "--bend") {
         app.open_bend();
+    }
+    if args.iter().any(|a| a == "--whammy") {
+        app.open_whammy();
     }
     if args.iter().any(|a| a == "--trill") {
         app.open_trill();

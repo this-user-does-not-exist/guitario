@@ -855,6 +855,9 @@ impl<'a> Ctx<'a> {
                 }
                 // Over the tablature, or under the staff when it shows alone.
                 self.effect_lanes(list, tt);
+                if m.whammy {
+                    self.whammy_lane(list, tt);
+                }
             }
         }
         if !m.notation {
@@ -1847,6 +1850,42 @@ impl<'a> Ctx<'a> {
             guitario_score::GraceTransition::Bend => {
                 let (a, b) = (pos2(r.right(), y), pos2(to, y - m.tab_gap * 0.6));
                 self.p().add(egui::epaint::QuadraticBezierShape::from_points_stroke([a, pos2(b.x, a.y), b], false, Color32::TRANSPARENT, fx));
+            }
+        }
+    }
+
+    /// The whammy bar's lane over the other effects: "w/bar" where a run of beats using the bar
+    /// starts, each beat's curve, and vibrato with the bar as a wavy line.
+    fn whammy_lane(&self, placed: &[Placed], tt: f32) {
+        let (m, t) = (self.m, self.t);
+        let s = m.space;
+        let y = tt - m.whammy_row();
+        let font = serif(8.0 * m.zoom);
+        let stroke = Stroke::new((0.12 * s).max(1.0), t.effect_ink);
+        let uses = |b: &Beat| !b.rest && (b.whammy.is_some() || b.bar_vibrato.is_some());
+        for (i, pb) in placed.iter().enumerate() {
+            if !uses(pb.beat) {
+                continue;
+            }
+            let prev = i.checked_sub(1).and_then(|j| placed.get(j)).map(|p| p.beat);
+            let x0 = pb.x - 0.4 * s;
+            if !prev.is_some_and(uses) {
+                // A run starts: the tag just before it.
+                crate::whammy_draw::paint_tag(self.p(), x0 - 0.4 * s, y, font.clone(), t.effect_ink);
+            }
+            let x1 = placed.get(i + 1).map_or(pb.x + pb.w, |n| n.x - 0.4 * s).max(x0 + 2.0 * s);
+            if let Some(w) = pb.beat.whammy {
+                let continues = w.start() != 0 && prev.and_then(|b| b.whammy).is_some_and(|before| before.end() == w.start());
+                let b = crate::whammy_draw::WhammyBox { x0, x1, y, depth: 2.2 * s, continues };
+                crate::whammy_draw::paint_whammy(self.p(), &w, &b, stroke, t.effect_ink, font.clone());
+            }
+            if let Some(v) = pb.beat.bar_vibrato {
+                let (amp, width) = match v {
+                    guitario_score::BarVibrato::Slight => (0.25 * s, 1.2),
+                    guitario_score::BarVibrato::Wide => (0.5 * s, 2.0),
+                };
+                let vy = if pb.beat.whammy.is_some() { y - 1.2 * s } else { y };
+                crate::whammy_draw::paint_bar_vibrato(self.p(), x0, x1, vy, amp, Stroke::new(width, t.effect_ink));
             }
         }
     }

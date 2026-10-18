@@ -77,52 +77,92 @@ fn interpretation_xml(t: &Track) -> String {
 /// (two middle offsets sharing one value), with offsets as a percentage of the note and values in
 /// hundredths of a whole tone (a quarter tone is 25). A curve with more shape than that loses its
 /// least important points.
-/// The points of `b` a `.gp` file can hold: a flat end is left to the reader (a destination before
-/// the end of the note holds), and what remains is at most four points whose two middle ones share a
-/// value. A curve with more shape than that loses its least important points.
-fn gpif_points(b: &Bend) -> Vec<BendPoint> {
-    let mut pts = b.points().to_vec();
-    while pts.len() > 2 && matches!(pts.as_slice(), [.., a, z] if a.value == z.value) {
+/// The points of a curve a `.gp` file can hold: a flat end is left to the reader (a destination
+/// before the end holds), and what remains is at most four points whose two middle ones share a
+/// value. A curve with more shape than that loses its least important points (`thin` keeps at most
+/// that many).
+fn gpif_points(points: &[(u8, i16)], thin: impl Fn(&[(u8, i16)], usize) -> Vec<(u8, i16)>) -> Vec<(u8, i16)> {
+    let mut pts = points.to_vec();
+    while pts.len() > 2 && matches!(pts.as_slice(), [.., a, z] if a.1 == z.1) {
         pts.pop();
     }
-    let kept = Bend::from_points(&pts).map_or(pts, |b| b.thinned(4));
+    let kept = thin(&pts, 4);
     if let [_, m1, m2, _] = kept.as_slice()
-        && m1.value != m2.value
-        && let Some(b) = Bend::from_points(&kept)
+        && m1.1 != m2.1
     {
-        return b.thinned(3);
+        return thin(&kept, 3);
     }
     kept
 }
 
-/// The curve as it comes back from a `.gp` file.
-pub fn gpif_bend(b: &Bend) -> Bend {
-    Bend::from_points(&gpif_points(b)).unwrap_or(*b)
+fn bend_pts(b: &Bend) -> Vec<(u8, i16)> {
+    gpif_points(&b.points().iter().map(|p| (p.pos, i16::from(p.value))).collect::<Vec<_>>(), |pts, max| {
+        let v: Vec<BendPoint> = pts.iter().map(|&(pos, value)| BendPoint::new(pos, u8::try_from(value).unwrap_or(0))).collect();
+        Bend::from_points(&v).map_or_else(|| pts.to_vec(), |b| b.thinned(max).iter().map(|p| (p.pos, i16::from(p.value))).collect())
+    })
 }
 
-fn bend_props(b: &Bend) -> String {
-    let pts = gpif_points(b);
-    let (Some(first), Some(last)) = (pts.first().copied(), pts.last().copied()) else { return String::new() };
-    let interior: Vec<BendPoint> = pts.iter().skip(1).take(pts.len().saturating_sub(2)).copied().collect();
-    let (m1, m2) = match interior.as_slice() {
+fn whammy_pts(w: &Whammy) -> Vec<(u8, i16)> {
+    gpif_points(&w.points().iter().map(|p| (p.pos, i16::from(p.value))).collect::<Vec<_>>(), |pts, max| {
+        let v: Vec<WhammyPoint> = pts.iter().map(|&(pos, value)| WhammyPoint::new(pos, i8::try_from(value).unwrap_or(0))).collect();
+        Whammy::from_points(&v).map_or_else(|| pts.to_vec(), |w| w.thinned(max).iter().map(|p| (p.pos, i16::from(p.value))).collect())
+    })
+}
+
+/// The curve as it comes back from a `.gp` file.
+pub fn gpif_bend(b: &Bend) -> Bend {
+    let v: Vec<BendPoint> = bend_pts(b).iter().map(|&(pos, value)| BendPoint::new(pos, u8::try_from(value).unwrap_or(0))).collect();
+    Bend::from_points(&v).unwrap_or(*b)
+}
+
+/// The whammy curve as it comes back from a `.gp` file.
+pub fn gpif_whammy(w: &Whammy) -> Whammy {
+    let v: Vec<WhammyPoint> = whammy_pts(w).iter().map(|&(pos, value)| WhammyPoint::new(pos, i8::try_from(value).unwrap_or(0))).collect();
+    Whammy::from_points(&v).unwrap_or(*w)
+}
+
+/// The seven numbers Guitar Pro keeps for a curve, named as its properties end: origin, middle
+/// and destination values in hundredths of a whole tone, then the four offsets in percent.
+fn four_values(pts: &[(u8, i16)]) -> [(&'static str, f32); 7] {
+    let first = pts.first().copied().unwrap_or((0, 0));
+    let last = pts.last().copied().unwrap_or(first);
+    let interior = pts.get(1..pts.len().saturating_sub(1)).unwrap_or_default();
+    let (m1, m2) = match interior {
         [a, b] => (*a, *b),
         [a] => (*a, *a),
         _ => {
-            let mid = BendPoint::new(BEND_END / 2, ((u16::from(first.value) + u16::from(last.value)) / 2) as u8);
+            let mid = (BEND_END / 2, (first.1 + last.1) / 2);
             (mid, mid)
         }
     };
     let percent = |pos: u8| f32::from(pos) * 100.0 / f32::from(BEND_END);
-    let props = [
-        ("BendOriginValue", u32::from(first.value) as f32 * 25.0),
-        ("BendMiddleValue", u32::from(m1.value) as f32 * 25.0),
-        ("BendDestinationValue", u32::from(last.value) as f32 * 25.0),
-        ("BendOriginOffset", percent(first.pos)),
-        ("BendMiddleOffset1", percent(m1.pos)),
-        ("BendMiddleOffset2", percent(m2.pos)),
-        ("BendDestinationOffset", percent(last.pos)),
-    ];
-    props.iter().map(|(name, value)| format!("<Property name=\"{name}\"><Float>{value}</Float></Property>")).collect()
+    let value = |q: i16| f32::from(q) * 25.0;
+    [
+        ("OriginValue", value(first.1)),
+        ("MiddleValue", value(m1.1)),
+        ("DestinationValue", value(last.1)),
+        ("OriginOffset", percent(first.0)),
+        ("MiddleOffset1", percent(m1.0)),
+        ("MiddleOffset2", percent(m2.0)),
+        ("DestinationOffset", percent(last.0)),
+    ]
+}
+
+fn bend_props(b: &Bend) -> String {
+    four_values(&bend_pts(b)).iter().map(|(name, value)| format!("<Property name=\"Bend{name}\"><Float>{value}</Float></Property>")).collect()
+}
+
+/// The `<Whammy …/>` element Guitar Pro 7 and 8 write: the same numbers as attributes.
+fn whammy_element(w: &Whammy) -> String {
+    let attrs: Vec<String> = four_values(&whammy_pts(w))
+        .iter()
+        .map(|(name, value)| {
+            let mut n = name.to_string();
+            n.replace_range(..1, &name[..1].to_ascii_lowercase());
+            format!("{n}=\"{value}\"")
+        })
+        .collect();
+    format!("<Whammy {}/>", attrs.join(" "))
 }
 
 fn attr(s: &str) -> String {
@@ -502,6 +542,9 @@ impl Gpif {
             None => {}
         }
         xml.push_str(&format!("<Rhythm ref=\"{rhythm}\"/>"));
+        if let Some(w) = b.whammy.filter(|_| !b.rest && !t.is_drums()) {
+            xml.push_str(&whammy_element(&w));
+        }
         match b.tremolo.filter(|_| !b.rest) {
             Some(TremoloSpeed::Eighth) => xml.push_str("<Tremolo>1/8</Tremolo>"),
             Some(TremoloSpeed::Sixteenth) => xml.push_str("<Tremolo>1/4</Tremolo>"),
@@ -543,6 +586,16 @@ impl Gpif {
             Some(BeatTechnique::Slap) => props.push_str("<Property name=\"Slapped\"><Enable/></Property>"),
             Some(BeatTechnique::Pop) => props.push_str("<Property name=\"Popped\"><Enable/></Property>"),
             None => {}
+        }
+        if !b.rest && !t.is_drums() {
+            match b.bar_vibrato {
+                Some(BarVibrato::Slight) => props.push_str("<Property name=\"VibratoWTremBar\"><Strength>Slight</Strength></Property>"),
+                Some(BarVibrato::Wide) => props.push_str("<Property name=\"VibratoWTremBar\"><Strength>Wide</Strength></Property>"),
+                None => {}
+            }
+            if b.whammy.is_some() {
+                props.push_str("<Property name=\"WhammyBar\"><Enable/></Property>");
+            }
         }
         if !props.is_empty() {
             xml.push_str(&format!("<Properties>{props}</Properties>"));

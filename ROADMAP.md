@@ -1,8 +1,8 @@
 # Guitario roadmap
 
-**Stage: alpha** · next: beta, ~540–1,060 h away · then 1.0 (full parity), ~690–1,350 h further
+**Stage: alpha** · next: beta, ~530–1,045 h away · then 1.0 (full parity), ~690–1,350 h further
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** major (stages now defined by gates, beta gate added, percentages recomputed from stated weights, hours re-summed from the gaps) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (the whammy bar landed: menus 162/177, editing 65 %, beta ~530–1,045 h) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [roadmap](docs/roadmap.md) (stages, gates, current focus), [target-app parity](docs/target-app-parity.md)
@@ -20,12 +20,12 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 |---|---|---|
 | **Stage** | **alpha** | measured: the [alpha gate](docs/roadmap.md#alpha-gate) passes |
 | **Beta gate** | **0 of 8** workflows pass | measured: [beta gate](docs/roadmap.md#beta-gate) |
-| Scorecard | 47 done, 22 partial, 24 missing; **30 open for beta**, 16 for 1.0 | measured |
-| Menus | 161 of 177 live (91 %) | measured |
+| Scorecard | 48 done, 21 partial, 24 missing; **29 open for beta**, 16 for 1.0 | measured |
+| Menus | 162 of 177 live (92 %) | measured |
 | Feature breadth | **~63 %** | partly measured: weights in [target-app parity](docs/target-app-parity.md#feature-breadth-63-weighted) |
-| Readiness | **~54 %** (48–60) | estimated: weighted dimension average |
-| Remaining to **beta** | **~540–1,060 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
-| Remaining to **full parity** | **~1,230–2,410 h** | beta plus the 1.0 column |
+| Readiness | **~55 %** (49–61) | estimated: weighted dimension average |
+| Remaining to **beta** | **~530–1,045 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
+| Remaining to **full parity** | **~1,220–2,395 h** | beta plus the 1.0 column |
 
 ## Stages
 
@@ -41,7 +41,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 |---|---|---|---|
 | B1 | Install and open on macOS, Windows, Linux | no | installers, signing, file associations, in-app sound bank |
 | B2 | Hear a band: articulated guitar, bass, sampled drums through an amp | partial | articulations, amp, cabinet, reverb; a listening pass |
-| B3 | Transcribe a solo: bends, whammy, step-grid drums, Paste Special | partial | whammy bar, Paste Special, step grid (bends are done) |
+| B3 | Transcribe a solo: bends, whammy, step-grid drums, Paste Special | partial | Paste Special, step grid (bends and whammy are done) |
 | B4 | Exchange: Guitar Pro 3-8, MIDI, MusicXML | partial | MusicXML, MIDI import, a `.gp` opened in Guitar Pro 8 |
 | B5 | Practise with the tools | no | tuner, chord window, scale tool |
 | B6 | Print properly | partial | headers and footers, selected bars, a real printer |
@@ -52,7 +52,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 
 | Dimension | Weight | % ready | Beta h | Doc |
 |---|---:|---:|---:|---|
-| Editing | 20% | 62% | 40–80 | [scorecard](docs/scorecard.md#editing) |
+| Editing | 20% | 65% | 30–65 | [scorecard](docs/scorecard.md#editing) |
 | Notation | 15% | 74% | 6–22 | [scorecard](docs/scorecard.md#notation-and-engraving) |
 | Playback | 15% | 42% | 150–300 | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 10% | 56% | 65–120 | [file-format-parity](docs/file-format-parity.md) |
@@ -73,7 +73,7 @@ Ranked for the beta gate; the reasoning and the human steps are in [docs/roadmap
 
 | Rank | Work | Gap | Beta hours |
 |---|---|---|---:|
-| 1 | Whammy bar, Paste Special (the bend editor landed 2026-10-17) | [G6](docs/gaps.md#g6-editing-depth) | 25–50 |
+| 1 | Paste Special, multitrack copy, Check Bar Duration (bends and whammy landed 2026-10-17) | [G6](docs/gaps.md#g6-editing-depth) | 15–35 |
 | 2 | MIDI and MusicXML import and export, Guitar Pro 6 drums | [G3](docs/gaps.md#g3-guitar-pro-exchange) | 55–100 |
 | 3 | Chord window, scale tool, tuner | [G7](docs/gaps.md#g7-tools) | 55–100 |
 | 4 | Sound: articulations, amp, cabinet, reverb, first-run sound bank | [G5](docs/gaps.md#g5-playback-realism) | 150–300 |

@@ -48,6 +48,7 @@ static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::ne
         .chain(crate::tracks::specs())
         .chain(crate::techniques::specs())
         .chain(crate::bends::specs())
+        .chain(crate::whammy::specs())
         .chain(crate::tools::specs())
         .chain(crate::exchange::specs())
         .chain(crate::chords::specs())

@@ -75,6 +75,15 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   end and the least important points of a richer curve (`gpif_bend` says what comes back). The
   old writer put the destination at 60 % of the note, now 100 %. Checked on real `.gp5` and `.gp`
   files, including a set of bend test files.
+- **Landed 2026-10-17:** whammy dives and vibrato with the bar from every Guitar Pro format. Guitar
+  Pro 7/8 write a beat's `<Whammy>` element (origin, middle and destination, values in hundredths
+  of a whole tone down to −600, offsets in percent) with a `WhammyBar` property; Guitar Pro 6 the
+  same numbers as `WhammyBar…` properties; Guitar Pro 4-5 the bend's structure behind beat-effect
+  flag 0x04 (a dive is `(0, 0) (45, v) (60, v)`); Guitar Pro 3 one depth per beat, read as a dip.
+  `VibratoWTremBar` (slight or wide) is read and written in `.gp`; a `.gp5` export drops it with a
+  warning. `.gp` and `.gp5` exports write the curves (`gpif_whammy` says what comes back). Checked
+  on the local corpus (225 files): one `.gp3` and one `.gp5` no longer lose their dives, and the
+  round-trip results are unchanged. `<WhammyExtend/>` (four uses) is not read yet.
 ### G4. Notation depth
 - **Landed 2026-10-16:** chord names (model, `beat.setChord`, Guitar Pro import and export) and
   beat text drawn above the system.
@@ -175,6 +184,20 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   vertical arrow from the fret for a pre-bend, a line for a hold. Playback follows the curve (synth
   and samples, from the first frame, so a pre-bend starts bent), and a tie carries it on: the next
   note holds the pitch or follows its own curve (a release). Shown in `snapshot --bends [--bend]`.
+- **Landed 2026-10-17:** the whammy bar and vibrato with the bar. A beat's whammy is a curve of the
+  bend's kind (`Whammy` in `crates/score/src/whammy.rs`; the two share `curve.rs`): positions 0 to
+  60 along the beat, values in quarter tones from an octave down to an octave up. Six shapes are
+  presets of it (dive, dip, return, hold, pre-dive, pre-dive and dive), recognised again when a
+  curve matches one. `beat.setWhammy` takes a depth with a shape, or the points, for the beat or
+  the selection (rests skipped, drums refused); `beat.setBarVibrato` sets slight or wide vibrato with
+  the bar. Effects › Whammy Bar… and the palette open the Whammy Bar window: the shapes (Hold and
+  Return only after a beat that uses the bar), a depth from −6 to +6 tones, and a graph with the
+  written pitch on its middle line. The palette's two bridge-vibrato buttons are live. A track that
+  uses the bar gets a lane above the other effects: "w/bar" where a run starts, the curve dropping
+  for a dive and rising for a pull, the depth (−¼ … −6, +½ …) where it turns, and a wavy line for
+  the vibrato. Playback moves every note of the beat along the curve, on top of any bend: at rest
+  before it, held after it, joined through ties, shared by tremolo picks; vibrato with the bar
+  shakes the beat's notes. Shown in `snapshot --whammies [--whammy]`.
 ### G7. Tools
 - **Landed 2026-10-16:** Tools › Chord Diagrams…: a clickable diagram for the beat under the
   cursor (fingers, open and muted strings, first fret), filled from the beat's notes and named by a
