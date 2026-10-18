@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Guitario.app's Info.plist. `cargo xtask package` fills in the version (xtask/src/package.rs). -->
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Guitario</string>
+	<key>CFBundleDisplayName</key>
+	<string>Guitario</string>
+	<key>CFBundleIdentifier</key>
+	<string>ai.storyteller.guitario</string>
+	<key>CFBundleExecutable</key>
+	<string>guitario</string>
+	<key>CFBundleIconFile</key>
+	<string>guitario</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@BUNDLE_VERSION@</string>
+	<key>CFBundleVersion</key>
+	<string>@BUNDLE_VERSION@</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.music</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© Guitario contributors. MIT or Apache-2.0.</string>
+	<!-- The tuner listens through the microphone. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Guitario listens to your instrument to tune it.</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Guitario Score</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>guitario</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>ai.storyteller.guitario.score</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Guitar Pro Tablature</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>ai.storyteller.guitario.guitar-pro</string>
+			</array>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>gp</string>
+				<string>gpx</string>
+				<string>gp5</string>
+				<string>gp4</string>
+				<string>gp3</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>MIDI File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.midi-audio</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>MusicXML Score</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>ai.storyteller.guitario.musicxml</string>
+			</array>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>musicxml</string>
+				<string>mxl</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>ai.storyteller.guitario.score</string>
+			<key>UTTypeDescription</key>
+			<string>Guitario Score</string>
+			<key>UTTypeIconFile</key>
+			<string>guitario</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>gt</string>
+					<string>gt</string>
+				</array>
+				<key>public.mime-type</key>
+				<string>application/x-guitario</string>
+			</dict>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>ai.storyteller.guitario.guitar-pro</string>
+			<key>UTTypeDescription</key>
+			<string>Guitar Pro Tablature</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>gp</string>
+					<string>gpx</string>
+					<string>gp5</string>
+					<string>gp4</string>
+					<string>gp3</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>ai.storyteller.guitario.musicxml</string>
+			<key>UTTypeDescription</key>
+			<string>MusicXML Score</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>musicxml</string>
+					<string>mxl</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/vnd.recordare.musicxml+xml</string>
+					<string>application/vnd.recordare.musicxml</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

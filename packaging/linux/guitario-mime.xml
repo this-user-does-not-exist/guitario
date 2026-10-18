@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The file types Guitario opens that the system may not know, for shared-mime-info. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-guitario">
+    <comment>Guitario score</comment>
+    <glob pattern="*.gt"/>
+    <glob pattern="*.gt"/>
+    <sub-class-of type="application/json"/>
+    <icon name="ai.storyteller.guitario"/>
+  </mime-type>
+  <mime-type type="application/x-guitar-pro">
+    <comment>Guitar Pro tablature</comment>
+    <glob pattern="*.gp"/>
+    <glob pattern="*.gpx"/>
+    <glob pattern="*.gp5"/>
+    <glob pattern="*.gp4"/>
+    <glob pattern="*.gp3"/>
+  </mime-type>
+</mime-info>

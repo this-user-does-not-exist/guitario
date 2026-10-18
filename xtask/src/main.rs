@@ -4,6 +4,7 @@
 
 mod ico;
 mod layers;
+mod package;
 mod scorecard;
 mod sounds;
 mod stats;
@@ -28,6 +29,9 @@ commands:
                   regenerate docs/scorecard.md from scorecard/*.toml (--check: fail if stale)
   sounds [--list] [--dir <folder>] [--only <id>,..]
                   download open SFZ guitars, bass and drums and write the sound bank (docs/sounds.md)
+  package [--target <triple>] [--no-build]
+                  build in release and lay out the app for this platform in dist/: an app bundle,
+                  .tar.gz and .deb, or .zip and installer (packaging/, release workflow)
   ico <out.ico> <in.png>...
                   pack PNG images into a Windows icon (packaging/icons.sh uses it)
   version [set X.Y.Z[-pre]]
@@ -48,6 +52,7 @@ fn main() -> ExitCode {
         Some("sounds") => sounds::run(&rest),
         Some("version") => version::run(&root(), &rest),
         Some("ico") => ico::run(&rest),
+        Some("package") => package::run(&root(), &rest),
         Some("-h" | "--help" | "help") | None => {
             print!("{USAGE}");
             Ok(())

@@ -16,6 +16,28 @@ cargo xtask ci                                  # fmt, clippy, tests, layers, pa
 cargo xtask perf                                # release timings on a 400-bar score vs perf/budgets.toml
 ```
 
+### Packages and releases
+
+```sh
+cargo xtask package                               # this platform, in release, into dist/
+cargo xtask package --target x86_64-apple-darwin  # another architecture (rustup target add first)
+cargo xtask package --no-build                    # repackage what target/release holds
+```
+
+macOS gives `Guitario.app`, a `.zip` and a `.dmg`; Linux a `.tar.gz` (with `install.sh`) and a
+`.deb` where `dpkg-deb` exists; Windows a `.zip` and, with Inno Setup installed, the installer.
+The templates are in `packaging/`. Signing happens when these are set: `GUITARIO_SIGN_IDENTITY`
+(a Developer ID Application certificate in the keychain) and `GUITARIO_NOTARY_APPLE_ID`,
+`GUITARIO_NOTARY_TEAM_ID`, `GUITARIO_NOTARY_PASSWORD` (an app-specific password) on macOS;
+`GUITARIO_WINDOWS_CERT` (a `.pfx`, with `GUITARIO_WINDOWS_CERT_PASSWORD`) or
+`GUITARIO_WINDOWS_CERT_SHA1` (a certificate in the store) on Windows.
+
+A release: `cargo xtask version set X.Y.Z`, commit, then push the tag `vX.Y.Z`. The release
+workflow (`.github/workflows/release.yml`) checks the tag against the workspace version, builds
+every platform, signs with the repository's secrets when they are set (the list is at the top of
+the workflow) and drafts a GitHub release with the packages and `SHA256SUMS`; publish the draft
+after looking at it. A version with a pre-release part (`0.2.0-beta.1`) drafts a pre-release.
+
 ### Faster test loops
 
 `cargo test -p <crate> --lib --tests` skips examples and doctests; `cargo nextest run --workspace`

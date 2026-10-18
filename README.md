@@ -21,10 +21,12 @@
 </p>
 
 > [!WARNING]
-> Guitario is **alpha**. Writing, arranging with drums, bends, playing, practising, Guitar Pro
-> exchange, and PDF export and printing work end to end. Beta needs sampled guitar with
-> articulations and an amp, the whammy bar, MusicXML and MIDI import, the tuner and chord tools,
-> and installers. See the [beta gate](docs/roadmap.md#beta-gate) and [ROADMAP.md](ROADMAP.md).
+> Guitario is **alpha**. Writing, arranging with drums, bends and the whammy bar, playing with
+> sampled instruments through an amp, practising with the tuner, chord and scale tools, Guitar
+> Pro, MIDI and MusicXML exchange, and PDF export and printing work end to end. Beta needs
+> several documents open at once, the drum step grid, headers and footers, signed releases that
+> open a double-clicked file on every platform, and an agent control channel. See the
+> [beta gate](docs/roadmap.md#beta-gate) and [ROADMAP.md](ROADMAP.md).
 
 <p align="center">
   <a href="#what-it-does">What it does</a> ·
@@ -117,6 +119,10 @@ cargo run --release -p guitario
 cargo run --release -p guitario -- demos/01-thrash-attack.gt
 ```
 
+Or build the package for your platform with `cargo xtask package` (into `dist/`): an app bundle
+and disk image on macOS, a `.deb` and a `.tar.gz` with `install.sh` on Linux, a zip and an
+installer on Windows. Releases are not signed yet; see [development](docs/development.md#packages-and-releases).
+
 Then click a beat, type a fret number and press Space. The [user guide](book/src/SUMMARY.md) covers
 editing, playback and shortcuts; [development](docs/development.md) covers building and testing.
 
@@ -144,8 +150,8 @@ Details: [architecture](docs/architecture.md), [contributing](docs/contributing.
 |---|---|
 | **Stage** | alpha: the six-workflow [alpha gate](docs/roadmap.md#alpha-gate) passes |
 | **Beta gate** | 0 of 8 workflows pass end to end ([the eight](docs/roadmap.md#beta-gate)) |
-| **Menus** | 161 of 177 Guitar Pro menu items live |
-| **Readiness** | about 54 % of Guitar Pro 8, estimated from weighted dimensions |
+| **Menus** | 172 of 180 Guitar Pro menu items live |
+| **Readiness** | about 65 % of Guitar Pro 8, estimated from weighted dimensions |
 | **Languages** | English; the localization framework is a beta item |
 
 The [ROADMAP](ROADMAP.md) has every dimension and what comes next. [Gaps](docs/gaps.md) is the

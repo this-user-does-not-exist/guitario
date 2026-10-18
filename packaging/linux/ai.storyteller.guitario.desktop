@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Guitario
+GenericName=Tablature Editor
+Comment=Write, play and print guitar tablature and notation
+Exec=guitario %f
+Icon=ai.storyteller.guitario
+Terminal=false
+Categories=AudioVideo;Audio;Music;
+Keywords=guitar;tab;tablature;notation;score;Guitar Pro;
+MimeType=application/x-guitario;application/x-guitar-pro;audio/midi;audio/x-midi;application/vnd.recordare.musicxml+xml;application/vnd.recordare.musicxml;
+StartupWMClass=ai.storyteller.guitario
