@@ -28,6 +28,7 @@ mod session;
 mod techniques;
 mod tools;
 mod tracks;
+mod tuning_tool;
 mod unset;
 mod voices;
 mod whammy;

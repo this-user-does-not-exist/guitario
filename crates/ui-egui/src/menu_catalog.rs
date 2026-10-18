@@ -34,6 +34,7 @@ pub enum UiAction {
     Fingering,
     ChordDiagrams,
     ScaleTool,
+    Tuner,
     Lyrics,
     ImportGuitarPro,
     ImportMidi,
@@ -289,7 +290,7 @@ pub static CATALOG: &[MenuItem] = &[
     c("Sound", "Switch All Tracks to MIDI", "track.setEngine", r#"{"engine":"midi","tracks":"all"}"#, ""),
     c("Sound", "Switch All Tracks to RSE", "track.setEngine", r#"{"engine":"rse","tracks":"all"}"#, ""),
     // Tools
-    m("Tools", "Tuner"),
+    u("Tools", "Tuner", U::Tuner, ""),
     u("Tools", "Chord Diagrams…", U::ChordDiagrams, ""),
     u("Tools", "Scale Tool…", U::ScaleTool, ""),
     u("Tools", "Check Bar Durations", U::CheckBarDurations, "F4"),

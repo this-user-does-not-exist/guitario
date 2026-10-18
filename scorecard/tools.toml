@@ -12,9 +12,9 @@ note = "crates/engine/src/chords.rs, guitario_theory::chord_name; diagrams are d
 [[item]]
 id = "TOOL-2"
 target = "Tuner from the microphone or line in (Tools › Tuner), within ±2 cents on test tones"
-status = "missing"
+status = "done"
 stage = "beta"
-note = "needs audio input in crates/audio (issue 134) and a pitch detector; the toolbar button is greyed"
+note = "the toolbar's tuning fork and Tools › Tuner open Guitar Pro 8's tuner: the default input (guitario_audio::AudioIn), a needle for one string (YIN with interpolation) and a bar per string of the track's tuning for a strum (Goertzel peak search near each target), green within 3 cents; clicking a string measures the needle against it; tools.tune runs the same analysis on samples. Within ±2 cents on sine and harmonic tones with noise from a low B to E6, and per string in a strum (crates/playback/src/tuner.rs). Not yet tried with a real guitar and microphone (human)"
 
 [[item]]
 id = "TOOL-3"

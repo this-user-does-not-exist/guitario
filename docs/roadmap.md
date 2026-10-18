@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the Chord window and Scale tool landed; focus item 1 is the tuner) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the tuner landed: exchange and tools have only human checks left; focus item 1 is sound) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -14,7 +14,7 @@ for one agent working sequentially, and an upper bound (see
 [calibration](target-app-parity.md#calibration)).
 
 **Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
-today; ~425–850 h of work are left, ordered under [Current focus](#current-focus).
+today; ~405–810 h of work are left, ordered under [Current focus](#current-focus).
 
 ## Stages
 
@@ -67,7 +67,7 @@ live except the ones the scorecard stages for 1.0.
 | B2 | **Hear a band.** Guitar with palm mutes, harmonics and slides, bass, and sampled drums, through an amp and room, and a guitarist accepts how it sounds | partial | sampled instruments play, but articulations, legato, amp, cabinet, reverb and delay are not built; nobody has listened on speakers | [G5](gaps.md#g5-playback-realism) |
 | B3 | **Transcribe a solo.** Bends with their curves, whammy dives, grace notes, tuplets, a drum groove on a step grid, Paste Special | partial | the drum step grid (bend curves, the whammy bar and Paste Special landed 2026-10-17) | [G6](gaps.md#g6-editing-depth), [G1](gaps.md#g1-drums-depth) |
 | B4 | **Exchange.** Open any Guitar Pro 3 to 8 file (at least 95 % of a real corpus without warnings); a `.gp` export opens in Guitar Pro 8; MIDI and MusicXML go in and out | partial | the `.gp` check in Guitar Pro 8 (human); MIDI import, MusicXML and Guitar Pro 6 drums landed 2026-10-18 | [G3](gaps.md#g3-guitar-pro-exchange) |
-| B5 | **Practise with the tools.** Tune the guitar, look up a chord's voicings, show a scale on the fretboard | no | tuner (the chord window and scale tool are done) | [G7](gaps.md#g7-tools) |
+| B5 | **Practise with the tools.** Tune the guitar, look up a chord's voicings, show a scale on the fretboard | partial | a tuning check with a real guitar (human); the tuner, chord window and scale tool are done | [G7](gaps.md#g7-tools) |
 | B6 | **Print properly.** Headers and footers, selected bars, other paper; a page leaves a real printer on all three platforms | partial | headers and footers, selected bars, the real-printer check (human) | [G2](gaps.md#g2-print-depth) |
 | B7 | **Work for hours.** Several scores open, a 1,000-bar score inside the performance budgets in CI, autosave and recovery, every reader fuzzed | partial | several documents, CI budgets, memory and startup budgets, `.gt` and decoder fuzzing, a guard around painting | [G8](gaps.md#g8-ui-depth), [G9](gaps.md#g9-performance-budgets), [G11](gaps.md#g11-reliability-depth) |
 | B8 | **Drive it by agent.** An agent completes ten scripted edit tasks over MCP and takes screenshots of the running app | no | control channel, MCP server | [G10](gaps.md#g10-automation) |
@@ -110,23 +110,21 @@ issue assigned to you. Work in **batches**: one pull request, one slice of a gap
 and a snapshot where it is visible. The order puts what an agent can fully verify first and
 what needs a human ear or signing material last, so the human steps overlap with other work.
 
-1. **Tuner** ([G7](gaps.md#g7-tools)): audio input and a pitch detector. 20–40 h. (The Chord
-   window and the Scale tool landed 2026-10-18.)
-2. **Sound** ([G5](gaps.md#g5-playback-realism)): articulation mapping and legato, then amp,
+1. **Sound** ([G5](gaps.md#g5-playback-realism)): articulation mapping and legato, then amp,
    cabinet, reverb and delay, then the first-run sound bank install. A listening pass closes it.
    150–300 h.
-3. **Release workflow and packages** ([G12](gaps.md#g12-platforms-and-distribution)): tag to
+2. **Release workflow and packages** ([G12](gaps.md#g12-platforms-and-distribution)): tag to
    artifacts for three platforms, an app bundle with file associations; signing waits on accounts.
    80–150 h + human.
-4. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 60–110 h.
-5. **Drum step grid and articulations** ([G1](gaps.md#g1-drums-depth)); **headers, footers,
+3. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 60–110 h.
+4. **Drum step grid and articulations** ([G1](gaps.md#g1-drums-depth)); **headers, footers,
    selected bars** ([G2](gaps.md#g2-print-depth)); **voice picking** ([G4](gaps.md#g4-notation-depth)).
    30–70 h.
-6. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
+5. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
    cache** ([G11](gaps.md#g11-reliability-depth), [G9](gaps.md#g9-performance-budgets)); **the
    localization framework** ([G13](gaps.md#g13-languages)). 85–175 h.
 
-Human steps, to schedule early because they wait on a person: a listening pass (#115, #133), a
+Human steps, to schedule early because they wait on a person: tuning a real guitar with the tuner, a listening pass (#115, #133), a
 real-printer page on three platforms, `.gp` exports opened in Guitar Pro 8 (#19), signing
 accounts (#176, #177), and re-measuring the menus and shortcuts from an installed Guitar Pro 8
 (#154).
@@ -165,6 +163,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | The tuner landed: G3 and G7 have only human checks left; focus item 1 is sound; beta ~405–810 h |
 | 2026-10-18 | minor | The Scale tool landed; focus item 1 is the tuner; beta ~425–850 h |
 | 2026-10-18 | minor | The Chord window landed; focus item 1 is the scale tool and tuner; beta ~440–875 h |
 | 2026-10-18 | minor | Guitar Pro 6 drum hits landed: G3 has only the human check left; focus item 1 is the tools; beta ~460–910 h |

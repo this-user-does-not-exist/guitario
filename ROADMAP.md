@@ -1,8 +1,8 @@
 # Guitario roadmap
 
-**Stage: alpha** · next: beta, ~425–850 h away · then 1.0 (full parity), ~690–1,350 h further
+**Stage: alpha** · next: beta, ~405–810 h away · then 1.0 (full parity), ~690–1,350 h further
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (exchange done; the Chord window and the Scale tool; beta ~425–850 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (exchange and tools done for beta, human checks aside; beta ~405–810 h) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [roadmap](docs/roadmap.md) (stages, gates, current focus), [target-app parity](docs/target-app-parity.md)
@@ -20,12 +20,12 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 |---|---|---|
 | **Stage** | **alpha** | measured: the [alpha gate](docs/roadmap.md#alpha-gate) passes |
 | **Beta gate** | **0 of 8** workflows pass | measured: [beta gate](docs/roadmap.md#beta-gate) |
-| Scorecard | 54 done, 19 partial, 20 missing; **23 open for beta**, 16 for 1.0 | measured |
-| Menus | 170 of 180 live (94 %) | measured |
+| Scorecard | 55 done, 19 partial, 19 missing; **22 open for beta**, 16 for 1.0 | measured |
+| Menus | 171 of 180 live (95 %) | measured |
 | Feature breadth | **~63 %** | partly measured: weights in [target-app parity](docs/target-app-parity.md#feature-breadth-63-weighted) |
 | Readiness | **~60 %** (53–65) | estimated: weighted dimension average |
-| Remaining to **beta** | **~425–850 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
-| Remaining to **full parity** | **~1,120–2,210 h** | beta plus the 1.0 column |
+| Remaining to **beta** | **~405–810 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
+| Remaining to **full parity** | **~1,100–2,170 h** | beta plus the 1.0 column |
 
 ## Stages
 
@@ -43,7 +43,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | B2 | Hear a band: articulated guitar, bass, sampled drums through an amp | partial | articulations, amp, cabinet, reverb; a listening pass |
 | B3 | Transcribe a solo: bends, whammy, step-grid drums, Paste Special | partial | step grid (bends, whammy and Paste Special are done) |
 | B4 | Exchange: Guitar Pro 3-8, MIDI, MusicXML | partial | a `.gp` opened in Guitar Pro 8 (human; everything else is done) |
-| B5 | Practise with the tools | no | tuner (the chord window and scale tool are done) |
+| B5 | Practise with the tools | partial | a tuning check with a real guitar (human); tuner, chord window and scale tool are done |
 | B6 | Print properly | partial | headers and footers, selected bars, a real printer |
 | B7 | Work for hours | partial | several documents, CI budgets, more fuzzing |
 | B8 | Drive it by agent | no | control channel, MCP |
@@ -57,7 +57,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | Playback | 15% | 42% | 150–300 | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 10% | 70% | 10–20 | [file-format-parity](docs/file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 75–140 | [ui-parity](docs/ui-parity.md) |
-| Tools | 5% | 50% | 20–40 | [gaps G7](docs/gaps.md#g7-tools) |
+| Tools | 5% | 65% | 0 + human | [gaps G7](docs/gaps.md#g7-tools) |
 | Stability | 10% | 65% | 15–35 | [scorecard](docs/scorecard.md#reliability) |
 | Performance | 5% | 70% | 15–30 | [gaps G9](docs/gaps.md#g9-performance-budgets) |
 | Platforms and automation | 10% | 25% | 120–230 | [scorecard](docs/scorecard.md#distribution) |
@@ -73,9 +73,8 @@ Ranked for the beta gate; the reasoning and the human steps are in [docs/roadmap
 
 | Rank | Work | Gap | Beta hours |
 |---|---|---|---:|
-| 1 | Tuner (the Chord window and Scale tool landed 2026-10-18; G3 exchange has only the human `.gp` check left) | [G7](docs/gaps.md#g7-tools) | 20–40 |
-| 2 | Sound: articulations, amp, cabinet, reverb, first-run sound bank | [G5](docs/gaps.md#g5-playback-realism) | 150–300 |
-| 3 | Release workflow, installers, file associations | [G12](docs/gaps.md#g12-platforms-and-distribution) | 80–150 + human |
-| 4 | Several documents, shortcuts audit, user book | [G8](docs/gaps.md#g8-ui-depth) | 60–110 |
-| 5 | Drum step grid, headers and footers, voice picking | [G1](docs/gaps.md#g1-drums-depth), [G2](docs/gaps.md#g2-print-depth), [G4](docs/gaps.md#g4-notation-depth) | 30–70 |
-| 6 | Control channel and MCP, fuzzing, CI budgets, localization framework | [G10](docs/gaps.md#g10-automation), [G11](docs/gaps.md#g11-reliability-depth), [G9](docs/gaps.md#g9-performance-budgets), [G13](docs/gaps.md#g13-languages) | 85–175 |
+| 1 | Sound: articulations, amp, cabinet, reverb, first-run sound bank | [G5](docs/gaps.md#g5-playback-realism) | 150–300 |
+| 2 | Release workflow, installers, file associations | [G12](docs/gaps.md#g12-platforms-and-distribution) | 80–150 + human |
+| 3 | Several documents, shortcuts audit, user book | [G8](docs/gaps.md#g8-ui-depth) | 60–110 |
+| 4 | Drum step grid, headers and footers, voice picking | [G1](docs/gaps.md#g1-drums-depth), [G2](docs/gaps.md#g2-print-depth), [G4](docs/gaps.md#g4-notation-depth) | 30–70 |
+| 5 | Control channel and MCP, fuzzing, CI budgets, localization framework | [G10](docs/gaps.md#g10-automation), [G11](docs/gaps.md#g11-reliability-depth), [G9](docs/gaps.md#g9-performance-budgets), [G13](docs/gaps.md#g13-languages) | 85–175 |

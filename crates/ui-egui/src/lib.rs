@@ -49,6 +49,7 @@ mod tabbar;
 mod theme;
 mod topbar;
 mod transpose_dialog;
+mod tuner;
 mod whammy_dialog;
 mod whammy_draw;
 
@@ -148,6 +149,7 @@ pub struct GuitarioApp {
     bar_check: bar_check::BarCheck,
     chord: chord_dialog::ChordDialog,
     scales: scale_dialog::ScaleDialog,
+    tuner: tuner::Tuner,
     lyrics: lyrics_dialog::LyricsDialog,
     transpose: transpose_dialog::TransposeDialog,
     section: section_dialog::SectionDialog,
@@ -234,6 +236,7 @@ impl GuitarioApp {
             bar_check: bar_check::BarCheck::default(),
             chord: chord_dialog::ChordDialog::default(),
             scales: scale_dialog::ScaleDialog::default(),
+            tuner: tuner::Tuner::default(),
             lyrics: lyrics_dialog::LyricsDialog::default(),
             autosave: autosave::Autosave::off(),
             transpose: transpose_dialog::TransposeDialog::default(),
@@ -455,6 +458,7 @@ impl GuitarioApp {
             U::Fingering => self.open_fingering(),
             U::ChordDiagrams => self.open_chord(),
             U::ScaleTool => self.open_scales(),
+            U::Tuner => self.toggle_tuner(),
             U::Lyrics => self.open_lyrics(),
             U::ImportGuitarPro => self.open_dialog(),
             U::ImportMidi => self.guard(Pending::ImportDialog("MIDI", &guitario_engine::MIDI_EXTENSIONS)),
@@ -951,6 +955,7 @@ impl GuitarioApp {
         self.bar_check_window(&ctx);
         self.chord_dialog(&ctx);
         self.scale_dialog(&ctx);
+        self.tuner_panel(&ctx);
         self.lyrics_dialog(&ctx);
         self.transpose_dialog(&ctx);
         self.section_dialog(&ctx);

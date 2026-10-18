@@ -328,6 +328,16 @@ fn main() {
             app.close_scales();
         }
     }
+    // `--tuner`: the tuner hearing a strum with the A string flat and the G sharp, and the low E alone.
+    if args.iter().any(|a| a == "--tuner") {
+        let rate = 48_000u32;
+        let n = (rate as f32 * guitario_playback::tuner::WINDOW) as usize;
+        let tone = |key: f32, i: usize| (2.0 * std::f32::consts::PI * guitario_playback::tuner::frequency_of(key) * i as f32 / rate as f32).sin();
+        let strum: Vec<f32> = (0..n).map(|i| 0.2 * (tone(40.0, i) + tone(44.85, i) + tone(50.0, i) + tone(55.12, i) + tone(59.0, i) + tone(64.0, i))).collect();
+        app.tuner_reading(&strum, rate);
+        let single: Vec<f32> = (0..n).map(|i| 0.3 * tone(40.0, i)).collect();
+        app.tuner_reading(&single, rate);
+    }
     // `--chord-built`: the Chord window building the manual's example, D#m7add11.
     if args.iter().any(|a| a == "--chord-built") {
         app.open_chord();

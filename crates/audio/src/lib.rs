@@ -1,4 +1,5 @@
-//! L4 audio output: one sound-card stream that pulls samples from a shared [`Player`] slot.
+//! L4 audio: one sound-card output stream that pulls samples from a shared [`Player`] slot, and
+//! an input stream ([`AudioIn`]) the tuner listens to.
 //! The UI swaps players in and out of the slot; the audio callback never blocks on it (a busy
 //! lock yields one buffer of silence) and never panics.
 
@@ -111,9 +112,103 @@ impl AudioOut {
     }
 }
 
+/// Most recent input samples kept, mono.
+pub const INPUT_KEEP: usize = 1 << 16;
+
+/// The newest samples a sound-card input has delivered, mono, oldest first.
+pub type Recording = Arc<Mutex<std::collections::VecDeque<f32>>>;
+
+/// A microphone or line input, for the tuner: the stream runs while this lives and keeps the last
+/// [`INPUT_KEEP`] samples, its channels mixed to mono.
+pub struct AudioIn {
+    _stream: cpal::Stream,
+    pub sample_rate: u32,
+    pub recording: Recording,
+    /// The device listening, by name.
+    pub device: String,
+}
+
+/// Mixes interleaved frames to mono and appends them, dropping the oldest past the limit. A busy
+/// lock drops the buffer rather than wait on the audio thread.
+fn record(recording: &Recording, data: impl Iterator<Item = f32>, channels: usize) {
+    let Ok(mut buf) = recording.try_lock() else { return };
+    let mut sum = 0.0f32;
+    for (i, x) in data.enumerate() {
+        sum += if x.is_finite() { x } else { 0.0 };
+        if (i + 1) % channels == 0 {
+            buf.push_back(sum / channels as f32);
+            sum = 0.0;
+        }
+    }
+    let extra = buf.len().saturating_sub(INPUT_KEEP);
+    buf.drain(..extra);
+}
+
+impl AudioIn {
+    /// Opens the default input. On macOS the first use asks the user's permission; a refusal
+    /// gives silence or an error, never a crash.
+    pub fn open() -> Result<AudioIn, AudioError> {
+        let host = cpal::default_host();
+        let device = host.default_input_device().ok_or(AudioError::NoDevice)?;
+        let name = device.description().map(|d| d.name().to_string()).unwrap_or_else(|_| "Audio input".into());
+        let supported = device.default_input_config().map_err(|e| AudioError::Device(e.to_string()))?;
+        let channels = usize::from(supported.channels().max(1));
+        let sample_rate = supported.sample_rate();
+        let format = supported.sample_format();
+        let config: cpal::StreamConfig = supported.config();
+        let recording: Recording = Arc::new(Mutex::new(std::collections::VecDeque::with_capacity(INPUT_KEEP)));
+        let shared = Arc::clone(&recording);
+        let error = |err: cpal::Error| eprintln!("audio input error: {err}");
+        let stream = match format {
+            cpal::SampleFormat::F32 => {
+                device.build_input_stream(config, move |d: &[f32], _: &cpal::InputCallbackInfo| record(&shared, d.iter().copied(), channels), error, None)
+            }
+            cpal::SampleFormat::I16 => device.build_input_stream(
+                config,
+                move |d: &[i16], _: &cpal::InputCallbackInfo| record(&shared, d.iter().map(|x| f32::from(*x) / 32768.0), channels),
+                error,
+                None,
+            ),
+            cpal::SampleFormat::U16 => device.build_input_stream(
+                config,
+                move |d: &[u16], _: &cpal::InputCallbackInfo| record(&shared, d.iter().map(|x| (f32::from(*x) - 32768.0) / 32768.0), channels),
+                error,
+                None,
+            ),
+            cpal::SampleFormat::I32 => device.build_input_stream(
+                config,
+                move |d: &[i32], _: &cpal::InputCallbackInfo| record(&shared, d.iter().map(|x| *x as f32 / 2_147_483_648.0), channels),
+                error,
+                None,
+            ),
+            other => return Err(AudioError::Device(format!("input sample format {other} is not supported"))),
+        }
+        .map_err(|e| AudioError::Device(e.to_string()))?;
+        stream.play().map_err(|e| AudioError::Device(e.to_string()))?;
+        Ok(AudioIn { _stream: stream, sample_rate, recording, device: name })
+    }
+
+    /// The last `n` samples (fewer at first).
+    pub fn latest(&self, n: usize) -> Vec<f32> {
+        let buf = self.recording.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        buf.iter().skip(buf.len().saturating_sub(n)).copied().collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn input_is_mixed_to_mono_and_kept_to_the_limit() {
+        let rec: Recording = Arc::new(Mutex::new(std::collections::VecDeque::new()));
+        record(&rec, [1.0f32, 0.0, 0.5, 0.5, f32::NAN, 1.0].into_iter(), 2);
+        assert_eq!(rec.lock().unwrap().iter().copied().collect::<Vec<_>>(), vec![0.5, 0.5, 0.5]);
+        record(&rec, std::iter::repeat_n(0.25f32, INPUT_KEEP * 2), 1);
+        let buf = rec.lock().unwrap();
+        assert_eq!(buf.len(), INPUT_KEEP);
+        assert!(buf.iter().all(|x| *x == 0.25));
+    }
 
     #[test]
     fn a_buffer_size_is_kept_inside_what_the_device_allows() {

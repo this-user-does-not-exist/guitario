@@ -232,7 +232,9 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             if show_tuner {
                 let mut g = Group::begin(ui);
                 g.icon(ui, Icon::LineIn, Place::Last, false, false, "Line-in (not in Guitario yet)");
-                g.icon(ui, Icon::Tuner, Place::First, false, false, "Guitar tuner (not in Guitario yet)");
+                if g.icon(ui, Icon::Tuner, Place::First, app.tuner.open, true, "Tuner").clicked() {
+                    app.toggle_tuner();
+                }
                 g.finish(ui);
                 ui.add_space(GAP);
             }

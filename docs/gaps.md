@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G7: the Chord window and the Scale tool; beta ~425–850 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G7: Chord window, Scale tool, tuner: no agent beta work left; beta ~405–810 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -23,7 +23,7 @@ Ranked by user impact on the way to beta.
 | 1 | [G5](#g5-playback-realism) Playback realism | articulated samples, amp, cabinet, reverb and delay, first-run sound bank | 150–300 | pedalboard, mastering, audio track, MP3/OGG | 130–260 |
 | 2 | [G6](#g6-editing-depth) Editing depth | done | 0 | nested tuplets, ornaments, assistants, tuning window | 80–160 |
 | 3 | [G3](#g3-guitar-pro-exchange) Exchange | `.gp` checked in Guitar Pro (human) | 0 + human | PowerTab, TablEdit, `.gtp`, ASCII import, `.gpx` export | 90–180 |
-| 4 | [G7](#g7-tools) Tools | tuner | 20–40 | line in, MIDI capture, command palette | 70–130 |
+| 4 | [G7](#g7-tools) Tools | a tuning check with a real guitar (human) | 0 + human | line in, MIDI capture, command palette | 70–130 |
 | 5 | [G12](#g12-platforms-and-distribution) Platforms | signed releases on three platforms, file associations, release workflow | 80–150 + human | browser build, update check | 30–60 |
 | 6 | [G8](#g8-ui-depth) UI depth | several documents, shortcuts audit, user book, click-to-edit, track EQ and master | 60–110 | stylesheet window, floating panels, accessibility | 70–130 |
 | 7 | [G1](#g1-drums-depth) Drums | step-grid editor, articulations | 15–30 | kit map editing, drum mix, sampled-kit articulations | 15–30 |
@@ -33,9 +33,9 @@ Ranked by user impact on the way to beta.
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~425–850 h** | | **~695–1,360 h** |
+| | **Total** | | **~405–810 h** | | **~695–1,360 h** |
 
-Beta plus after-beta is **~1,120–2,210 h** to full parity.
+Beta plus after-beta is **~1,100–2,170 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -86,20 +86,23 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
   Guitar Pro 6 files.
 
 ### G7. Tools
-- **Beta:** a tuner: audio input in `crates/audio` (#134) and a pitch detector within ±2 cents
-  (#135).
+- **Beta:** nothing left for an agent.
+- **Human:** tune a real guitar and bass with the tuner through a microphone and an audio
+  interface; check the macOS microphone permission prompt from the app bundle.
 - **After beta:** Line In through the amp (#140, #487), MIDI capture (#339), Command Palette and
   Action List (#324 to 331), Expression Text (#330), scale diagrams in the score (#334), Fretlight
   (#341), the chord window's display options and fingering in the score (#318, #319), literal
   names with an apostrophe (#320).
-- **Landed:** chord diagram editor and namer; the Chord window and the Scale tool (2026-10-18);
-  see the [changelog](changelog.md).
-- **Evidence:** TOOL-2 (beta), TOOL-5/6 (1.0); TOOL-3 and TOOL-4 are done.
-- **Estimate:** 20–40 h beta, 80–150 h after (the full 1,000-scale library is after beta).
+- **Landed:** chord diagram editor and namer; the Chord window, the Scale tool and the tuner
+  (2026-10-18); see the [changelog](changelog.md).
+- **Evidence:** TOOL-5/6 (1.0); TOOL-2, TOOL-3 and TOOL-4 are done.
+- **Estimate:** 0 h beta (+ the human check), 80–150 h after (the full 1,000-scale library is
+  after beta).
 
 ### G12. Platforms and distribution
 - **Beta:** a release workflow from a tag (#179); a signed, notarized macOS app bundle (#176), a
-  signed Windows installer (#177) and Linux packages (#178); file associations for `.gt`, `.gp`
+  signed Windows installer (#177) and Linux packages (#178), the macOS bundle with a microphone
+  usage description for the tuner; file associations for `.gt`, `.gp`
   and the legacy formats (#175); a hands-on run on Windows and Linux (CI builds and tests them for
   every pull request but nobody has used the app there).
 - **Human:** signing material and accounts for Apple and Windows.
@@ -204,6 +207,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | G7: the tuner; no agent beta work left (20–40 h to 0) |
 | 2026-10-18 | minor | G7: the Scale tool (35–65 h to 20–40 h beta) |
 | 2026-10-18 | minor | G7: the Chord window (55–100 h to 35–65 h beta) |
 | 2026-10-18 | minor | G3: Guitar Pro 6 drum hits; no agent beta work left (5–15 h to 0) |

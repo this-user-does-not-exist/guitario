@@ -13,6 +13,7 @@ mod player;
 pub mod sfz;
 mod synth;
 mod tempo;
+pub mod tuner;
 mod wav;
 
 #[cfg(not(target_arch = "wasm32"))]
