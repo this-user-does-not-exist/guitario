@@ -10,7 +10,7 @@ use crate::theme::{Tokens, tokens};
 use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
 use guitario_engine::Cursor;
 use guitario_score::{
-    Beat, BeatTechnique, BrushKind, DirectionTarget, Fade, Jump, MeasureHeader, Note, NoteKind, PageSetup, Score, Slide, StrokeDirection, Track, TripletFeel,
+    Beat, BeatTechnique, BrushKind, DirectionTarget, Fade, Jump, MeasureHeader, Note, NoteKind, Score, Slide, StrokeDirection, Track, TripletFeel,
 };
 
 const PAGE_GAP: f32 = 24.0;
@@ -66,10 +66,10 @@ pub struct Output {
 /// The layout metrics for `track`: a drum staff or notation over tab, with room for chord names.
 /// `notation` false leaves standard notation out of every track (a print option); otherwise each
 /// track shows its own notations.
-fn metrics_for(track: &Track, page: &PageSetup, zoom: f32, notation: bool, voice: usize) -> Metrics {
+fn metrics_for(score: &Score, track: &Track, zoom: f32, notation: bool, voice: usize) -> Metrics {
     let (standard, tab) = track.notation.drawn();
     let m = if track.is_drums() { Metrics::for_drums(zoom) } else { Metrics::new(zoom, true, track.string_count()).with_notations(standard && notation, tab) };
-    m.with_page(page).with_annotations(track).with_voice(voice)
+    m.with_page(&score.page).with_annotations(track).with_sections(score).with_voice(voice)
 }
 
 /// Tracks laid out for paper at 100 %: one track, or several stacked in each system as a full
@@ -91,7 +91,7 @@ pub fn print_score_layout(score: &Score, tracks: &[usize], notation: bool) -> Op
     let mut parts = Vec::with_capacity(tracks.len());
     for (k, &ti) in tracks.iter().enumerate() {
         let track = score.tracks.get(ti)?;
-        let m = metrics_for(track, &score.page, 1.0, notation, 0);
+        let m = metrics_for(score, track, 1.0, notation, 0);
         parts.push(Part { index: ti, track, metrics: if k == 0 { m } else { m.below() } });
     }
     let metrics = parts.first()?.metrics;
@@ -214,7 +214,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
         .filter_map(|(k, &ti)| {
             let track = score.tracks.get(ti)?;
             let voice = if ti == cursor.track { cursor.voice } else { 0 };
-            let m = metrics_for(track, &score.page, view.zoom, true, voice).with_mode(view.layout, window);
+            let m = metrics_for(score, track, view.zoom, true, voice).with_mode(view.layout, window);
             Some(Part { index: ti, track, metrics: if k == 0 { m } else { m.below() } })
         })
         .collect();
@@ -467,7 +467,8 @@ impl<'a> Ctx<'a> {
         let title = if meta.title.is_empty() { "Untitled" } else { meta.title.as_str() };
         let center = page.left() + m.center_x();
         self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, title, serif(33.0 * m.zoom), self.t.ink);
-        y += 10.0 * m.space;
+        // Guitar Pro sets the subtitle close under the title.
+        y += crate::layout::TITLE_H * m.space;
         let left = page.left() + m.margin_left;
         let right = page.right() - m.margin_right;
         for line in crate::layout::title_lines(meta) {
@@ -507,15 +508,15 @@ impl<'a> Ctx<'a> {
         }
         // The tuning at the top of the score, as Guitar Pro's default stylesheet shows it:
         // "Standard tuning", or each string numbered in a circle with its note, in two columns.
-        let font = serif(10.0 * m.zoom);
-        let line = 2.4 * m.space;
-        match tuning_legend(self.track) {
-            TuningLegend::None => {}
-            TuningLegend::Standard => {
+        let font = serif(12.0 * m.zoom);
+        let line = crate::layout::LEGEND_LINE * m.space;
+        match crate::layout::tuning_legend(self.track) {
+            crate::layout::TuningLegend::None => {}
+            crate::layout::TuningLegend::Standard => {
                 self.p().text(pos2(left, y), egui::Align2::LEFT_TOP, "Standard tuning", font.clone(), self.t.ink);
                 y += line;
             }
-            TuningLegend::Strings(notes) => {
+            crate::layout::TuningLegend::Strings(notes) => {
                 let rows = notes.len().div_ceil(2);
                 let col_w = 5.6 * m.space;
                 for (i, note) in notes.iter().enumerate() {
@@ -681,12 +682,13 @@ impl<'a> Ctx<'a> {
             }
         }
 
-        // The system's first bar number and the opening tempo mark, over the top track.
+        // The system's first bar number (after the clef, clear of the bracket, as Guitar Pro
+        // places it) and the opening tempo mark, over the top track.
         if m.top {
-            self.bar_number(first_mi, x0 + 0.2 * s, sys_top);
+            self.bar_number(first_mi, x0 + sys.prefix + 0.2 * s, sys_top);
         }
         if first && m.top {
-            self.tempo_mark(x0 + sys.prefix, sys_top - 3.6 * s, self.score.tempo);
+            self.tempo_mark(x0 + sys.prefix, sys_top - m.tempo_row(), self.score.tempo);
         }
 
         // Measures.
@@ -979,25 +981,28 @@ impl<'a> Ctx<'a> {
             if starts {
                 self.p().line_segment([pos2(x_start, y), pos2(x_start, y + 1.6 * s)], st);
                 let label: Vec<String> = (0..8).filter(|b| h.endings & (1 << b) != 0).map(|b| format!("{}.", b + 1)).collect();
-                self.p().text(pos2(x_start + 0.4 * s, y + 0.2 * s), egui::Align2::LEFT_TOP, label.join(" "), serif(8.5 * m.zoom), t.ink);
+                // Right of the bar number under the bracket's start.
+                self.p().text(pos2(x_start + 1.6 * s, y + 0.2 * s), egui::Align2::LEFT_TOP, label.join(" "), serif(8.5 * m.zoom), t.ink);
             }
             if h.repeat_close > 0 {
                 // Short, so the repeat count under it stays clear.
                 self.p().line_segment([pos2(x_end, y), pos2(x_end, y + 0.8 * s)], st);
             }
         }
-        // Directions: segno and coda marks at the start of the bar, Fine and jumps at its end.
-        let dir_y = sys_top - 4.8 * s;
+        // Directions: segno and coda marks at the start of the bar, Fine and jumps at its end, in
+        // their own row between the endings and the section markers.
+        let dir_y = sys_top - 4.2 * s;
         let mut dx = mx + 0.6 * s;
+        let mark = |glyph: char, x: f32| self.pen.glyph_scaled(glyph, pos2(x, dir_y), DIRECTION_SCALE, t.ink);
         for target in &h.targets {
             match target {
-                DirectionTarget::Segno => dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                DirectionTarget::Segno => dx += mark(g::SEGNO, dx) + 0.3 * s,
                 DirectionTarget::SegnoSegno => {
-                    dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink);
-                    dx += self.pen.glyph(g::SEGNO, pos2(dx, dir_y), t.ink) + 0.3 * s;
+                    dx += mark(g::SEGNO, dx);
+                    dx += mark(g::SEGNO, dx) + 0.3 * s;
                 }
-                DirectionTarget::Coda => dx += self.pen.glyph(g::CODA, pos2(dx, dir_y), t.ink) + 0.3 * s,
-                DirectionTarget::DoubleCoda => dx += self.pen.glyph(g::CODA_SQUARE, pos2(dx, dir_y), t.ink) + 0.3 * s,
+                DirectionTarget::Coda => dx += mark(g::CODA, dx) + 0.3 * s,
+                DirectionTarget::DoubleCoda => dx += mark(g::CODA_SQUARE, dx) + 0.3 * s,
                 DirectionTarget::Fine => {
                     self.p().text(pos2(end - 0.4 * s, dir_y), egui::Align2::RIGHT_BOTTOM, "Fine", serif_italic(9.5 * m.zoom), t.ink);
                 }
@@ -1008,8 +1013,8 @@ impl<'a> Ctx<'a> {
             let mut x = end - 0.4 * s;
             if matches!(jump, Jump::ToCoda | Jump::ToDoubleCoda) {
                 let glyph = if jump == Jump::ToCoda { g::CODA } else { g::CODA_SQUARE };
-                x -= self.pen.width(glyph);
-                self.pen.glyph(glyph, pos2(x, y), t.ink);
+                x -= self.pen.width(glyph) * DIRECTION_SCALE;
+                self.pen.glyph_scaled(glyph, pos2(x, y), DIRECTION_SCALE, t.ink);
                 x -= 0.4 * s;
             }
             self.p().text(pos2(x, y), egui::Align2::RIGHT_BOTTOM, jump.label(), serif_italic(9.5 * m.zoom), t.ink);
@@ -1026,15 +1031,19 @@ impl<'a> Ctx<'a> {
                 TripletFeel::Scottish8th => "Scottish 8ths",
                 TripletFeel::Scottish16th => "Scottish 16ths",
             };
-            self.p().text(pos2(mx + 0.5 * s, sys_top - 5.6 * s), egui::Align2::LEFT_BOTTOM, label, serif(8.5 * m.zoom), t.ink);
+            // In the tempo row, after the tempo mark when the bar has one (Guitar Pro sets the
+            // swing indication beside the tempo).
+            let tempo_here = h.tempo.is_some() || index == 0;
+            let x = mx + if tempo_here { 9.5 * s } else { 0.5 * s };
+            self.p().text(pos2(x, sys_top - m.tempo_row()), egui::Align2::LEFT_BOTTOM, label, serif(10.0 * m.zoom), t.ink);
         }
         if let Some(text) = &h.marker {
             // At the top of the lane, above chord names and text: the letter boxed, then the name
             // in bold; a name in brackets frames the letter and name together (Guitar Pro).
             let (name, framed) = crate::section_dialog::display_name(text);
             let letter = h.section_letter.as_deref().map(str::trim).filter(|l| !l.is_empty());
-            let font = serif_bold(11.0 * m.zoom);
-            let at = pos2(mx + 0.4 * s, sys_top - m.lane_above() + 0.4 * s);
+            let font = serif_bold(13.0 * m.zoom);
+            let at = pos2(mx + 0.4 * s, sys_top - m.section_row());
             let pad = vec2(0.3 * s, 0.1 * s);
             let frame = |r: Rect| self.p().rect_stroke(r, 0.0, Stroke::new(1.0, t.ink), egui::StrokeKind::Inside);
             if framed {
@@ -1065,7 +1074,7 @@ impl<'a> Ctx<'a> {
         if let Some(tempo) = h.tempo
             && index > 0
         {
-            self.tempo_mark(mx + 0.5 * s, sys_top - 3.6 * s, tempo);
+            self.tempo_mark(mx + 0.5 * s, sys_top - m.tempo_row(), tempo);
         }
         // A tempo automation gliding through the bar: "accel." or "rit." where the glide starts (and
         // again at the start of each system), then a dashed line to the end of the bar.
@@ -1073,8 +1082,8 @@ impl<'a> Ctx<'a> {
             && (to - from).abs() > 1e-9
         {
             let starts = index.checked_sub(1).and_then(|i| self.tempo_curves.get(i)).is_none_or(|p| (p.1 - p.0).abs() < 1e-9);
-            let y = sys_top - 3.6 * s;
-            let mut x = mx + if marked { 7.0 * s } else { 0.5 * s };
+            let y = sys_top - m.tempo_row();
+            let mut x = mx + if marked { 9.0 * s } else { 0.5 * s };
             if starts || opens_system {
                 let r = self.p().text(pos2(x, y), egui::Align2::LEFT_BOTTOM, if to > from { "accel." } else { "rit." }, serif_italic(9.5 * m.zoom), t.ink);
                 x = r.right() + 0.4 * s;
@@ -1091,8 +1100,8 @@ impl<'a> Ctx<'a> {
     /// A tempo mark, `♩ = 120` in bold as Guitar Pro's stylesheet sets it.
     fn tempo_mark(&self, x: f32, y: f32, bpm: u16) {
         let s = self.m.space;
-        let w = self.pen.glyph_scaled(g::MET_QUARTER_UP, pos2(x, y - 0.25 * s), 0.62, self.t.ink);
-        self.p().text(pos2(x + w + 0.5 * s, y), egui::Align2::LEFT_BOTTOM, format!("= {bpm}"), serif_bold(11.0 * self.m.zoom), self.t.ink);
+        let w = self.pen.glyph_scaled(g::MET_QUARTER_UP, pos2(x, y - 0.3 * s), 0.72, self.t.ink);
+        self.p().text(pos2(x + w + 0.6 * s, y), egui::Align2::LEFT_BOTTOM, format!("= {bpm}"), serif_bold(13.5 * self.m.zoom), self.t.ink);
     }
 
     /// Bar `index`'s number at `x` over the staff whose top is `sys_top`: small and grey, red on
@@ -1100,7 +1109,7 @@ impl<'a> Ctx<'a> {
     fn bar_number(&self, index: usize, x: f32, sys_top: f32) {
         let (m, t) = (self.m, self.t);
         let ink = if self.bar_is_wrong(index) { t.bar_error } else { t.bar_number };
-        self.p().text(pos2(x, sys_top - 0.6 * m.space), egui::Align2::LEFT_BOTTOM, (index + 1).to_string(), serif(8.0 * m.zoom), ink);
+        self.p().text(pos2(x, sys_top - 0.6 * m.space), egui::Align2::LEFT_BOTTOM, (index + 1).to_string(), serif(9.5 * m.zoom), ink);
     }
 
     /// Whether a voice of bar `index` on this track is longer or shorter than the time signature
@@ -1724,7 +1733,8 @@ impl<'a> Ctx<'a> {
         if pb.beat.rest {
             return;
         }
-        let font = sans(m.tab_gap * 1.02);
+        // Guitar Pro's fret numbers are about 0.6 of the line gap tall.
+        let font = sans(m.tab_gap * 0.88);
         let fx = Stroke::new((0.13 * s).max(1.0), t.effect_ink);
         // Brush, arpeggio and rasgueado: a line beside the chord, pointing the way the strum goes.
         if let Some(brush) = pb.beat.brush
@@ -2026,28 +2036,8 @@ impl<'a> Ctx<'a> {
 
 /// The name at the left of each system after the first: the track's short name, or a Guitar
 /// Pro-style abbreviation of its name (`od.guit.`, `bass` …).
-/// What the top of the score says about a track's tuning.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TuningLegend {
-    /// Drums: nothing.
-    None,
-    /// The instrument's standard tuning.
-    Standard,
-    /// Any other: each string's note, highest string first.
-    Strings(Vec<String>),
-}
-
-pub fn tuning_legend(track: &Track) -> TuningLegend {
-    use guitario_theory::Tuning as T;
-    if track.is_drums() {
-        return TuningLegend::None;
-    }
-    let standard = [T::standard(), T::seven_string(), T::eight_string(), T::bass(), T::bass_five(), T::bass_six()];
-    if standard.iter().any(|t| t.strings == track.tuning.strings) {
-        return TuningLegend::Standard;
-    }
-    TuningLegend::Strings(track.tuning.strings.iter().map(|p| guitario_theory::note_name(*p).to_string()).collect())
-}
+/// Segno and coda marks at Guitar Pro's size, about two spaces tall.
+const DIRECTION_SCALE: f32 = 0.72;
 
 pub fn short_name(track: &Track) -> String {
     if !track.short_name.trim().is_empty() {
@@ -2355,7 +2345,7 @@ mod tests {
         }
         let flats = |s: &Score| texts(s, true, &g::FLAT.to_string());
         let sevens = |s: &Score| texts(s, true, &g::time_digit(7).to_string());
-        let m = metrics_for(&s.tracks[0], &s.page, 1.0, true, 0);
+        let m = metrics_for(&s, &s.tracks[0], 1.0, true, 0);
         let opener = crate::layout::layout_parts(&s, &[Part { index: 0, track: &s.tracks[0], metrics: m }], &m)
             .into_iter()
             .flat_map(|p| p.systems)

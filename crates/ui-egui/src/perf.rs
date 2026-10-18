@@ -73,7 +73,11 @@ mod tests {
             .enumerate()
             .map(|(k, &ti)| {
                 let track = &score.tracks[ti];
-                let m = Metrics::new(1.25, true, track.string_count()).with_page(&score.page).with_annotations(track).with_mode(LayoutMode::Page, 1200.0);
+                let m = Metrics::new(1.25, true, track.string_count())
+                    .with_page(&score.page)
+                    .with_annotations(track)
+                    .with_sections(score)
+                    .with_mode(LayoutMode::Page, 1200.0);
                 Part { index: ti, track, metrics: if k == 0 { m } else { m.below() } }
             })
             .collect();

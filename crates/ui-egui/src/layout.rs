@@ -53,6 +53,10 @@ pub struct Metrics {
     /// The top track of a system: it carries the bar's markers, tempo and directions. A track
     /// below it in the multitrack view has less room above.
     pub top: bool,
+    /// The score has sections: the top track keeps a row for them under the tempo.
+    pub sections: bool,
+    /// Lines of tuning (and capo) under the title.
+    pub legend_lines: usize,
 }
 
 impl Metrics {
@@ -81,6 +85,8 @@ impl Metrics {
             voice: 0,
             mode: LayoutMode::Page,
             top: true,
+            sections: false,
+            legend_lines: 0,
         }
     }
 
@@ -161,12 +167,19 @@ impl Metrics {
         let lyric_lines = track.lyrics.iter().rposition(|l| !l.text.trim().is_empty()).map_or(0, |i| i + 1);
         let listed = chord_list(track);
         let chord_strings = listed.iter().map(|c| c.frets.len()).max().unwrap_or(6);
-        Metrics { annotations, diagrams, lyric_lines, chord_list: listed.len(), chord_strings, ..self }
+        let legend_lines = tuning_legend(track).lines() + usize::from(track.capo > 0);
+        Metrics { annotations, diagrams, lyric_lines, chord_list: listed.len(), chord_strings, legend_lines, ..self }
     }
 
-    /// Takes the chord list (and its strings) of another part: the header shows the cursor's track.
+    /// Keeps a row for section markers when `score` has any.
+    pub fn with_sections(self, score: &Score) -> Metrics {
+        Metrics { sections: score.headers.iter().any(|h| h.marker.is_some()), ..self }
+    }
+
+    /// Takes the chord list (and its strings) and the tuning lines of another part: the header
+    /// shows the cursor's track.
     pub fn with_chord_list_of(self, other: &Metrics) -> Metrics {
-        Metrics { chord_list: other.chord_list, chord_strings: other.chord_strings, ..self }
+        Metrics { chord_list: other.chord_list, chord_strings: other.chord_strings, legend_lines: other.legend_lines, ..self }
     }
 
     /// Width of one diagram's cell in the chord list, and the diagrams one row holds.
@@ -252,18 +265,30 @@ impl Metrics {
         self.content_w() + self.indent() - self.system_indent(index)
     }
 
-    /// Space above the first staff: section markers, chord names and text, directions, tempo,
-    /// bar numbers.
+    /// Space above the first staff, top down as Guitar Pro stacks it: tempo marks, section
+    /// markers, chord names and text, directions, endings, bar numbers.
     pub fn lane_above(&self) -> f32 {
-        let spaces = match (self.top, self.diagrams, self.annotations) {
-            (true, true, _) => 18.5,
-            (true, false, true) => 11.0,
-            (true, false, false) => 9.0,
-            (false, true, _) => 15.0,
-            (false, false, true) => 7.5,
-            (false, false, false) => 4.0,
-        };
+        let sections = if self.top && self.sections { 3.0 } else { 0.0 };
+        let spaces = sections
+            + match (self.top, self.diagrams, self.annotations) {
+                (true, true, _) => 18.5,
+                (true, false, true) => 11.0,
+                (true, false, false) => 9.5,
+                (false, true, _) => 15.0,
+                (false, false, true) => 7.5,
+                (false, false, false) => 4.0,
+            };
         spaces * self.space
+    }
+
+    /// How far above the top staff line the tempo marks' baseline sits: the top row of the lane.
+    pub fn tempo_row(&self) -> f32 {
+        self.lane_above() - 2.0 * self.space
+    }
+
+    /// How far above the top staff line a section marker's top sits: under the tempo row.
+    pub fn section_row(&self) -> f32 {
+        self.lane_above() - 2.6 * self.space
     }
 
     pub fn staff_h(&self) -> f32 {
@@ -314,7 +339,8 @@ impl Metrics {
             return 0.0;
         }
         let lines: f32 = title_lines(&score.meta).iter().map(TitleLine::height).sum();
-        (14.0 + lines) * self.space + self.chord_list_h()
+        let legend = self.legend_lines as f32 * LEGEND_LINE;
+        (TITLE_H + lines + legend + 2.0) * self.space + self.chord_list_h()
     }
 
     /// Where the chord list starts below the top margin.
@@ -322,6 +348,46 @@ impl Metrics {
         self.header_h(score) - self.chord_list_h()
     }
 }
+
+/// What the top of the score says about a track's tuning.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TuningLegend {
+    /// Drums: nothing.
+    None,
+    /// The instrument's standard tuning.
+    Standard,
+    /// Any other: each string's note, highest string first.
+    Strings(Vec<String>),
+}
+
+pub fn tuning_legend(track: &Track) -> TuningLegend {
+    use guitario_theory::Tuning as T;
+    if track.is_drums() {
+        return TuningLegend::None;
+    }
+    let standard = [T::standard(), T::seven_string(), T::eight_string(), T::bass(), T::bass_five(), T::bass_six()];
+    if standard.iter().any(|t| t.strings == track.tuning.strings) {
+        return TuningLegend::Standard;
+    }
+    TuningLegend::Strings(track.tuning.strings.iter().map(|p| guitario_theory::note_name(*p).to_string()).collect())
+}
+
+impl TuningLegend {
+    /// Lines it takes at the top of the score.
+    pub fn lines(&self) -> usize {
+        match self {
+            TuningLegend::None => 0,
+            TuningLegend::Standard => 1,
+            TuningLegend::Strings(notes) => notes.len().div_ceil(2),
+        }
+    }
+}
+
+/// One line of the tuning legend (and the capo line under it), in staff spaces.
+pub const LEGEND_LINE: f32 = 2.6;
+
+/// The title's line in staff spaces, from its top to the top of the line under it.
+pub const TITLE_H: f32 = 8.0;
 
 /// A line of the title block under the title, in Guitar Pro's order.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -881,6 +947,30 @@ mod tests {
     }
 
     #[test]
+    fn the_tuning_at_the_top_takes_its_lines_and_pushes_the_systems_down() {
+        use guitario_theory::Tuning;
+        let mut s = score(4);
+        let first_y = |s: &Score| {
+            let m = Metrics::new(1.0, true, 6).with_annotations(&s.tracks[0]);
+            (m, layout(s, 0, &m).first().and_then(|p| p.systems.first()).map_or(0.0, |sys| sys.y))
+        };
+        assert_eq!(tuning_legend(&s.tracks[0]), TuningLegend::Standard);
+        let (m, standard) = first_y(&s);
+        assert_eq!(m.legend_lines, 1);
+        // Drop D: six strings in two columns of three, and a capo line.
+        s.tracks[0].tuning = Tuning::drop_d();
+        s.tracks[0].capo = 2;
+        assert_eq!(tuning_legend(&s.tracks[0]), TuningLegend::Strings(["E", "B", "G", "D", "A", "D"].map(String::from).to_vec()));
+        let (m, dropped) = first_y(&s);
+        assert_eq!(m.legend_lines, 4);
+        assert!((dropped - standard - 3.0 * LEGEND_LINE * m.space).abs() < 0.01, "{standard} -> {dropped}");
+        // A bass in its standard tuning says so; drums say nothing.
+        s.tracks[0].tuning = Tuning::bass();
+        assert_eq!(tuning_legend(&s.tracks[0]), TuningLegend::Standard);
+        assert_eq!(tuning_legend(&Track::drums("Drums", &s.headers)).lines(), 0);
+    }
+
+    #[test]
     fn the_chord_list_takes_room_under_the_title_and_pushes_the_systems_down() {
         use guitario_score::{Beat, Chord, Note};
         use guitario_theory::Duration;
@@ -900,7 +990,8 @@ mod tests {
         let rows = MAX_CHORD_LIST.div_ceil(m.chord_cell().1);
         assert!(rows >= 2, "{rows} rows");
         assert!((m.chord_list_h() - (rows as f32 * m.chord_row_h() + m.space)).abs() < 0.01);
-        assert!(m.chord_list_top(&s) >= 14.0 * m.space - 0.01, "under the title");
+        // Under the title and the tuning ("Standard tuning", one line).
+        assert!(m.chord_list_top(&s) >= (TITLE_H + LEGEND_LINE) * m.space - 0.01, "under the title");
         // Diagrams also widen the lane above each system, so the first system starts lower still.
         let after = first_y(&s, &m);
         assert!(after.zip(before).is_some_and(|(a, b)| a >= b + m.chord_list_h()), "{before:?} -> {after:?}");

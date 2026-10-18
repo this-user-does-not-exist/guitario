@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--section] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--audio-settings] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--section] [--crowded] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -129,6 +129,21 @@ fn main() {
     if let Some(path) = value("--file") {
         session = Session::new();
         run(&mut session, "file.open", json!({"path": path}));
+    }
+    // `--crowded`: everything above the staff at once on the first bars (section, segno, triplet
+    // feel, a tempo change, an ending), with Drop D and a capo, to check nothing collides.
+    if args.iter().any(|a| a == "--crowded") {
+        let s = &mut session;
+        run(s, "track.setTuning", json!({"preset": "Drop D"}));
+        run(s, "track.setCapo", json!({"fret": 2}));
+        run(s, "cursor.set", json!({"measure": 0, "beat": 0}));
+        run(s, "measure.setDirections", json!({"targets": ["segno"]}));
+        run(s, "measure.setTripletFeel", json!({"feel": "triplet8th"}));
+        run(s, "cursor.set", json!({"measure": 1, "beat": 0}));
+        run(s, "measure.setMarker", json!({"text": "[Pre-Chorus]", "letter": "C"}));
+        run(s, "measure.setTempo", json!({"bpm": 140}));
+        run(s, "measure.setEndings", json!({"endings": [1]}));
+        run(s, "measure.setDirections", json!({"targets": ["coda"], "jump": "dalSegno"}));
     }
     if let Some(t) = value("--track").and_then(|t| t.parse::<usize>().ok()) {
         run(&mut session, "track.select", json!({"index": t}));
