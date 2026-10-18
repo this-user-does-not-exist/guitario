@@ -221,6 +221,7 @@ impl GuitarioApp {
         }
         let Some(audio) = &self.audio else { return };
         let mut player = guitario_playback::Player::new(score, audio.sample_rate, self.options());
+        player.set_live(true);
         if let Some(bank) = self.sounds.as_ref() {
             bank.apply(&mut player, score);
         }

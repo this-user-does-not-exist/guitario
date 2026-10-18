@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G12: packages, file associations, release workflow; beta ~200–415 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: samples stream from disk; beta ~185–380 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -20,7 +20,7 @@ Ranked by user impact on the way to beta.
 
 | Rank | Gap | Beta needs | Beta h | After beta (1.0) | After h |
 |---:|---|---|---:|---|---:|
-| 1 | [G5](#g5-playback-realism) Playback realism | streaming samples from disk | 15–35 | pedalboard, cabinet impulse responses, effects in Guitar Pro files, audio track, MP3/OGG | 140–280 |
+| 1 | [G5](#g5-playback-realism) Playback realism | a listening pass on speakers (human) | 0 + human | pedalboard, cabinet impulse responses, effects in Guitar Pro files, audio track, MP3/OGG | 140–280 |
 | 2 | [G6](#g6-editing-depth) Editing depth | done | 0 | nested tuplets, ornaments, assistants, tuning window | 80–160 |
 | 3 | [G3](#g3-guitar-pro-exchange) Exchange | `.gp` checked in Guitar Pro (human) | 0 + human | PowerTab, TablEdit, `.gtp`, ASCII import, `.gpx` export | 90–180 |
 | 4 | [G7](#g7-tools) Tools | a tuning check with a real guitar (human) | 0 + human | line in, MIDI capture, command palette | 70–130 |
@@ -33,9 +33,9 @@ Ranked by user impact on the way to beta.
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~200–415 h** | | **~705–1,380 h** |
+| | **Total** | | **~185–380 h** | | **~705–1,380 h** |
 
-Beta plus after-beta is **~905–1,795 h** to full parity.
+Beta plus after-beta is **~890–1,760 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -59,7 +59,9 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 - **Landed 2026-10-18:** master volume and pan automation (the rest of #265) and samples held as
   16-bit values with their memory in the perf budgets (the first half of #110); see the
   [changelog](changelog.md).
-- **Beta:** stream long samples from disk instead of decoding them whole (the rest of #110).
+- **Landed 2026-10-18:** long samples stream from disk: the first second stays in memory, the
+  rest is read when a note reaches it (the rest of #110); see the [changelog](changelog.md).
+- **Beta:** nothing an agent can finish: the listening pass below.
 - **After beta:** an original pedalboard (#466 to 468, #525), cabinet impulse responses loaded
   from files by convolution (#121; the cabinet is a filter model today), the effect chain and
   equalizer read from and written to Guitar Pro files, several sounds per track and sound
@@ -70,7 +72,7 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 - **Evidence:** PLAY-8 (beta), PLAY-9/10 (1.0); PLAY-3 and PLAY-5 are done. The synth, its
   articulations and the effects are checked by tests (pitch within 4 Hz or 1.2 %, decay times,
   clean release, no clipping, each effect's response), not by ear.
-- **Estimate:** 15–35 h beta, 140–280 h after.
+- **Estimate:** 0 h + human beta, 140–280 h after.
 
 ### G6. Editing depth
 - **Landed 2026-10-17:** bend curves and the Bend window; the whammy bar and vibrato with the bar;
@@ -224,6 +226,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | G5: long samples stream their tails from disk (15–35 h to 0 h + human beta); only the listening pass is left for beta |
 | 2026-10-18 | minor | G12: packages for three platforms, file types declared, the release workflow (80–150 h to 20–40 h beta); macOS double-click needs a decision |
 | 2026-10-18 | minor | G5: master volume and pan automation, 16-bit samples and a memory budget (25–55 h to 15–35 h beta) |
 | 2026-10-18 | minor | G5: the sound bank in the app (Sound Bank window, first-run offer, installer shared with `cargo xtask sounds`), an instrument per track (#113, #114, #275; 75–155 h to 25–55 h beta); G8: the Sound Settings dialog item goes with it (55–100 h to 50–95 h) |

@@ -6,6 +6,7 @@ mod instrument;
 mod load;
 mod parse;
 mod sample;
+pub mod stream;
 mod voice;
 
 pub use instrument::{Hit, Instrument};

@@ -115,12 +115,24 @@ the region loop unless it says `no_loop`), FLAC and OGG Vorbis (lewton, pure Rus
 every region borrows the nearest one, transposed.
 
 Not yet: EQ opcodes (`eq1_*`), LFOs, the pitch envelope, `<curve>` headers and `curvecc`, live CC (so
-articulations a library selects by controller cannot be mapped), generators (`*sine`), streaming
-from disk: every sample of the keys a score plays is decoded into memory, as 16-bit values (exact
-for 16-bit recordings, half the memory of floats; the 400-bar, six-track perf score holds 500 MB
-with the guitars and bass installed, `sounds_memory_mb` in `perf/budgets.toml`). Bends, slides, vibrato
-and legato notes change the playback rate. Samples decode in the background whenever the score
-needs new notes, and Play waits for them.
+articulations a library selects by controller cannot be mapped), generators (`*sine`). Bends, slides,
+vibrato and legato notes change the playback rate. Samples decode in the background whenever the
+score needs new notes, and Play waits for them.
+
+### Memory and streaming
+
+Samples are held as 16-bit values (exact for 16-bit recordings, half the memory of floats). A
+sample longer than 2 s keeps only its first second in memory; the rest, its tail, is decoded
+from the file again when a note gets near it (`crates/playback/src/sfz/stream.rs`). The FreePats
+guitars ring for about 16 s a note, so held whole a guitar takes about 450 MB and streamed 23 MB;
+the 400-bar perf score's instruments take 25 MB instead of 500 MB (`sounds_memory_mb` in
+`perf/budgets.toml`). While the app plays, a voice asks the streamer thread for its tail 0.6 s
+before the head runs out and never waits for it: a tail that comes late plays as silence until
+it arrives and counts as a late tail (none in 15 s of four demos played at real speed on a
+four-core machine, `sounds_late_tails` in the perf budgets). Exports and tests load a tail when
+the note reaches it, so they are exact. Tails stay cached up to 256 MB (`GUITARIO_STREAM_CACHE_MB`),
+the least recently used going first; a tail a note is playing is never dropped, and one unused
+for a minute is.
 
 ## The built-in synth's articulations
 

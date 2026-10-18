@@ -373,3 +373,20 @@ The options, for a human: allow one reviewed `unsafe` module in the desktop app 
 macOS only, the file list handed to the shell as the command line is), or wait for winit to
 deliver the event (requested upstream; 0.30 has no such event). Beta workflow B1 waits on this choice.
 
+## 2026-10-18: Long samples keep their first second in memory and stream the rest
+
+The recommended guitar libraries record each note for about 16 s, so a score's guitar held whole
+takes about 450 MB; Guitar Pro's own sounds and other samplers stream from disk for the same
+reason. A sample longer than 2 s keeps its first second; the rest is decoded from the file again
+when a note gets near it. The whole file is decoded rather than seeked into because FLAC and OGG
+have to be read from the start anyway and a library note decodes in tens of milliseconds, well
+inside the 0.6 s a voice gives the streamer. Notes shorter than about 0.4 s, most of a riff, never
+ask for a tail at all.
+
+The audio thread never waits: it takes a tail with `try_lock` and, if it is not there, asks the
+streamer through a bounded channel and plays silence until it comes, counting the miss
+(`sounds_late_tails` in the perf budgets). It never frees a tail either: the cache drops one only
+while it holds the last reference, and voices take theirs under the same lock. Offline renders
+wait for the tail instead, so an export never has a gap. Memory-mapping the files would have been
+simpler but needs `unsafe`, which the workspace forbids.
+

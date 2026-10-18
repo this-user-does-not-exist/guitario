@@ -2,7 +2,7 @@
 //! the recommended open libraries into it (`guitario_playback::install`).
 
 use crate::commands::{CommandSpec, cmd, mixer_track};
-use crate::{EngineError, Session, params as p};
+use crate::{EngineError, Session};
 use guitario_playback::Role;
 use serde_json::{Value, json};
 
@@ -64,7 +64,7 @@ fn set_bank(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn bank_dir(params: &Value) -> Result<std::path::PathBuf, EngineError> {
-    match p::opt_string(params, "dir") {
+    match crate::params::opt_string(params, "dir") {
         Some(d) if !d.trim().is_empty() => Ok(std::path::PathBuf::from(d)),
         Some(_) => Err(EngineError::BadParam("`dir` cannot be empty".into())),
         None => {

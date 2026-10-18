@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G12: packages and the release workflow) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: samples stream from disk) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -285,6 +285,20 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   MB, recorded as `sounds_memory_mb` in the perf budgets (#110, first half), and a real Growlybass
   render is unchanged. Not yet: streaming long samples from disk; master automation in MIDI and
   Guitar Pro files (track automation is not exchanged either).
+- **Landed 2026-10-18:** streaming from disk (the rest of #110). A sample longer than 2 s keeps
+  its first second in memory and a `Stream` for the rest (`crates/playback/src/sfz/stream.rs`),
+  which decodes the file again and keeps the frames after the head. A voice on the sound card's
+  thread (`Player::set_live`, set by the app's players) asks the streamer thread for its tail
+  0.6 s of sample before the head ends, takes it without waiting (`try_lock`), and plays silence if
+  it is late, counting it; offline players (exports, tests, the CLI) load the tail when the note
+  reaches it, so their output is bit for bit what the whole sample gives (tested, with
+  resampling and transposition). The cache keeps tails up to 256 MB (`GUITARIO_STREAM_CACHE_MB`),
+  drops the least recently used first and anything idle for a minute or whose instrument is gone,
+  and never a tail a voice is playing; a file that disappears fails once, not on every note.
+  Measured: the 400-bar perf score's instruments take 25 MB instead of 500 MB
+  (`sounds_memory_mb` budget 1,000 to 100), the live render costs 30-35 ms per second of sound
+  (budget 100), and four demos played at real speed for 15 s from a cold cache had no late tail,
+  with at most 118 MB of tails and the worst 512-frame block at 6.3 ms of its 10.7 ms.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double
