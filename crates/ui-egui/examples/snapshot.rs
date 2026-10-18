@@ -319,6 +319,15 @@ fn main() {
     if args.iter().any(|a| a == "--chord") {
         app.open_chord();
     }
+    // `--scales`: the Scales window on F Dorian, the manual's example; `--scale-view` the same
+    // scale on the fretboard with the window closed.
+    if args.iter().any(|a| a == "--scales" || a == "--scale-view") {
+        app.open_scales();
+        app.choose_scale(5, "Dorian");
+        if args.iter().any(|a| a == "--scale-view") {
+            app.close_scales();
+        }
+    }
     // `--chord-built`: the Chord window building the manual's example, D#m7add11.
     if args.iter().any(|a| a == "--chord-built") {
         app.open_chord();

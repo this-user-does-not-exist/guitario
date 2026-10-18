@@ -203,6 +203,31 @@ impl GuitarioApp {
         self.chord.rebuild();
     }
 
+    /// Plays a small score through the sound card without moving the transport: a chord or a
+    /// scale from the tool windows.
+    pub(crate) fn audition(&mut self, score: &guitario_score::Score) {
+        if score.validate().is_err() {
+            return;
+        }
+        if self.audio.is_none() {
+            match guitario_audio::AudioOut::open_with(&self.audio_settings) {
+                Ok(a) => self.audio = Some(a),
+                Err(e) => {
+                    self.status = format!("Cannot play: {e}");
+                    self.status_is_error = true;
+                    return;
+                }
+            }
+        }
+        let Some(audio) = &self.audio else { return };
+        let mut player = guitario_playback::Player::new(score, audio.sample_rate, self.options());
+        if let Some(bank) = self.sounds.as_ref() {
+            bank.apply(&mut player, score);
+        }
+        player.play_from(0.0);
+        *audio.slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(player);
+    }
+
     /// Plays the main diagram as a strum, without moving the transport.
     fn audition_chord(&mut self) {
         let d = &self.chord;
@@ -221,26 +246,7 @@ impl GuitarioApp {
                 v.beats = vec![beat];
             }
         }
-        if score.validate().is_err() {
-            return;
-        }
-        if self.audio.is_none() {
-            match guitario_audio::AudioOut::open_with(&self.audio_settings) {
-                Ok(a) => self.audio = Some(a),
-                Err(e) => {
-                    self.status = format!("Cannot play: {e}");
-                    self.status_is_error = true;
-                    return;
-                }
-            }
-        }
-        let Some(audio) = &self.audio else { return };
-        let mut player = guitario_playback::Player::new(&score, audio.sample_rate, self.options());
-        if let Some(bank) = self.sounds.as_ref() {
-            bank.apply(&mut player, &score);
-        }
-        player.play_from(0.0);
-        *audio.slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(player);
+        self.audition(&score);
     }
 
     pub(crate) fn chord_dialog(&mut self, ctx: &egui::Context) {

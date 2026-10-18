@@ -40,6 +40,7 @@ mod preferences;
 mod prefs;
 mod preview;
 mod print_dialog;
+mod scale_dialog;
 mod section_dialog;
 mod shortcuts;
 mod sounds;
@@ -85,6 +86,9 @@ pub struct ViewState {
     pub instrument: instrument::Display,
     /// The fretboard drawn for a left-handed player, the nut at the right.
     pub left_handed: bool,
+    /// A scale the Scale tool shows on the fretboard and keyboard views: its key note, its index
+    /// in the scale library, and whether its key note is spelled with a flat.
+    pub scale: Option<(u8, usize, bool)>,
 }
 
 /// Transport state. The player itself lives in the audio slot; this mirrors what the UI shows.
@@ -143,6 +147,7 @@ pub struct GuitarioApp {
     paste: paste_dialog::PasteDialog,
     bar_check: bar_check::BarCheck,
     chord: chord_dialog::ChordDialog,
+    scales: scale_dialog::ScaleDialog,
     lyrics: lyrics_dialog::LyricsDialog,
     transpose: transpose_dialog::TransposeDialog,
     section: section_dialog::SectionDialog,
@@ -203,6 +208,7 @@ impl GuitarioApp {
                 hidden: 0,
                 instrument: instrument::Display::Beat,
                 left_handed: false,
+                scale: None,
             },
             inspector_tab: inspector::Tab::Song,
             edit_buffers: HashMap::new(),
@@ -227,6 +233,7 @@ impl GuitarioApp {
             paste: paste_dialog::PasteDialog::default(),
             bar_check: bar_check::BarCheck::default(),
             chord: chord_dialog::ChordDialog::default(),
+            scales: scale_dialog::ScaleDialog::default(),
             lyrics: lyrics_dialog::LyricsDialog::default(),
             autosave: autosave::Autosave::off(),
             transpose: transpose_dialog::TransposeDialog::default(),
@@ -275,6 +282,7 @@ impl GuitarioApp {
             hidden: 0,
             instrument: p.view.instrument,
             left_handed: p.view.left_handed,
+            scale: None,
         };
         self.panels =
             Panels { palette: p.view.palette, inspector: p.view.inspector, global: p.view.global_view, fretboard: p.view.fretboard, keyboard: p.view.keyboard };
@@ -446,6 +454,7 @@ impl GuitarioApp {
             U::GraceNote => self.open_grace(),
             U::Fingering => self.open_fingering(),
             U::ChordDiagrams => self.open_chord(),
+            U::ScaleTool => self.open_scales(),
             U::Lyrics => self.open_lyrics(),
             U::ImportGuitarPro => self.open_dialog(),
             U::ImportMidi => self.guard(Pending::ImportDialog("MIDI", &guitario_engine::MIDI_EXTENSIONS)),
@@ -840,6 +849,7 @@ impl GuitarioApp {
             || self.ornaments.is_open()
             || self.bend.open
             || self.chord.open
+            || self.scales.open
             || self.lyrics.open
             || !self.autosave.found.is_empty()
             || self.transpose.open
@@ -940,6 +950,7 @@ impl GuitarioApp {
         self.paste_dialog(&ctx);
         self.bar_check_window(&ctx);
         self.chord_dialog(&ctx);
+        self.scale_dialog(&ctx);
         self.lyrics_dialog(&ctx);
         self.transpose_dialog(&ctx);
         self.section_dialog(&ctx);

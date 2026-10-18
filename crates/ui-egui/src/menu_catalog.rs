@@ -33,6 +33,7 @@ pub enum UiAction {
     GraceNote,
     Fingering,
     ChordDiagrams,
+    ScaleTool,
     Lyrics,
     ImportGuitarPro,
     ImportMidi,
@@ -290,7 +291,7 @@ pub static CATALOG: &[MenuItem] = &[
     // Tools
     m("Tools", "Tuner"),
     u("Tools", "Chord Diagrams…", U::ChordDiagrams, ""),
-    m("Tools", "Scale Tool…"),
+    u("Tools", "Scale Tool…", U::ScaleTool, ""),
     u("Tools", "Check Bar Durations", U::CheckBarDurations, "F4"),
     m("Tools", "Line In…"),
     // View

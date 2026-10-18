@@ -237,6 +237,10 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   through ties already played and drew as Guitar Pro does; a test now proves Guitar Pro 5 keeps
   it.
 ### G7. Tools
+- **Landed 2026-10-18:** the Scale tool (Tools › Scale Tool…, in Guitar Pro 8's layout): a library
+  of 68 scales, modes, arpeggios and tetrachords with tags and a search, key note and spelling,
+  the scale's notes, steps and intervals, a play button; the scale shown on the fretboard and
+  keyboard views; Find Scales from Selection (`tools.findScales`), on every key note or one.
 - **Landed 2026-10-18:** the Chord window (Note › Chord…, `A`, in Guitar Pro 8's layout): build a
   chord from root, type, extension, altered 5th/9th/11th/13th, bass or inversion and omitted
   tones; every diagram that plays it on the track's tuning (any string count, capo), fingered

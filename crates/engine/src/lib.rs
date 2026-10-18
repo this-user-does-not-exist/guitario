@@ -21,6 +21,7 @@ mod params;
 mod print;
 mod recover;
 mod render;
+mod scales;
 mod sections;
 mod selection;
 mod session;

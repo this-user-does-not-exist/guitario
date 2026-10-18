@@ -103,6 +103,34 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             p.text(center, egui::Align2::CENTER_CENTER, guitario_theory::note_name(m), crate::fonts::sans_bold(radius * 1.1), instrument::NOTE_INK);
         }
     };
+    // The Scale tool's scale: every fret that plays one of its notes, the key note boxed.
+    if let Some(o) = crate::scale_dialog::overlay(app.view.scale) {
+        let (mask, root) = (o.mask, o.root);
+        for s in 0..strings as u8 {
+            for f in 0..=FRETS {
+                let Some(m) = pitch(s, f) else { continue };
+                let pc = m % 12;
+                if mask & (1 << pc) == 0 {
+                    continue;
+                }
+                let center = pos2(mark_x(f), sy(usize::from(s)));
+                let r = radius;
+                if pc == root {
+                    p.rect_filled(egui::Rect::from_center_size(center, vec2(r * 2.0, r * 2.0)), 2.0, Color32::WHITE);
+                } else {
+                    p.circle_filled(center, r, Color32::WHITE);
+                }
+                let ink = if pc == root { t.accent } else { instrument::NOTE_INK };
+                p.text(
+                    center,
+                    egui::Align2::CENTER_CENTER,
+                    o.names.get(usize::from(pc)).map_or("", String::as_str),
+                    crate::fonts::sans_bold((r * 1.05).max(8.0)),
+                    ink,
+                );
+            }
+        }
+    }
     if let Some(pos) = resp.hover_pos()
         && let Some((s, f)) = hit(pos)
     {

@@ -138,6 +138,20 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             }
         }
     }
+    // The Scale tool's scale: a dot on each of its keys, the key note's in blue.
+    if let Some(crate::scale_dialog::Overlay { mask, root, .. }) = crate::scale_dialog::overlay(app.view.scale) {
+        for midi in (LOW..=HIGH).filter(|m| mask & (1 << (m % 12)) != 0 && !sounding.contains(m)) {
+            let r = key_rect(midi);
+            let colour = if midi % 12 == root {
+                t.accent
+            } else if is_black(midi) {
+                Color32::WHITE
+            } else {
+                Color32::from_rgb(0x30, 0x32, 0x3a)
+            };
+            p.circle_filled(pos2(r.center().x, r.bottom() - r.width().min(12.0) * 0.6), (r.width() * 0.22).clamp(2.0, 4.5), colour);
+        }
+    }
     if let Some(midi) = hover {
         resp.clone().on_hover_text(instrument::pitch_label(midi));
     }

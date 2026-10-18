@@ -26,9 +26,9 @@ note = "Note › Chord… (A) in Guitar Pro 8's layout (chord_dialog.rs): root a
 [[item]]
 id = "TOOL-4"
 target = "Scale tool: pick a scale, see it on the fretboard and keyboard, find scales in a selection"
-status = "missing"
+status = "done"
 stage = "beta"
-note = "Tools › Scale Tool… is greyed (issues 138, 306, 333)"
+note = "Tools › Scale Tool… in Guitar Pro 8's layout (scale_dialog.rs): 68 scales, modes, arpeggios and tetrachords with 16 tags and a search (guitario_theory::scales), key note and preferred alteration, seven-note scales spelled one letter per degree, notes, steps and intervals on a line, a play button; the scale on the fretboard (every fret, key note boxed) and keyboard views; Find Scales from Selection (tools.findScales) ranks by the share of the selected bars' notes, on every key note or the chosen one. Guitar Pro lists over 1,000 scales; scale diagrams in the score are 1.0 (issue 334)"
 
 [[item]]
 id = "TOOL-5"

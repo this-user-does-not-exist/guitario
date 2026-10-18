@@ -7,6 +7,7 @@ mod chords;
 pub mod drums;
 mod duration;
 mod pitch;
+pub mod scales;
 mod tuning;
 
 pub use chord_build::{Alteration, ChordSpec, ChordTone, ChordType, Extension, Voicing, fingering, voicings};

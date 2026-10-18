@@ -77,7 +77,7 @@ fn chord_from_notes(s: &mut Session, params: &Value) -> Result<Value, EngineErro
 }
 
 /// A note name (`C`, `F#`, `Bb`) or a pitch class number as a pitch class.
-fn pitch_class(v: &Value, key: &str) -> Result<u8, EngineError> {
+pub(crate) fn pitch_class(v: &Value, key: &str) -> Result<u8, EngineError> {
     if let Some(n) = v.as_u64() {
         return u8::try_from(n).ok().filter(|n| *n < 12).ok_or_else(|| EngineError::BadParam(format!("`{key}` must be 0..=11 or a note name")));
     }

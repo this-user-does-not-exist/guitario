@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the Chord window: tools 30 %, beta ~440–875 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (the Chord window and the Scale tool: tools 50 %, beta ~425–850 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -15,12 +15,12 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 |---|---|---|
 | **Stage** | **alpha** | measured: the [alpha gate](roadmap.md#alpha-gate) passes (two human checks open) |
 | **Beta gate** | **0 of 8 workflows pass** | measured by running them: [beta gate](roadmap.md#beta-gate) |
-| **Scorecard** | 53 done · 19 partial · 21 missing; **24 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
-| **Menu parity** | 169 of 180 items live (94 %) | measured: `cargo xtask parity` |
+| **Scorecard** | 54 done · 19 partial · 20 missing; **23 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
+| **Menu parity** | 170 of 180 items live (94 %) | measured: `cargo xtask parity` |
 | **Feature breadth** (does each Guitar Pro feature exist?) | **~63 %** | partly measured, weights [below](#feature-breadth-63-weighted) |
-| **Readiness** (how deep is each dimension, weighted?) | **~59 %** (range 52–64) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~440–875 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~1,130–2,225 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| **Readiness** (how deep is each dimension, weighted?) | **~60 %** (range 53–65) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
+| Remaining to **beta** | **~425–850 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~1,120–2,210 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -68,11 +68,11 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 | Playback | 15% | 42% | 150–300 | 130–260 | G5 | sampler, mixer and automations in; no articulation samples, amp or effects; checked by tests, not by ear |
 | Files and exchange | 10% | 70% | 10–20 | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 75–140 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view and homepage match Guitar Pro 8; depth (several documents, preferences, stylesheet) does not |
-| Tools | 5% | 30% | 35–65 | 75–140 | G7 | tuner, chord window, scales, line in |
+| Tools | 5% | 50% | 20–40 | 80–150 | G7 | tuner, chord window, scales, line in |
 | Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
 | Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
 | Platforms and automation | 10% | 25% | 120–230 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; no installers or releases, no control channel or MCP |
-| **Weighted** | 100% | **~59%** | **~440–875** | **~695–1,360** | | 0.20·70 + 0.15·74 + 0.15·42 + 0.10·70 + 0.10·62 + 0.05·30 + 0.10·65 + 0.05·70 + 0.10·25 = 58.6 |
+| **Weighted** | 100% | **~60%** | **~425–850** | **~700–1,370** | | 0.20·70 + 0.15·74 + 0.15·42 + 0.10·70 + 0.10·62 + 0.05·50 + 0.10·65 + 0.05·70 + 0.10·25 = 59.6 |
 
 Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
 is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
@@ -99,6 +99,7 @@ subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-17 | minor | Unset, the pitch bends reach in notation: editing 68% → 70%; beta hours 520–1,025 → 515–1,010 |
+| 2026-10-18 | minor | The Scale tool: menus 170/180; tools 30% → 50%, readiness ~59% → ~60%; beta hours 440–875 → 425–850 |
 | 2026-10-18 | minor | The Chord window (Note › Chord…, a catalog item from GP8's menus): menus 169/180; tools 8% → 30%, readiness ~58% → ~59%; beta hours 460–910 → 440–875 |
 | 2026-10-18 | minor | Guitar Pro 6 drum hits: files 68% → 70%, readiness ~57% → ~58%; beta hours 465–925 → 460–910 |
 | 2026-10-18 | minor | MusicXML import and export: menus 168/179; files 60% → 68%; beta hours 500–990 → 465–925 |
