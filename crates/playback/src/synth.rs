@@ -61,6 +61,8 @@ impl Pluck {
 pub struct StringVoice {
     pub track: usize,
     pub string: u8,
+    /// The track's instrument body it sounds through (a pizzicato), if any.
+    pub slot: Option<usize>,
     buf: Vec<f32>,
     w: usize,
     prev: f32,
@@ -213,6 +215,7 @@ impl StringVoice {
         StringVoice {
             track,
             string,
+            slot: None,
             buf,
             w: period.min(len.saturating_sub(1)),
             prev: 0.0,

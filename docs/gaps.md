@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G2: headers, footers, selected bars, twelve papers; beta ~175–360 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: modelled grand piano and bowed strings; G2: headers, footers, selected bars, twelve papers; beta ~175–360 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -61,14 +61,18 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
   [changelog](changelog.md).
 - **Landed 2026-10-18:** long samples stream from disk: the first second stays in memory, the
   rest is read when a note reaches it (the rest of #110); see the [changelog](changelog.md).
+- **Landed 2026-10-18:** a modelled grand piano and the bowed strings (violin, viola, cello,
+  double bass, sections, tremolo, pizzicato) for the programs that name them, each through a
+  resonating body; slurs play in one bow stroke (PLAY-11); see the [changelog](changelog.md).
 - **Beta:** nothing an agent can finish: the listening pass below.
-- **After beta:** an original pedalboard (#466 to 468, #525), cabinet impulse responses loaded
+- **After beta:** more modelled instruments (organ, electric piano, winds, brass; PLAY-11), the
+  piano's longitudinal "phantom" partials, damper and key noises and una corda, an original pedalboard (#466 to 468, #525), cabinet impulse responses loaded
   from files by convolution (#121; the cabinet is a filter model today), the effect chain and
   equalizer read from and written to Guitar Pro files, several sounds per track and sound
   automations (#461), an audio track with sync points (#483 to 486), external MIDI out (#470),
   MP3 and OGG export (#129), Line In (G7), style presets (#527).
-- **Human:** a listening pass on speakers for the synth and the sound bank (#115, #133); no agent
-  can judge "sounds like a guitar".
+- **Human:** a listening pass on speakers for the synth, the modelled piano and strings, and the
+  sound bank (#115, #133); no agent can judge "sounds like a guitar" or "like a cello".
 - **Evidence:** PLAY-8 (beta), PLAY-9/10 (1.0); PLAY-3 and PLAY-5 are done. The synth, its
   articulations and the effects are checked by tests (pitch within 4 Hz or 1.2 %, decay times,
   clean release, no clipping, each effect's response), not by ear.
@@ -229,6 +233,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | G5: a modelled grand piano and bowed strings with resonating bodies, slurs bowed in one stroke (beta unchanged: the listening pass) |
 | 2026-10-18 | minor | G2: headers and footers with tokens, selected bars, twelve papers and custom sizes (10–20 h to 0 h + human beta) |
 | 2026-10-18 | minor | G5: long samples stream their tails from disk (15–35 h to 0 h + human beta); only the listening pass is left for beta |
 | 2026-10-18 | minor | G12: packages for three platforms, file types declared, the release workflow (80–150 h to 20–40 h beta); macOS double-click needs a decision |

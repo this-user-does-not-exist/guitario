@@ -390,3 +390,34 @@ while it holds the last reference, and voices take theirs under the same lock. O
 wait for the tail instead, so an export never has a gap. Memory-mapping the files would have been
 simpler but needs `unsafe`, which the workspace forbids.
 
+## 2026-10-18: The grand piano and the bowed strings are physical models, not samples
+
+Guitar Pro plays pianos and strings from its own recordings. Guitario models them instead: no
+download, a few kilobytes of code, the same on the web build, and an instrument that answers the
+score rather than replaying it: a key struck again hits strings that are still moving, the pedal
+lets every other string ring, a slur is one bow stroke and a new note a bow change. A sampled
+piano or string section can still come later through the sound bank.
+
+The piano is a bank of modes per key rather than a waveguide with dispersion filters: every
+partial's frequency (stretched by the string's stiffness), decay and level is set directly, which
+is what the measurements of real pianos give (Fletcher's inharmonicity, Chaigne and Askenfelt's
+hammers and strings, Weinreich's coupled unison strings for the beating and the two-stage decay).
+The cost is a few hundred oscillators for a bass note, vectorised in blocks of eight and dropped
+as they die away. The hammer is simulated against the moving strings, not shaped as an
+envelope, because how bright a note is depends on how hard it is struck: the felt stiffens as it
+compresses, so a harder blow is shorter and brighter (the tests measure contact times of 4 to
+0.6 ms, as measured on real hammers).
+
+The bowed string is a waveguide with a friction junction because a bowed note's attack, its bow
+changes and its noise come from the stick-slip motion and nothing else. Three things made the
+Helmholtz motion hold across the range, measured as one full slip per period from 65 Hz to 2.6
+kHz at every dynamic: the hysteresis rule at the junction (a slipping string keeps slipping
+while friction allows), high-frequency losses set per second rather than per period (a low string
+otherwise keeps ripples that trigger extra slips), and stopped strings that ring for a second or
+two low down rather than a fixed time. The slip comes slightly early as the Helmholtz corner rounds
+off, sharpening high notes by up to 17 cents; the voice corrects it the way a player does, by
+listening: it times each slip against the pitch it wants and moves the stopped length.
+
+Both are checked by tests and by spectra, not by ear: like the rest of the synth they wait for the
+listening pass.
+

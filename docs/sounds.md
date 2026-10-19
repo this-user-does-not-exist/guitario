@@ -5,6 +5,11 @@ sound bank is installed, and falls back to its built-in synthesiser per track ot
 `crates/playback/src/sfz/` (parser, decoder, voices) and `crates/playback/src/bank.rs` (which track
 plays which instrument).
 
+Pianos and the violin family need no library: their programs (0 to 3, 40 to 45, 48, 49, 110) play
+physical models built into the synthesiser (`piano.rs`, `bowed.rs`, `body.rs`; see
+[decisions](decisions.md)). `cargo run -p guitario-playback --release --example audition -- <dir>`
+renders a phrase on each to WAV.
+
 ## Install the recommended libraries
 
 **From the app:** the first time Guitario starts without a sound bank it offers to download the

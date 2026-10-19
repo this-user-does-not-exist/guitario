@@ -13,6 +13,8 @@ timeline = 50
 player_new = 100
 # Work per second of sound: 50 ms is 5 % of one core.
 render_per_second = 50
+# The same with its pitched tracks on the modelled grand piano, string section, violin and cello.
+render_modelled_per_second = 250
 # With the sampled sound bank installed (skipped without it). Decoding runs in the background
 # when a score opens or gains new notes, so its budget is how long until Play is instant; the
 # window itself only checks readiness after an edit and hands instruments over on Play.
