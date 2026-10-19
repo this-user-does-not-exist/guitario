@@ -27,6 +27,9 @@ pub(crate) struct PrintDialog {
     /// All tracks stacked in every system, as a full score.
     together: bool,
     notation: bool,
+    /// The bars the selection covers when the dialog opened, and whether to print only those.
+    selected_bars: Option<(usize, usize)>,
+    only_selected: bool,
     sending: Option<Receiver<Result<PrintReceipt, String>>>,
     error: Option<String>,
 }
@@ -45,6 +48,8 @@ impl Default for PrintDialog {
             all_tracks: false,
             together: false,
             notation: true,
+            selected_bars: None,
+            only_selected: false,
             sending: None,
             error: None,
         }
@@ -70,6 +75,7 @@ impl PrintDialog {
             "tracks": tracks,
             "notation": self.notation,
             "together": self.all_tracks && self.together,
+            "bars": self.selected_bars.filter(|_| self.only_selected).map(|(a, b)| json!([a, b])),
         })
     }
 
@@ -112,6 +118,12 @@ impl GuitarioApp {
         self.print.start(notation, spooler);
         self.print.all_tracks = all_tracks && self.session.score().tracks.len() > 1;
         self.print.together = together && self.print.all_tracks;
+        self.print.selected_bars = self.session.selection().map(|sel| {
+            let ((a, _), (b, _)) = sel.ordered();
+            (a, b)
+        });
+        // A selection that spans bars is what one most likely wants on paper, as in Guitar Pro.
+        self.print.only_selected = self.print.selected_bars.is_some_and(|(a, b)| b > a);
     }
 
     /// Hands the chosen job to a worker thread.
@@ -238,6 +250,20 @@ impl GuitarioApp {
                 });
                 ui.end_row();
 
+                ui.label("Bars");
+                ui.add_enabled_ui(!busy, |ui| {
+                    ui.vertical(|ui| {
+                        ui.radio_value(&mut d.only_selected, false, "All bars");
+                        let label = match d.selected_bars {
+                            Some((a, b)) if a == b => format!("Selected bar ({})", a + 1),
+                            Some((a, b)) => format!("Selected bars ({} to {})", a + 1, b + 1),
+                            None => "Selected bars (select some first)".into(),
+                        };
+                        ui.add_enabled_ui(d.selected_bars.is_some(), |ui| ui.radio_value(&mut d.only_selected, true, label));
+                    });
+                });
+                ui.end_row();
+
                 ui.label("Show");
                 ui.add_enabled_ui(!busy, |ui| {
                     ui.vertical(|ui| {
@@ -248,7 +274,7 @@ impl GuitarioApp {
                 ui.end_row();
             });
             ui.add_space(6.0);
-            ui.label(egui::RichText::new(format!("Pages are {paper} (File › Page Setup); other paper in the printer shrinks them to fit.")).small());
+            ui.label(egui::RichText::new(format!("Pages are {paper} (File › Stylesheet); other paper in the printer shrinks them to fit.")).small());
             if let Some(e) = &d.error {
                 ui.add_space(4.0);
                 ui.colored_label(egui::Color32::from_rgb(0xff, 0x7a, 0x6a), e);
@@ -335,7 +361,7 @@ mod tests {
             PrintDialog { printer: Some("Office".into()), copies: 3, collate: false, duplex: DuplexMode::ShortEdge, grayscale: true, ..PrintDialog::default() };
         assert_eq!(
             d.params(1),
-            json!({"printer": "Office", "copies": 3, "collate": false, "duplex": "short", "grayscale": true, "tracks": [1], "notation": true, "together": false})
+            json!({"printer": "Office", "copies": 3, "collate": false, "duplex": "short", "grayscale": true, "tracks": [1], "notation": true, "together": false, "bars": null})
         );
         // A full score only with all tracks.
         d.together = true;
@@ -344,6 +370,29 @@ mod tests {
         d.printer = None;
         let p = d.params(1);
         assert_eq!((p["tracks"].clone(), p["printer"].clone(), p["together"].clone()), (Value::Null, Value::Null, json!(true)));
+        // Selected bars only when asked for.
+        d.selected_bars = Some((2, 5));
+        assert_eq!(d.params(1)["bars"], Value::Null);
+        d.only_selected = true;
+        assert_eq!(d.params(1)["bars"], json!([2, 5]));
+    }
+
+    #[test]
+    fn a_selection_across_bars_prints_only_those_bars_by_default() {
+        let queue = Arc::new(Queue::default());
+        let mut app = app_with(&queue);
+        for _ in 0..5 {
+            app.session.run("measure.append", &Value::Null).unwrap();
+        }
+        app.open_print();
+        assert_eq!((app.print.selected_bars, app.print.only_selected), (None, false));
+        app.session.run("select.set", &json!({"fromMeasure": 1, "fromBeat": 0, "toMeasure": 3, "toBeat": 0})).unwrap();
+        app.open_print();
+        assert_eq!((app.print.selected_bars, app.print.only_selected), (Some((1, 3)), true));
+        let task = app.session.prepare_print(&app.print.params(0)).unwrap();
+        assert_eq!(task.job().copies, 1);
+        assert!(app.session.prepare_print(&json!({"bars": [3, 1]})).is_err());
+        assert!(app.session.prepare_print(&json!({"bars": [0, 99]})).is_err());
     }
 
     #[test]

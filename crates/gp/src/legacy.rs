@@ -369,7 +369,15 @@ impl Parser<'_> {
                 None => self.warnings.push(format!("lyrics for track {} were dropped: there is no such track", ti + 1)),
             }
         }
-        let mut score = Score { meta, tempo: clamp_tempo(tempo).unwrap_or(DEFAULT_TEMPO), headers, tracks, page, master: Default::default() };
+        let mut score = Score {
+            meta,
+            tempo: clamp_tempo(tempo).unwrap_or(DEFAULT_TEMPO),
+            headers,
+            tracks,
+            page,
+            header_footer: Default::default(),
+            master: Default::default(),
+        };
         self.apply_tempo_changes(&mut score, &tempo_changes);
         if score.tracks.len() > MAX_TRACKS {
             let extra = score.tracks.len() - MAX_TRACKS;

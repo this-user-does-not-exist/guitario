@@ -82,12 +82,9 @@ pub struct PrintLayout {
     pub pages: Vec<PageBox>,
 }
 
-pub fn print_layout(score: &Score, track_index: usize, notation: bool) -> Option<PrintLayout> {
-    print_score_layout(score, &[track_index], notation)
-}
-
-/// `tracks` stacked in each system, in this order, as View › Multitrack shows them.
-pub fn print_score_layout(score: &Score, tracks: &[usize], notation: bool) -> Option<PrintLayout> {
+/// `tracks` stacked in each system, in this order, as View › Multitrack shows them, for the bars
+/// in `bars`.
+pub fn print_score_layout(score: &Score, tracks: &[usize], notation: bool, bars: std::ops::Range<usize>) -> Option<PrintLayout> {
     let mut parts = Vec::with_capacity(tracks.len());
     for (k, &ti) in tracks.iter().enumerate() {
         let track = score.tracks.get(ti)?;
@@ -95,7 +92,7 @@ pub fn print_score_layout(score: &Score, tracks: &[usize], notation: bool) -> Op
         parts.push(Part { index: ti, track, metrics: if k == 0 { m } else { m.below() } });
     }
     let metrics = parts.first()?.metrics;
-    let pages = layout_parts(score, &parts, &metrics);
+    let pages = crate::layout::layout_bars(score, &parts, &metrics, bars);
     Some(PrintLayout { metrics, parts: parts.iter().map(|p| (p.index, p.metrics)).collect(), pages })
 }
 
@@ -110,6 +107,16 @@ impl PrintSet {
     /// Lays out `tracks` (indexes, in print order): each track on its own pages, or with
     /// `together` all of them in every system. An error says what was asked that cannot be printed.
     pub fn new(score: &Score, tracks: &[usize], notation: bool, together: bool) -> Result<PrintSet, String> {
+        PrintSet::with_bars(score, tracks, notation, together, None)
+    }
+
+    /// [`PrintSet::new`] for the bars from `first` to `last` (indexes, both included) only.
+    pub fn with_bars(score: &Score, tracks: &[usize], notation: bool, together: bool, bars: Option<(usize, usize)>) -> Result<PrintSet, String> {
+        let range = match bars {
+            None => 0..score.headers.len(),
+            Some((first, last)) if first <= last && last < score.headers.len() => first..last + 1,
+            Some((first, last)) => return Err(format!("bars {} to {} are not in the score", first.saturating_add(1), last.saturating_add(1))),
+        };
         if tracks.is_empty() {
             return Err("no tracks to print".into());
         }
@@ -118,9 +125,9 @@ impl PrintSet {
             return Err(missing(ti));
         }
         let layouts = if together {
-            vec![print_score_layout(score, tracks, notation).ok_or_else(|| "no tracks to print".to_string())?]
+            vec![print_score_layout(score, tracks, notation, range).ok_or_else(|| "no tracks to print".to_string())?]
         } else {
-            tracks.iter().map(|ti| print_layout(score, *ti, notation).ok_or_else(|| missing(ti))).collect::<Result<_, _>>()?
+            tracks.iter().map(|ti| print_score_layout(score, &[*ti], notation, range.clone()).ok_or_else(|| missing(ti))).collect::<Result<_, _>>()?
         };
         Ok(PrintSet { layouts })
     }
@@ -187,15 +194,9 @@ pub fn paint_print_page(painter: &Painter, score: &Score, pl: &PrintLayout, page
     if page == 0
         && let Some(cx) = ctxs.first()
     {
-        cx.header(rect);
+        cx.header(rect, number.1);
     }
-    painter.text(
-        rect.right_bottom() - vec2(m.margin_right, m.margin_bottom * 0.5),
-        egui::Align2::RIGHT_CENTER,
-        format!("{}/{}", number.0, number.1),
-        serif(9.0 * m.zoom),
-        Color32::from_gray(110),
-    );
+    page_furniture(painter, score, &m, rect, number, crate::theme::PAPER.ink);
     paint_systems(&mut ctxs, boxed, rect, page == 0);
 }
 
@@ -278,16 +279,10 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
             && view.layout != LayoutMode::Horizontal
             && let Some(cx) = ctxs.iter().find(|c| c.cursor.track == cursor.track && c.cursor.measure != usize::MAX).or(ctxs.first())
         {
-            cx.header(rect);
+            cx.header(rect, pages.len());
         }
         if view.layout == LayoutMode::Page {
-            painter.text(
-                rect.right_bottom() - vec2(page_m.margin_right, page_m.margin_bottom * 0.5),
-                egui::Align2::RIGHT_CENTER,
-                format!("{}/{}", pi + 1, pages.len()),
-                serif(9.0 * page_m.zoom),
-                Color32::from_gray(110),
-            );
+            page_furniture(&painter, score, &page_m, rect, (pi + 1, pages.len()), t.ink);
         }
         paint_systems(&mut ctxs, page, rect, pi == 0);
     }
@@ -318,6 +313,40 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
         None
     };
     Output { click, drag, cursor_rect: mine.and_then(|c| c.cursor_rect), play_rect: mine.and_then(|c| c.play_rect) }
+}
+
+/// One header or footer text on the line whose top is `y`, placed across the printable width.
+fn page_text(painter: &Painter, page: Rect, m: &Metrics, y: f32, text: &str, style: &guitario_score::PageText, ink: Color32) {
+    use guitario_score::TextAlign;
+    let font = crate::fonts::page_text(&style.font, style.size * crate::layout::PT * m.zoom, style.bold, style.italic);
+    let (x, anchor) = match style.align {
+        TextAlign::Left => (page.left() + m.margin_left, egui::Align2::LEFT_TOP),
+        TextAlign::Center => (page.left() + m.center_x(), egui::Align2::CENTER_TOP),
+        TextAlign::Right => (page.right() - m.margin_right, egui::Align2::RIGHT_TOP),
+    };
+    painter.text(pos2(x, y), anchor, text, font, ink);
+}
+
+/// What every page carries besides the music: the header of the pages after the first, and the
+/// footer (copyright lines and the page number), centred in the bottom margin. `number` is `(this
+/// page, pages)`, counted from 1.
+fn page_furniture(painter: &Painter, score: &Score, m: &Metrics, page: Rect, (number, pages): (usize, usize), ink: Color32) {
+    let hf = &score.header_footer;
+    if number > 1
+        && let Some((text, style)) = hf.other_header(&score.meta, number, pages)
+    {
+        page_text(painter, page, m, page.top() + m.margin_top, &text, &style, ink);
+    }
+    let rows = hf.footer(&score.meta, number, pages);
+    let heights: Vec<f32> = rows.iter().map(|row| crate::layout::row_h(row.iter().map(|(_, t)| t)) * m.zoom).collect();
+    let total: f32 = heights.iter().sum();
+    let mut y = page.bottom() - m.margin_bottom / 2.0 - total / 2.0;
+    for (row, h) in rows.iter().zip(heights) {
+        for (text, style) in row {
+            page_text(painter, page, m, y, text, style, ink);
+        }
+        y += h;
+    }
 }
 
 /// Paints a page's systems with every part stacked in each: one track's staves under another's,
@@ -460,51 +489,19 @@ impl<'a> Ctx<'a> {
         if self.multivoice { self.t.voice_ink.get(voice).copied().unwrap_or(self.t.ink) } else { self.t.ink }
     }
 
-    fn header(&self, page: Rect) {
+    /// The first page's header; `pages` is how many the document has, for `%PAGES%`.
+    fn header(&self, page: Rect, pages: usize) {
         let m = &self.m;
         let meta = &self.score.meta;
         let mut y = page.top() + m.margin_top;
-        let title = if meta.title.is_empty() { "Untitled" } else { meta.title.as_str() };
-        let center = page.left() + m.center_x();
-        self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, title, serif(33.0 * m.zoom), self.t.ink);
-        // Guitar Pro sets the subtitle close under the title.
-        y += crate::layout::TITLE_H * m.space;
         let left = page.left() + m.margin_left;
-        let right = page.right() - m.margin_right;
-        for line in crate::layout::title_lines(meta) {
-            use crate::layout::TitleLine as L;
-            let size = |pt: f32| serif(pt * m.zoom);
-            match &line {
-                L::Subtitle(s) => {
-                    self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, s, size(20.0), self.t.ink);
-                }
-                L::Artist(s) => {
-                    self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, s, size(16.0), self.t.ink);
-                }
-                L::Album(s) => {
-                    self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, s, size(13.0), self.t.ink);
-                }
-                L::WordsAndMusic(s) => {
-                    self.p().text(pos2(center, y), egui::Align2::CENTER_TOP, format!("Words & Music by {s}"), size(11.0), self.t.ink);
-                }
-                L::Credits { words, music } => {
-                    if !words.is_empty() {
-                        self.p().text(pos2(left, y), egui::Align2::LEFT_TOP, format!("Words by {words}"), size(11.0), self.t.ink);
-                    }
-                    if !music.is_empty() {
-                        self.p().text(pos2(right, y), egui::Align2::RIGHT_TOP, format!("Music by {music}"), size(11.0), self.t.ink);
-                    }
-                }
+        // The header's rows, as the stylesheet sets them: the words at the left and the music at
+        // the right share a row.
+        for row in self.score.header_footer.first_header(meta, pages) {
+            for (text, style) in &row {
+                page_text(self.p(), page, m, y, text, style, self.t.ink);
             }
-            y += line.height() * m.space;
-        }
-        // The copyright sits at the foot of the first page, as Guitar Pro prints it.
-        if !meta.copyright.trim().is_empty() {
-            let foot = page.bottom() - m.margin_bottom * 0.5;
-            self.p().text(pos2(center, foot), egui::Align2::CENTER_CENTER, meta.copyright.trim(), serif(9.0 * m.zoom), self.t.ink);
-        }
-        if !meta.author.is_empty() {
-            self.p().text(pos2(page.right() - m.margin_right, y), egui::Align2::RIGHT_TOP, format!("Tab: {}", meta.author), serif(10.0 * m.zoom), self.t.ink);
+            y += crate::layout::row_h(row.iter().map(|(_, t)| *t)) * m.zoom;
         }
         // The tuning at the top of the score, as Guitar Pro's default stylesheet shows it:
         // "Standard tuning", or each string numbered in a circle with its note, in two columns.
@@ -2354,7 +2351,7 @@ mod tests {
                     return;
                 };
                 if paper {
-                    if let Some(pl) = print_layout(&score, 0, false) {
+                    if let Some(pl) = print_score_layout(&score, &[0], false, 0..score.headers.len()) {
                         paint_print_page(ui.painter(), &score, &pl, 0, (1, 1), fonts);
                     }
                 } else {

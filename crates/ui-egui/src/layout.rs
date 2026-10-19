@@ -353,9 +353,20 @@ impl Metrics {
         if self.mode == LayoutMode::Horizontal {
             return 0.0;
         }
-        let lines: f32 = title_lines(&score.meta).iter().map(TitleLine::height).sum();
+        let rows: f32 = score.header_footer.first_header(&score.meta, 1).iter().map(|row| row_h(row.iter().map(|(_, t)| *t))).sum();
         let legend = self.legend_lines as f32 * LEGEND_LINE;
-        (TITLE_H + lines + legend + 2.0) * self.space + self.chord_list_h()
+        rows * self.zoom + (legend + 2.0) * self.space + self.chord_list_h()
+    }
+
+    /// Room the header of the pages after the first takes above the music.
+    pub fn other_header_h(&self, score: &Score) -> f32 {
+        if self.mode != LayoutMode::Page {
+            return 0.0;
+        }
+        match score.header_footer.other_header(&score.meta, 2, 2) {
+            Some((_, t)) => text_row_h(t.size) * self.zoom + self.space,
+            None => 0.0,
+        }
     }
 
     /// Where the chord list starts below the top margin.
@@ -401,48 +412,17 @@ impl TuningLegend {
 /// One line of the tuning legend (and the capo line under it), in staff spaces.
 pub const LEGEND_LINE: f32 = 2.6;
 
-/// The title's line in staff spaces, from its top to the top of the line under it.
-pub const TITLE_H: f32 = 8.0;
+/// Pixels per point at 100 % (96 dpi).
+pub const PT: f32 = 96.0 / 72.0;
 
-/// A line of the title block under the title, in Guitar Pro's order.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TitleLine {
-    Subtitle(String),
-    Artist(String),
-    Album(String),
-    /// Words and music by the same people.
-    WordsAndMusic(String),
-    /// Words at the left, music at the right; either may be empty.
-    Credits {
-        words: String,
-        music: String,
-    },
+/// The height of a header or footer line set in `size` points, in pixels at 100 %.
+pub fn text_row_h(size: f32) -> f32 {
+    size * PT * 1.5
 }
 
-impl TitleLine {
-    /// The line's height in staff spaces.
-    pub fn height(&self) -> f32 {
-        match self {
-            TitleLine::Subtitle(_) => 5.0,
-            TitleLine::Artist(_) | TitleLine::Album(_) => 4.0,
-            TitleLine::WordsAndMusic(_) | TitleLine::Credits { .. } => 3.5,
-        }
-    }
-}
-
-/// The title block's lines under the title, skipping empty fields.
-pub fn title_lines(meta: &guitario_score::Meta) -> Vec<TitleLine> {
-    let field = |s: &str| Some(s.trim().to_string()).filter(|s| !s.is_empty());
-    let mut out = Vec::new();
-    out.extend(field(&meta.subtitle).map(TitleLine::Subtitle));
-    out.extend(field(&meta.artist).map(TitleLine::Artist));
-    out.extend(field(&meta.album).map(TitleLine::Album));
-    match (field(&meta.words), field(&meta.music)) {
-        (Some(w), Some(m)) if w == m => out.push(TitleLine::WordsAndMusic(w)),
-        (None, None) => {}
-        (w, m) => out.push(TitleLine::Credits { words: w.unwrap_or_default(), music: m.unwrap_or_default() }),
-    }
-    out
+/// The height of a row of header texts: its tallest.
+pub fn row_h<'a>(texts: impl Iterator<Item = &'a guitario_score::PageText>) -> f32 {
+    texts.map(|t| text_row_h(t.size)).fold(0.0, f32::max)
 }
 
 /// Where one voice's beats sit in a bar, relative to the bar's left edge.
@@ -613,9 +593,11 @@ pub struct Part<'a> {
     pub metrics: Metrics,
 }
 
-fn natural(score: &Score, parts: &[Part], mi: usize, s: f32, sung: &[HashMap<(usize, usize), usize>]) -> Natural {
+/// The natural widths of bar `mi`; `opens` when it is the first bar laid out, so it shows its
+/// time signature whatever came before.
+fn natural(score: &Score, parts: &[Part], mi: usize, s: f32, sung: &[HashMap<(usize, usize), usize>], opens: bool) -> Natural {
     let header = score.headers.get(mi);
-    let prev = mi.checked_sub(1).and_then(|i| score.headers.get(i));
+    let prev = mi.checked_sub(1).filter(|_| !opens).and_then(|i| score.headers.get(i));
     let show_time = match (header, prev) {
         (Some(h), Some(p)) => h.time_signature != p.time_signature,
         (Some(_), None) => true,
@@ -766,12 +748,19 @@ pub fn layout(score: &Score, track_index: usize, m: &Metrics) -> Vec<PageBox> {
 /// Lays out `parts` (one track, or every track of the multitrack view) as systems of stacked
 /// staves on pages shaped by `page`: its paper, margins, zoom and layout mode.
 pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBox> {
-    if parts.is_empty() {
+    layout_bars(score, parts, page, 0..score.headers.len())
+}
+
+/// [`layout_parts`] for the bars in `bars` only (a printed selection), keeping their numbers.
+pub fn layout_bars(score: &Score, parts: &[Part], page: &Metrics, bars: std::ops::Range<usize>) -> Vec<PageBox> {
+    let end = bars.end.min(score.headers.len());
+    let start = bars.start.min(end);
+    if parts.is_empty() || start == end {
         return vec![];
     }
     let s = page.space;
     let sung: Vec<HashMap<(usize, usize), usize>> = parts.iter().map(|p| sung_lengths(p.track)).collect();
-    let naturals: Vec<Natural> = (0..score.headers.len()).map(|mi| natural(score, parts, mi, s, &sung)).collect();
+    let naturals: Vec<Natural> = (0..end).map(|mi| natural(score, parts, mi, s, &sung, mi == start && start > 0)).collect();
     let total = |n: &Natural| n.fixed + n.cols.iter().sum::<f32>();
     let prefix_at = |mi: usize| parts.iter().map(|p| system_prefix(score, mi, &p.metrics)).fold(0.0f32, f32::max);
     let system_h: f32 = parts.iter().map(|p| p.metrics.system_h()).sum();
@@ -779,8 +768,8 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
 
     // Break into systems; the horizontal layout keeps every bar on one line.
     let mut systems: Vec<(Vec<usize>, f32)> = Vec::new();
-    let mut i = 0;
-    while i < naturals.len() {
+    let mut i = start;
+    while i < end {
         let prefix = prefix_at(i);
         let avail = if horizontal { f32::INFINITY } else { page.system_w(systems.len()) - prefix };
         let mut used = 0.0;
@@ -852,7 +841,7 @@ pub fn layout_parts(score: &Score, parts: &[Part], page: &Metrics) -> Vec<PageBo
         }
         if y + system_h > page.page_h - page.margin_bottom && pages.last().is_some_and(|p| !p.systems.is_empty()) {
             pages.push(PageBox::default());
-            y = page.margin_top;
+            y = page.margin_top + page.other_header_h(score);
         }
         if let Some(pg) = pages.last_mut() {
             pg.systems.push(SystemBox { measures, y, prefix, courtesy, indent: page.system_indent(si) });
@@ -1006,7 +995,7 @@ mod tests {
         assert!(rows >= 2, "{rows} rows");
         assert!((m.chord_list_h() - (rows as f32 * m.chord_row_h() + m.space)).abs() < 0.01);
         // Under the title and the tuning ("Standard tuning", one line).
-        assert!(m.chord_list_top(&s) >= (TITLE_H + LEGEND_LINE) * m.space - 0.01, "under the title");
+        assert!(m.chord_list_top(&s) >= LEGEND_LINE * m.space - 0.01, "under the title");
         // Diagrams also widen the lane above each system, so the first system starts lower still.
         let after = first_y(&s, &m);
         assert!(after.zip(before).is_some_and(|(a, b)| a >= b + m.chord_list_h()), "{before:?} -> {after:?}");
@@ -1152,7 +1141,16 @@ mod tests {
         let s = score(40);
         for paper in Paper::ALL {
             for landscape in [false, true] {
-                let page = PageSetup { paper, landscape, margin_left: 5, margin_right: 25, margin_top: 20, margin_bottom: 10, bend_pitch: false };
+                let page = PageSetup {
+                    paper,
+                    landscape,
+                    margin_left: 5,
+                    margin_right: 25,
+                    margin_top: 20,
+                    margin_bottom: 10,
+                    bend_pitch: false,
+                    ..PageSetup::default()
+                };
                 let m = Metrics::new(1.0, true, 6).with_page(&page);
                 let (w, h) = page.size_mm();
                 assert!((m.page_w - w * MM).abs() < 0.01 && (m.page_h - h * MM).abs() < 0.01);

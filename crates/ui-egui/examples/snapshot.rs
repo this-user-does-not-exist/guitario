@@ -325,6 +325,9 @@ fn main() {
     if args.iter().any(|a| a == "--page-setup") {
         app.open_page_setup();
     }
+    if args.iter().any(|a| a == "--header-footer") {
+        app.open_header_footer();
+    }
     if args.iter().any(|a| a == "--bend") {
         app.open_bend();
     }

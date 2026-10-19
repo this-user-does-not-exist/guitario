@@ -456,6 +456,7 @@ impl GuitarioApp {
             U::Print => self.open_print(),
             U::PrintPreview => self.open_preview(),
             U::PageSetup => self.open_page_setup(),
+            U::Stylesheet => self.open_stylesheet(),
             U::Trill => self.open_trill(),
             U::Bend => self.open_bend(),
             U::Whammy => self.open_whammy(),

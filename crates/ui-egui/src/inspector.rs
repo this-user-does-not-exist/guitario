@@ -183,7 +183,7 @@ fn song(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static st
             ui.end_row();
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.label("Stylesheet:"));
             if ui.button("Open…").on_hover_text("Page format (the rest of the stylesheet is not in Guitario yet)").clicked() {
-                app.open_page_setup();
+                app.open_stylesheet();
             }
             ui.end_row();
         });

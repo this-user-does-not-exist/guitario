@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: samples stream from disk; beta ~185–380 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G2: headers, footers, selected bars, twelve papers; beta ~175–360 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -27,15 +27,15 @@ Ranked by user impact on the way to beta.
 | 5 | [G12](#g12-platforms-and-distribution) Platforms | opening a double-clicked file on macOS (human decision), the release workflow's first run, signing (human), a hands-on run on Windows and Linux | 20–40 + human | browser build, update check | 30–60 |
 | 6 | [G8](#g8-ui-depth) UI depth | several documents, shortcuts audit, user book, click-to-edit, focus and track visibility | 50–95 | stylesheet window, floating panels, accessibility | 70–130 |
 | 7 | [G1](#g1-drums-depth) Drums | step-grid editor, articulations | 15–30 | kit map editing, drum mix, sampled-kit articulations | 15–30 |
-| 8 | [G2](#g2-print-depth) Print | headers and footers, selected bars, a real printer | 10–20 | image export, more paper | 10–20 |
+| 8 | [G2](#g2-print-depth) Print | a real printer (human) | 0 + human | image export, stylesheet exchange with Guitar Pro | 10–20 |
 | 9 | [G4](#g4-notation-depth) Notation | voice picking in notation, voice shortcuts, tab slurs | 6–22 | slash and numbered notation, grand staff, clefs, Design Mode | 150–300 |
 | 10 | [G10](#g10-automation) Automation | control channel, screenshots, MCP, ten agent tasks | 40–80 | | |
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~185–380 h** | | **~705–1,380 h** |
+| | **Total** | | **~175–360 h** | | **~705–1,380 h** |
 
-Beta plus after-beta is **~890–1,760 h** to full parity.
+Beta plus after-beta is **~880–1,740 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -156,14 +156,17 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 - **Estimate:** 15–30 h beta, 15–30 h after.
 
 ### G2. Print depth
-- **Beta:** headers and footers with tokens (#517), printing selected bars, other paper formats up
-  to Guitar Pro's twelve (#508).
+- **Landed 2026-10-18:** headers and footers with tokens (#517) in File › Stylesheet… (F7),
+  printing selected bars, twelve paper formats and custom sizes (#508); see the
+  [changelog](changelog.md).
+- **Beta:** nothing left for an agent.
 - **Human:** send a page to a real printer on macOS, Windows and Linux. The Windows spooler path
   has never run, and CUPS was only tested through `lp`'s argument list.
 - **After beta:** PNG and SVG pages (#36, #492), notation fonts embedded when no SMuFL font is
-  installed.
-- **Evidence:** FILE-7, FILE-11 (beta), FILE-13 (1.0).
-- **Estimate:** 10–20 h beta, 10–20 h after.
+  installed, header and footer texts read from and written to Guitar Pro's `BinaryStylesheet`,
+  font families beyond the serif and sans faces the page loads.
+- **Evidence:** FILE-7 (beta, the printer), FILE-13 (1.0); FILE-11 is done.
+- **Estimate:** 0 h + human beta, 10–20 h after.
 
 ### G4. Notation depth
 - **Beta:** picking a voice by clicking its notehead in notation, voice shortcuts (⌘1 to 4 and
@@ -226,6 +229,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | G2: headers and footers with tokens, selected bars, twelve papers and custom sizes (10–20 h to 0 h + human beta) |
 | 2026-10-18 | minor | G5: long samples stream their tails from disk (15–35 h to 0 h + human beta); only the listening pass is left for beta |
 | 2026-10-18 | minor | G12: packages for three platforms, file types declared, the release workflow (80–150 h to 20–40 h beta); macOS double-click needs a decision |
 | 2026-10-18 | minor | G5: master volume and pan automation, 16-bit samples and a memory budget (25–55 h to 15–35 h beta) |
