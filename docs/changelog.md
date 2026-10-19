@@ -353,6 +353,17 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   a hall as their default chain (`default_chain`). Levels sit with the plucked synth's. Measured:
   the 400-bar perf score with its pitched tracks as piano, string section, violin and cello renders at 161 ms of work per second of sound (budget `render_modelled_per_second` 250; the band synth stays at 37). `cargo run -p guitario-playback --release --example audition -- <dir>` renders
   original phrases for each instrument to WAV. Checked by tests and spectra, not yet by ear.
+- **Landed 2026-10-18:** the piano's tuning and tone after a first listen ("too honky-tonk, too
+  plastic"). The stretched tuning is now worked out from the model's own strings as a tuner does
+  (temperament octave first, then each octave on the lower note's second partial, the bass on its
+  fourth): octaves meet within a hundredth of a cent, where the fixed Railsback curve had them up
+  to 8 cents apart; a grand's unisons are a quarter of a cent apart, not up to two cents; the
+  pedal's sympathetic strings are tuned to the stretched keys and their loops corrected for their
+  low-pass (they rang up to 10 cents flat, a detuned halo). Against the plastic sound: a diffuse
+  soundboard and case (an eight-line feedback delay network, 0.45 s low, highs five times faster)
+  under the discrete resonances, the felt's thud as force-shaped noise (-28 dB of the note in the
+  bass, -18 dB in the treble over its first 20 ms), and phantom partials from the strings'
+  stretching (-25 dB in the bass at ff, -37 dB at p, none above C6).
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double
