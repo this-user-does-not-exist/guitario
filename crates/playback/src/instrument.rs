@@ -49,16 +49,19 @@ impl Voicing {
         }
     }
 
-    /// The bodies a track of this instrument needs.
-    pub(crate) fn bodies(self) -> Vec<BodyKind> {
-        match self {
+    /// The bodies a track of this instrument needs, with their desks: a section has two of each,
+    /// its left and right halves on instruments of their own.
+    pub(crate) fn bodies(self) -> Vec<(BodyKind, Option<u8>)> {
+        let kinds = match self {
             Voicing::Plucked => Vec::new(),
             Voicing::Piano(_) => vec![BodyKind::Piano],
             Voicing::Bowed { body: Some(b), .. } | Voicing::Pizzicato { body: Some(b), .. } => vec![b],
             Voicing::Bowed { body: None, .. } | Voicing::Pizzicato { body: None, .. } => {
                 vec![BodyKind::Violin, BodyKind::Viola, BodyKind::Cello, BodyKind::DoubleBass]
             }
-        }
+        };
+        let section = matches!(self, Voicing::Bowed { players: 2.., .. } | Voicing::Pizzicato { players: 2.., .. });
+        if section { kinds.into_iter().flat_map(|k| [(k, Some(0)), (k, Some(1))]).collect() } else { kinds.into_iter().map(|k| (k, None)).collect() }
     }
 }
 
@@ -75,7 +78,8 @@ mod tests {
         for p in [24, 25, 29, 30, 33, 105] {
             assert_eq!(Voicing::of(p), Voicing::Plucked, "{p}");
         }
-        assert_eq!(Voicing::of(48).bodies().len(), 4);
+        assert_eq!(Voicing::of(48).bodies().len(), 8, "two desks of four instruments");
+        assert_eq!(Voicing::of(40).bodies(), vec![(BodyKind::Violin, None)]);
         assert!(Voicing::Plucked.bodies().is_empty());
     }
 }

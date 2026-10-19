@@ -479,7 +479,7 @@ impl Player {
                     sampled: false,
                     wide: false,
                     voicing,
-                    bodies: voicing.bodies().into_iter().map(|k| (Body::new(k, sr), (0.0, 0.0))).collect(),
+                    bodies: voicing.bodies().into_iter().map(|(k, desk)| (Body::at_desk(k, sr, desk), (0.0, 0.0))).collect(),
                     pedal: false,
                 }
             })
@@ -1030,9 +1030,10 @@ impl Player {
         self.voices.push(v);
     }
 
-    /// The track's body of `kind`, by its place among the track's bodies.
-    fn body_slot(&self, track: usize, kind: BodyKind) -> Option<usize> {
-        self.buses.get(track)?.bodies.iter().position(|(b, _)| b.kind == kind)
+    /// The track's body of `kind` (at a section's `desk`), by its place among the track's bodies.
+    fn body_slot(&self, track: usize, kind: BodyKind, desk: Option<u8>) -> Option<usize> {
+        let bodies = &self.buses.get(track)?.bodies;
+        bodies.iter().position(|(b, _)| b.kind == kind && b.desk == desk).or_else(|| bodies.iter().position(|(b, _)| b.kind == kind))
     }
 
     fn start_piano(&mut self, n: &NoteEvent, tone: PianoTone) {
@@ -1068,7 +1069,7 @@ impl Player {
         // A harmonic sounds its partial, flute-like, from a lighter bow.
         let freq = freq_of(n.pitch) * ratio;
         let kind = body.unwrap_or_else(|| BodyKind::for_pitch(n.pitch + 12.0 * ratio.log2()));
-        let Some(slot) = self.body_slot(n.track, kind) else { return };
+        let Some(first) = self.body_slot(n.track, kind, None) else { return };
         let seconds = (n.end - n.start).max(0.0) as f32;
         let velocity = if n.dead {
             n.velocity * 0.3
@@ -1077,8 +1078,18 @@ impl Player {
         } else {
             n.velocity
         };
-        let mut stroke =
-            Stroke { freq, velocity, seconds, short: n.staccato || n.dead || seconds < 0.12, open: n.open, tremolo, slow, direction: 1.0, crossing: false };
+        let mut stroke = Stroke {
+            freq,
+            velocity,
+            seconds,
+            short: n.staccato || n.dead || seconds < 0.12,
+            open: n.open,
+            tremolo,
+            slow,
+            direction: 1.0,
+            crossing: false,
+            section: players > 1,
+        };
         let seed = ((self.noise.next() + 1.0) * 1.0e6) as u32;
         let end = if n.dead { n.start + 0.08 } else { n.end };
         // A slur keeps the stroke going (the notes of a chord share one too); anything else is a
@@ -1087,6 +1098,9 @@ impl Player {
         let chord = self.bowed.iter().any(|v| v.track == n.track && v.note_start == n.start && v.string != n.string);
         for seat in 0..players.clamp(1, MAX_SEATS) {
             let (detune, onset, place) = if players > 1 { section_player(seat, seed) } else { (0.0, 0.0, 0.0) };
+            // A section's players on the left sound through one desk's instruments, those on the
+            // right through the other's.
+            let slot = self.body_slot(n.track, kind, (players > 1).then_some(u8::from(place >= 0.0))).unwrap_or(first);
             if let Some(dir) = self.bow_dir.get_mut(n.track).and_then(|d| d.get_mut(seat)) {
                 if !slur && !chord {
                     *dir = -*dir;
@@ -1095,7 +1109,7 @@ impl Player {
             }
             stroke.crossing = n.slurred && !n.legato_from_prev;
             let sounding = self.bowed.iter().position(|v| v.track == n.track && v.string == n.string && v.seat == seat && !v.finished());
-            let reuse = sounding.and_then(|i| self.bowed.get_mut(i)).filter(|v| v.body == kind);
+            let reuse = sounding.and_then(|i| self.bowed.get_mut(i)).filter(|v| v.body == kind && v.slot == slot && v.fits(freq));
             let v = match reuse {
                 Some(v) => {
                     // A slur moves the finger under the same stroke; anything else is a bow change.
@@ -1116,7 +1130,8 @@ impl Player {
                     // A section is fuller than one player, not as much louder as its numbers.
                     v.level_scale = 1.0 / (players.max(1) as f32).sqrt();
                     v.detune = detune;
-                    v.wait = (onset * self.sr) as u32;
+                    // Together on short notes, a little apart on long ones.
+                    v.wait = (onset * (seconds / 0.6).clamp(0.3, 1.0) * self.sr) as u32;
                     let angle = (place + 1.0) * std::f32::consts::FRAC_PI_4;
                     v.pan = (angle.cos() * std::f32::consts::SQRT_2, angle.sin() * std::f32::consts::SQRT_2);
                     if self.bowed.len() >= MAX_BOWED_VOICES {
@@ -1142,7 +1157,6 @@ impl Player {
         let ratio = self.opts.pitch_ratio();
         let freq = n.freq * ratio;
         let kind = body.unwrap_or_else(|| BodyKind::for_pitch(n.pitch + 12.0 * ratio.log2()));
-        let slot = self.body_slot(n.track, kind);
         for v in self.voices.iter_mut().filter(|v| v.track == n.track && v.string == n.string) {
             v.damp();
         }
@@ -1150,7 +1164,8 @@ impl Player {
         let ring = curve(&[(5.0, 1.6), (8.0, 0.8), (11.0, 0.3)], freq.max(20.0).log2()) * if n.open { 2.0 } else { 1.0 };
         let seed = ((self.noise.next() + 1.0) * 1.0e6) as u32;
         for seat in 0..players.max(1) {
-            let (detune, _, _) = if players > 1 { section_player(seat, seed) } else { (0.0, 0.0, 0.0) };
+            let (detune, _, place) = if players > 1 { section_player(seat, seed) } else { (0.0, 0.0, 0.0) };
+            let slot = self.body_slot(n.track, kind, (players > 1).then_some(u8::from(place >= 0.0)));
             let mut pluck = Pluck::plain(freq * 2f32.powf(detune / 12.0), n.velocity / (players.max(1) as f32).sqrt(), 0.3);
             pluck.decay = Some(ring);
             pluck.damping = 0.35;
@@ -2305,6 +2320,33 @@ mod tests {
         let (p, out) = play_for(&on_instrument(45, guitario_theory::Tuning::violin(), vec![note]), 0.3);
         assert!(p.bowed.is_empty() && p.voices.len() == 6 && p.voices.iter().all(|v| v.slot.is_some()));
         assert!(rms(&out) > 0.005);
+    }
+
+    #[test]
+    fn a_string_section_sounds_wide_and_a_soloist_narrower() {
+        // Recorded violin sections are as good as uncorrelated between left and right (0.05); a
+        // violin through its one body much less so. Dry, without the hall strings default to, once
+        // the section has swelled in.
+        let correlation = |program: u8| {
+            let notes = (0..4).map(|string| Note::new(string, 3)).collect();
+            let note = Beat { rest: false, notes, ..Beat::rest(Duration::WHOLE) };
+            let mut s = on_instrument(program, guitario_theory::Tuning::violin(), vec![note]);
+            s.tracks[0].effects = Some(Vec::new());
+            let mut p = Player::new(&s, 44_100, Options::default());
+            p.play_from(0.0);
+            let mut out = vec![0.0; 44_100 * 19 / 10 * 2];
+            p.render(&mut out, 2);
+            let (mut lr, mut ll, mut rr) = (0.0f64, 0.0f64, 0.0f64);
+            for f in out.chunks(2).skip(44_100) {
+                lr += f64::from(f[0] * f[1]);
+                ll += f64::from(f[0] * f[0]);
+                rr += f64::from(f[1] * f[1]);
+            }
+            lr / (ll * rr).sqrt().max(1e-12)
+        };
+        let (section, solo) = (correlation(48), correlation(40));
+        println!("left/right correlation: section {section:.2}, solo {solo:.2}");
+        assert!(section.abs() < 0.4 && solo > section + 0.2, "section {section}, solo {solo}");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: modelled grand piano and bowed strings; G2: headers, footers, selected bars, twelve papers) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-19 · **Change:** minor (G5: the bowed strings fitted to recordings, solo and sections) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -364,6 +364,46 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   under the discrete resonances, the felt's thud as force-shaped noise (-28 dB of the note in the
   bass, -18 dB in the treble over its first 20 ms), and phantom partials from the strings'
   stretching (-25 dB in the bass at ff, -37 dB at p, none above C6).
+- **Landed 2026-10-19:** the bowed strings fitted to recordings of real ones (PLAY-11), solo
+  first, then sections. The references are VSCO 2 Community Edition (CC0) and Sonatina Symphonic
+  Orchestra (CC Sampling Plus 1.0), measured and never bundled (`ATTRIBUTION.md`); the method is
+  in [decisions](decisions.md). `cargo run -p guitario-playback --release --example notes -- <dir>
+  <program> <midi,...> [dynamics] [seconds]` renders held notes, dry (`WET=1` keeps the hall), to
+  set against them. Solo violin, first model → now → recordings: vibrato 5.6 → 5.2 Hz (5.2), 15
+  → 8.7 cents at piano and 15 → 13.5 at forte (7.8, 14.3); forte 4.8 → 12–13 dB louder than piano
+  (12.7) with its harmonics from the ninth up 0 → 6–7 dB stronger (7); noise between the harmonics
+  23 → 31–34 dB under them (31 to 35); the body's response, estimated from every note's harmonics,
+  4.1 → 0.5 dB from the recordings' (rms, 250 Hz to 10 kHz; the two libraries are 2.9 dB apart)
+  and each note's third-octave balance 7.5 → 2.3 dB; under a high note's fundamental -7 dB at A6 (a growl louder than the note)
+  → -27 to -44 (-21 to -40); the open G's fundamental -5 → -23 dB under its strongest harmonic
+  (-21 to -30); piano attacks 0.03 → 0.25 s; each harmonic's level swinging 0.9 → 1.7 dB dry and
+  2.6 with the hall (2.6 to 4.2 recorded in a room), a third of it slower than 2.5 Hz as the bow
+  wanders. Viola, cello and double bass bodies have curves of their own fitted the same way
+  (1.2, 2.0 and 2.0 dB rms over each one's range; the two double basses recorded are 4.8 dB
+  apart); the double bass vibrates at 3.8 Hz and 4 cents, as recorded. The model changes behind it: the bow nearer the bridge and much faster loudly, a
+  shelf on the bridge's force for the sharper corner a harder bow keeps, the bow further along a
+  string stopped short and lighter on it high up (no more anomalous low frequencies) and a little
+  further out and firmer on a low string drawn loudly, the lowest strings' highs lost a little
+  faster (one slip a period from 46 Hz up at every dynamic, over eight draws of the bow's noise;
+  the first model slipped irregularly below 100 Hz for some draws and its test tried one), the slip
+  placed between samples (a band-limited step), high strings at two or three times the output
+  rate and a high-pass under each note's fundamental, rosin noise in the band the string carries,
+  the arm's slow wander in the bow's place, speed and weight, body modes spread nearer evenly in
+  frequency and sharper, and a Chebyshev cliff below the air mode. Sections, then: recorded ones
+  are as good as uncorrelated between left and right (0.05); the model's was 0.72 and is now about
+  0 (its cellos 0.2; recorded cello sections 0.1 to 0.5), its left and right halves playing through their own bodies (the same modes, radiated
+  differently, the far side through a few milliseconds of all-passes); its players are further
+  apart in tuning (line width 10.3 cents, recorded 9.9 to 13.9) and time (up to 40 ms on long
+  notes), vibrate narrower (heard as one, 8.3 → 5.5 cents; recorded 5.2 to 5.8) and swell in more
+  slowly; its tone is 2.4 dB from the recorded violin sections' and 3.2 from the cello sections'
+  (rms; the two libraries are 2.1 and 5.1 dB apart). Tests hold the model to the
+  recordings: forte's level and brightness, nothing growling under high notes, the open G's weak
+  fundamental, vibrato with the dynamic, a section wide and a soloist narrower, high strings
+  oversampled. Levels: a forte bowed note sits where it did (piano is now 12 dB under it, not 5),
+  fortissimo a few dB over forte, mezzo-forte 3 dB lower than before on every instrument (their
+  balance kept by a trim per body); the auditions' levels are within 3 dB of what they were. The perf score's modelled render costs 224 to 244 ms of work per second of sound
+  (budget 250; it varies from run to run) (the piano's retuning had already taken it from 161 to about 220; a string is now cheaper,
+  worked out partly every 8 samples, and sections dearer). Still not judged by ear.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

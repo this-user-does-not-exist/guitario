@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: modelled grand piano and bowed strings; G2: headers, footers, selected bars, twelve papers; beta ~175–360 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-19 · **Change:** minor (G5: the bowed strings fitted to recordings, solo and sections; beta ~175–360 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -64,6 +64,10 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 - **Landed 2026-10-18:** a modelled grand piano and the bowed strings (violin, viola, cello,
   double bass, sections, tremolo, pizzicato) for the programs that name them, each through a
   resonating body; slurs play in one bow stroke (PLAY-11); see the [changelog](changelog.md).
+- **Landed 2026-10-19:** the bowed strings fitted to recordings of real violins, violas, cellos,
+  double basses and sections (measured, not bundled): dynamics, vibrato, noise, the bodies'
+  response, high notes without a growl, sections as wide as recorded ones (PLAY-11); see the
+  [changelog](changelog.md).
 - **Beta:** nothing an agent can finish: the listening pass below.
 - **After beta:** more modelled instruments (organ, electric piano, winds, brass; PLAY-11), the
   piano's longitudinal "phantom" partials, damper and key noises and una corda, an original pedalboard (#466 to 468, #525), cabinet impulse responses loaded
@@ -233,6 +237,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-19 | minor | G5: the bowed strings fitted to recordings of real ones, solo and sections (beta unchanged: the listening pass) |
 | 2026-10-18 | minor | G5: a modelled grand piano and bowed strings with resonating bodies, slurs bowed in one stroke (beta unchanged: the listening pass) |
 | 2026-10-18 | minor | G2: headers and footers with tokens, selected bars, twelve papers and custom sizes (10–20 h to 0 h + human beta) |
 | 2026-10-18 | minor | G5: long samples stream their tails from disk (15–35 h to 0 h + human beta); only the listening pass is left for beta |

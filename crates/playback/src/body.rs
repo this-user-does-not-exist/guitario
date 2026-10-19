@@ -47,7 +47,7 @@ pub enum BodyKind {
 
 impl BodyKind {
     /// The open strings, as MIDI notes, that ring in sympathy (none for the piano here).
-    fn open_strings(self) -> &'static [u8] {
+    pub(crate) fn open_strings(self) -> &'static [u8] {
         match self {
             BodyKind::Piano => &[],
             BodyKind::Violin => &[55, 62, 69, 76],
@@ -77,13 +77,23 @@ impl BodyKind {
 
 /// A body's design: signature modes, then the dense ones.
 struct Design {
-    /// (frequency, Q, level in dB).
+    /// (frequency, Q, level in dB above the envelope).
     signature: &'static [(f32, f32, f32)],
-    /// How many dense modes, from where to where.
+    /// How many dense modes, from where to where, and how they are spread: evenly in log
+    /// frequency at `spacing` 0, evenly in frequency at 1. A wooden box has a few modes well
+    /// apart low down and more and more, overlapping, higher up, so its modes are spread nearer
+    /// evenly in frequency; spread evenly in log frequency they crowd its lower octaves and make
+    /// its response smooth there, where a real one is jagged.
     dense: usize,
     low: f32,
     high: f32,
-    /// The average response of the dense modes, dB against log2 of frequency.
+    spacing: f32,
+    /// The weakest a dense mode may be against the envelope (a share of its amplitude): the
+    /// smaller, the more jagged the response.
+    floor: f32,
+    /// The body's average response, dB against log2 of frequency: the dense modes' level, and
+    /// what the signature modes stand out from. Each instrument's is fitted to recordings of it
+    /// (see [`VIOLIN_ENVELOPE`]).
     envelope: &'static [(f32, f32)],
     /// Q of the dense modes against log2 of frequency.
     q: &'static [(f32, f32)],
@@ -91,31 +101,128 @@ struct Design {
     scale: f32,
     /// How much of the bridge's force reaches the room directly, against through the modes.
     direct: f32,
-    /// The bottom, below which the body hardly radiates, and the top.
-    low_cut: f32,
+    /// The bottom, below which the body hardly radiates: second-order high-passes (frequency at
+    /// the violin's size, Q) in a row. And the top.
+    low_cut: &'static [(f32, f32)],
     high_cut: f32,
+    /// Its output's level in dB, so the instruments keep the balance they had before their bodies
+    /// were fitted to recordings.
+    level: f32,
     seed: u32,
 }
 
 const VIOLIN_MODES: [(f32, f32, f32); 6] =
     [(275.0, 14.0, 0.0), (405.0, 25.0, -9.0), (460.0, 22.0, -5.0), (470.0, 28.0, 1.0), (545.0, 26.0, 3.0), (650.0, 30.0, -6.0)];
-const VIOLIN_ENVELOPE: [(f32, f32); 7] = [(7.0, -14.0), (8.2, -4.0), (9.3, -6.0), (10.3, -3.0), (11.35, 4.0), (12.1, -2.0), (13.3, -18.0)];
-const VIOLIN_Q: [(f32, f32); 3] = [(8.0, 32.0), (11.0, 22.0), (13.0, 14.0)];
+const VIOLIN_ENVELOPE: [(f32, f32); 18] = [
+    (7.97, 3.1),
+    (8.30, 1.9),
+    (8.63, -3.2),
+    (8.97, -3.3),
+    (9.30, -0.9),
+    (9.63, 5.1),
+    (9.97, 8.1),
+    (10.30, 3.2),
+    (10.63, -1.9),
+    (10.97, -2.4),
+    (11.30, 5.4),
+    (11.63, 8.8),
+    (11.97, 0.9),
+    (12.30, -5.2),
+    (12.63, -9.2),
+    (12.97, -29.7),
+    (13.30, -30.0),
+    (13.63, 10.7),
+];
+const VIOLA_ENVELOPE: [(f32, f32); 19] = [
+    (7.68, 6.8),
+    (8.01, 0.0),
+    (8.35, -5.2),
+    (8.68, -2.1),
+    (9.01, 7.1),
+    (9.35, 8.3),
+    (9.68, 1.2),
+    (10.01, 4.2),
+    (10.35, 8.9),
+    (10.68, 1.4),
+    (11.01, -4.4),
+    (11.35, -0.4),
+    (11.68, 0.6),
+    (12.01, -11.3),
+    (12.35, -19.6),
+    (12.68, -17.6),
+    (13.01, -28.6),
+    (13.35, -19.4),
+    (13.68, 14.1),
+];
+const CELLO_ENVELOPE: [(f32, f32); 19] = [
+    (6.64, -30.0),
+    (6.98, -30.0),
+    (7.31, 14.4),
+    (7.64, 4.2),
+    (7.98, 2.9),
+    (8.31, 12.8),
+    (8.64, 7.8),
+    (8.98, 1.2),
+    (9.31, 4.1),
+    (9.64, 0.4),
+    (9.98, -3.1),
+    (10.31, 0.0),
+    (10.64, -0.7),
+    (10.98, 0.2),
+    (11.31, -3.5),
+    (11.64, -15.6),
+    (11.98, -22.3),
+    (12.31, -22.6),
+    (12.64, -13.1),
+];
+const BASS_ENVELOPE: [(f32, f32); 21] = [
+    (5.78, -30.0),
+    (6.11, 4.3),
+    (6.45, 15.0),
+    (6.78, 9.3),
+    (7.11, 12.1),
+    (7.45, 15.0),
+    (7.78, 6.1),
+    (8.11, -9.0),
+    (8.45, 5.3),
+    (8.78, 15.0),
+    (9.11, 5.1),
+    (9.45, -9.0),
+    (9.78, -8.7),
+    (10.11, 0.0),
+    (10.45, 2.7),
+    (10.78, -7.5),
+    (11.11, -15.5),
+    (11.45, -22.2),
+    (11.78, -29.1),
+    (12.11, -20.9),
+    (12.45, -10.4),
+];
+/// Below the air mode the box hardly radiates: the air through the f-holes and the plates move
+/// against each other and cancel, and the radiation falls off a cliff. Recorded violins have the
+/// fundamental of their open G 21 to 30 dB under their strongest harmonic, of A3 12 dB and of C4
+/// none: a sixth-order Chebyshev high-pass (1 dB ripple) cornered at 240 Hz, its sharpest stage
+/// a resonance just under A0.
+const VIOLIN_LOW_CUT: [(f32, f32); 3] = [(679.6, 0.76), (321.4, 2.2), (241.1, 8.0)];
+const VIOLIN_Q: [(f32, f32); 4] = [(8.0, 40.0), (10.0, 45.0), (11.5, 45.0), (13.0, 30.0)];
 
 fn design(kind: BodyKind) -> Design {
     // The violin family share a shape, scaled: the viola's body is about 15 % larger, the cello's
     // and the double bass's much more so, with their bridge hills lower but not as much lower.
-    let violin = |scale: f32, high_cut: f32, seed: u32| Design {
+    let violin = |scale: f32, envelope: &'static [(f32, f32)], high_cut: f32, level: f32, seed: u32| Design {
         signature: &VIOLIN_MODES,
         dense: 88,
         low: 300.0,
-        high: 9000.0,
-        envelope: &VIOLIN_ENVELOPE,
+        high: 12_000.0,
+        spacing: 0.6,
+        floor: 0.04,
+        envelope,
         q: &VIOLIN_Q,
         scale,
-        direct: 0.08,
-        low_cut: 180.0 * scale.sqrt(),
+        direct: 0.03,
+        low_cut: &VIOLIN_LOW_CUT,
         high_cut,
+        level,
         seed,
     };
     match kind {
@@ -124,18 +231,21 @@ fn design(kind: BodyKind) -> Design {
             dense: 72,
             low: 45.0,
             high: 6500.0,
+            spacing: 0.0,
+            floor: 0.25,
             envelope: &[(5.5, -6.0), (6.6, 2.0), (8.6, 1.0), (10.5, -1.0), (12.0, -5.0), (12.7, -12.0)],
             q: &[(5.5, 30.0), (9.0, 26.0), (12.5, 16.0)],
             scale: 1.0,
             direct: 0.55,
-            low_cut: 40.0,
+            low_cut: &[(40.0, 0.6)],
             high_cut: 12_000.0,
+            level: 0.0,
             seed: 11,
         },
-        BodyKind::Violin => violin(1.0, 11_000.0, 21),
-        BodyKind::Viola => violin(0.82, 9000.0, 31),
-        BodyKind::Cello => violin(0.37, 6500.0, 41),
-        BodyKind::DoubleBass => violin(0.22, 4000.0, 51),
+        BodyKind::Violin => violin(1.0, &VIOLIN_ENVELOPE, 15_000.0, 1.7, 21),
+        BodyKind::Viola => violin(0.82, &VIOLA_ENVELOPE, 14_000.0, -1.8, 31),
+        BodyKind::Cello => violin(0.37, &CELLO_ENVELOPE, 12_000.0, -2.0, 41),
+        BodyKind::DoubleBass => violin(0.22, &BASS_ENVELOPE, 9000.0, -6.1, 51),
     }
 }
 
@@ -241,12 +351,18 @@ impl Board {
 
 pub struct Body {
     pub kind: BodyKind,
+    /// Which desk of a section it is, if any (see [`Body::at_desk`]).
+    pub desk: Option<u8>,
+    /// Its output's gains to the left and right, and for a desk, what its far side hears (which
+    /// side, 0 left or 1 right, and through what).
+    lean: (f32, f32),
+    far: Option<(usize, Diffuser)>,
     blocks: Vec<Block>,
     x1: f32,
     x2: f32,
     direct: f32,
     wet: f32,
-    low_cut: Biquad,
+    low_cut: Vec<Biquad>,
     high_cut: Biquad,
     sympathy: Vec<Sympathy>,
     /// A piano's strings for its pedal, with their loop gains free and damped.
@@ -260,6 +376,42 @@ pub struct Body {
     /// Samples since anything came in, so a silent body costs nothing.
     idle: u32,
     sr: f32,
+}
+
+/// How far a section's desks sit to either side (radians from the centre of a pan law).
+const DESK_LEAN: f32 = 0.45;
+
+/// What reaches the far side of a section from one of its desks: the same sound by other paths
+/// round the room, a few milliseconds of all-passes (Schroeder's), so its phase against the near
+/// side wanders with frequency and the two sides decorrelate as recorded sections' do (within
+/// about 0.2 of uncorrelated in every octave from 250 Hz up), its level untouched.
+struct Diffuser {
+    stages: Vec<(Vec<f32>, usize)>,
+}
+
+const DIFFUSER_MS: [[f32; 3]; 2] = [[0.43, 1.07, 2.31], [0.61, 1.39, 1.93]];
+const DIFFUSER_GAIN: f32 = -0.6;
+
+impl Diffuser {
+    fn new(sr: f32, desk: u32) -> Diffuser {
+        let ms = DIFFUSER_MS.get(desk as usize % 2).copied().unwrap_or_default();
+        Diffuser { stages: ms.iter().map(|m| (vec![0.0; ((m * 0.001 * sr) as usize).max(1)], 0)).collect() }
+    }
+
+    fn tick(&mut self, x: f32) -> f32 {
+        let mut y = x;
+        for (line, pos) in &mut self.stages {
+            let n = line.len().max(1);
+            let old = line.get(*pos).copied().unwrap_or(0.0);
+            let v = flush(y + DIFFUSER_GAIN * old);
+            if let Some(slot) = line.get_mut(*pos) {
+                *slot = v;
+            }
+            *pos = (*pos + 1) % n;
+            y = old - DIFFUSER_GAIN * v;
+        }
+        y
+    }
 }
 
 /// The level of the sympathetic strings' input and output.
@@ -276,20 +428,38 @@ const PEDAL_HIGH: u8 = 96;
 const PEDAL_IN: f32 = 0.003;
 
 impl Body {
+    #[cfg(test)]
     pub fn new(kind: BodyKind, sr: f32) -> Body {
+        Body::at_desk(kind, sr, None)
+    }
+
+    /// One desk of a section: the players on its left (desk 0) or its right (desk 1), sounding
+    /// through instruments of their own (modes placed and weighted differently) and heard from
+    /// their side. Recorded string sections are as good as uncorrelated between left and right
+    /// (0.05), where a single player through a single body is not (0.7).
+    pub fn at_desk(kind: BodyKind, sr: f32, desk: Option<u8>) -> Body {
         let d = design(kind);
+        // The desks' instruments share the modes the envelope was fitted to (another draw of
+        // them would have another average response) and radiate them differently.
+        let radiate = d.seed.wrapping_add(desk.map_or(0, |k| 1000 * (u32::from(k) + 1)));
+        let angle = std::f32::consts::FRAC_PI_4 + desk.map_or(0.0, |k| if k == 0 { -DESK_LEAN } else { DESK_LEAN });
+        let level = 10f32.powf(d.level / 20.0);
+        let lean = (angle.cos() * std::f32::consts::SQRT_2 * level, angle.sin() * std::f32::consts::SQRT_2 * level);
         let mut modes: Vec<(f32, f32, f32)> = Vec::new();
+        // The signature modes stand out from the envelope by their level.
         for &(f, q, db) in d.signature {
-            modes.push((f * d.scale, q, db));
+            modes.push((f * d.scale, q, db + curve(d.envelope, (f * d.scale).max(1.0).log2())));
         }
-        let (lo, hi) = ((d.low * d.scale).log2(), (d.high * d.scale.sqrt()).log2());
+        let (lo, hi) = (d.low * d.scale, d.high * d.scale.sqrt());
+        let p = d.spacing.clamp(0.0, 1.0);
         for i in 0..d.dense {
             let jitter = hash01(d.seed, i as u32) - 0.5;
-            let at = lo + (hi - lo) * ((i as f32 + 0.5 + 0.8 * jitter) / d.dense as f32);
-            let f = at.exp2();
-            // The envelope is drawn for the violin's size; a larger body has it lower.
+            let t = (i as f32 + 0.5 + 0.8 * jitter) / d.dense as f32;
+            let f = if p > 0.0 { (lo.powf(p) + t * (hi.powf(p) - lo.powf(p))).powf(p.recip()) } else { lo * (hi / lo).powf(t) };
+            let at = f.max(1.0).log2();
+            // The modes' Q is drawn for the violin's size; a larger body has it lower.
             let rel = at - d.scale.log2() * 0.6;
-            let level = curve(d.envelope, rel) + 20.0 * (0.25 + 0.75 * hash01(d.seed + 1, i as u32)).log10();
+            let level = curve(d.envelope, at) + 20.0 * (d.floor + (1.0 - d.floor) * hash01(d.seed + 1, i as u32)).log10();
             let q = curve(d.q, rel) * (0.7 + 0.6 * hash01(d.seed + 2, i as u32));
             modes.push((f, q, level));
         }
@@ -307,8 +477,8 @@ impl Body {
                 // Each mode radiates more to one side than the other, with its own phase, so the
                 // two channels differ without cancelling when summed to mono.
                 let i = (c * LANES + lane) as u32;
-                let side = hash01(d.seed + 3, i) * 2.0 - 1.0;
-                let sign = if hash01(d.seed + 4, i) < 0.5 { -1.0 } else { 1.0 };
+                let side = hash01(radiate + 3, i) * 2.0 - 1.0;
+                let sign = if hash01(radiate + 4, i) < 0.5 { -1.0 } else { 1.0 };
                 if let (Some(a1), Some(a2), Some(bb), Some(l), Some(rr)) =
                     (b.a1.get_mut(lane), b.a2.get_mut(lane), b.b.get_mut(lane), b.left.get_mut(lane), b.right.get_mut(lane))
                 {
@@ -340,12 +510,23 @@ impl Body {
         } else {
             Vec::new()
         };
-        let mut low_cut = Biquad::default();
-        low_cut.set(Shape::HighPass, d.low_cut, 0.6, 0.0, sr);
+        let low_cut = d
+            .low_cut
+            .iter()
+            .map(|&(f, q)| {
+                let mut b = Biquad::default();
+                b.set(Shape::HighPass, f * d.scale, q, 0.0, sr);
+                b
+            })
+            .collect();
         let mut high_cut = Biquad::default();
         high_cut.set(Shape::LowPass, d.high_cut, 0.6, 0.0, sr);
+        let far = desk.map(|k| (if k == 0 { 1 } else { 0 }, Diffuser::new(sr, u32::from(k))));
         let mut body = Body {
             kind,
+            desk,
+            lean,
+            far,
             blocks,
             x1: 0.0,
             x2: 0.0,
@@ -454,9 +635,17 @@ impl Body {
         };
         let ol = self.direct * (l + ring * SYMPATHY_OUT) + self.wet * ml + bl;
         let or = self.direct * (r + ring * SYMPATHY_OUT) + self.wet * mr + br;
-        let ol = self.low_cut.tick(0, ol);
-        let or = self.low_cut.tick(1, or);
-        (self.high_cut.tick(0, ol), self.high_cut.tick(1, or))
+        let (mut ol, mut or) = (ol, or);
+        for b in &mut self.low_cut {
+            ol = b.tick(0, ol);
+            or = b.tick(1, or);
+        }
+        let (mut ol, mut or) = (self.high_cut.tick(0, ol) * self.lean.0, self.high_cut.tick(1, or) * self.lean.1);
+        if let Some((side, diffuser)) = self.far.as_mut() {
+            let x = if *side == 0 { &mut ol } else { &mut or };
+            *x = diffuser.tick(*x);
+        }
+        (ol, or)
     }
 
     /// The sustain pedal: down, every string rings with what is played; up, the dampers stop them.
