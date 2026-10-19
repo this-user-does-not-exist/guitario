@@ -17,6 +17,7 @@ mod exchange;
 mod headerfooter;
 pub mod library;
 mod lyrics;
+mod navigation;
 mod pagesetup;
 mod params;
 mod print;

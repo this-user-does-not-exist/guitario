@@ -39,8 +39,8 @@ pub fn specs() -> Vec<CommandSpec> {
             s.selection = None;
             Ok(json!({"ok": true}))
         }),
-        cmd("edit.transposeUp", "Transpose Up a Semitone", "Edit", Some("Cmd+Up"), "", true, |s, _| transpose(s, 1)),
-        cmd("edit.transposeDown", "Transpose Down a Semitone", "Edit", Some("Cmd+Down"), "", true, |s, _| transpose(s, -1)),
+        cmd("edit.transposeUp", "Transpose Up a Semitone", "Edit", Some("Alt+Shift+Up"), "", true, |s, _| transpose(s, 1)),
+        cmd("edit.transposeDown", "Transpose Down a Semitone", "Edit", Some("Alt+Shift+Down"), "", true, |s, _| transpose(s, -1)),
         cmd("edit.transpose", "Transpose…", "Edit", None, "semitones (-24..=24): the selection, or the note at the cursor", true, |s, p| {
             let n = p::int(p, "semitones", -24, 24)?;
             transpose(s, i16::try_from(n).unwrap_or(0))
@@ -91,7 +91,7 @@ impl Session {
             .collect())
     }
 
-    fn beats_in(&self, m: usize) -> usize {
+    pub(crate) fn beats_in(&self, m: usize) -> usize {
         self.voice_in(m).map_or(1, |v| v.beats.len())
     }
 }

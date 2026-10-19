@@ -885,24 +885,22 @@ impl GuitarioApp {
         if ctx.egui_wants_keyboard_input() {
             return;
         }
-        for (id, ks) in keys::bindings() {
-            if ctx.input_mut(|i| i.consume_shortcut(&ks)) {
-                if id == "file.new" {
-                    self.new_document();
-                } else {
+        for (ks, binding) in keys::bindings() {
+            if !ctx.input_mut(|i| i.consume_shortcut(&ks)) {
+                continue;
+            }
+            match binding {
+                keys::Binding::Command("file.new") => self.new_document(),
+                keys::Binding::Command(id) => {
                     self.run(id, Value::Null);
                 }
-            }
-        }
-        for (ks, item) in keys::catalog_bindings() {
-            if ctx.input_mut(|i| i.consume_shortcut(&ks)) {
-                match item.action {
+                keys::Binding::Item(item) => match item.action {
                     menu_catalog::Action::Cmd(id, params) => {
                         self.run(id, serde_json::from_str(params).unwrap_or(Value::Null));
                     }
                     menu_catalog::Action::Ui(a) => self.ui_action(a),
                     menu_catalog::Action::Missing => {}
-                }
+                },
             }
         }
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) {
@@ -1007,6 +1005,7 @@ impl GuitarioApp {
             egui::Panel::bottom("global")
                 .resizable(true)
                 .default_size(150.0)
+                .min_size(60.0)
                 .frame(egui::Frame::NONE.fill(t.chrome_dark))
                 .show(ui, |ui| global_view::show(self, ui));
         }

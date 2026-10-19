@@ -128,7 +128,12 @@ fn icon_cell(p: &egui::Painter, c: egui::Pos2, icon: Icon, on: bool, fill: Color
     draw(p, Rect::from_center_size(c, vec2(15.0, 15.0)), icon, if on { Color32::from_gray(0x22) } else { ink });
 }
 
+/// The panel's contents, scrolling vertically when the panel is shorter than its tracks.
 pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
+    egui::ScrollArea::vertical().id_salt("global-rows").auto_shrink(false).show(ui, |ui| rows(app, ui));
+}
+
+fn rows(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let t = tokens();
     let score = app.session.score().clone();
     let c = app.session.cursor();

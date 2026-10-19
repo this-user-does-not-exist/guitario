@@ -302,6 +302,18 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
         click = Some(Click::Beat { track: cx.cursor.track, measure: h.measure, beat: h.beat, string, voice, shift });
     }
     let mine = ctxs.iter().find(|c| c.cursor.track == cursor.track);
+    // Off-screen systems are not painted, so a playing bar out of view has no mark yet: aim at
+    // the bar itself so the view scrolls to it and the next frame paints the beat.
+    let play_rect = mine.and_then(|c| c.play_rect).or_else(|| {
+        let (pm, _) = view.play?;
+        pages.iter().enumerate().find_map(|(pi, page)| {
+            let sys = page.systems.iter().find(|s| s.measures.iter().any(|mb| mb.index == pm))?;
+            let mb = sys.measures.iter().find(|mb| mb.index == pm)?;
+            let top = response.rect.top() + PAGE_GAP + pi as f32 * (sheet_h + PAGE_GAP) + sys.y;
+            let x = left + page_m.margin_left + sys.indent + sys.prefix + mb.x;
+            Some(Rect::from_min_size(pos2(x, top), vec2(mb.width, system_h)))
+        })
+    });
     let hit_at = |p: egui::Pos2| mine.and_then(|cx| cx.hits.iter().find(|h| h.edit && h.rect.contains(p)).map(|h| (h.measure, h.beat)));
     let drag = if response.dragged() {
         let origin = ui.input(|i| i.pointer.press_origin());
@@ -312,7 +324,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
     } else {
         None
     };
-    Output { click, drag, cursor_rect: mine.and_then(|c| c.cursor_rect), play_rect: mine.and_then(|c| c.play_rect) }
+    Output { click, drag, cursor_rect: mine.and_then(|c| c.cursor_rect), play_rect }
 }
 
 /// One header or footer text on the line whose top is `y`, placed across the printable width.
@@ -2181,6 +2193,37 @@ mod tests {
         });
         harness.run_steps(3);
         harness.output().shapes.iter().map(|s| count(&s.shape, &is)).sum()
+    }
+
+    #[test]
+    fn a_playing_bar_out_of_view_still_gives_a_place_to_scroll_to() {
+        let mut score = Score::new();
+        for _ in 1..200 {
+            let h = guitario_score::MeasureHeader::new(Default::default());
+            score.tracks[0].measures.push(guitario_score::Measure::empty_for(&h));
+            score.headers.push(h);
+        }
+        let found = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let sink = found.clone();
+        let mut fonts = None;
+        let mut harness = egui_kittest::Harness::builder().with_size(vec2(1400.0, 800.0)).build_ui(move |ui| {
+            let Some(fonts) = fonts else {
+                fonts = Some(crate::fonts::install(ui.ctx()));
+                return;
+            };
+            let view =
+                View { zoom: 1.0, fonts, play: Some((150, 0)), selection: None, layout: LayoutMode::Page, multitrack: false, multivoice: false, hidden: 0 };
+            let clip = ui.clip_rect();
+            let out = show(ui, &score, Cursor::default(), &view);
+            if let Ok(mut f) = sink.lock() {
+                *f = Some((clip, out.play_rect));
+            }
+        });
+        harness.run_steps(3);
+        let got = found.lock().ok().and_then(|f| *f);
+        let Some((clip, Some(r))) = got else { panic!("no playback rect: {got:?}") };
+        assert!(r.top() > clip.bottom(), "bar 151 is pages down: {r:?} vs {clip:?}");
+        assert!(r.width() > 0.0 && r.height() > 0.0);
     }
 
     fn lines(score: &Score, notation: bool) -> usize {

@@ -43,6 +43,7 @@ pub fn registry() -> &'static [CommandSpec] {
 static REGISTRY: std::sync::LazyLock<Vec<CommandSpec>> = std::sync::LazyLock::new(|| {
     CORE.into_iter()
         .chain(crate::selection::specs())
+        .chain(crate::navigation::specs())
         .chain(crate::clipboard::specs())
         .chain(crate::unset::specs())
         .chain(crate::scales::specs())
