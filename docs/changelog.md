@@ -374,6 +374,17 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   prompt sound, so partials beat slowly and shallowly at their own rates; the soundboard radiates
   the lowest fundamentals weakly (a 75 Hz roll-off, E1's fundamental 34 dB under its strongest
   partial).
+- **Landed 2026-10-18:** a fourth listen heard the midrange turn bell-like, electric-piano-like, as
+  the ballad got louder. Found by rendering it with each part switched off: the output stage was a
+  `tanh` over the whole range, so a loud pedalled passage's sustained partials intermodulated into
+  clangorous tones (-36.5 dB in the forte against -45 dB soft); it is now straight up to 0.75 and
+  rounds off only above (`soft_limit`). A high partial's aftersound now fades above about 1.2 kHz,
+  weaker and shorter, as on real strings (left as strong as a low one, the slightly sharp high
+  partials rang on like a bell's: as the last chord rings, the highs are now 45 dB under the mids
+  instead of 34). The pedal's sympathetic strings are darker (they rang pure, exactly harmonic
+  upper partials, tine-like) and their loops are solved for their pitch exactly. The soundboard
+  network's lines are longer and its decay shorter so its resonances overlap rather than ring one
+  by one. String sections and pizzicato sit 2 dB lower.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

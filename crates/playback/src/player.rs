@@ -243,6 +243,9 @@ const MAX_VOICES: usize = 96;
 /// Piano keys sounding at once (a held pedal through a run can ring many).
 const MAX_PIANO_VOICES: usize = 64;
 const MAX_BOWED_VOICES: usize = 128;
+/// A section's level against a solo player's, each player at 1/sqrt(players) of it: a section is
+/// fuller than one player, not as much louder as its numbers.
+const SECTION_LEVEL: f32 = 0.8;
 /// Players a section may have.
 const MAX_SEATS: usize = 8;
 /// Sampled kits layer several microphones per hit, so they get a bigger pool.
@@ -327,6 +330,24 @@ pub fn used_keys_by_track(score: &Score) -> Vec<Vec<u8>> {
         })
         .collect()
 }
+
+/// The output's ceiling: straight through below `LIMIT_KNEE`, rounding off smoothly above it to
+/// never pass 1. A plain `tanh` bends the whole range, and a loud, pedalled piano's dozens of
+/// sustained partials then intermodulate into clangorous, bell-like tones (-36 dB in a forte
+/// passage); straight below the knee, nothing does until the mix nears full scale.
+fn soft_limit(x: f32) -> f32 {
+    let a = x.abs();
+    if !a.is_finite() {
+        return 0.0;
+    }
+    if a <= LIMIT_KNEE {
+        return x;
+    }
+    let room = 1.0 - LIMIT_KNEE;
+    (LIMIT_KNEE + room * ((a - LIMIT_KNEE) / room).tanh()).copysign(x)
+}
+
+const LIMIT_KNEE: f32 = 0.75;
 
 /// The frequency of a MIDI note (with a fraction).
 fn freq_of(midi: f32) -> f32 {
@@ -1114,7 +1135,7 @@ impl Player {
                     v.seat = seat;
                     v.slot = slot;
                     // A section is fuller than one player, not as much louder as its numbers.
-                    v.level_scale = 1.0 / (players.max(1) as f32).sqrt();
+                    v.level_scale = SECTION_LEVEL / (players.max(1) as f32).sqrt();
                     v.detune = detune;
                     v.wait = (onset * self.sr) as u32;
                     let angle = (place + 1.0) * std::f32::consts::FRAC_PI_4;
@@ -1151,7 +1172,8 @@ impl Player {
         let seed = ((self.noise.next() + 1.0) * 1.0e6) as u32;
         for seat in 0..players.max(1) {
             let (detune, _, _) = if players > 1 { section_player(seat, seed) } else { (0.0, 0.0, 0.0) };
-            let mut pluck = Pluck::plain(freq * 2f32.powf(detune / 12.0), n.velocity / (players.max(1) as f32).sqrt(), 0.3);
+            let level = if players > 1 { SECTION_LEVEL / (players as f32).sqrt() } else { 1.0 };
+            let mut pluck = Pluck::plain(freq * 2f32.powf(detune / 12.0), n.velocity * level, 0.3);
             pluck.decay = Some(ring);
             pluck.damping = 0.35;
             let mut v = StringVoice::new(n.track, n.string, self.sr, &pluck, &mut self.noise);
@@ -1355,7 +1377,7 @@ impl Player {
             self.pianos.retain(|v| !v.finished());
             self.bowed.retain(|v| !v.finished());
             self.sampled.retain(|v| !v.finished());
-            let (l, r) = ((l * 1.4).tanh(), (r * 1.4).tanh());
+            let (l, r) = (soft_limit(l * 1.4), soft_limit(r * 1.4));
             match frame {
                 [a] => *a = 0.5 * (l + r),
                 [a, b, rest @ ..] => {
@@ -2342,5 +2364,21 @@ mod tests {
                 assert!(out.iter().all(|x| x.is_finite() && x.abs() <= 1.0), "program {program} at {rate}");
             }
         }
+    }
+
+    #[test]
+    fn the_output_is_linear_until_it_nears_full_scale() {
+        for x in [0.0f32, 0.1, -0.5, 0.75, -0.75] {
+            assert_eq!(soft_limit(x), x);
+        }
+        let mut last = 0.0;
+        for i in 0..2000 {
+            let y = soft_limit(i as f32 * 0.005);
+            assert!(y >= last && y <= 1.0, "monotonic and never past 1");
+            last = y;
+        }
+        assert!((soft_limit(0.7501) - 0.7501).abs() < 1e-4, "continuous at the knee");
+        assert_eq!(soft_limit(f32::NAN), 0.0);
+        assert!(soft_limit(-50.0) >= -1.0);
     }
 }

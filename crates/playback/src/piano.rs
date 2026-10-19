@@ -259,6 +259,9 @@ fn pole(freq: f32, t60: f32, sr: f32) -> (f32, f32) {
     (r * w.cos(), r * w.sin())
 }
 
+/// Above about this frequency a partial's aftersound fades: weaker, and shorter.
+const AFTERSOUND_CORNER: f32 = 1200.0;
+
 /// The hammer's thud per newton of force, and the phantom partials' strength in the bass.
 const THUMP: f32 = 0.025;
 const PHANTOM: f32 = 0.3;
@@ -297,7 +300,13 @@ impl PianoVoice {
             let irregular = 0.8 + 0.45 * hash01(u32::from(key), n as u32);
             let rise = 1.0 + (fn_ - model.f0).max(0.0) / model.loss_corner;
             let t60 = model.t60 * irregular / rise;
-            let t60_after = (model.t60_after * irregular / rise).max(t60);
+            // The aftersound lives in the low partials: the bridge lets the strings' slow motion
+            // through below a kilohertz or two, and a high partial's aftersound is weaker and dies
+            // nearly with its prompt sound. Left as long and as strong as a low one, the slightly
+            // sharp high partials of the midrange ring on like a bell's.
+            let high = 1.0 + fn_ / AFTERSOUND_CORNER;
+            let t60_after = (t60 + (model.t60_after - model.t60) * irregular / rise / high).max(t60);
+            let after_level = model.after_level / high;
             let damped = model.damped_t60.min(t60);
             // A newton-second of impulse at the striking point moves the mode this much.
             let omega = std::f32::consts::TAU * fn_;
@@ -314,7 +323,7 @@ impl PianoVoice {
             }
             // The aftersound: the strings' slow motion, as the bridge lets it through.
             let f = fn_ + (hash01(u32::from(key), n as u32 + 999) * 2.0 - 1.0) * model.polarisation_hz;
-            modes.push((f, t60_after, damped, kick * model.after_level, 0.0, out));
+            modes.push((f, t60_after, damped, kick * after_level, 0.0, out));
         }
         let mut blocks = Vec::with_capacity(modes.len().div_ceil(LANES));
         for chunk in modes.chunks(LANES) {
