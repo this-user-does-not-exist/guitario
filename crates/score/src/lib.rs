@@ -6,6 +6,7 @@
 
 mod bend;
 mod curve;
+mod header_footer;
 mod lyrics;
 mod model;
 mod playback;
@@ -14,6 +15,9 @@ mod validate;
 mod whammy;
 
 pub use bend::{BEND_END, BEND_MAX, BEND_MAX_POINTS, Bend, BendKind, BendPoint};
+pub use header_footer::{
+    DEFAULT_PAGE_FONT, FirstPage, HeaderFooter, MAX_PAGE_TEXT, OtherPages, PAGE_TEXT_KEYS, PAGE_TEXT_SIZES, PageText, TOKENS, TextAlign, expand,
+};
 pub use lyrics::{Syllable, dispatch_lyrics, syllables};
 pub use model::*;
 pub use playback::{PlayedBeat, PlayedHarmonic, PlayedWhammy, playback_order, timeline};

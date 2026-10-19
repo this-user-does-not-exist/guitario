@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (modelled grand piano and bowed strings; beta ~185–380 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (modelled grand piano and bowed strings; headers, footers, selected bars, twelve papers; beta ~175–360 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -14,7 +14,7 @@ for one agent working sequentially, and an upper bound (see
 [calibration](target-app-parity.md#calibration)).
 
 **Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
-today; ~185–380 h of work are left, ordered under [Current focus](#current-focus).
+today; ~175–360 h of work are left, ordered under [Current focus](#current-focus).
 
 ## Stages
 
@@ -68,7 +68,7 @@ live except the ones the scorecard stages for 1.0.
 | B3 | **Transcribe a solo.** Bends with their curves, whammy dives, grace notes, tuplets, a drum groove on a step grid, Paste Special | partial | the drum step grid (bend curves, the whammy bar and Paste Special landed 2026-10-17) | [G6](gaps.md#g6-editing-depth), [G1](gaps.md#g1-drums-depth) |
 | B4 | **Exchange.** Open any Guitar Pro 3 to 8 file (at least 95 % of a real corpus without warnings); a `.gp` export opens in Guitar Pro 8; MIDI and MusicXML go in and out | partial | the `.gp` check in Guitar Pro 8 (human); MIDI import, MusicXML and Guitar Pro 6 drums landed 2026-10-18 | [G3](gaps.md#g3-guitar-pro-exchange) |
 | B5 | **Practise with the tools.** Tune the guitar, look up a chord's voicings, show a scale on the fretboard | partial | a tuning check with a real guitar (human); the tuner, chord window and scale tool are done | [G7](gaps.md#g7-tools) |
-| B6 | **Print properly.** Headers and footers, selected bars, other paper; a page leaves a real printer on all three platforms | partial | headers and footers, selected bars, the real-printer check (human) | [G2](gaps.md#g2-print-depth) |
+| B6 | **Print properly.** Headers and footers, selected bars, other paper; a page leaves a real printer on all three platforms | partial | the real-printer check (human); headers and footers with tokens, selected bars and twelve papers landed 2026-10-18 | [G2](gaps.md#g2-print-depth) |
 | B7 | **Work for hours.** Several scores open, a 1,000-bar score inside the performance budgets in CI, autosave and recovery, every reader fuzzed | partial | several documents, CI budgets, memory and startup budgets, `.gt` and decoder fuzzing, a guard around painting | [G8](gaps.md#g8-ui-depth), [G9](gaps.md#g9-performance-budgets), [G11](gaps.md#g11-reliability-depth) |
 | B8 | **Drive it by agent.** An agent completes ten scripted edit tasks over MCP and takes screenshots of the running app | no | control channel, MCP server | [G10](gaps.md#g10-automation) |
 
@@ -98,7 +98,7 @@ Engineering milestones, each with a definition of done. The GitHub milestones Al
 | M4 Playback | 🟡 | physical-model synth with every articulation, a modelled grand piano and bowed strings, SFZ sampler and sound bank with a program per articulation, drums, mixer, automations, effect chains, equalizer, mastering, WAV and FLAC; release samples, filters, curves, loops and OGG in the sampler, long samples streamed from disk; the bank installs from the app; not yet heard on speakers | beta |
 | M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 remains | beta |
 | M6 Drums | 🟡 | kit tracks, pad, notation, GM playback, `.gp` drum import, two voices; step editor and articulations missing | beta |
-| M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, page setup; no MusicXML, headers and footers | beta |
+| M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, the stylesheet's page and header and footer tabs, MusicXML | beta |
 | M8 Tools | 🟡 | chord diagram editor and namer; no tuner, chord window or scale tool | beta |
 | M9 Automation | ⬜ | control channel, MCP | beta |
 | M10 Distribution | 🟡 | icon in every format, CI green on three platforms, packages, file types and a release workflow; no signing, no first release, Finder's double-click does not open the file | beta |
@@ -115,9 +115,9 @@ what needs a human ear or signing material last, so the human steps overlap with
    reveal; Finder's double-click once a human decides on the `unsafe` delegate; signing waits on
    accounts. 20–40 h + human.
 2. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 55–100 h.
-3. **Drum step grid and articulations** ([G1](gaps.md#g1-drums-depth)); **headers, footers,
-   selected bars** ([G2](gaps.md#g2-print-depth)); **voice picking** ([G4](gaps.md#g4-notation-depth)).
-   30–70 h.
+3. **Drum step grid and articulations** ([G1](gaps.md#g1-drums-depth)); **voice picking**
+   ([G4](gaps.md#g4-notation-depth)). 20–50 h. (Headers, footers and selected bars, G2, landed
+   2026-10-18; a real printer is the human step.)
 4. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
    cache** ([G11](gaps.md#g11-reliability-depth), [G9](gaps.md#g9-performance-budgets)); **the
    localization framework** ([G13](gaps.md#g13-languages)). 85–175 h.
@@ -165,7 +165,8 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-18 | minor | A modelled grand piano and bowed strings in M4 (playback 72 %); beta unchanged ~185–380 h |
+| 2026-10-18 | minor | A modelled grand piano and bowed strings in M4 (playback 72 %); beta unchanged ~175–360 h |
+| 2026-10-18 | minor | Headers and footers, selected bars and twelve papers landed: B6 waits only on a real printer; beta ~175–360 h |
 | 2026-10-18 | minor | Long samples stream from disk: G5 has only the listening pass left, focus item 1 is the first release; beta ~185–380 h |
 | 2026-10-18 | minor | Packages, file types and the release workflow landed: B1 lacks signing, a first release run and Finder's double-click (a decision); beta ~200–415 h |
 | 2026-10-18 | minor | Master automation and 16-bit samples landed; beta ~260–530 h |

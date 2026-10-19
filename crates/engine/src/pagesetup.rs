@@ -15,7 +15,9 @@ pub fn specs() -> Vec<CommandSpec> {
             "Page Setup…",
             "File",
             None,
-            "paper? (\"a4\", \"a5\", \"letter\", \"legal\"), landscape? (bool), marginLeft? marginRight? marginTop? marginBottom? (mm, 0..=60), \
+            "paper? (\"a3\", \"a4\", \"a5\", \"a6\", \"b4\", \"b5\", \"b6\", \"letter\", \"legal\", \"tabloid\", \"executive\", \"statement\", \"custom\"), \
+             customWidth? customHeight? (mm upright, 100..=1000; either makes the paper custom unless paper is named), \
+             landscape? (bool), marginLeft? marginRight? marginTop? marginBottom? (mm, 0..=60), \
              bendPitch? (bool: standard notation shows the pitch each bend reaches), \
              reset? (true restores A4 upright with Guitar Pro's margins before the other fields apply; bendPitch is kept)",
             true,
@@ -33,6 +35,7 @@ fn json_of(page: &PageSetup) -> Value {
         "paper": page.paper.name().to_lowercase(), "landscape": page.landscape,
         "marginLeft": page.margin_left, "marginRight": page.margin_right, "marginTop": page.margin_top, "marginBottom": page.margin_bottom,
         "widthMm": tenth(w), "heightMm": tenth(h), "bendPitch": page.bend_pitch,
+        "customWidth": page.custom_width, "customHeight": page.custom_height,
     })
 }
 
@@ -49,9 +52,20 @@ fn set_page(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     if params.get("bendPitch").is_some_and(|v| !v.is_null()) {
         next.bend_pitch = p::boolean(params, "bendPitch")?;
     }
+    let names = || Paper::ALL.iter().chain([&Paper::Custom]).map(|p| p.name().to_lowercase()).collect::<Vec<_>>().join(", ");
+    let mut custom = false;
+    for (key, field) in [("customWidth", &mut next.custom_width), ("customHeight", &mut next.custom_height)] {
+        if let Some(mm) = p::opt_uint(params, key, u64::from(*PageSetup::CUSTOM_SIDES.end()))? {
+            *field = u16::try_from(mm).unwrap_or(*PageSetup::CUSTOM_SIDES.end());
+            custom = true;
+        }
+    }
+    if custom {
+        next.paper = Paper::Custom;
+    }
     if let Some(v) = params.get("paper").filter(|v| !v.is_null()) {
-        let name = v.as_str().ok_or_else(|| EngineError::BadParam("`paper` must be \"a4\", \"a5\", \"letter\" or \"legal\"".into()))?;
-        next.paper = Paper::from_name(name).ok_or_else(|| EngineError::BadParam(format!("`paper` {name:?} is not one of a4, a5, letter, legal")))?;
+        let name = v.as_str().ok_or_else(|| EngineError::BadParam(format!("`paper` must be one of {}", names())))?;
+        next.paper = Paper::from_name(name).ok_or_else(|| EngineError::BadParam(format!("`paper` {name:?} is not one of {}", names())))?;
     }
     if params.get("landscape").is_some_and(|v| !v.is_null()) {
         next.landscape = p::boolean(params, "landscape")?;
@@ -99,6 +113,21 @@ mod tests {
     }
 
     #[test]
+    fn twelve_papers_and_a_custom_size() {
+        let mut s = Session::new();
+        for paper in Paper::ALL {
+            let r = s.run("score.setPage", &json!({"paper": paper.name()})).unwrap();
+            assert_eq!(r["paper"], paper.name().to_lowercase());
+        }
+        let r = s.run("score.setPage", &json!({"customWidth": 230, "customHeight": 310})).unwrap();
+        assert_eq!((r["paper"].clone(), r["widthMm"].clone(), r["heightMm"].clone()), (json!("custom"), json!(230.0), json!(310.0)));
+        let r = s.run("score.setPage", &json!({"paper": "a3"})).unwrap();
+        assert_eq!((r["widthMm"].clone(), r["customWidth"].clone()), (json!(297.0), json!(230)), "the custom size is kept for later");
+        let r = s.run("score.setPage", &json!({"paper": "b5", "customWidth": 400})).unwrap();
+        assert_eq!(r["paper"], "b5", "a named paper wins over the custom size");
+    }
+
+    #[test]
     fn reset_applies_before_the_other_fields() {
         let mut s = Session::new();
         s.run("score.setPage", &json!({"paper": "legal", "marginLeft": 30})).unwrap();
@@ -110,7 +139,10 @@ mod tests {
     fn hostile_pages_are_refused_and_change_nothing() {
         let mut s = Session::new();
         for bad in [
-            json!({"paper": "tabloid"}),
+            json!({"paper": "folio"}),
+            json!({"customWidth": 99}),
+            json!({"customHeight": 1001}),
+            json!({"customWidth": -5}),
             json!({"paper": 4}),
             json!({"landscape": "yes"}),
             json!({"reset": "yes"}),
@@ -118,7 +150,7 @@ mod tests {
             json!({"marginLeft": 61}),
             json!({"marginTop": 1.5}),
             json!({"marginRight": "10"}),
-            json!({"marginLeft": 60, "marginRight": 60}),
+            json!({"paper": "a5", "marginLeft": 50, "marginRight": 50}),
             json!({"paper": "a5", "landscape": true, "marginTop": 60, "marginBottom": 60}),
             json!({"marginBottom": 18446744073709551615u64}),
         ] {

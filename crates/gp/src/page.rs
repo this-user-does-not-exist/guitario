@@ -20,18 +20,20 @@ fn margins_of(page: &PageSetup) -> [i32; 4] {
 /// The page a file describes. `landscape` is the file's own orientation flag when it has one; without
 /// it a page wider than tall is landscape. What cannot be used is replaced by the default, with a warning.
 pub(crate) fn from_gp(width: i32, height: i32, landscape: Option<bool>, margins: [i32; 4], warnings: &mut Vec<String>) -> PageSetup {
-    let (short, long) = (width.min(height) as f32, width.max(height) as f32);
-    let paper = Paper::ALL.into_iter().find(|p| {
-        let (w, h) = p.size_mm();
-        (short - w).abs() <= SIZE_TOLERANCE && (long - h).abs() <= SIZE_TOLERANCE
-    });
     let mut page = PageSetup::default();
-    match paper {
-        Some(paper) => {
+    let upright = (width.min(height), width.max(height));
+    let custom = (u16::try_from(upright.0).ok(), u16::try_from(upright.1).ok());
+    match (Paper::matching(width as f32, height as f32, SIZE_TOLERANCE), custom) {
+        (Some(paper), _) => {
             page.paper = paper;
             page.landscape = landscape.unwrap_or(width > height);
         }
-        None => warnings.push(format!("the page size {width} x {height} mm is not A4, A5, Letter or Legal; A4 is used")),
+        (None, (Some(w), Some(h))) if PageSetup::CUSTOM_SIDES.contains(&w) && PageSetup::CUSTOM_SIDES.contains(&h) => {
+            page.paper = Paper::Custom;
+            (page.custom_width, page.custom_height) = (w, h);
+            page.landscape = landscape.unwrap_or(width > height);
+        }
+        _ => warnings.push(format!("the page size {width} x {height} mm is no paper Guitario can lay out; A4 is used")),
     }
     if margins != GP_DEFAULT_MARGINS {
         let clamp = |mm: i32| u8::try_from(mm.clamp(0, i32::from(PageSetup::MAX_MARGIN))).unwrap_or(PageSetup::MAX_MARGIN);
@@ -92,10 +94,19 @@ mod tests {
     }
 
     #[test]
+    fn an_unknown_size_is_a_custom_paper() {
+        let (page, warnings) = read(280, 200, None, GP_DEFAULT_MARGINS);
+        assert_eq!((page.paper, page.custom_width, page.custom_height, page.landscape, warnings.len()), (Paper::Custom, 200, 280, true, 0));
+        assert_eq!(to_gp(&page), (280, 200, GP_DEFAULT_MARGINS));
+        assert_eq!(read(297, 420, None, GP_DEFAULT_MARGINS).0.paper, Paper::A3);
+        assert_eq!(read(279, 432, None, GP_DEFAULT_MARGINS).0.paper, Paper::Tabloid);
+    }
+
+    #[test]
     fn what_cannot_be_used_becomes_the_default_with_a_warning() {
-        let (page, warnings) = read(200, 280, None, GP_DEFAULT_MARGINS);
+        let (page, warnings) = read(50, 2000, None, GP_DEFAULT_MARGINS);
         assert_eq!(page, PageSetup::default());
-        assert!(warnings.iter().any(|w| w.contains("200 x 280")), "{warnings:?}");
+        assert!(warnings.iter().any(|w| w.contains("50 x 2000")), "{warnings:?}");
         for (w, h) in [(0, 0), (-5, 297), (i32::MAX, i32::MIN), (1, 1)] {
             let (page, warnings) = read(w, h, None, GP_DEFAULT_MARGINS);
             assert_eq!(page, PageSetup::default());
@@ -121,7 +132,7 @@ mod tests {
                         margin_right: margins.1,
                         margin_top: margins.2,
                         margin_bottom: margins.3,
-                        bend_pitch: false,
+                        ..PageSetup::default()
                     };
                     if page.check().is_err() {
                         continue;

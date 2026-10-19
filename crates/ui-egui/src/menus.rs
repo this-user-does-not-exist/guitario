@@ -7,14 +7,7 @@ use crate::menu_catalog::{Action, CATALOG, MenuItem, TOP, UiAction};
 use serde_json::{Value, json};
 
 pub(crate) fn shortcut_text(s: &str) -> String {
-    let cmd = if cfg!(target_os = "macos") { "⌘" } else { "Ctrl+" };
-    s.replace("Cmd+", cmd)
-        .replace("Shift+", "⇧")
-        .replace("Alt+", if cfg!(target_os = "macos") { "⌥" } else { "Alt+" })
-        .replace("Plus", "+")
-        .replace("Minus", "−")
-        .replace("Period", ".")
-        .replace("Slash", "/")
+    crate::keys::display(s)
 }
 
 pub fn menu_bar(app: &mut GuitarioApp, ui: &mut egui::Ui) {

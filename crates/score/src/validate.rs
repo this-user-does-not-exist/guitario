@@ -43,6 +43,7 @@ impl crate::Score {
             return Err(ScoreError::NoTracks);
         }
         self.page.check().map_err(ScoreError::Page)?;
+        self.header_footer.check().map_err(ScoreError::Page)?;
         self.master.check().map_err(ScoreError::Master)?;
         for (mi, h) in self.headers.iter().enumerate() {
             if h.targets.iter().enumerate().any(|(i, t)| h.targets.iter().take(i).any(|u| u == t)) {
@@ -226,13 +227,13 @@ mod tests {
         use crate::{PageSetup, Paper};
         let mut s = Score::new();
         assert_eq!(s.page, PageSetup::default());
-        s.page = PageSetup { paper: Paper::Letter, landscape: true, margin_left: 0, margin_right: 0, margin_top: 0, margin_bottom: 0, bend_pitch: false };
+        s.page = PageSetup { paper: Paper::Letter, landscape: true, margin_left: 0, margin_right: 0, margin_top: 0, margin_bottom: 0, ..PageSetup::default() };
         assert_eq!(s.validate(), Ok(()));
         // A margin wider than allowed.
         s.page = PageSetup { margin_left: 61, ..PageSetup::default() };
         assert!(matches!(s.validate(), Err(ScoreError::Page(m)) if m.contains("left margin")));
         // Margins that leave too little paper, on a small sheet.
-        s.page = PageSetup { paper: Paper::A5, margin_left: 40, margin_right: 40, ..PageSetup::default() };
+        s.page = PageSetup { paper: Paper::A5, margin_left: 45, margin_right: 45, ..PageSetup::default() };
         assert!(matches!(s.validate(), Err(ScoreError::Page(m)) if m.contains("A5")));
         // Orientation changes which side is short.
         s.page = PageSetup { paper: Paper::A5, landscape: true, margin_top: 60, margin_bottom: 60, ..PageSetup::default() };
@@ -242,6 +243,29 @@ mod tests {
         s.page.landscape = true;
         assert_eq!(s.page.size_mm(), (355.6, 215.9));
         assert_eq!(Paper::from_name(" letter "), Some(Paper::Letter));
-        assert_eq!(Paper::from_name("tabloid"), None);
+        assert_eq!(Paper::from_name("tabloid"), Some(Paper::Tabloid));
+        assert_eq!(Paper::from_name("folio"), None);
+        // Every predefined paper takes the default margins, even A6.
+        for paper in Paper::ALL {
+            s.page = PageSetup { paper, ..PageSetup::default() };
+            assert_eq!(s.validate(), Ok(()), "{paper:?}");
+        }
+        // A custom paper is its own size, within limits.
+        s.page = PageSetup { paper: Paper::Custom, custom_width: 230, custom_height: 300, landscape: true, ..PageSetup::default() };
+        assert_eq!((s.validate(), s.page.size_mm()), (Ok(()), (300.0, 230.0)));
+        for (w, h) in [(99, 300), (230, 1001), (0, 0)] {
+            s.page = PageSetup { paper: Paper::Custom, custom_width: w, custom_height: h, ..PageSetup::default() };
+            assert!(matches!(s.validate(), Err(ScoreError::Page(m)) if m.contains("custom")), "{w} x {h}");
+        }
+    }
+
+    #[test]
+    fn headers_and_footers_are_checked() {
+        let mut s = Score::new();
+        s.header_footer.first.title.size = f32::NAN;
+        assert!(matches!(s.validate(), Err(ScoreError::Page(m)) if m.contains("first.title")));
+        s.header_footer = Default::default();
+        s.header_footer.other.page_number.font = "bad\nname".into();
+        assert!(s.validate().is_err());
     }
 }

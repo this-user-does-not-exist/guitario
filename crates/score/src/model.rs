@@ -16,47 +16,100 @@ pub struct Score {
     /// Paper, orientation and margins for the page view, PDF and print.
     #[serde(default)]
     pub page: PageSetup,
+    /// The headers and footers printed on every page.
+    #[serde(default, skip_serializing_if = "crate::HeaderFooter::is_default")]
+    pub header_footer: crate::HeaderFooter,
     /// Master volume, pan and the mastering effects.
     #[serde(default, skip_serializing_if = "crate::Master::is_default")]
     pub master: crate::Master,
 }
 
-/// A paper size.
+/// A paper size: Guitar Pro's twelve formats, or a size of one's own.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Paper {
+    A3,
     #[default]
     A4,
     A5,
+    A6,
+    B4,
+    B5,
+    B6,
     Letter,
     Legal,
+    Tabloid,
+    Executive,
+    Statement,
+    /// The size in [`PageSetup::custom_width`] and [`PageSetup::custom_height`].
+    Custom,
 }
 
 impl Paper {
-    pub const ALL: [Paper; 4] = [Paper::A4, Paper::A5, Paper::Letter, Paper::Legal];
+    /// The predefined formats, in the order the stylesheet lists them.
+    pub const ALL: [Paper; 12] = [
+        Paper::A3,
+        Paper::A4,
+        Paper::A5,
+        Paper::A6,
+        Paper::B4,
+        Paper::B5,
+        Paper::B6,
+        Paper::Letter,
+        Paper::Legal,
+        Paper::Tabloid,
+        Paper::Executive,
+        Paper::Statement,
+    ];
 
-    /// Width and height upright, in millimetres.
+    /// Width and height upright, in millimetres (the default custom size for [`Paper::Custom`]).
     pub fn size_mm(self) -> (f32, f32) {
         match self {
-            Paper::A4 => (210.0, 297.0),
+            Paper::A3 => (297.0, 420.0),
+            Paper::A4 | Paper::Custom => (210.0, 297.0),
             Paper::A5 => (148.0, 210.0),
+            Paper::A6 => (105.0, 148.0),
+            Paper::B4 => (250.0, 353.0),
+            Paper::B5 => (176.0, 250.0),
+            Paper::B6 => (125.0, 176.0),
             Paper::Letter => (215.9, 279.4),
             Paper::Legal => (215.9, 355.6),
+            Paper::Tabloid => (279.4, 431.8),
+            Paper::Executive => (184.2, 266.7),
+            Paper::Statement => (139.7, 215.9),
         }
     }
 
     pub fn name(self) -> &'static str {
         match self {
+            Paper::A3 => "A3",
             Paper::A4 => "A4",
             Paper::A5 => "A5",
+            Paper::A6 => "A6",
+            Paper::B4 => "B4",
+            Paper::B5 => "B5",
+            Paper::B6 => "B6",
             Paper::Letter => "Letter",
             Paper::Legal => "Legal",
+            Paper::Tabloid => "Tabloid",
+            Paper::Executive => "Executive",
+            Paper::Statement => "Statement",
+            Paper::Custom => "Custom",
         }
     }
 
     /// The paper called `name`, in any case.
     pub fn from_name(name: &str) -> Option<Paper> {
-        Paper::ALL.into_iter().find(|p| p.name().eq_ignore_ascii_case(name.trim()))
+        Paper::ALL.into_iter().chain([Paper::Custom]).find(|p| p.name().eq_ignore_ascii_case(name.trim()))
+    }
+
+    /// The predefined format `width` x `height` mm (either way round) is, within `tolerance` mm.
+    pub fn matching(width: f32, height: f32, tolerance: f32) -> Option<Paper> {
+        let (short, long) = (width.min(height), width.max(height));
+        Paper::ALL.into_iter().find(|p| {
+            let (w, h) = p.size_mm();
+            (short - w).abs() <= tolerance && (long - h).abs() <= tolerance
+        })
     }
 }
 
@@ -75,11 +128,24 @@ pub struct PageSetup {
     /// to it (off in Guitar Pro's default stylesheet).
     #[serde(default)]
     pub bend_pitch: bool,
+    /// The paper's upright size in millimetres when it is [`Paper::Custom`].
+    pub custom_width: u16,
+    pub custom_height: u16,
 }
 
 impl Default for PageSetup {
     fn default() -> Self {
-        PageSetup { paper: Paper::A4, landscape: false, margin_left: 10, margin_right: 10, margin_top: 15, margin_bottom: 12, bend_pitch: false }
+        PageSetup {
+            paper: Paper::A4,
+            landscape: false,
+            margin_left: 10,
+            margin_right: 10,
+            margin_top: 15,
+            margin_bottom: 12,
+            bend_pitch: false,
+            custom_width: 210,
+            custom_height: 297,
+        }
     }
 }
 
@@ -87,16 +153,34 @@ impl PageSetup {
     /// No margin is wider than this, in millimetres.
     pub const MAX_MARGIN: u8 = 60;
     /// What is left of the page inside the margins is at least this wide and this tall, in millimetres.
-    pub const MIN_PRINTABLE: f32 = 100.0;
+    pub const MIN_PRINTABLE: f32 = 60.0;
+
+    /// The smallest and largest custom paper side, in millimetres.
+    pub const CUSTOM_SIDES: std::ops::RangeInclusive<u16> = 100..=1000;
+
+    /// The paper's upright width and height, in millimetres.
+    pub fn paper_mm(&self) -> (f32, f32) {
+        match self.paper {
+            Paper::Custom => (f32::from(self.custom_width), f32::from(self.custom_height)),
+            p => p.size_mm(),
+        }
+    }
 
     /// The page's width and height as it lies, in millimetres.
     pub fn size_mm(&self) -> (f32, f32) {
-        let (w, h) = self.paper.size_mm();
+        let (w, h) = self.paper_mm();
         if self.landscape { (h, w) } else { (w, h) }
     }
 
     /// Why this setup cannot be used, if it cannot.
     pub fn check(&self) -> Result<(), String> {
+        if self.paper == Paper::Custom {
+            for (side, v) in [("width", self.custom_width), ("height", self.custom_height)] {
+                if !Self::CUSTOM_SIDES.contains(&v) {
+                    return Err(format!("the custom {side} is {v} mm; it must be {} to {} mm", Self::CUSTOM_SIDES.start(), Self::CUSTOM_SIDES.end()));
+                }
+            }
+        }
         let margins = [("left", self.margin_left), ("right", self.margin_right), ("top", self.margin_top), ("bottom", self.margin_bottom)];
         if let Some((side, v)) = margins.into_iter().find(|(_, v)| *v > Self::MAX_MARGIN) {
             return Err(format!("the {side} margin is {v} mm; at most {} mm", Self::MAX_MARGIN));
@@ -1356,7 +1440,15 @@ impl Score {
     pub fn new() -> Score {
         let headers = vec![MeasureHeader::new(TimeSignature::COMMON)];
         let tracks = vec![Track::new("Guitar", Tuning::standard(), &headers)];
-        Score { meta: Meta::default(), tempo: DEFAULT_TEMPO, headers, tracks, page: PageSetup::default(), master: crate::Master::default() }
+        Score {
+            meta: Meta::default(),
+            tempo: DEFAULT_TEMPO,
+            headers,
+            tracks,
+            page: PageSetup::default(),
+            header_footer: Default::default(),
+            master: crate::Master::default(),
+        }
     }
 
     pub fn measure_count(&self) -> usize {

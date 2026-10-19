@@ -70,9 +70,9 @@ note = "crates/gp/src/write5.rs, file.exportGp5: every demo round-trips (crates/
 [[item]]
 id = "FILE-11"
 target = "Print preview, page setup (paper size, margins), headers and footers, print selected bars"
-status = "partial"
+status = "done"
 stage = "beta"
-note = "File › Print Preview… shows the pages exactly as the PDF has them (one track or all, page by page); File › Page Setup… sets A4, A5, Letter or Legal, portrait or landscape and the four margins (score.setPage, saved in the .gt file, one undo step), used by the page view, the PDF and the print job; the page setup is read from and written to Guitar Pro 5 and 6/7/8 files (checked on a real Letter file); no headers and footers, no printing of selected bars, no other paper (gap G2)"
+note = "File › Print Preview… shows the pages exactly as the PDF has them; File › Stylesheet… (F7) has Guitar Pro's Page & Score Format tab (twelve paper formats A3 to Statement or a custom size, orientation, margins; score.setPage) and its Header & Footer tab (first page: title, subtitle, artist, album, words, music, words & music, transcriber, copyright and its second line, page number; other pages: header, copyright lines, page number mirrored on even pages; each with on/off, a token template, alignment, font, size, bold and italic; score.setHeaderFooter), saved in the .gt file and drawn the same on screen, in the PDF and on paper; File › Print… and file.exportPdf print selected bars (bars [first, last]); the page setup is read from and written to Guitar Pro 5 and 6/7/8 files, any other size as a custom paper. Header and footer texts are not yet exchanged with Guitar Pro's BinaryStylesheet (1.0)"
 
 [[item]]
 id = "FILE-12"

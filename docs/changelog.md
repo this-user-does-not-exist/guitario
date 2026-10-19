@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: modelled grand piano and bowed strings) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: modelled grand piano and bowed strings; G2: headers, footers, selected bars, twelve papers) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -39,6 +39,24 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   drives the page view, the PDF's page size and the print job. It is read from and written to
   Guitar Pro 5 and GPIF files in whole millimetres (checked on 114 real files, one of them Letter).
   Keys no longer reach the score while a dialog is open.
+- **Landed 2026-10-18:** File › Stylesheet… (F7), Guitar Pro 8's window with its Page & Score
+  Format and Header & Footer tabs (File › Page Setup… opens the first). Headers and footers are
+  `Score::header_footer` (`crates/score/src/header_footer.rs`, `score.setHeaderFooter`,
+  `score.headerFooter`): the first page's title, subtitle, artist, album, words, music, words &
+  music, transcriber, copyright, its second line and page number, and the other pages' header,
+  copyright lines and page number, each with an on switch, a template of tokens (`%TITLE%` …
+  `%PAGE%/%PAGES%`, `%WORDS&MUSIC%`), alignment, font, size, bold and italic. The defaults are
+  Guitar Pro's, taken from the `BinaryStylesheet` of 94 real files (title 23 pt, artist 12 pt bold,
+  credits 9 pt, footer 7 pt; the transcriber and the other pages' header off). A text whose tokens
+  are all empty prints nothing; the words and the music share a line; words & music replaces both
+  when one person wrote them; the second copyright line prints only with a copyright; left and
+  right swap on even pages. The page view, the PDF and the printer draw them the same, and the
+  header's height feeds pagination. Printing selected bars: `bars: [first, last]` on
+  `file.exportPdf` and `file.print`, and a "Selected bars" choice in File › Print… (chosen by
+  default when the selection spans bars); the first printed bar shows its time signature and the
+  bars keep their numbers. Paper: A3, A4, A5, A6, B4, B5, B6, Letter, Legal, Tabloid, Executive,
+  Statement or a custom size (100 to 1,000 mm a side); Guitar Pro files with another size open as
+  a custom paper instead of A4. Checked by rasterizing exported pages.
 
 ### G3. Guitar Pro exchange
 - **Landed 2026-10-18:** Guitar Pro 6 drum hits (`gp6_drum` in `crates/gp/src/gpif.rs`): the kit
