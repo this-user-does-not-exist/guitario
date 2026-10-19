@@ -74,5 +74,10 @@ page view and for print alike. While a dialog is open, keys do not reach the sco
 `score::timeline` flattens the score (repeats unrolled, ties merged). `playback::Player` turns it
 into timed note events with a `TempoMap`, and renders them with one Karplus–Strong voice per
 sounding string (a fractional delay so bends, slides and vibrato glide) and a per-track amp model.
+The General MIDI program picks a modelled instrument instead (`playback/src/instrument.rs`): a
+grand piano (`piano.rs`: modes per key struck by a nonlinear felt hammer) or the violin family
+(`bowed.rs`: a waveguide string driven by a bow's stick-slip friction), each sounding through a
+body of resonances per track (`body.rs`: soundboard, or violin, viola, cello and double bass
+boxes with sympathetic strings).
 `audio::AudioOut` pulls samples from a shared player slot on the sound card's thread with
 `try_lock`, so the UI never blocks audio.

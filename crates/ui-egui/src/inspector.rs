@@ -14,8 +14,13 @@ pub enum Tab {
     Track,
 }
 
-/// General MIDI programs that make sense for a fretted instrument.
-pub(crate) const PROGRAMS: [(u8, &str); 20] = [
+/// General MIDI programs Guitario sounds: the fretted instruments on the plucked-string synth,
+/// and the grand pianos and bowed strings it models.
+pub(crate) const PROGRAMS: [(u8, &str); 29] = [
+    (0, "Grand piano"),
+    (1, "Bright piano"),
+    (2, "Electric grand"),
+    (3, "Honky-tonk piano"),
     (24, "Nylon guitar"),
     (25, "Steel guitar"),
     (26, "Jazz guitar"),
@@ -33,9 +38,14 @@ pub(crate) const PROGRAMS: [(u8, &str); 20] = [
     (41, "Viola"),
     (42, "Cello"),
     (43, "Contrabass"),
+    (44, "Tremolo strings"),
+    (45, "Pizzicato strings"),
+    (48, "String ensemble"),
+    (49, "Slow strings"),
     (104, "Sitar"),
     (105, "Banjo"),
     (106, "Shamisen"),
+    (110, "Fiddle"),
 ];
 
 /// The name of a General MIDI program as the instrument lists show it.

@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (samples stream from disk; beta ~185–380 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (modelled grand piano and bowed strings; beta ~185–380 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -95,7 +95,7 @@ Engineering milestones, each with a definition of done. The GitHub milestones Al
 | M1 Model + engine | ✅ | theory, score (validation, timeline), 117 commands with undo, CLI, `.gt` with atomic saves | alpha |
 | M2 Tab editor | 🟡 | keyboard entry, Guitar Pro shortcuts, palette, selection and clipboard, four voices, bend curves and the whammy bar with their editors, Paste Special and All-Track Copy | beta |
 | M3 Notation | 🟡 | page, screen and horizontal layouts, multitrack, everything the model holds; slash/numbered notation, grand staff and the stylesheet are missing | beta (rest 1.0) |
-| M4 Playback | 🟡 | physical-model synth with every articulation, SFZ sampler and sound bank with a program per articulation, drums, mixer, automations, effect chains, equalizer, mastering, WAV and FLAC; release samples, filters, curves, loops and OGG in the sampler, long samples streamed from disk; the bank installs from the app; not yet heard on speakers | beta |
+| M4 Playback | 🟡 | physical-model synth with every articulation, a modelled grand piano and bowed strings, SFZ sampler and sound bank with a program per articulation, drums, mixer, automations, effect chains, equalizer, mastering, WAV and FLAC; release samples, filters, curves, loops and OGG in the sampler, long samples streamed from disk; the bank installs from the app; not yet heard on speakers | beta |
 | M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 remains | beta |
 | M6 Drums | 🟡 | kit tracks, pad, notation, GM playback, `.gp` drum import, two voices; step editor and articulations missing | beta |
 | M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, page setup; no MusicXML, headers and footers | beta |
@@ -165,6 +165,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | A modelled grand piano and bowed strings in M4 (playback 72 %); beta unchanged ~185–380 h |
 | 2026-10-18 | minor | Long samples stream from disk: G5 has only the listening pass left, focus item 1 is the first release; beta ~185–380 h |
 | 2026-10-18 | minor | Packages, file types and the release workflow landed: B1 lacks signing, a first release run and Finder's double-click (a decision); beta ~200–415 h |
 | 2026-10-18 | minor | Master automation and 16-bit samples landed; beta ~260–530 h |

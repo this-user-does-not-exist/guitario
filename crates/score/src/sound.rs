@@ -424,7 +424,8 @@ pub fn mixer_eq() -> Effect {
 }
 
 /// The chain the built-in synth plays a General MIDI program through when the track has not set
-/// its own: an amp and cabinet for the overdriven and distorted guitars, nothing for the rest.
+/// its own: an amp and cabinet for the overdriven and distorted guitars, a room for the modelled
+/// pianos and a hall for the bowed strings (heard dry they sound boxed in), nothing for the rest.
 pub fn default_chain(program: u8) -> Vec<Effect> {
     let amp = |gain: f32, model: f32| {
         let mut a = Effect::new(EffectType::Amp);
@@ -437,9 +438,16 @@ pub fn default_chain(program: u8) -> Vec<Effect> {
         c.params.insert("model".into(), model);
         c
     };
+    let reverb = |preset: &str, mix: f32| {
+        let mut r = Effect::preset(EffectType::Reverb, preset).unwrap_or_else(|| Effect::new(EffectType::Reverb));
+        r.params.insert("mix".into(), mix);
+        r
+    };
     match program {
         29 => vec![amp(5.0, 1.0), cab(1.0)],
         30 => vec![Effect::new(EffectType::NoiseGate), amp(7.5, 2.0), cab(2.0)],
+        0..=3 => vec![reverb("Studio", 14.0)],
+        40..=45 | 48 | 49 | 110 => vec![reverb("Hall", 18.0)],
         _ => Vec::new(),
     }
 }
@@ -570,5 +578,6 @@ mod tests {
         master.reverb = Effect::new(EffectType::Delay);
         assert!(master.check().is_err());
         assert!(default_chain(30).len() == 3 && default_chain(25).is_empty());
+        assert!(default_chain(0).iter().chain(&default_chain(42)).all(|e| e.kind == EffectType::Reverb));
     }
 }
