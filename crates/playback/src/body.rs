@@ -128,7 +128,8 @@ fn design(kind: BodyKind) -> Design {
             q: &[(5.5, 30.0), (9.0, 26.0), (12.5, 16.0)],
             scale: 1.0,
             direct: 0.55,
-            low_cut: 40.0,
+            // A soundboard radiates the lowest fundamentals weakly: the bass is heard in its partials.
+            low_cut: 75.0,
             high_cut: 12_000.0,
             seed: 11,
         },

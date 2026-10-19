@@ -364,6 +364,15 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   under the discrete resonances, the felt's thud as force-shaped noise (-28 dB of the note in the
   bass, -18 dB in the treble over its first 20 ms), and phantom partials from the strings'
   stretching (-25 dB in the bass at ff, -37 dB at p, none above C6).
+- **Landed 2026-10-18:** the piano's bass after a second listen ("the low end still sounds too
+  plastic"): its spectrum hardly changed as it rang (A0 and E1 had the same balance of partials at
+  2 s as at the blow). Losses now climb steeply with frequency, from a corner of 300 Hz in the bass
+  to 4.5 kHz at the top (the 1.5 power of the distance above the fundamental), so a bass note
+  starts bright and darkens within a second or two (E1's upper partials fall 10-30 dB further than
+  its lower ones by 1.5 s); each partial's aftersound sits 0.6 Hz (bass) to 0.15 Hz (treble) off its
+  prompt sound, so partials beat slowly at their own rates, the bass's growl; the soundboard
+  radiates the lowest fundamentals weakly (a 75 Hz roll-off, E1's fundamental 34 dB under its
+  strongest partial).
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

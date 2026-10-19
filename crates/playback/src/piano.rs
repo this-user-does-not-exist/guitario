@@ -86,8 +86,13 @@ struct Key {
     t60: f32,
     t60_after: f32,
     after_level: f32,
-    /// Partials this far above the fundamental decay twice as fast.
+    /// Partials this far above the fundamental decay twice as fast, and losses climb steeply
+    /// beyond: a bass note starts bright and metallic and darkens within a second or two.
     loss_corner: f32,
+    /// How far apart the aftersound's partials sit from the prompt sound's, in hertz: the string's
+    /// two planes of motion and the bridge pull them apart, so each partial beats slowly at its own
+    /// rate (the growl of the bass), whatever its frequency.
+    polarisation_hz: f32,
     damped_t60: f32,
     damper: bool,
     /// Loudness voicing, so the keyboard sounds even.
@@ -166,8 +171,9 @@ fn key_model(freq: f32, tone: PianoTone) -> Key {
         felt_k: 10f32.powf(curve(&[(21.0, 8.3), (36.0, 8.6), (60.0, 9.65), (96.0, 11.0), (108.0, 11.4)], m)) * tone.hardness,
         t60: curve(&[(21.0, 14.0), (36.0, 11.0), (48.0, 9.0), (60.0, 6.5), (72.0, 4.5), (84.0, 3.2), (96.0, 2.0), (108.0, 0.9)], m),
         t60_after: curve(&[(21.0, 42.0), (36.0, 36.0), (60.0, 23.0), (84.0, 9.0), (96.0, 4.5), (108.0, 1.6)], m),
-        after_level: curve(&[(21.0, 0.2), (60.0, 0.13), (96.0, 0.1), (108.0, 0.08)], m),
-        loss_corner: curve(&[(21.0, 900.0), (60.0, 1600.0), (96.0, 3500.0), (108.0, 4500.0)], m),
+        after_level: curve(&[(21.0, 0.3), (48.0, 0.22), (60.0, 0.13), (96.0, 0.1), (108.0, 0.08)], m),
+        loss_corner: curve(&[(21.0, 300.0), (48.0, 450.0), (60.0, 700.0), (84.0, 1800.0), (96.0, 3000.0), (108.0, 4500.0)], m),
+        polarisation_hz: curve(&[(21.0, 0.6), (48.0, 0.4), (72.0, 0.25), (108.0, 0.15)], m),
         damped_t60: curve(&[(21.0, 0.9), (48.0, 0.45), (72.0, 0.25), (88.0, 0.18)], m),
         damper: m < LAST_DAMPER,
         voicing: curve(&[(21.0, 1.0), (108.0, 1.0)], m),
@@ -286,7 +292,7 @@ impl PianoVoice {
             // Losses rise with frequency (air, the felt-covered ends, the soundboard), with some
             // irregularity per partial as the soundboard couples to each differently.
             let irregular = 0.8 + 0.45 * hash01(u32::from(key), n as u32);
-            let rise = 1.0 + (fn_ * fn_ - model.f0 * model.f0) / (model.loss_corner * model.loss_corner);
+            let rise = 1.0 + ((fn_ - model.f0).max(0.0) / model.loss_corner).powf(1.5);
             let t60 = model.t60 * irregular / rise;
             let t60_after = (model.t60_after * irregular / rise).max(t60);
             let damped = model.damped_t60.min(t60);
@@ -304,7 +310,7 @@ impl PianoVoice {
                 modes.push((f, t, damped, kick, shape * share, out * share));
             }
             // The aftersound: the strings' slow motion, as the bridge lets it through.
-            let f = fn_ * 2f32.powf((hash01(u32::from(key), n as u32 + 999) - 0.5) * 0.15 / 1200.0);
+            let f = fn_ + (hash01(u32::from(key), n as u32 + 999) * 2.0 - 1.0) * model.polarisation_hz;
             modes.push((f, t60_after, damped, kick * model.after_level, 0.0, out));
         }
         let mut blocks = Vec::with_capacity(modes.len().div_ceil(LANES));
