@@ -159,10 +159,18 @@ struct Sympathy {
     lp: f32,
 }
 
+/// The low-pass in a sympathetic string's loop, `y += a (x - y)`.
+const STRING_LP: f32 = 0.6;
+
 impl Sympathy {
-    fn new(midi: f32, t60: f32, sr: f32) -> Sympathy {
-        let f = 440.0 * 2f32.powf((midi - 69.0) / 12.0);
-        let delay = sr / f - 0.5;
+    /// A string at `f` Hz ringing for `t60` seconds. The loop's delay is shortened by the low-pass's
+    /// own delay at `f`, so the string resonates at its pitch, not a few cents (tens, high up) flat.
+    fn new(f: f32, t60: f32, sr: f32) -> Sympathy {
+        let f = f.clamp(20.0, sr * 0.2);
+        let w = std::f32::consts::TAU * f / sr;
+        let b = 1.0 - STRING_LP;
+        let lp_delay = (b * w.sin()).atan2(1.0 - b * w.cos()) / w;
+        let delay = (sr / f - lp_delay).max(2.0);
         Sympathy { buf: vec![0.0; delay as usize + 4], pos: 0, delay, gain: 10f32.powf(-3.0 / (t60 * f)), lp: 0.0 }
     }
 
@@ -176,12 +184,58 @@ impl Sympathy {
         let i0 = read.floor() as usize % n;
         let frac = read - read.floor();
         let y = self.buf.get(i0).copied().unwrap_or(0.0) * (1.0 - frac) + self.buf.get((i0 + 1) % n).copied().unwrap_or(0.0) * frac;
-        self.lp = flush(self.lp + 0.6 * (y - self.lp));
+        self.lp = flush(self.lp + STRING_LP * (y - self.lp));
         if let Some(slot) = self.buf.get_mut(self.pos) {
             *slot = flush(x + self.lp * self.gain);
         }
         self.pos = (self.pos + 1) % n;
         y
+    }
+}
+
+/// The soundboard and case as a diffuse resonator: eight delay lines a few milliseconds long,
+/// mixed into each other (a Householder feedback delay network) and losing their highs faster
+/// than their lows. Above a few hundred hertz a soundboard's modes are too dense to hear one by
+/// one; what is heard is this short wooden bloom under the strings, which a few dozen discrete
+/// resonances alone do not give (they ring, and sound synthetic).
+struct Board {
+    lines: Vec<(Vec<f32>, usize)>,
+    /// Per line: loop gain at low frequencies, and the low-pass that takes the highs off sooner.
+    gain: Vec<f32>,
+    damp: Vec<f32>,
+    state: Vec<f32>,
+}
+
+/// Line lengths in milliseconds, spread so the echoes never line up.
+const BOARD_MS: [f32; 8] = [2.9, 3.7, 4.6, 5.9, 7.1, 8.8, 10.7, 13.3];
+
+impl Board {
+    fn new(sr: f32, t60_low: f32, highs_faster: f32) -> Board {
+        let lens: Vec<usize> = BOARD_MS.iter().map(|ms| ((ms * 0.001 * sr) as usize).max(2)).collect();
+        let gain = lens.iter().map(|&n| 10f32.powf(-3.0 * n as f32 / (t60_low * sr))).collect();
+        // A one-pole in each loop, stronger in the longer lines: the highs die `highs_faster` times
+        // as fast, roughly.
+        let damp = lens.iter().map(|&n| ((1.0 - highs_faster.recip()) * (n as f32 / (0.01 * sr)).min(1.0)).clamp(0.0, 0.95)).collect();
+        Board { lines: lens.iter().map(|&n| (vec![0.0; n], 0)).collect(), gain, damp, state: vec![0.0; 8] }
+    }
+
+    fn tick(&mut self, x: f32) -> (f32, f32) {
+        let mut outs = [0.0f32; 8];
+        for ((o, (buf, pos)), (g, (d, st))) in outs.iter_mut().zip(&self.lines).zip(self.gain.iter().zip(self.damp.iter().zip(self.state.iter_mut()))) {
+            let y = buf.get(*pos).copied().unwrap_or(0.0);
+            *st = flush(y * (1.0 - d) + *st * d);
+            *o = *st * g;
+        }
+        // Householder mixing: each line takes the input and every line's output less twice the mean.
+        let mean = outs.iter().sum::<f32>() * (2.0 / 8.0);
+        for ((buf, pos), o) in self.lines.iter_mut().zip(&outs) {
+            if let Some(slot) = buf.get_mut(*pos) {
+                *slot = flush(x + o - mean);
+            }
+            *pos = (*pos + 1) % buf.len().max(1);
+        }
+        let [a, b, c, d, e, f, g, h] = outs;
+        (a - c + e - g, b - d + f - h)
     }
 }
 
@@ -197,6 +251,9 @@ pub struct Body {
     sympathy: Vec<Sympathy>,
     /// A piano's strings for its pedal, with their loop gains free and damped.
     pedal_strings: Vec<(Sympathy, f32, f32)>,
+    /// The piano's diffuse soundboard and case, and its level.
+    board: Option<Board>,
+    board_level: f32,
     pedal: bool,
     /// Samples since the pedal was last down, so released strings are skipped once quiet.
     pedal_off: u32,
@@ -208,6 +265,11 @@ pub struct Body {
 /// The level of the sympathetic strings' input and output.
 const SYMPATHY_IN: f32 = 0.004;
 const SYMPATHY_OUT: f32 = 0.35;
+/// The soundboard's bloom: how long it rings low down, how much faster the highs go, and its level
+/// against the strings' direct sound (power gain for noise in).
+const BOARD_T60: f32 = 0.45;
+const BOARD_HIGHS: f32 = 5.0;
+const BOARD_LEVEL: f32 = 0.5;
 /// The piano keys whose strings resonate with the pedal down (A0 to C7), and how strongly.
 const PEDAL_LOW: u8 = 21;
 const PEDAL_HIGH: u8 = 96;
@@ -259,7 +321,7 @@ impl Body {
             }
             blocks.push(b);
         }
-        let sympathy = kind.open_strings().iter().map(|&m| Sympathy::new(f32::from(m), 1.8, sr)).collect();
+        let sympathy = kind.open_strings().iter().map(|&m| Sympathy::new(440.0 * 2f32.powf((f32::from(m) - 69.0) / 12.0), 1.8, sr)).collect();
         // The piano's strings with the dampers off: a fresh string rings for many seconds low
         // down, one or two high up; with the pedal released the dampers stop them.
         let pedal_strings: Vec<(Sympathy, f32, f32)> = if kind == BodyKind::Piano {
@@ -267,9 +329,11 @@ impl Body {
                 .map(|m| {
                     let m = f32::from(m);
                     let t60 = curve(&[(21.0, 12.0), (60.0, 6.0), (96.0, 1.5)], m);
-                    let free = Sympathy::new(m, t60, sr);
+                    // Tuned as the piano's own keys are, stretch and all.
+                    let f = crate::piano::tuned(m);
+                    let free = Sympathy::new(f, t60, sr);
                     let up = free.gain;
-                    let down = Sympathy::new(m, 0.15, sr).gain;
+                    let down = Sympathy::new(f, 0.15, sr).gain;
                     (free, up, down)
                 })
                 .collect()
@@ -291,12 +355,23 @@ impl Body {
             high_cut,
             sympathy,
             pedal_strings,
+            board: None,
+            board_level: 0.0,
             pedal: false,
             pedal_off: u32::MAX,
             idle: u32::MAX,
             sr,
         };
         body.wet = body.normalise();
+        if kind == BodyKind::Piano {
+            // Unit power for white noise in, measured on its impulse response like the modes',
+            // then set under the strings.
+            let mut board = Board::new(sr, BOARD_T60, BOARD_HIGHS);
+            let n = (sr * 0.8) as usize;
+            let e: f64 = (0..n).map(|i| board.tick(if i == 0 { 1.0 } else { 0.0 })).map(|(l, r)| f64::from(l * l + r * r) * 0.5).sum();
+            body.board_level = if e > 1e-12 { BOARD_LEVEL / e.sqrt() as f32 } else { 0.0 };
+            body.board = Some(Board::new(sr, BOARD_T60, BOARD_HIGHS));
+        }
         body
     }
 
@@ -370,8 +445,15 @@ impl Body {
         }
         let x = x + ring * SYMPATHY_OUT;
         let (ml, mr) = self.modes(x);
-        let ol = self.direct * (l + ring * SYMPATHY_OUT) + self.wet * ml;
-        let or = self.direct * (r + ring * SYMPATHY_OUT) + self.wet * mr;
+        let (bl, br) = match self.board.as_mut() {
+            Some(b) => {
+                let (bl, br) = b.tick(x);
+                (bl * self.board_level, br * self.board_level)
+            }
+            None => (0.0, 0.0),
+        };
+        let ol = self.direct * (l + ring * SYMPATHY_OUT) + self.wet * ml + bl;
+        let or = self.direct * (r + ring * SYMPATHY_OUT) + self.wet * mr + br;
         let ol = self.low_cut.tick(0, ol);
         let or = self.low_cut.tick(1, or);
         (self.high_cut.tick(0, ol), self.high_cut.tick(1, or))
@@ -459,5 +541,23 @@ mod tests {
         println!("halo: pedal down {down:.1} dB, up {up:.1} dB");
         assert!((-40.0..-8.0).contains(&down), "{down}");
         assert!(up < down - 10.0, "{up} {down}");
+    }
+
+    #[test]
+    fn sympathetic_strings_ring_at_their_pitch() {
+        // An impulse into one string; its strongest response within 60 cents below to 20 above its
+        // pitch must be within a cent of it, at the bottom and the top of the piano's pedal strings.
+        for m in [33.0f32, 60.0, 84.0, 96.0] {
+            let f = crate::piano::tuned(m);
+            let mut s = Sympathy::new(f, 4.0, 48_000.0);
+            let x: Vec<f32> = (0..48_000).map(|i| s.tick(if i == 0 { 1.0 } else { 0.0 })).collect();
+            let power = |c: f32| {
+                let w = std::f32::consts::TAU * f * 2f32.powf(c / 1200.0) / 48_000.0;
+                let (re, im) = x.iter().enumerate().fold((0.0f32, 0.0f32), |(re, im), (i, v)| (re + v * (w * i as f32).cos(), im + v * (w * i as f32).sin()));
+                re * re + im * im
+            };
+            let best = (-120..=40).map(|c| c as f32 * 0.5).max_by(|a, b| power(*a).total_cmp(&power(*b))).unwrap();
+            assert!(best.abs() <= 1.0, "key {m}: {best} cents");
+        }
     }
 }

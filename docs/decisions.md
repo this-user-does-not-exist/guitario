@@ -421,3 +421,8 @@ listening: it times each slip against the pitch it wants and moves the stopped l
 Both are checked by tests and by spectra, not by ear: like the rest of the synth they wait for the
 listening pass.
 
+The stretch is derived, not looked up. A fixed Railsback curve assumes a real piano's
+inharmonicity; tuned onto the model's strings it stretched further than they need and octaves beat,
+which reads as an out-of-tune upright. Tuning the model as a tuner would (each octave until its
+partials stop beating) keeps the stretch and the strings consistent whatever their data becomes.
+

@@ -61,8 +61,8 @@ pub struct PianoTone {
 }
 
 impl PianoTone {
-    pub const GRAND: PianoTone = PianoTone { hardness: 1.0, unison: 0.7 };
-    pub const BRIGHT: PianoTone = PianoTone { hardness: 2.2, unison: 0.8 };
+    pub const GRAND: PianoTone = PianoTone { hardness: 1.0, unison: 0.25 };
+    pub const BRIGHT: PianoTone = PianoTone { hardness: 2.2, unison: 0.3 };
     pub const HONKY_TONK: PianoTone = PianoTone { hardness: 1.6, unison: 14.0 };
 }
 
@@ -94,9 +94,39 @@ struct Key {
     voicing: f32,
 }
 
-/// The stretched tuning a piano tuner sets (the Railsback curve), in cents from equal temperament.
+/// The strings' inharmonicity coefficient at key `m`: partial n sounds at `n f0 sqrt(1 + B n²)`.
+/// Lowest in the wound strings of the tenor, rising steeply to the short treble strings.
+fn inharmonicity(m: f32) -> f32 {
+    10f32.powf(curve(&[(21.0, -3.45), (36.0, -3.7), (48.0, -3.78), (60.0, -3.4), (72.0, -3.0), (84.0, -2.6), (96.0, -2.2), (108.0, -1.8)], m))
+}
+
+/// The stretched tuning a piano tuner sets, in cents from equal temperament, worked out from the
+/// strings' own inharmonicity the way a tuner works by ear: the temperament octave A3 to A4 is set
+/// first, its octave just wide enough not to beat, then every other note against the note an
+/// octave from it: above, its fundamental on the lower note's second partial; below, its fourth
+/// partial on the upper note's second (the bass is tuned on the partials heard most). Tuned
+/// against the model's strings, octaves do not beat; a fixed Railsback curve stretched further
+/// than these strings need, and their octaves beat.
 fn stretch_cents(m: f32) -> f32 {
-    if m < 69.0 { -((69.0 - m) / 48.0).powi(2) * 22.0 } else { ((m - 69.0) / 39.0).powi(2) * 28.0 }
+    // How much wider than 2:1 the octave from `k` up must be for the lower note's partial `a` to
+    // meet the upper note's partial `b`, each string with its own inharmonicity.
+    let widening = |k: f32, a: f32, b: f32| {
+        let (lower, upper) = (inharmonicity(k), inharmonicity(k + 12.0));
+        1200.0 * ((1.0 + a * a * lower).sqrt() / (1.0 + b * b * upper).sqrt()).log2()
+    };
+    let m = m.clamp(LOWEST, HIGHEST);
+    if m > 69.0 {
+        stretch_cents(m - 12.0) + widening(m - 12.0, 2.0, 1.0)
+    } else if m < 57.0 {
+        stretch_cents(m + 12.0) - widening(m, 4.0, 2.0)
+    } else {
+        (m - 69.0) / 12.0 * widening(57.0, 2.0, 1.0)
+    }
+}
+
+/// The frequency a key of the piano is tuned to, stretched.
+pub fn tuned(midi: f32) -> f32 {
+    440.0 * 2f32.powf((midi - 69.0) / 12.0 + stretch_cents(midi) / 1200.0)
 }
 
 /// A deterministic value in 0..1 from two integers, for each key's small irregularities.
@@ -126,7 +156,7 @@ fn key_model(freq: f32, tone: PianoTone) -> Key {
     Key {
         f0,
         strings,
-        b: 10f32.powf(curve(&[(21.0, -3.45), (36.0, -3.7), (48.0, -3.78), (60.0, -3.4), (72.0, -3.0), (84.0, -2.6), (96.0, -2.2), (108.0, -1.8)], m)),
+        b: inharmonicity(m),
         length,
         tension,
         mu,
@@ -175,6 +205,18 @@ pub struct PianoVoice {
     /// pole).
     knock: [(f32, f32, f32, f32); 2],
     knock_gain: f32,
+    /// The felt's thud and the action's noise: noise shaped by the hammer's force, low-passed
+    /// twice (state, coefficient, level).
+    thump: (f32, f32),
+    thump_lp: f32,
+    thump_gain: f32,
+    noise: crate::synth::Noise,
+    /// Phantom partials: the strings stretch as they swing, so their tension (and the force on
+    /// the bridge along them) moves at sums of the partials' frequencies, louder the harder the
+    /// blow; strong in the bass, gone in the treble. The square of the bridge force, its DC taken
+    /// off (coefficient, then the blocker's state).
+    phantom: f32,
+    phantom_state: (f32, f32),
     model: Key,
     /// Gains to the left and right: bass to the left, as the pianist hears it.
     pan: (f32, f32),
@@ -207,6 +249,10 @@ fn pole(freq: f32, t60: f32, sr: f32) -> (f32, f32) {
     let w = std::f32::consts::TAU * freq / sr;
     (r * w.cos(), r * w.sin())
 }
+
+/// The hammer's thud per newton of force, and the phantom partials' strength in the bass.
+const THUMP: f32 = 0.025;
+const PHANTOM: f32 = 0.3;
 
 /// Overall level, so a mezzo-forte middle C peaks around a plucked string's level.
 const OUTPUT: f32 = 2.75e-2;
@@ -258,7 +304,7 @@ impl PianoVoice {
                 modes.push((f, t, damped, kick, shape * share, out * share));
             }
             // The aftersound: the strings' slow motion, as the bridge lets it through.
-            let f = fn_ * 2f32.powf((hash01(u32::from(key), n as u32 + 999) - 0.5) * 0.4 / 1200.0);
+            let f = fn_ * 2f32.powf((hash01(u32::from(key), n as u32 + 999) - 0.5) * 0.15 / 1200.0);
             modes.push((f, t60_after, damped, kick * model.after_level, 0.0, out));
         }
         let mut blocks = Vec::with_capacity(modes.len().div_ceil(LANES));
@@ -297,6 +343,12 @@ impl PianoVoice {
             hammer: None,
             knock,
             knock_gain: curve(&[(21.0, 0.002), (60.0, 0.004), (108.0, 0.012)], m),
+            thump: (0.0, 0.0),
+            thump_lp: 1.0 - (-std::f32::consts::TAU * curve(&[(21.0, 900.0), (60.0, 1800.0), (108.0, 3500.0)], m) / sr).exp(),
+            thump_gain: curve(&[(21.0, THUMP * 0.5), (60.0, THUMP), (108.0, THUMP * 2.5)], m),
+            noise: crate::synth::Noise::new(u32::from(key).wrapping_mul(2_654_435_761) | 1),
+            phantom: curve(&[(21.0, PHANTOM), (48.0, PHANTOM * 0.6), (72.0, PHANTOM * 0.15), (84.0, 0.0)], m),
+            phantom_state: (0.0, 0.0),
             model,
             pan: (angle.cos() * std::f32::consts::SQRT_2, angle.sin() * std::f32::consts::SQRT_2),
             released: false,
@@ -406,6 +458,19 @@ impl PianoVoice {
             }
         }
         let mut y: f32 = acc.iter().sum();
+        if self.phantom > 0.0 {
+            let p = y * y * self.phantom;
+            let (last, out) = self.phantom_state;
+            let hp = p - last + 0.995 * out;
+            self.phantom_state = (p, if hp.is_finite() { hp } else { 0.0 });
+            y += self.phantom_state.1;
+        }
+        if force > 0.0 || self.thump.1.abs() > 1e-9 {
+            let n = self.noise.next() * force;
+            self.thump.0 += self.thump_lp * (n - self.thump.0);
+            self.thump.1 += self.thump_lp * (self.thump.0 - self.thump.1);
+            y += self.thump.1 * self.thump_gain;
+        }
         // The knock of the hammer in the case.
         for (y1, y2, cr, ci) in &mut self.knock {
             let r = *y1 * *cr - *y2 * *ci;
@@ -561,5 +626,23 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn octaves_are_tuned_to_the_strings_partials_so_they_do_not_beat() {
+        // A tuner's octave: the upper note's fundamental on the lower note's second partial (in
+        // the bass, its second on the lower's fourth), within a fraction of a cent.
+        for lower in [24.0f32, 36.0, 48.0, 60.0, 72.0, 84.0] {
+            let (a, b) = (
+                key_model(tuned(lower) / 2f32.powf(stretch_cents(lower) / 1200.0), PianoTone::GRAND),
+                key_model(440.0 * 2f32.powf((lower + 12.0 - 69.0) / 12.0), PianoTone::GRAND),
+            );
+            let partial = |k: &Key, n: f32| n * k.f0 * (1.0 + k.b * n * n).sqrt();
+            let (lo, hi) = if lower >= 57.0 { (partial(&a, 2.0), partial(&b, 1.0)) } else { (partial(&a, 4.0), partial(&b, 2.0)) };
+            let cents = 1200.0 * (hi / lo).log2();
+            println!("octave from {lower}: {cents:+.2} cents");
+            assert!(cents.abs() < 0.5, "{lower}: {cents}");
+        }
+        assert!(stretch_cents(108.0) > 10.0 && stretch_cents(21.0) < -5.0, "stretched both ways");
     }
 }
