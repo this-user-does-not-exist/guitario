@@ -141,6 +141,9 @@ pub struct PlayedBeat {
     pub harmonic: Option<PlayedHarmonic>,
     /// The beat is slapped or popped (a bass).
     pub technique: Option<crate::BeatTechnique>,
+    /// Under a slur from an earlier beat of its voice: a bowed instrument plays it in the same
+    /// stroke as the note before.
+    pub slurred: bool,
 }
 
 /// A harmonic in playback: the pitch of the vibrating length, the partial heard over it and how much
@@ -231,7 +234,14 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                 }
                 let Some(ties) = open_tie.get_mut(vi) else { continue };
                 let mut at = clock;
-                for beat in &voice.beats {
+                // The last beat the slurs drawn so far reach.
+                let mut slur_until: Option<usize> = None;
+                for (bi, beat) in voice.beats.iter().enumerate() {
+                    let slurred = slur_until.is_some_and(|end| bi <= end);
+                    if let Some(n) = beat.slur {
+                        let end = bi.saturating_add(usize::from(n));
+                        slur_until = Some(slur_until.map_or(end, |e| e.max(end)));
+                    }
                     let ticks = beat.duration.ticks();
                     // Swung start and end of this beat.
                     let (s0, s1) = (clock + feel.warp(at - clock), clock + feel.warp(at - clock + u64::from(ticks)));
@@ -362,6 +372,7 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                     whammy: None,
                                     harmonic: None,
                                     technique: None,
+                                    slurred: false,
                                 });
                             }
                             // A trill alternates with another fret; tremolo picking repeats the note.
@@ -421,6 +432,8 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                                         _ => note.fret,
                                     }),
                                     technique: beat.technique,
+                                    // A tremolo's repeated notes each take a bow of their own.
+                                    slurred: slurred && k == 0,
                                 });
                             }
                         }
@@ -844,6 +857,18 @@ mod tests {
 
     fn one_beat(s: &mut Score, beat: crate::Beat) {
         s.tracks[0].measures[0].voices[0].beats = vec![beat];
+    }
+
+    #[test]
+    fn notes_under_a_slur_are_marked_after_its_first() {
+        use crate::{Beat, Note};
+        use guitario_theory::Duration;
+        let mut s = Score::new();
+        let q = Duration::QUARTER;
+        let note = |fret| Beat { rest: false, notes: vec![Note::new(0, fret)], ..Beat::rest(q) };
+        s.tracks[0].measures[0].voices[0].beats = vec![Beat { slur: Some(2), ..note(0) }, note(2), note(3), note(5)];
+        let slurred: Vec<bool> = timeline(&s).iter().map(|p| p.slurred).collect();
+        assert_eq!(slurred, [false, true, true, false]);
     }
 
     #[test]

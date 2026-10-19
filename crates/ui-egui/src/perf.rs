@@ -134,6 +134,20 @@ mod tests {
             }
         });
         results.push(("render_per_second", render));
+        // The modelled instruments: the same score with its pitched tracks as a grand piano, a
+        // string section (four players a note), a violin and a cello.
+        let mut modelled = score.clone();
+        for (t, program) in modelled.tracks.iter_mut().filter(|t| !t.is_drums()).zip([0u8, 48, 40, 42].into_iter().cycle()) {
+            t.program = program;
+        }
+        let mut player = guitario_playback::Player::new(&modelled, 48_000, guitario_playback::Options::default());
+        player.play_from(10.0);
+        let render = time(5, || {
+            for _ in 0..(48_000 / 512) {
+                player.render(&mut buf, 2);
+            }
+        });
+        results.push(("render_modelled_per_second", render));
 
         // With the sampled sound bank installed: decoding runs on a worker thread when a score is
         // opened or gains new notes; the window only checks whether it is done (after each edit) and,

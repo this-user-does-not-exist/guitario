@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: samples stream from disk) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: modelled grand piano and bowed strings) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -299,6 +299,42 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   (`sounds_memory_mb` budget 1,000 to 100), the live render costs 30-35 ms per second of sound
   (budget 100), and four demos played at real speed for 15 s from a cold cache had no late tail,
   with at most 118 MB of tails and the worst 512-frame block at 6.3 ms of its 10.7 ms.
+- **Landed 2026-10-18:** a modelled grand piano and the bowed strings (PLAY-11), played for the
+  General MIDI programs that name them (`crates/playback/src/instrument.rs`): grand, bright,
+  electric grand and honky-tonk pianos (0 to 3); violin, viola, cello and double bass (40 to 43,
+  110 fiddle); tremolo, pizzicato and two string-section programs (44, 45, 48, 49), whose notes
+  are played by four players each, a little apart in tuning, time and place, on the body that
+  suits their pitch. The inspector's and Add Track's Sound lists offer them; Guitar Pro piano and
+  string tracks play them. No samples are involved.
+  The piano (`piano.rs`) is a bank of modes per key: partials stretched by the strings'
+  stiffness (Fletcher's inharmonicity across the keyboard) and a stretched tuning, two or three
+  unison strings a fraction of a cent apart that beat, and a slow aftersound under the prompt
+  sound for the two-stage decay; losses rise with frequency and vary partial by partial. A felt
+  hammer (Chaigne and Askenfelt's masses, stiffness and exponents, with hysteresis) is simulated
+  against the moving strings each sample, so loudness and brightness come from how hard it
+  strikes (contact 4 ms soft to 2 ms loud at A1, 2 to 1.4 ms at middle C, 1.5 to 0.6 ms at C7; the
+  spectral centroid of middle C rises by 40 % from p to ff). A key struck again hits its sounding
+  strings; letting go drops the damper (60 dB in a fraction of a second; the top keys have none);
+  notes that let ring hold the sustain pedal, and every string from A0 to C7 then rings in
+  sympathy in the soundboard. Bass keys left to the left, treble to the right; the hammer's knock
+  sounds in the case; partials that have died away are dropped from the work.
+  The bowed string (`bowed.rs`) is a waveguide (cubic Lagrange delays, the bridge's losses per
+  second) bowed through a hyperbolic friction junction solved exactly each sample with the
+  hysteresis rule, so attack, bow changes and rosin noise come from the stick-slip motion: one
+  full slip per period from 65 Hz to 2.6 kHz at every dynamic (tested), pitch within 4 cents with
+  the voice correcting its own stopped length by timing its slips. The player is modelled too:
+  louder is a faster bow, nearer the bridge and harder; each new stroke changes bow direction
+  (through standstill on a sounding string); notes under a slur (`PlayedBeat::slurred`, new) or a
+  hammer-on are one stroke, crossing strings without a new bite; vibrato starts a moment into
+  held notes (about 0.2 semitone at 5.4 to 5.8 Hz, a little irregular) and never on an open
+  string; open strings ring on after the bow leaves.
+  Bodies (`body.rs`, one per track and kind) are banks of resonances: the violin's signature
+  modes (A0, CBR, B1-, B1+) over dense irregular ones under a bridge hill, scaled for viola, cello
+  and double bass, and a piano soundboard; each mode radiates left and right differently, and the
+  violin family's four open strings ring in sympathy. The piano gets a studio room and the strings
+  a hall as their default chain (`default_chain`). Levels sit with the plucked synth's. Measured:
+  the 400-bar perf score with its pitched tracks as piano, string section, violin and cello renders at 161 ms of work per second of sound (budget `render_modelled_per_second` 250; the band synth stays at 37). `cargo run -p guitario-playback --release --example audition -- <dir>` renders
+  original phrases for each instrument to WAV. Checked by tests and spectra, not yet by ear.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

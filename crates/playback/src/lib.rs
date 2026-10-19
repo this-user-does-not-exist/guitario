@@ -11,9 +11,13 @@
 mod articulation;
 #[cfg(not(target_arch = "wasm32"))]
 mod bank;
+mod body;
+mod bowed;
 mod fx;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod install;
+mod instrument;
+mod piano;
 mod player;
 mod role;
 pub mod sfz;
