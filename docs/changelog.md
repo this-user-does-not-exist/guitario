@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: modelled grand piano and bowed strings; G2: headers, footers, selected bars, twelve papers) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-19 · **Change:** minor (G5: modelled grand piano and bowed strings, the piano fitted to recordings of two grands; G2: headers, footers, selected bars, twelve papers) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -385,6 +385,25 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   upper partials, tine-like) and their loops are solved for their pitch exactly. The soundboard
   network's lines are longer and its decay shorter so its resonances overlap rather than ring one
   by one. String sections and pizzicato sit 2 dB lower.
+- **Landed 2026-10-19:** the piano is fitted to recordings of two real grands instead of tuned by
+  ear: the University of Iowa Electronic Music Studios' Steinway B and the Salamander Grand (a
+  Yamaha C5), every minor third from A0 to C8 at pp, mf and ff, measured partial by partial
+  (frequency, level at the blow, prompt and aftersound decay) and set beside the model's own keys
+  rendered and measured the same way (`audition -- <dir> --keys C4@mf …`). The recordings were
+  measured, not used. What changed: inharmonicity is about 1e-4 from the bass to the tenor (it was
+  twice that); the stretch follows the partials a tuner listens to further out (10:5 at A0, 3:1.5
+  by C7), 22 cents flat at A0 and 9 sharp at C7 as on both grands (2.2 cents rms, from 3.9); a note
+  falls 20 to 25 dB in its first second or two and then hangs on in its aftersound (middle C: 2.6 s,
+  then 27 s at -22 dB; it rang 6.5 s at one rate), partials fall at about their fundamental's rate
+  up to ten kilohertz (the treble's and the upper partials' aftersound had died early), and the low
+  partials drain faster than the high ones in the tenor; the spectrum leans 1.6 dB per octave of
+  partials darker at ff and 4 dB more per unit of velocity below it (the model was 3 to 4 dB per
+  octave too bright at pp and mf, and hardly darkened with softer playing: middle C's centroid now
+  460 Hz at pp, 830 at ff), applied at the bridge so the hammer does not sharpen against it; each
+  register is as loud against middle C as on the grands. Measured against the mean of the two:
+  decay envelopes by band within 3 dB median (8 before; the two grands differ from each other by 4),
+  spectra within 5 dB (7 to 9 between the grands). As a note rings its highs (1.5 to 6 kHz) stay 20
+  to 30 dB under its mids, as on both grands; the previous change had taken them to 45 to 60 dB.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

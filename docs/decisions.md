@@ -426,3 +426,21 @@ inharmonicity; tuned onto the model's strings it stretched further than they nee
 which reads as an out-of-tune upright. Tuning the model as a tuner would (each octave until its
 partials stop beating) keeps the stretch and the strings consistent whatever their data becomes.
 
+## 2026-10-19: The piano is fitted to recordings, not tuned by ear
+
+Four listening rounds tuned the modelled piano one complaint at a time, and each fix overshot
+somewhere else (darker bass, then a bell-like midrange, then highs that died within a second). Its
+parameters are now fitted to recordings of two real grands, the University of Iowa Electronic
+Music Studios' Steinway B (free for any use) and the Salamander Grand (a Yamaha C5, CC BY 3.0),
+measured key by key the same way as the model's own renders. Two pianos, not one, so the fit
+follows what grands share rather than one instrument's voicing: where the two differ from each
+other by more than the model differs from their mean, the fit stops.
+
+This is observation, as the clean-room rule asks: the recordings were measured for numbers
+(inharmonicity, decay times, levels, spectral slopes) and none of their sound is in Guitario; they
+are not downloaded by the app or kept in the repository. The measuring scripts are not in the
+repository either (the workspace is Rust only); the method is in the changelog and the numbers are
+in `piano.rs`, whose module notes say which curves are fitted. Where the physical model and the recordings disagree
+the recordings win, as calibration: the spectrum's lean with dynamics is applied where the strings
+meet the bridge, because applied to the hammer's blow the simulated felt sharpened to undo it.
+
