@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-19 · **Change:** minor (G5: the bowed strings fitted to recordings, solo and sections) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-19 · **Change:** minor (G5: the bowed strings fitted to recordings, solo and sections; the piano fitted to recordings of two grands) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -364,6 +364,46 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   under the discrete resonances, the felt's thud as force-shaped noise (-28 dB of the note in the
   bass, -18 dB in the treble over its first 20 ms), and phantom partials from the strings'
   stretching (-25 dB in the bass at ff, -37 dB at p, none above C6).
+- **Landed 2026-10-18:** the piano's bass after a second listen ("the low end still sounds too
+  plastic"): its spectrum hardly changed as it rang (A0 and E1 had the same balance of partials at
+  2 s as at the blow). Partials now decay at rates rising in proportion to their frequency, from a
+  corner of 250 Hz in the bass to 4.5 kHz at the top, as measured on real strings: a bass note starts
+  bright and darkens within a second or two, middle C keeps its tenth partial for about 2 s and its
+  twentieth for about 1 s (a first try with steeper losses left a bell-like electric piano, the
+  third listen's verdict). Each partial's aftersound sits 0.3 Hz (bass) to 0.1 Hz (treble) off its
+  prompt sound, so partials beat slowly and shallowly at their own rates; the soundboard radiates
+  the lowest fundamentals weakly (a 75 Hz roll-off, E1's fundamental 34 dB under its strongest
+  partial).
+- **Landed 2026-10-18:** a fourth listen heard the midrange turn bell-like, electric-piano-like, as
+  the ballad got louder. Found by rendering it with each part switched off: the output stage was a
+  `tanh` over the whole range, so a loud pedalled passage's sustained partials intermodulated into
+  clangorous tones (-36.5 dB in the forte against -45 dB soft); it is now straight up to 0.75 and
+  rounds off only above (`soft_limit`). A high partial's aftersound now fades above about 1.2 kHz,
+  weaker and shorter, as on real strings (left as strong as a low one, the slightly sharp high
+  partials rang on like a bell's: as the last chord rings, the highs are now 45 dB under the mids
+  instead of 34). The pedal's sympathetic strings are darker (they rang pure, exactly harmonic
+  upper partials, tine-like) and their loops are solved for their pitch exactly. The soundboard
+  network's lines are longer and its decay shorter so its resonances overlap rather than ring one
+  by one. String sections and pizzicato sit 2 dB lower.
+- **Landed 2026-10-19:** the piano is fitted to recordings of two real grands instead of tuned by
+  ear: the University of Iowa Electronic Music Studios' Steinway B and the Salamander Grand (a
+  Yamaha C5), every minor third from A0 to C8 at pp, mf and ff, measured partial by partial
+  (frequency, level at the blow, prompt and aftersound decay) and set beside the model's own keys
+  rendered and measured the same way (`audition -- <dir> --keys C4@mf …`). The recordings were
+  measured, not used. What changed: inharmonicity is about 1e-4 from the bass to the tenor (it was
+  twice that); the stretch follows the partials a tuner listens to further out (10:5 at A0, 3:1.5
+  by C7), 22 cents flat at A0 and 9 sharp at C7 as on both grands (2.2 cents rms, from 3.9); a note
+  falls 20 to 25 dB in its first second or two and then hangs on in its aftersound (middle C: 2.6 s,
+  then 27 s at -22 dB; it rang 6.5 s at one rate), partials fall at about their fundamental's rate
+  up to ten kilohertz (the treble's and the upper partials' aftersound had died early), and the low
+  partials drain faster than the high ones in the tenor; the spectrum leans 1.6 dB per octave of
+  partials darker at ff and 4 dB more per unit of velocity below it (the model was 3 to 4 dB per
+  octave too bright at pp and mf, and hardly darkened with softer playing: middle C's centroid now
+  460 Hz at pp, 830 at ff), applied at the bridge so the hammer does not sharpen against it; each
+  register is as loud against middle C as on the grands. Measured against the mean of the two:
+  decay envelopes by band within 3 dB median (8 before; the two grands differ from each other by 4),
+  spectra within 5 dB (7 to 9 between the grands). As a note rings its highs (1.5 to 6 kHz) stay 20
+  to 30 dB under its mids, as on both grands; the previous change had taken them to 45 to 60 dB.
 - **Landed 2026-10-19:** the bowed strings fitted to recordings of real ones (PLAY-11), solo
   first, then sections. The references are VSCO 2 Community Edition (CC0) and Sonatina Symphonic
   Orchestra (CC Sampling Plus 1.0), measured and never bundled (`ATTRIBUTION.md`); the method is
