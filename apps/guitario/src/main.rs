@@ -1,16 +1,10 @@
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
-use serde_json::json;
 
 fn main() -> eframe::Result {
-    let mut session = Session::new();
-    let mut startup_error = None;
-    let file = std::env::args().nth(1);
-    if let Some(path) = file.clone()
-        && let Err(e) = session.run("file.open", &json!({"path": path}))
-    {
-        startup_error = Some(e.to_string());
-    }
+    // Each file named on the command line opens in a tab of its own (Windows and Linux pass the
+    // files chosen in the file manager this way).
+    let files: Vec<String> = std::env::args().skip(1).collect();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1440.0, 900.0])
@@ -27,10 +21,13 @@ fn main() -> eframe::Result {
         Box::new(move |cc| {
             // Preferences, recent files, autosave and crash recovery all live behind the store.
             let (store, report) = GuitarioApp::open_settings();
-            let mut app = GuitarioApp::new(session, startup_error).with_default_sounds().with_settings(store, &report).with_sound_offer();
+            let mut app = GuitarioApp::new(Session::new(), None).with_default_sounds().with_settings(store, &report).with_sound_offer();
             app.setup(&cc.egui_ctx);
+            for path in &files {
+                app.open_file(path);
+            }
             // Without a file to open, Guitario starts on its Homepage, as Guitar Pro does.
-            if file.is_none() {
+            if files.is_empty() {
                 app.show_home();
             }
             Ok(Box::new(app))

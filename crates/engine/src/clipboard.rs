@@ -85,6 +85,27 @@ impl Session {
     pub fn clipboard(&self) -> Option<&Clip> {
         self.clipboard.as_ref()
     }
+
+    /// Moves the clipboard to `other`, so what was copied in one document pastes into another
+    /// (the shell hands it along when the active document changes). An empty clipboard leaves
+    /// `other`'s as it is.
+    pub fn hand_clipboard_to(&mut self, other: &mut Session) {
+        if let Some(clip) = self.clipboard.take() {
+            other.clipboard = Some(clip);
+        }
+    }
+}
+
+impl Session {
+    /// A new, empty document that prints and exports PDF the way this one does and shares its
+    /// clipboard: another tab in the same window.
+    pub fn sibling(&self) -> Session {
+        let mut s = Session::new();
+        s.renderer.clone_from(&self.renderer);
+        s.spooler.clone_from(&self.spooler);
+        s.clipboard.clone_from(&self.clipboard);
+        s
+    }
 }
 
 /// The selection on the cursor's track, or the beat under the cursor.
@@ -464,6 +485,24 @@ mod tests {
 
     fn run(s: &mut Session, id: &str, p: Value) {
         s.run(id, &p).unwrap_or_else(|e| panic!("{id} {p}: {e}"));
+    }
+
+    #[test]
+    fn a_copy_in_one_document_pastes_into_another() {
+        let mut a = Session::new();
+        run(&mut a, "note.setFret", json!({"fret": 7}));
+        run(&mut a, "edit.copy", Value::Null);
+        // A sibling starts with the clipboard; handing it over moves it.
+        let mut b = a.sibling();
+        assert!(b.clipboard().is_some() && b.path().is_none() && !b.is_dirty());
+        let mut c = Session::new();
+        a.hand_clipboard_to(&mut c);
+        assert!(a.clipboard().is_none());
+        run(&mut c, "edit.paste", Value::Null);
+        assert_eq!(c.score().tracks[0].measures[0].voices[0].beats[0].notes[0].fret, 7);
+        // An empty clipboard hands nothing over and keeps the other's.
+        a.hand_clipboard_to(&mut b);
+        assert!(b.clipboard().is_some());
     }
 
     /// Quarter notes on the first track from bar 0, beat 0, on the top string.

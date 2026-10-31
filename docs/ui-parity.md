@@ -1,6 +1,6 @@
 # UI parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (effect chain in the inspector, Sound Mastering live, the equalizer popup, the Master row) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (several documents in tabs) · **Target:** Guitar Pro 8
 
 Guitar Pro 8's workspace, element by element. Part of [target-app parity](target-app-parity.md);
 gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
@@ -11,7 +11,7 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Menu bar | File, Edit, Track, Bar, Note, Effects, Section, Tools, Sound, View, Window, Help | the same twelve menus in the same order; Section › Edit Section… (⌥⌘+, Guitar Pro's Section window: letter, name with the usual names, Remove/Cancel/OK), Next Section (⌥⌘→), Previous Section (⌥⌘←) | done |
 | Status bar | none: messages come as popups | none: a message shows over the bottom of the score for a few seconds (errors longer; a click dismisses it) | done |
 | Toolbar | home, panels, zoom, display modes, undo/redo, print, transport, LCD, loop and speed, global tonality, audio track, instrument views, tuner, line-in, Fretlight | the same order in rounded groups, toggles blue when on, right-end groups drop out on narrow windows; LCD in two rows (track colour, icon and name, count-in, metronome and settings, note under the cursor; bar, bar check, time, triplet feel, tempo, time signature, progress line); relative tonality ±12 semitones for playback; audio track, tuner, line-in and Fretlight greyed out | partial |
-| Document tabs | several open documents; full-width tabs, modified dot, save and close on hover, context menu, + for a new score | the same look and buttons for the one document Guitario holds; no second document, no lock icon | partial |
+| Document tabs | several open documents; full-width tabs, modified dot, save and close on hover, context menu, + for a new score | the same: a tab per open document sharing the width, the shown one lit, long names cut short; click shows, middle click closes, hover gives save and close, the context menu has Close, Close Others and Close All; Window › Next Document (⌃⇥) and ⌃⇧⇥; no lock icon | done |
 | Edition palette | voice 1-4, Lyrics and Chords buttons, then note values, rhythm, dynamics, articulations, effects, bar tools in eight columns | Guitar Pro 8's ten groups row for row (bar, note, effect, notation and automation symbols): lit for the cursor's beat and note, dimmed where they do not apply, symbols Guitario cannot write yet dimmed with "(not in Guitario yet)" (clef, simile, octaviation, accidentals, nested tuplets, hairpins, pedal, mordents, turns, wah, golpe, stems, scale, slash, barre, timer, master automation, design mode); corner triangles on symbols with options; hairpins two cells wide; Bend and Whammy bar buttons open their windows, the bridge-vibrato buttons set vibrato with the bar; popups for key, time, triplet feel, endings, repeats, directions, tuplets, fermatas, harmonics, slurs, text and sections | partial |
 | Homepage | start screen: New File, Open File…, search with counts, Recent files (pinned first, clear), Local files from a chosen folder, mySongBook, Templates, Examples, a preview of the first page with a track picker and audio preview, help links | the same layout at start (without a file) and from the toolbar's Home button: search with counts, recent files with pins and Clear Recent Files, local files from a chosen folder (3 levels, 500 files), six templates (File › New from Template…), the fifteen demos as examples, first-page preview with track picker and Open; no mySongBook (Guitar Pro's store), no audio preview on hover | partial |
 | Add Track window | instrument type (stringed, orchestra, drums, MIDI), family and instrument, information, notation and staff, upper/lower staff tuning, sound with preview; opens on File › New for the first track (Skip), Track › Add, the global view's + | the same layout and entry points: 4 acoustic, 6 electric, 5 bass and 4 other stringed instruments, violin to double bass, the drum kit, each with its tunings and sound; one command (`track.create`) and one undo step; winds, brass, keyboards, MIDI instruments, the lower staff and sound preview greyed | partial |
@@ -26,13 +26,14 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Preferences | dialog | File › Preferences… (theme, interface scale) over persisted view, transport and audio settings | partial |
 | Themes | light and dark | dark sampled from Guitar Pro 8's screenshots (blue-grey #292a33 panels, #525771 buttons, #568fff accent, near-black LCD and fields, slate #444751 workspace, off-white page) and light (File › Preferences…); the light one has had one pass | partial |
 | Keyboard | Guitar Pro shortcuts | digits, arrows, + − . / R L X G A I P H V S B, ⌘ shortcuts; Help › Keyboard Shortcuts lists them from the menu catalog; F11 full screen | partial |
-| Unsaved changes | prompt on close, New and Open | prompt (craft-quit on macOS) | done |
+| Unsaved changes | prompt on closing a document and on quitting | prompt on Close, Close Others, Close All and quitting, once per unsaved document with its tab shown (craft-quit on macOS) | done |
 | Languages | about a dozen | English | missing |
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | Several documents in tabs: Close Others, Close All, Window › Next Document; unsaved changes asked per document (menus 174/181) |
 | 2026-10-18 | minor | Effect chain rows in the track inspector, Sound Mastering live, the equalizer popup from the global view and mixer, the Master row's fader and pan |
 | 2026-10-15 | major | First list |
 | 2026-10-16 | minor | Score view done (page, screen, horizontal, multitrack); engraving and tools updated |

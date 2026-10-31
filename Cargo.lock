@@ -1582,7 +1582,6 @@ dependencies = [
  "egui",
  "guitario-engine",
  "guitario-ui-egui",
- "serde_json",
  "winresource",
 ]
 

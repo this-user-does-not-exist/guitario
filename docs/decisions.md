@@ -515,3 +515,17 @@ keeps the instruments' balance as it was.
 
 Still not judged by ear. The measurements say how close the model is to these recordings; a
 listening pass on speakers is still the gate.
+
+## 2026-10-31: Several documents live in the shell, one `Session` each
+
+Guitar Pro 8 opens each document in a tab. Guitario keeps one `Session` per document in the egui
+shell: the shown one stays the app's `session` field, so every panel and dialog reads the active
+document as before, and the others wait in a list with their undo history, cursor, hidden
+tracks and autosave copy. The engine stays one document per `Session`: the CLI and scripts run
+one score at a time, and a control channel can name the tab when it needs to. Two things are
+shared across tabs: the clipboard, moved to whichever session is shown (`hand_clipboard_to`), so
+a copy in one pastes into another as in Guitar Pro; and the PDF renderer and spooler, which a new
+tab takes from the one before (`Session::sibling`). Switching tabs stops playback, as a
+different score cannot keep playing under the cursor of another. Opening a file into an
+untouched untitled document replaces it instead of adding a tab, so the start-up document never
+lingers next to the first file opened.
