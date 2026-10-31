@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (modelled grand piano and bowed strings; headers, footers, selected bars, twelve papers; beta ~175–360 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (drum articulations: G1 has no beta work left; beta ~160–330 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -97,7 +97,7 @@ Engineering milestones, each with a definition of done. The GitHub milestones Al
 | M3 Notation | 🟡 | page, screen and horizontal layouts, multitrack, everything the model holds; slash/numbered notation, grand staff and the stylesheet are missing | beta (rest 1.0) |
 | M4 Playback | 🟡 | physical-model synth with every articulation, a modelled grand piano and bowed strings, SFZ sampler and sound bank with a program per articulation, drums, mixer, automations, effect chains, equalizer, mastering, WAV and FLAC; release samples, filters, curves, loops and OGG in the sampler, long samples streamed from disk; the bank installs from the app; not yet heard on speakers | beta |
 | M5 Guitar Pro exchange | 🟡 | import of `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`; `.gp` and `.gp5` export; a human check of `.gp` exports in Guitar Pro 8 remains | beta |
-| M6 Drums | 🟡 | kit tracks, pad, step grid, notation, GM playback, `.gp` drum import, two voices; articulations missing | beta |
+| M6 Drums | ✅ | kit tracks, pad, step grid, notation, GM playback, `.gp` drum import and export, two voices, articulations (flams, rolls, ghosts, chokes, half-open hi-hat, rim shot, ride edge) | beta |
 | M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, the stylesheet's page and header and footer tabs, MusicXML | beta |
 | M8 Tools | 🟡 | chord diagram editor and namer; no tuner, chord window or scale tool | beta |
 | M9 Automation | ⬜ | control channel, MCP | beta |
@@ -115,9 +115,9 @@ what needs a human ear or signing material last, so the human steps overlap with
    reveal; Finder's double-click once a human decides on the `unsafe` delegate; signing waits on
    accounts. 20–40 h + human.
 2. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 55–100 h.
-3. **Drum articulations** ([G1](gaps.md#g1-drums-depth); the step grid landed 2026-10-31); **voice picking**
-   ([G4](gaps.md#g4-notation-depth)). 20–50 h. (Headers, footers and selected bars, G2, landed
-   2026-10-18; a real printer is the human step.)
+3. **Voice picking** in notation, voice shortcuts and tab slurs ([G4](gaps.md#g4-notation-depth)).
+   6–22 h. (Drums, G1, landed 2026-10-31 with the step grid and the articulations; headers,
+   footers and selected bars, G2, landed 2026-10-18; a real printer is the human step.)
 4. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
    cache** ([G11](gaps.md#g11-reliability-depth), [G9](gaps.md#g9-performance-budgets)); **the
    localization framework** ([G13](gaps.md#g13-languages)). 85–175 h.
@@ -165,6 +165,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | Drum articulations (M6 done, G1 has no beta work left); beta ~160–330 h |
 | 2026-10-31 | minor | The drum step grid (M6, G1): B3 passes, the beta gate is 1 of 8; beta ~168–348 h |
 | 2026-10-18 | minor | A modelled grand piano and bowed strings in M4 (playback 72 %); beta unchanged ~175–360 h |
 | 2026-10-18 | minor | Headers and footers, selected bars and twelve papers landed: B6 waits only on a real printer; beta ~175–360 h |

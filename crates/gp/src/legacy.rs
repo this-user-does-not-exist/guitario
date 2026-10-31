@@ -831,11 +831,8 @@ impl Parser<'_> {
             dead |= flags & 0x01 != 0;
             on_beat = flags & 0x02 != 0;
         }
-        let fret = if dead { 0 } else { fret };
-        if fret > 36 {
-            self.drop("grace notes above fret 36");
-            return Ok(None);
-        }
+        // Above fret 36 only a drum hit's flam (a drum number) is kept; the note decides.
+        let fret = if dead { 0 } else { fret.min(guitario_theory::drums::MAX_DRUM) };
         Ok(Some(Grace { fret, duration, transition, on_beat, dead }))
     }
 
@@ -932,10 +929,14 @@ impl Parser<'_> {
                 self.drop("frets above 36");
             }
         }
-        // A tied note is not struck again, and a drum hit has no grace note.
-        if note.effects.grace.is_some() && (t.drums || note.kind == NoteKind::Tie) {
+        // A tied note is not struck again; on a drum track a grace note is a flam.
+        if note.effects.grace.is_some() && note.kind == NoteKind::Tie {
             note.effects.grace = None;
-            self.drop("grace notes on tied notes or drum hits");
+            self.drop("grace notes on tied notes");
+        }
+        if note.effects.grace.is_some_and(|g| !t.drums && g.fret > 36) {
+            note.effects.grace = None;
+            self.drop("grace notes above fret 36");
         }
         if t.drums {
             note.effects.left_finger = None;

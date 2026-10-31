@@ -236,6 +236,17 @@ fn target_name(t: DirectionTarget) -> &'static str {
     }
 }
 
+/// A drum hit on a note: its kit articulation, or a piece outside the kit by its General MIDI number.
+fn drum_hit(out: &mut NoteOut, midi: u8) {
+    match drums::KIT.iter().position(|p| p.midi == midi) {
+        Some(i) => out.head.push_str(&format!("<InstrumentArticulation>{i}</InstrumentArticulation>")),
+        None => {
+            out.head.push_str("<InstrumentArticulation>0</InstrumentArticulation>");
+            out.props.push_str(&format!("<Property name=\"Midi\"><Number>{midi}</Number></Property>"));
+        }
+    }
+}
+
 /// A note waiting for its final XML, because a tie or hammer-on later in the file can still mark it.
 #[derive(Default)]
 struct NoteOut {
@@ -400,8 +411,24 @@ impl Gpif {
                     0 => "crashCymbal",
                     _ => "tomTom",
                 };
+                // Guitar Pro's SMuFL names for the head (black, half, whole) and the technique sign.
+                let head = match p.head {
+                    drums::Head::Normal => "noteheadBlack noteheadHalf noteheadWhole",
+                    drums::Head::X => "noteheadXBlack noteheadXBlack noteheadXBlack",
+                    drums::Head::HeavyX => "noteheadHeavyX noteheadHeavyX noteheadHeavyX",
+                    drums::Head::HeavyXHat => "noteheadHeavyXHat noteheadHeavyXHat noteheadHeavyXHat",
+                    drums::Head::CircleX => "noteheadCircleX noteheadCircleX noteheadCircleX",
+                    drums::Head::CircleSlash => "noteheadCircleSlash noteheadCircleSlash noteheadCircleSlash",
+                    drums::Head::Diamond => "noteheadDiamondWhite noteheadDiamondWhite noteheadDiamondWhite",
+                    drums::Head::Triangle => "noteheadTriangleUpBlack noteheadTriangleUpHalf noteheadTriangleUpWhole",
+                };
+                let (placement, symbol) = match p.mark {
+                    Some(drums::Mark::Choke) => ("outside", "articStaccatoAbove"),
+                    Some(drums::Mark::Edge) => ("above", "pictEdgeOfCymbal"),
+                    None => ("outside", ""),
+                };
                 xml.push_str(&format!(
-                    "<Element><Name>{0}</Name><Type>{kind}</Type><Articulations><Articulation><Name>{0}</Name><StaffLine>{1}</StaffLine><OutputMidiNumber>{2}</OutputMidiNumber></Articulation></Articulations></Element>\n",
+                    "<Element><Name>{0}</Name><Type>{kind}</Type><Articulations><Articulation><Name>{0}</Name><StaffLine>{1}</StaffLine><Noteheads>{head}</Noteheads><TechniquePlacement>{placement}</TechniquePlacement><TechniqueSymbol>{symbol}</TechniqueSymbol><InputMidiNumbers>{2}</InputMidiNumbers><OutputMidiNumber>{2}</OutputMidiNumber></Articulation></Articulations></Element>\n",
                     cdata(p.name),
                     8 - i32::from(p.staff_pos),
                     p.midi
@@ -618,7 +645,7 @@ impl Gpif {
     /// The grace notes of a beat as the grace beats Guitar Pro writes before it: one per kind
     /// (before or on the beat, and length) the beat's grace notes use.
     fn grace_beats(&mut self, ti: usize, vi: usize, t: &Track, b: &Beat) -> Vec<usize> {
-        if b.rest || t.is_drums() {
+        if b.rest {
             return Vec::new();
         }
         let graced: Vec<(&Note, Grace)> = b.notes.iter().filter(|n| n.kind != NoteKind::Tie).filter_map(|n| n.effects.grace.map(|g| (n, g))).collect();
@@ -659,9 +686,16 @@ impl Gpif {
         let id = self.notes.len();
         let mut out = NoteOut::default();
         let enable = |name: &str| format!("<Property name=\"{name}\"><Enable/></Property>");
-        let gp_string = t.string_count().saturating_sub(1).saturating_sub(usize::from(n.string));
-        out.props
-            .push_str(&format!("<Property name=\"String\"><String>{gp_string}</String></Property><Property name=\"Fret\"><Fret>{}</Fret></Property>", g.fret));
+        if t.is_drums() {
+            // A flam: the grace note is a drum hit of its own.
+            drum_hit(&mut out, g.fret);
+        } else {
+            let gp_string = t.string_count().saturating_sub(1).saturating_sub(usize::from(n.string));
+            out.props.push_str(&format!(
+                "<Property name=\"String\"><String>{gp_string}</String></Property><Property name=\"Fret\"><Fret>{}</Fret></Property>",
+                g.fret
+            ));
+        }
         if g.dead {
             out.props.push_str(&enable("Muted"));
         }
@@ -690,14 +724,7 @@ impl Gpif {
         let e = &n.effects;
         let enable = |name: &str| format!("<Property name=\"{name}\"><Enable/></Property>");
         if t.is_drums() {
-            match drums::KIT.iter().position(|p| p.midi == n.fret) {
-                Some(i) => out.head.push_str(&format!("<InstrumentArticulation>{i}</InstrumentArticulation>")),
-                // A piece outside the kit keeps its General MIDI number.
-                None => {
-                    out.head.push_str("<InstrumentArticulation>0</InstrumentArticulation>");
-                    out.props.push_str(&format!("<Property name=\"Midi\"><Number>{}</Number></Property>", n.fret));
-                }
-            }
+            drum_hit(&mut out, n.fret);
         } else {
             let gp_string = t.string_count().saturating_sub(1).saturating_sub(usize::from(n.string));
             out.props.push_str(&format!(

@@ -395,7 +395,12 @@ enum DrumSound {
 }
 
 fn drum_sound(midi: u8) -> DrumSound {
-    match midi {
+    // Guitar Pro's articulations: the half-open hi-hat is shorter than the open one; the others
+    // sound as the piece they vary (a choke is cut by the player, a rim shot is louder).
+    if midi == 92 {
+        return DrumSound::HiHat { decay: 0.14 };
+    }
+    match guitario_theory::drums::plays(midi) {
         35 | 36 => DrumSound::Kick,
         38 | 40 => DrumSound::Snare,
         37 => DrumSound::SideStick,
@@ -434,6 +439,8 @@ pub struct DrumVoice {
     lp: f32,
     prev: f32,
     choke: bool,
+    /// The sample at which the hit is choked.
+    cut_at: u32,
 }
 
 /// Inharmonic ratios for a metallic cymbal tone (square waves at these multiples).
@@ -456,11 +463,12 @@ impl DrumVoice {
             _ => decay,
         };
         let mul = |tau: f32| (-1.0 / (tau.max(1e-3) * sr)).exp();
+        let rim_shot = if midi == 91 { 1.3 } else { 1.0 };
         DrumVoice {
             track,
             midi,
             sound,
-            vel: velocity.clamp(0.0, 1.0),
+            vel: (velocity * rim_shot).clamp(0.0, 1.0),
             t: 0,
             sr,
             env: 1.0,
@@ -472,16 +480,22 @@ impl DrumVoice {
             lp: 0.0,
             prev: 0.0,
             choke: false,
+            cut_at: u32::MAX,
         }
     }
 
-    /// An open hi-hat is cut short when the hi-hat closes.
+    /// An open (or half-open) hi-hat is cut short when the hi-hat closes.
     pub fn is_open_hat(&self) -> bool {
-        self.midi == 46
+        matches!(self.midi, 46 | 92)
     }
 
     pub fn choke(&mut self) {
         self.choke = true;
+    }
+
+    /// Chokes the hit `secs` after it starts (a cymbal grabbed).
+    pub fn cut_after(&mut self, secs: f32) {
+        self.cut_at = (secs.max(0.0) * self.sr) as u32;
     }
 
     pub fn finished(&self) -> bool {
@@ -491,6 +505,9 @@ impl DrumVoice {
     pub fn tick(&mut self, noise: &mut Noise) -> f32 {
         let secs = self.t as f32 / self.sr;
         self.t = self.t.saturating_add(1);
+        if self.t >= self.cut_at {
+            self.choke = true;
+        }
         if self.choke {
             self.env *= 0.995;
         }

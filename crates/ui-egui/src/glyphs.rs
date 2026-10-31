@@ -16,6 +16,24 @@ pub const HEAD_WHOLE: char = '\u{E0A2}';
 pub const HEAD_HALF: char = '\u{E0A3}';
 pub const HEAD_BLACK: char = '\u{E0A4}';
 pub const HEAD_X: char = '\u{E0A9}';
+pub const HEAD_X_HALF: char = '\u{E0A8}';
+pub const HEAD_X_WHOLE: char = '\u{E0A7}';
+/// Drum heads Guitar Pro's kit uses: noteheadHeavyX (crashes), noteheadHeavyXHat (china),
+/// noteheadCircleX (open hi-hat), noteheadCircleSlash (half-open), noteheadDiamondWhite (bell, rim
+/// shot) and the triangles (cowbell).
+pub const HEAD_HEAVY_X: char = '\u{E0F8}';
+pub const HEAD_HEAVY_X_HAT: char = '\u{E0F9}';
+pub const HEAD_CIRCLE_X: char = '\u{E0B3}';
+pub const HEAD_CIRCLE_SLASH: char = '\u{E0F7}';
+pub const HEAD_DIAMOND: char = '\u{E0DD}';
+pub const HEAD_TRIANGLE: char = '\u{E0BE}';
+pub const HEAD_TRIANGLE_HALF: char = '\u{E0BC}';
+pub const HEAD_TRIANGLE_WHOLE: char = '\u{E0BB}';
+/// noteheadParenthesisLeft / Right: a ghost note's brackets.
+pub const PAREN_LEFT: char = '\u{E0F5}';
+pub const PAREN_RIGHT: char = '\u{E0F6}';
+/// pictEdgeOfCymbal: struck on the cymbal's edge.
+pub const EDGE_OF_CYMBAL: char = '\u{E729}';
 pub const DOT: char = '\u{E1E7}';
 pub const FLAT: char = '\u{E260}';
 pub const NATURAL: char = '\u{E261}';
@@ -48,6 +66,27 @@ pub const MET_8TH_UP: char = '\u{E1D7}';
 pub const MET_16TH_UP: char = '\u{E1D9}';
 pub const MET_32ND_UP: char = '\u{E1DB}';
 pub const MET_64TH_UP: char = '\u{E1DD}';
+
+/// The notehead glyph for a head code (`n` plain, `x` cross, `X` heavy cross, `h` heavy cross
+/// with hat, `o` circled cross, `/` slashed circle, `d` diamond, `t` triangle) and note-value divisor.
+pub fn head_for(code: &str, divisor: u32) -> char {
+    match (code, divisor) {
+        ("x", 1) => HEAD_X_WHOLE,
+        ("x", 2) => HEAD_X_HALF,
+        ("x", _) => HEAD_X,
+        ("X", _) => HEAD_HEAVY_X,
+        ("h", _) => HEAD_HEAVY_X_HAT,
+        ("o", _) => HEAD_CIRCLE_X,
+        ("/", _) => HEAD_CIRCLE_SLASH,
+        ("d", _) => HEAD_DIAMOND,
+        ("t", 1) => HEAD_TRIANGLE_WHOLE,
+        ("t", 2) => HEAD_TRIANGLE_HALF,
+        ("t", _) => HEAD_TRIANGLE,
+        (_, 1) => HEAD_WHOLE,
+        (_, 2) => HEAD_HALF,
+        _ => HEAD_BLACK,
+    }
+}
 
 /// Rest glyph for a note-value divisor (1 = whole … 64).
 pub fn rest_for(divisor: u32) -> char {
@@ -150,9 +189,45 @@ impl Pen<'_> {
                     egui::epaint::EllipseShape { center, radius: r, fill: if c == HEAD_BLACK { color } else { Color32::TRANSPARENT }, stroke, angle: -0.35 };
                 p.add(shape);
             }
-            HEAD_X => {
+            HEAD_X | HEAD_X_HALF | HEAD_X_WHOLE | HEAD_HEAVY_X | HEAD_HEAVY_X_HAT => {
+                let stroke = if matches!(c, HEAD_HEAVY_X | HEAD_HEAVY_X_HAT) { Stroke::new(stroke.width * 1.8, color) } else { stroke };
                 p.line_segment([at + vec2(0.0, -0.45 * s), at + vec2(w, 0.45 * s)], stroke);
                 p.line_segment([at + vec2(0.0, 0.45 * s), at + vec2(w, -0.45 * s)], stroke);
+                if c == HEAD_HEAVY_X_HAT {
+                    p.line_segment([at + vec2(-0.1 * s, -0.75 * s), at + vec2(w / 2.0, -1.1 * s)], stroke);
+                    p.line_segment([at + vec2(w / 2.0, -1.1 * s), at + vec2(w + 0.1 * s, -0.75 * s)], stroke);
+                }
+            }
+            HEAD_CIRCLE_X | HEAD_CIRCLE_SLASH => {
+                let center = at + vec2(w / 2.0, 0.0);
+                p.circle_stroke(center, 0.5 * s, stroke);
+                let d = 0.35 * s;
+                p.line_segment([center + vec2(-d, d), center + vec2(d, -d)], stroke);
+                if c == HEAD_CIRCLE_X {
+                    p.line_segment([center + vec2(-d, -d), center + vec2(d, d)], stroke);
+                }
+            }
+            HEAD_DIAMOND => {
+                let center = at + vec2(w / 2.0, 0.0);
+                let pts = vec![center + vec2(0.0, -0.5 * s), center + vec2(w / 2.0, 0.0), center + vec2(0.0, 0.5 * s), center + vec2(-w / 2.0, 0.0)];
+                p.add(egui::Shape::closed_line(pts, stroke));
+            }
+            HEAD_TRIANGLE | HEAD_TRIANGLE_HALF | HEAD_TRIANGLE_WHOLE => {
+                let pts = vec![at + vec2(0.0, 0.45 * s), at + vec2(w / 2.0, -0.5 * s), at + vec2(w, 0.45 * s)];
+                if c == HEAD_TRIANGLE {
+                    p.add(egui::Shape::convex_polygon(pts, color, Stroke::NONE));
+                } else {
+                    p.add(egui::Shape::closed_line(pts, stroke));
+                }
+            }
+            PAREN_LEFT | PAREN_RIGHT => {
+                let dir = if c == PAREN_LEFT { -1.0 } else { 1.0 };
+                let mid = at + vec2(w / 2.0, 0.0);
+                arc(p, mid + vec2(0.0, -0.7 * s), mid + vec2(0.0, 0.7 * s), dir * 0.25 * s, stroke);
+            }
+            EDGE_OF_CYMBAL => {
+                p.line_segment([at + vec2(0.0, 0.0), at + vec2(w, 0.0)], stroke);
+                p.line_segment([at + vec2(w * 0.7, -0.35 * s), at + vec2(w, 0.0)], stroke);
             }
             DOT => {
                 p.circle_filled(at + vec2(0.25 * s, 0.0), 0.2 * s, color);
@@ -294,7 +369,9 @@ impl Pen<'_> {
 fn fallback_width(c: char) -> f32 {
     match c {
         HEAD_WHOLE => 1.7,
-        HEAD_BLACK | HEAD_HALF | HEAD_X => 1.18,
+        HEAD_BLACK | HEAD_HALF | HEAD_X | HEAD_X_HALF | HEAD_X_WHOLE | HEAD_HEAVY_X | HEAD_HEAVY_X_HAT => 1.18,
+        HEAD_CIRCLE_X | HEAD_CIRCLE_SLASH | HEAD_DIAMOND | HEAD_TRIANGLE | HEAD_TRIANGLE_HALF | HEAD_TRIANGLE_WHOLE => 1.2,
+        PAREN_LEFT | PAREN_RIGHT => 0.4,
         G_CLEF | F_CLEF => 2.7,
         TAB_CLEF_6 | TAB_CLEF_4 => 1.6,
         PERC_CLEF => 1.8,

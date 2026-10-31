@@ -248,7 +248,15 @@ impl Reader {
                         info.pan = dec(mi, "pan").map(|p| (p.clamp(-90.0, 90.0) * 63.0 / 90.0).round() as i8);
                     }
                     if let (Some(iid), Some(u)) = (mi.attribute("id"), num::<u8>(mi, "midi-unpitched")) {
-                        info.unpitched.insert(iid.to_string(), u.saturating_sub(1).min(127));
+                        // An instrument named as one of the kit's articulations (a choked crash
+                        // sounds as the crash) is that articulation.
+                        let named = children(sp, "score-instrument")
+                            .find(|si| si.attribute("id") == Some(iid))
+                            .and_then(|si| text(si, "instrument-name"))
+                            .and_then(|name| guitario_theory::drums::KIT.iter().find(|p| p.name.eq_ignore_ascii_case(name.trim())))
+                            .filter(|p| p.plays == u.saturating_sub(1))
+                            .map(|p| p.midi);
+                        info.unpitched.insert(iid.to_string(), named.unwrap_or(u.saturating_sub(1).min(127)));
                     }
                 }
                 infos.insert(id.to_string(), info);
@@ -575,10 +583,10 @@ impl Reader {
             let from_staff = || {
                 let step = text(u, "display-step")?;
                 let octave: i32 = num(u, "display-octave")?;
-                let cross = text(n, "notehead") == Some("x");
+                let cross = matches!(text(n, "notehead"), Some("x" | "circle-x" | "circled"));
                 let pieces = guitario_theory::drums::KIT;
                 let at = |p: &guitario_theory::drums::DrumPiece| drum_display(p.staff_pos) == (step.chars().next().unwrap_or('E'), octave);
-                pieces.iter().find(|p| at(p) && p.cross == cross).or_else(|| pieces.iter().find(|p| at(p))).map(|p| p.midi)
+                pieces.iter().find(|p| at(p) && p.cross() == cross).or_else(|| pieces.iter().find(|p| at(p))).map(|p| p.midi)
             };
             x.drum = from_instrument.or_else(from_staff).or(Some(38));
         } else if xp.drums
@@ -887,6 +895,18 @@ impl Reader {
                 let free = (0..8u8).filter(|l| !out.iter().any(|(n, _)| n.string == *l)).min_by_key(|l| (i16::from(*l) - i16::from(lane)).abs());
                 if let Some(l) = free {
                     out.push((self.note(Note::new(l, key), xn, None), xn.clone()));
+                }
+            }
+            // Hits are kept in lane order, as entering them leaves them.
+            out.sort_by_key(|(n, _)| n.string);
+            // A flam: the grace note joins the hit on its lane, or the first hit.
+            for (g, on_beat, duration, transition) in &xb.graces {
+                let Some(drum) = g.drum.or(g.key) else { continue };
+                let lane = guitario_theory::drums::lane_for(drum);
+                let at = out.iter().position(|(n, _)| n.string == lane).or(if out.is_empty() { None } else { Some(0) });
+                match at.and_then(|i| out.get_mut(i)) {
+                    Some((n, _)) => n.effects.grace = Some(Grace { fret: drum, duration: *duration, transition: *transition, on_beat: *on_beat, dead: g.dead }),
+                    None => self.warn("grace notes with no drum hit after them were left out"),
                 }
             }
             return out;

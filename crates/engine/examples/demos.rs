@@ -19,7 +19,9 @@
 //! medium or long fermata over the beat; `&wdive:-8` moves the whammy bar (a shape, then the depth
 //! in quarter tones, negative for a dive) and `&wvs`/`&wvw` add slight or wide vibrato with the bar. On a drum track a beat
 //! lists kit pieces by their short names: `bd` kick, `sd` snare, `hh`/`oh`/`ph` hi-hat closed, open
-//! and pedal, `cr` crash, `ch` china, `sp` splash, `rd`/`rb` ride and bell, `t1`-`t4` and `ft` toms.
+//! and pedal, `cr` crash, `ch` china, `sp` splash, `rd`/`rb` ride and bell, `t1`-`t4` and `ft` toms;
+//! Guitar Pro's articulations are `ho` half-open hi-hat, `rs` rim shot, `re` ride edge and `crc`,
+//! `rc`, `spc`, `chc` the crash, ride, splash and china choked. `+gr38` before a hit is a flam.
 
 // The generator indexes fixed literal lists, so out-of-range is a compile-time-visible mistake.
 #![allow(clippy::indexing_slicing)]
@@ -1137,6 +1139,7 @@ fn drum_grooves() -> R<Session> {
     let d_beat = "8 bd hh, 8 bd hh, 8 sd hh, 8 bd hh, 8 bd hh, 8 bd hh, 8 sd hh, 8 hh";
     let triplet_fill = format!("{}, {}, {}, {}", rep(3, "8t sd"), rep(3, "8t t1"), rep(3, "8t t2"), rep(3, "8t ft"));
     let china_hits = "8 bd ch, 8 r, 8 bd ch, 8 r, 8 bd ch, 8 bd ch, 4 bd sd ch";
+    let articulated = "8 bd crc +a, 8 ho, 8 sd +gr38 hh, 8 sd +g hh, 8 bd re, 8 rs re, 4 sd &tp32";
     play_track(
         &mut s,
         0,
@@ -1151,6 +1154,7 @@ fn drum_grooves() -> R<Session> {
             bar(blast("cr", false)),
             bar(china_hits).mark("China hits").tempo(140),
             bar(triplet_fill).mark("Triplet tom fill"),
+            bar(articulated).mark("Flams, ghosts and chokes").tempo(110),
             bar("2 bd cr, 2 r"),
         ],
     )?;
