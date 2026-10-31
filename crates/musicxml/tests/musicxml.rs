@@ -109,7 +109,7 @@ fn every_demo_comes_back_bar_for_bar() {
 
 #[test]
 fn the_export_is_well_formed_and_names_its_tuning() {
-    let (_, s) = scores().into_iter().find(|(n, _)| n.contains("seven")).unwrap();
+    let (_, s) = scores().into_iter().find(|(n, _)| n.contains("toccata")).unwrap();
     let xml = export(&s).xml;
     roxmltree::Document::parse_with_options(&xml, roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() }).unwrap();
     assert!(xml.contains(r#"<score-partwise version="4.0">"#));
@@ -255,13 +255,13 @@ fn hostile_files_are_refused_without_a_panic() {
     }
 }
 
-/// Steel Horizon (an original demo) exported here, opened in MuseScore 4 and written back out by
-/// it: a file from another program, without string and fret data.
+/// Steel Horizon (a former original demo) as exported here, and the same file opened in MuseScore 4
+/// and written back out by it: a file from another program, without string and fret data.
 #[test]
 fn a_file_written_by_musescore_imports_with_the_same_music() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/steel-horizon-musescore.musicxml");
-    let back = import(&std::fs::read(path).unwrap()).unwrap().score;
-    let (_, s) = scores().into_iter().find(|(n, _)| n.contains("steel")).unwrap();
+    let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let back = import(&std::fs::read(data.join("steel-horizon-musescore.musicxml")).unwrap()).unwrap().score;
+    let s = import(&std::fs::read(data.join("steel-horizon.musicxml")).unwrap()).unwrap().score;
     assert_eq!((back.headers.len(), back.tracks.len(), back.tempo, &back.meta.title), (s.headers.len(), s.tracks.len(), s.tempo, &s.meta.title));
     for (ta, tb) in s.tracks.iter().zip(&back.tracks) {
         assert_eq!((&ta.name, &ta.tuning.strings, ta.kind), (&tb.name, &tb.tuning.strings, tb.kind));

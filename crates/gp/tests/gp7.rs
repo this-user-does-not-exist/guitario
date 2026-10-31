@@ -135,7 +135,7 @@ fn the_archive_is_well_formed_and_hostile_text_is_made_safe() {
 
 #[test]
 fn every_note_and_beat_has_its_own_id_and_every_reference_resolves() {
-    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("two-voices")).unwrap();
+    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("bourree")).unwrap();
     let xml = score_gpif(&export_gp(&score).unwrap().bytes);
     let doc = roxmltree::Document::parse(&xml).unwrap();
     let ids = |tag: &str| -> Vec<String> {
@@ -163,19 +163,23 @@ fn every_note_and_beat_has_its_own_id_and_every_reference_resolves() {
         assert!(vs.split_whitespace().all(|v| v == "-1" || voices.iter().any(|x| x == v)));
         assert_eq!(vs.split_whitespace().count(), 4, "a bar lists four voice slots");
     }
-    // Rhythms are shared; the two-voice study needs only a handful.
+    // Rhythms are shared; the two-voice Bourrée needs only a handful.
     assert!(rhythms.len() < 10, "{} rhythms", rhythms.len());
 }
 
 #[test]
 fn ties_mark_both_ends_and_hammer_ons_mark_their_target() {
-    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("two-voices")).unwrap();
+    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("technique")).unwrap();
     let xml = score_gpif(&export_gp(&score).unwrap().bytes);
     let doc = roxmltree::Document::parse(&xml).unwrap();
     let tie = |origin: &str, destination: &str| {
         doc.descendants().filter(|n| n.has_tag_name("Tie") && n.attribute("origin") == Some(origin) && n.attribute("destination") == Some(destination)).count()
     };
-    assert_eq!((tie("true", "false"), tie("false", "true")), (1, 1), "the G tied over the bar line");
+    // The showcase ties two notes, each to the note before it.
+    let tied =
+        score.tracks[0].measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).flat_map(|b| &b.notes).filter(|n| n.kind == NoteKind::Tie).count();
+    assert_eq!(tied, 2);
+    assert_eq!((tie("true", "false"), tie("false", "true")), (tied, tied), "both ends of each tie");
 
     let mut s = Score::new();
     let mut a = Note::new(0, 3);

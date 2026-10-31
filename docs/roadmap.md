@@ -47,7 +47,7 @@ that blocks the workflow, keeps Guitario pre-alpha.
 | Arrange a band song: guitars, bass and drums, sections, repeats | yes | drum tracks, pad, notation and playback; 12 band demos with drums (`crates/engine/tests/demos.rs`) |
 | Open a tab someone sent (`.gp5` or `.gp`), play it, edit it | yes | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` through File › Open; 76 real files import; every voice is kept, drawn and played |
 | Share: print or export PDF, or send a `.gp` back | yes | File › Export › PDF… writes vector pages for every demo; File › Print… sends them through craft-print; `.gp` and `.gp5` go back to Guitar Pro users (read back by us, not yet opened in Guitar Pro itself) |
-| Read and write standard notation with ties and two voices | yes | up to four voices, ties across bars, slurs; `demos/15-two-voices.gt` |
+| Read and write standard notation with ties and two voices | yes | up to four voices, ties across bars, slurs; `demos/15-bourree-in-e-minor.gt` |
 
 **Result: passes.** Two human checks are open and the pass does not hide them: a page on a real
 printer, and a `.gp` export opened in Guitar Pro 8. Both are also beta work (B4, B6).

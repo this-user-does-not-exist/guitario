@@ -127,8 +127,10 @@ fn every_demo_exported_to_midi_imports_and_sounds_the_same() {
         imported.score.validate().unwrap();
         let original = guitario_format::open(&dir.join(format!("{name}.gt"))).unwrap();
         // Every pitch the demo plays is played by the import at the same moment, unless a grace
-        // note, trill or tremolo put it off the grid or a chord ran out of strings.
-        let want: Vec<(u64, u8)> = (0..original.tracks.len()).flat_map(|t| heard(&original, t).into_iter().map(|n| (n.0, n.1))).collect();
+        // note, trill or tremolo put it off the grid or a chord ran out of strings. Harmonics are
+        // left out: the file carries the pitch they ring at, not the fretted note.
+        let want: Vec<(u64, u8)> =
+            timeline(&original).into_iter().filter(|n| !n.dead && n.harmonic.is_none()).filter_map(|n| Some((n.start_tick, n.pitch?.0))).collect();
         let got: std::collections::BTreeSet<(u64, u8)> =
             (0..imported.score.tracks.len()).flat_map(|t| heard(&imported.score, t).into_iter().map(|n| (n.0, n.1))).collect();
         if want.is_empty() {
