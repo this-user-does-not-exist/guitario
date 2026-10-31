@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guitario: open-source tab and notation editor</title>
+<meta name="description" content="Guitario is an open-source tablature and notation editor in pure Rust, with Guitar Pro's layout, menus and shortcuts, playback you can loop and slow down, and Guitar Pro files in and out.">
+<meta property="og:title" content="Guitario">
+<meta property="og:description" content="An open-source tablature and notation editor, in pure Rust. Native, offline, and yours.">
+<meta property="og:image" content="images/guitario-steel-horizon.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0d0e11">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top"><img src="favicon.svg" alt="" width="26" height="26"> Guitario</a>
+    <nav aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#demos">Demos</a>
+      <a href="#agents">Agents</a>
+      <a href="#built">How it's built</a>
+      <a href="#status">Status</a>
+      <a href="guide/">Guide</a>
+      <a class="nav-gh" href="https://github.com/this-user-does-not-exist/guitario">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="pill">alpha</span> 100% Rust · macOS · Windows · Linux</p>
+      <h1>Write tab like a&nbsp;pro.<br><span class="ember">Own every note.</span></h1>
+      <p class="lede">Guitario is an open-source tablature and notation editor with Guitar Pro's layout, menus and
+        shortcuts. It puts tab and standard notation on real pages, gives you playback you can loop and slow
+        down, and opens and saves Guitar Pro files. It is native, offline and free.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="#get-started">Get started</a>
+        <a class="btn" href="https://github.com/this-user-does-not-exist/guitario">Star on GitHub</a>
+        <a class="btn btn-ghost" href="guide/">Read the guide →</a>
+      </div>
+    </div>
+    <figure class="tab-card" aria-label="A lick from the Thrash Attack demo as ASCII tab">
+      <figcaption><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        01-thrash-attack.txt <span class="tempo">♩ = 190</span></figcaption>
+<pre>E|<i>15</i>-<i>12</i>----------------------------------<i>12</i>-<i>15</i>-<i>12</i>-|----|
+B|------<i>15</i>-<i>12</i>----------------------<i>12</i>-<i>15</i>----------|----|
+G|------------<i>14</i>-<i>12</i>----------<i>12</i>-<i>14</i>----------------|----|
+D|------------------<i>14</i>-<i>12</i>-<i>14</i>----------------------|<i>2</i>---|
+A|------------------------------------------------|<i>2</i>---|
+E|------------------------------------------------|<i>0</i>---|</pre>
+      <p class="tab-note">Exported straight from a demo score with <code>file.exportAscii</code>.</p>
+    </figure>
+  </div>
+
+  <div class="wrap">
+    <figure class="shot shot-hero">
+      <img src="images/guitario-steel-horizon.png" alt="Guitario showing Steel Horizon, an original power-metal demo, in the multitrack view: twin lead guitars in standard notation over tab, with lyrics, the edition palette, the inspector, the fretboard and the global view of five tracks" width="1800" height="1100">
+      <figcaption><em>Steel Horizon</em>, an original power-metal demo, in the multitrack view: twin harmony leads, rhythm guitar, bass and drums.</figcaption>
+    </figure>
+  </div>
+  <div class="tracks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+</section>
+
+<section class="strip">
+  <div class="wrap strip-grid">
+    <div><strong>173 / 181</strong><span>Guitar Pro menu items live</span></div>
+    <div><strong>GP3 – GP8</strong><span>files in, <code>.gp</code> and <code>.gp5</code> out</span></div>
+    <div><strong>76</strong><span>real Guitar Pro files checked on import</span></div>
+    <div><strong>0</strong><span><code>unsafe</code>, <code>unwrap</code> or <code>panic</code> in shipped code</span></div>
+  </div>
+</section>
+
+<section id="features" class="section">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="kicker">If you know Guitar Pro, you already know Guitario</p>
+      <h2>The same layout, menu bar and keys.</h2>
+      <p>Click a beat, type a fret number, press <kbd>P</kbd> for palm mute or <kbd>H</kbd> for a hammer-on,
+        then press <kbd>Space</kbd> to play. Every screenshot here is the real app, rendered offscreen from one of the demo scores.</p>
+    </header>
+
+    <article class="feature">
+      <img src="images/guitario-odd-meters.png" alt="Odd Meter Assault: 7/8, 5/4, 13/16, 6/8 and 12/8 bars in drop D with palm-mute and let-ring lanes, tempo changes and a key change" loading="lazy">
+      <div>
+        <p class="num">01</p>
+        <h3>Notation that reads like Guitar Pro</h3>
+        <p>Standard notation and tab, joined by a bracket. You get time and key signatures, beamed rhythms, rests, tuplets,
+          section boxes, tempo marks and repeats. The tab shows P.M. and let-ring lanes, vibrato, slides and hammer-on arcs.</p>
+        <ul class="ticks">
+          <li>Any tuning from 4 to 12 strings</li>
+          <li>Presets for drop D, D and C standard, drop B and seven-string</li>
+          <li>Odd meters such as 7/8, 13/16 and 12/8, with tempo and key changes</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="feature flip">
+      <img src="images/guitario-playback.png" alt="Playback: the sounding beat highlighted on the page, the note on the fretboard, and the playhead in the global view" loading="lazy">
+      <div>
+        <p class="num">02</p>
+        <h3>Hear it, loop it, slow it down</h3>
+        <p>A plucked-string model plays palm mutes, dead notes, bends, vibrato and legato slides. Sampled drums, bass
+          and guitar come from an SFZ bank and play through an amp.</p>
+        <ul class="ticks">
+          <li>Loop a selection and slow it to 25% without changing pitch</li>
+          <li>Metronome, count-in, and the sounding note shown on the fretboard</li>
+          <li>Export WAV, FLAC or MIDI</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="feature">
+      <img src="images/guitario-bend-window.png" alt="The Bend window: a draggable curve for a full-step bend, with kinds for bend, release, bend and release, hold, prebend and prebend and bend" loading="lazy">
+      <div>
+        <p class="num">03</p>
+        <h3>Bends you draw</h3>
+        <p>There are seven bend kinds, from a quick quarter-tone to a prebend and release, and each is drawn on the page the way Guitar Pro
+          draws it. Open the Bend window to drag the curve's points, double-click to add one, and listen to the result. Whammy-bar dives and dips are written in the score too.</p>
+      </div>
+    </article>
+
+    <article class="feature flip">
+      <img src="images/guitario-drums.png" alt="Drum Grooves: a percussion staff with skank beat, d-beat and kick gallop, and the drum pad with kick, snare, hi-hat, toms and cymbals" loading="lazy">
+      <div>
+        <p class="num">04</p>
+        <h3>Drums, with a pad</h3>
+        <p>Drum-kit tracks get a percussion staff, a drum pad and a step grid. Guitar Pro's two-digit entry works too:
+          <kbd>3</kbd> then <kbd>6</kbd> is a kick.</p>
+        <ul class="ticks">
+          <li>A second voice for the feet</li>
+          <li>General MIDI drums with hi-hat choke</li>
+          <li>Drum tab export</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="feature wide">
+      <img src="images/guitario-print-preview.png" alt="Print Preview: an A4 page of Steel Horizon with title, tuning, tempo, tab, standard notation and lyrics, with options for this track, all tracks and a full score" loading="lazy">
+      <div>
+        <p class="num">05</p>
+        <h3>Pages that print</h3>
+        <p>File › Print Preview shows exactly what the PDF will contain: vector pages with embedded font subsets and selectable
+          text, one section per track. Choose A4, A5, Letter or Legal, portrait or landscape, and set your own margins.
+          Print from the app, or export from the command line.</p>
+      </div>
+    </article>
+
+    <div class="cards">
+      <div class="card">
+        <h4>Editing</h4>
+        <p>Fret entry from the keyboard or the fretboard and Guitar Pro's single-key techniques. Select, copy, cut, paste
+          and transpose. Voices 1 to 4, grace notes, trills, tremolo picking, chord diagrams and lyrics. Every edit can be undone.</p>
+      </div>
+      <div class="card">
+        <h4>Files</h4>
+        <p>Opens <code>.gp3</code>, <code>.gp4</code>, <code>.gp5</code>, <code>.gpx</code> and <code>.gp</code>, MIDI and MusicXML.
+          Saves <code>.gt</code> atomically. Exports <code>.gp</code>, <code>.gp5</code>, PDF, MIDI, WAV, FLAC and ASCII tab.</p>
+      </div>
+      <div class="card">
+        <h4>Practice</h4>
+        <p>A tuner, chord and scale tools, a fretboard that follows the music, and looped playback at any speed.
+          Built for learning a riff, not just writing one.</p>
+      </div>
+      <div class="card">
+        <h4>Fast and native</h4>
+        <p>egui on wgpu, with no webview. Audio runs on its own thread, so the UI never blocks it.
+          Layout, playback and file reading are timed against a budget on a 400-bar score.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="demos" class="section section-alt">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="kicker">Fifteen original metal pieces</p>
+      <h2>Load a demo, press Space.</h2>
+      <p>Thrash, doom, death, djent, power metal, black metal and more are all original compositions, generated from code and tested
+        on every change. Each one comes as a <code>.gt</code>, a Guitar Pro 5 file, MIDI and ASCII tab.</p>
+    </header>
+
+    <div class="demos">
+      <a class="demo" href="demos/01-thrash-attack.gp5"><b>01</b><strong>Thrash Attack</strong><span>Thrash · 190 bpm · Standard</span><em>Downpicked sixteenth chugs in E phrygian, a hammer-on pentatonic run</em></a>
+      <a class="demo" href="demos/02-funeral-procession.gp5"><b>02</b><strong>Funeral Procession</strong><span>Doom · 56 bpm · Drop C</span><em>Whole-note chords with let ring and vibrato, a slow bending lead</em></a>
+      <a class="demo" href="demos/03-burial-ground.gp5"><b>03</b><strong>Burial Ground</strong><span>Death metal · 200 bpm · Drop B</span><em>Thirty-second tremolo chugs, chromatic descents, a half-time breakdown</em></a>
+      <a class="demo" href="demos/04-steel-horizon.gp5"><b>04</b><strong>Steel Horizon</strong><span>Power metal · 168 bpm · Standard</span><em>Twin harmony leads in thirds, sweeping arpeggios, gallops</em></a>
+      <a class="demo" href="demos/05-seven-strings-deep.gp5"><b>05</b><strong>Seven Strings Deep</strong><span>Djent · 128 bpm · 7-string drop A</span><em>A 3+3+3+3+4 polyrhythm, a half-time breakdown, a pinch harmonic</em></a>
+      <a class="demo" href="demos/06-odd-meter-assault.gp5"><b>06</b><strong>Odd Meter Assault</strong><span>Progressive · 150 bpm · Drop D</span><em>7/8, 5/4, 13/16, 6/8 and 12/8 with tempo and key changes</em></a>
+      <a class="demo" href="demos/07-iron-gallop.gp5"><b>07</b><strong>Iron Gallop</strong><span>Heavy metal · 168 bpm · Standard</span><em>Harmonised twin leads in A minor over a galloping bass</em></a>
+      <a class="demo" href="demos/08-frostbitten-dawn.gp5"><b>08</b><strong>Frostbitten Dawn</strong><span>Black metal · 190 bpm · Standard</span><em>A tremolo-picked melody in F# minor, open-fifth tremolo chords</em></a>
+      <a class="demo" href="demos/09-breakdown-protocol.gp5"><b>09</b><strong>Breakdown Protocol</strong><span>Metalcore · 140 bpm · Drop B</span><em>Syncopated palm-muted chugs, dead notes, a slide-out</em></a>
+      <a class="demo" href="demos/10-ashes-to-distortion.gp5"><b>10</b><strong>Ashes to Distortion</strong><span>Ballad into heavy · 84 → 112 bpm</span><em>A fingerpicked nylon intro that the distorted band joins</em></a>
+      <a class="demo" href="demos/11-fretboard-fury.gp5"><b>11</b><strong>Fretboard Fury</strong><span>Shred solo · 140 bpm · Standard</span><em>Bends, legato runs, a shift slide, triplet pentatonics</em></a>
+      <a class="demo" href="demos/12-metal-technique-showcase.gp5"><b>12</b><strong>Technique Showcase</strong><span>Reference · 120 bpm · Standard</span><em>One bar per technique: slides, bends, harmonics, trills…</em></a>
+      <a class="demo" href="demos/13-bass-rumble.gp5"><b>13</b><strong>Bass Rumble</strong><span>Bass study · 180 bpm · Bass</span><em>Pick gallops, a climbing line and a fill over a rock beat</em></a>
+      <a class="demo" href="demos/14-drum-grooves.gp5"><b>14</b><strong>Drum Grooves</strong><span>Drum reference · 160 → 200 bpm</span><em>Skank beat, d-beat, double kick, blast beats, a tom fill</em></a>
+      <a class="demo" href="demos/15-two-voices.gp5"><b>15</b><strong>Two Voices</strong><span>Fingerstyle · 92 bpm · Standard</span><em>A melody in voice 1 over a bass in voice 2 on one staff</em></a>
+    </div>
+    <p class="fine">Each card downloads the Guitar Pro 5 file. The native <code>.gt</code>, MIDI and ASCII tab copies are in
+      <a href="https://github.com/this-user-does-not-exist/guitario/tree/main/demos"><code>demos/</code></a>.</p>
+  </div>
+</section>
+
+<section id="agents" class="section">
+  <div class="wrap split">
+    <div>
+      <p class="kicker">Built for agents</p>
+      <h2>Every edit is a command.</h2>
+      <p>Each action, from setting a fret to exporting a PDF, is an engine command with a stable id and JSON params.
+        The UI, the CLI and the tests all go through it, so anything you can click, a script or an AI agent can do too,
+        and each edit is one undo step.</p>
+      <ul class="ticks">
+        <li><code>guitario-cli commands</code> lists every command with its params</li>
+        <li><code>convert</code> goes between <code>.gt</code>, <code>.gp</code>, <code>.gp5</code>, PDF, MIDI, WAV, FLAC and text</li>
+        <li>A fuzz test sends hostile params to every registered command</li>
+      </ul>
+      <p class="fine">A live control channel and an MCP server are on the <a href="https://github.com/this-user-does-not-exist/guitario/blob/main/docs/gaps.md">roadmap</a>.</p>
+    </div>
+    <div class="code-stack">
+      <div class="code">
+        <p class="code-title">riff.json</p>
+<pre><span class="p">[</span>
+  <span class="p">[</span><span class="s">"score.setMeta"</span>,    <span class="p">{</span><span class="k">"title"</span>: <span class="s">"Chug Study"</span><span class="p">}]</span>,
+  <span class="p">[</span><span class="s">"measure.setTempo"</span>, <span class="p">{</span><span class="k">"bpm"</span>: <span class="n">190</span><span class="p">}]</span>,
+  <span class="p">[</span><span class="s">"cursor.set"</span>,       <span class="p">{</span><span class="k">"measure"</span>: <span class="n">0</span>, <span class="k">"beat"</span>: <span class="n">0</span>, <span class="k">"string"</span>: <span class="n">5</span><span class="p">}]</span>,
+  <span class="p">[</span><span class="s">"note.setFret"</span>,     <span class="p">{</span><span class="k">"fret"</span>: <span class="n">0</span><span class="p">}]</span>,
+  <span class="p">[</span><span class="s">"note.toggleEffect"</span>, <span class="p">{</span><span class="k">"effect"</span>: <span class="s">"palmMute"</span><span class="p">}]</span>
+<span class="p">]</span></pre>
+      </div>
+      <div class="code">
+        <p class="code-title">terminal</p>
+<pre><span class="c"># run the script and save the result</span>
+<span class="g">$</span> guitario-cli run - riff.json --save riff.gt
+
+<span class="c"># any format to any format</span>
+<span class="g">$</span> guitario-cli convert song.gp song.pdf
+<span class="g">$</span> guitario-cli convert riff.gt riff.wav</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="built" class="section section-alt">
+  <div class="wrap split">
+    <div>
+      <p class="kicker">How it's built</p>
+      <h2>Pure Rust, from bottom to top.</h2>
+      <p>There is no JavaScript, Tauri, Electron or webview anywhere. The desktop app is native
+        <a href="https://github.com/emilk/egui">egui</a> on wgpu, and everything below the UI also builds for WebAssembly.</p>
+      <dl class="rules">
+        <dt>Layered crates</dt>
+        <dd>A crate may depend only on lower layers, and <code>cargo xtask layers</code> enforces it on every change.</dd>
+        <dt>Never crash</dt>
+        <dd>Shipped code has no <code>unwrap</code>, <code>panic</code> or <code>unsafe</code>, every reader checks hostile input, and a failing command rolls back exactly.</dd>
+        <dt>Clean-room</dt>
+        <dd>Only behaviour and look are matched, from public format notes and observation. Nothing is copied from other tab software.</dd>
+      </dl>
+    </div>
+    <ol class="layers" aria-label="Crate layers, top to bottom">
+      <li style="--c:#a86ee6"><span>L6</span><b>ui-egui</b><em>the shell in Guitar Pro's layout</em></li>
+      <li style="--c:#e9a23b"><span>L5</span><b>engine</b><em>session and command registry</em></li>
+      <li style="--c:#e8622c"><span>L4</span><b>audio</b><em>sound-card output</em></li>
+      <li style="--c:#d94848"><span>L3</span><b>format · gp · musicxml</b><em>.gt, Guitar Pro 3–8, MusicXML</em></li>
+      <li style="--c:#3d8ef0"><span>L2</span><b>midi · playback</b><em>tempo map, synth, WAV</em></li>
+      <li style="--c:#3fb37a"><span>L1</span><b>score</b><em>the document model</em></li>
+      <li style="--c:#8a919c"><span>L0</span><b>theory</b><em>durations, tunings, pitch</em></li>
+    </ol>
+  </div>
+</section>
+
+<section id="status" class="section">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="kicker">Where it stands</p>
+      <h2>Alpha, and moving fast.</h2>
+      <p>Writing, arranging with drums, bends and the whammy bar, playing through an amp, practising with the tuner,
+        exchanging Guitar Pro, MIDI and MusicXML files, and PDF export all work end to end. The figures below are measured from the source tree.</p>
+    </header>
+    <div class="meters">
+      <div class="meter"><p><strong>173</strong> of 181</p><div class="bar"><i style="width:95.6%"></i></div><span>Guitar Pro menu items live</span></div>
+      <div class="meter"><p><strong>~66%</strong></p><div class="bar"><i style="width:66%"></i></div><span>of Guitar Pro 8, across weighted dimensions</span></div>
+      <div class="meter"><p><strong>6</strong> of 6</p><div class="bar"><i style="width:100%"></i></div><span>alpha-gate workflows pass</span></div>
+      <div class="meter"><p><strong>1</strong> of 8</p><div class="bar"><i style="width:12.5%"></i></div><span>beta-gate workflows pass end to end</span></div>
+    </div>
+    <p class="fine">Figures as of October 2026. See the <a href="https://github.com/this-user-does-not-exist/guitario/blob/main/ROADMAP.md">roadmap</a>,
+      the <a href="https://github.com/this-user-does-not-exist/guitario/blob/main/docs/gaps.md">ranked gaps</a> and the
+      <a href="https://github.com/this-user-does-not-exist/guitario/blob/main/docs/scorecard.md">scorecard</a>.</p>
+  </div>
+</section>
+
+<section id="get-started" class="section section-alt">
+  <div class="wrap split">
+    <div>
+      <p class="kicker">Get started</p>
+      <h2>Build it, open a demo, play.</h2>
+      <p>You need a recent stable Rust toolchain. Then click a beat, type a fret number and press <kbd>Space</kbd>.</p>
+      <p><code>cargo xtask package</code> builds a package for your platform into <code>dist/</code>: an app bundle and
+        disk image on macOS, a <code>.deb</code> and a tarball on Linux, and an installer on Windows. Releases are not signed yet.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="guide/">User guide</a>
+        <a class="btn" href="https://github.com/this-user-does-not-exist/guitario/blob/main/docs/contributing.md">Contribute</a>
+      </div>
+    </div>
+    <div class="code">
+      <p class="code-title">terminal</p>
+<pre><span class="g">$</span> git clone https://github.com/this-user-does-not-exist/guitario
+<span class="g">$</span> cd guitario
+<span class="g">$</span> cargo run --release -p guitario -- demos/01-thrash-attack.gt</pre>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div>
+      <a class="brand" href="#top"><img src="favicon.svg" alt="" width="22" height="22"> Guitario</a>
+      <p>Dual-licensed under MIT or Apache-2.0. © 2026 the Guitario contributors.</p>
+    </div>
+    <nav aria-label="Project links">
+      <a href="https://github.com/this-user-does-not-exist/guitario">Source</a>
+      <a href="guide/">User guide</a>
+      <a href="https://github.com/this-user-does-not-exist/guitario/issues">Issues</a>
+      <a href="https://github.com/this-user-does-not-exist/guitario/blob/main/SECURITY.md">Security</a>
+    </nav>
+    <p class="legal">Guitar Pro is a trademark of Arobas Music. Guitario is an independent, open-source project and is not
+      affiliated with, sponsored by or endorsed by Arobas Music. The name is used only to describe the workflows it is compatible with.</p>
+  </div>
+</footer>
+
+</body>
+</html>
