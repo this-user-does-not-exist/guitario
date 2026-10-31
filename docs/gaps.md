@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G1: drum articulations, flams, chokes; beta ~160–330 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G4: voice picking and shortcuts; beta ~158–322 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -28,14 +28,14 @@ Ranked by user impact on the way to beta.
 | 6 | [G8](#g8-ui-depth) UI depth | several documents, shortcuts audit, user book, click-to-edit, focus and track visibility | 50–95 | stylesheet window, floating panels, accessibility | 70–130 |
 | 7 | [G1](#g1-drums-depth) Drums | done | 0 | kit map editing, drum mix, sampled-kit articulations | 15–30 |
 | 8 | [G2](#g2-print-depth) Print | a real printer (human) | 0 + human | image export, stylesheet exchange with Guitar Pro | 10–20 |
-| 9 | [G4](#g4-notation-depth) Notation | voice picking in notation, voice shortcuts, tab slurs | 6–22 | slash and numbered notation, grand staff, clefs, Design Mode | 150–300 |
+| 9 | [G4](#g4-notation-depth) Notation | slurs across bars, in the tab and in Guitar Pro files | 4–14 | slash and numbered notation, grand staff, clefs, Design Mode | 150–300 |
 | 10 | [G10](#g10-automation) Automation | control channel, screenshots, MCP, ten agent tasks | 40–80 | | |
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~160–330 h** | | **~705–1,380 h** |
+| | **Total** | | **~158–322 h** | | **~705–1,380 h** |
 
-Beta plus after-beta is **~865–1,710 h** to full parity.
+Beta plus after-beta is **~863–1,702 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -180,15 +180,17 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 - **Estimate:** 0 h + human beta, 10–20 h after.
 
 ### G4. Notation depth
-- **Beta:** picking a voice by clicking its notehead in notation, voice shortcuts (⌘1 to 4 and
-  multivoice, #434, #435), slurs across bars and in the tab, room for a head that steps aside.
+- **Landed 2026-10-31:** picking a note and its voice by clicking its notehead, voice shortcuts
+  (⌘1 to 4, ⌘M; #434), moving a note to another voice; see the [changelog](changelog.md#g4-notation-depth).
+- **Beta:** slurs as Guitar Pro stores them (a chain across beats and bar lines, `<Legato>` in
+  GPIF) drawn across bars and in the tab, and exchanged; room for a head that steps aside.
 - **After beta:** slash and numbered notation and grand staff tracks (#54, #294, #309, #310,
   #370), clef changes (#277, #372), simile marks, multirests, octave lines, free text, accidental
   overrides (#375, #356, #376, #398, #400), Design Mode (#295 to 300), stem direction and beam
   overrides in Guitar Pro files, stylesheet switches (chord list, symbol texts, fingerings,
   #520 to 524), jianpu entry (#371).
 - **Evidence:** NOTE-13/14 (1.0); NOTE-3/4/5/9/12 and EDIT-9/16 are done and list what is left.
-- **Estimate:** 6–22 h beta, 150–300 h after.
+- **Estimate:** 4–14 h beta, 150–300 h after.
 
 ### G10. Automation
 - **Beta:** a JSON control channel over a local socket to drive the running app (#162), screenshots
@@ -240,6 +242,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | G4: a notehead click picks its note and voice, ⌘1-4 and ⌘M, note.moveToVoice (6–22 h to 4–14 h beta) |
 | 2026-10-31 | minor | G1: drum articulations as Guitar Pro 7 numbers them (rim shot, half-open hi-hat, ride edge, five chokes), flams, ghost brackets; heads, playback, `.gp`/`.gp5`/MusicXML/MIDI exchange (8–18 h to 0 beta) |
 | 2026-10-31 | minor | G1: the drum step grid (drums.grid, drums.setStep, the instrument view's Step grid; 15–30 h to 8–18 h beta); B3 has every piece |
 | 2026-10-19 | minor | G5: the bowed strings fitted to recordings of real ones, solo and sections (beta unchanged: the listening pass) |

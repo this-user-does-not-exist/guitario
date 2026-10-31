@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G1: drum articulations) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G4: voice picking and shortcuts) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -218,6 +218,19 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   notation only; a stale one after an edit is skipped, not a panic). Both have palette buttons
   (Beam and Slur popups next to the fermata; not yet checked by eye, the snapshot cuts the
   palette off).
+
+- **Landed 2026-10-31:** voices by hand, as the manual's voice page describes. A click on a
+  notehead in standard notation puts the cursor on that note's string (before, a notation click
+  kept the string); under Multivoice Editing it also moves the cursor into the note's voice, and
+  without it only the edited voice's heads answer, the others being locked (`page.rs` records each
+  head it draws; `a_click_on_a_notehead_picks_its_string_and_under_multivoice_its_voice` clicks
+  real painted heads). ⌘1 to ⌘4 move the cursor to a voice and ⌘M toggles Multivoice Editing (the
+  manual's table; Window › Minimize gives up ⌘M, and a test now refuses two menu items on one
+  shortcut). `note.moveToVoice` (`voice`) moves the cursor's note to the same moment in another
+  voice: into the beat that starts there, or into a beat of its own length carved from that
+  voice's rests; refused where that voice holds a note across the moment or on the string, one
+  undo step. The manual's ⌥1 to ⌥4 for it are left unbound because the catalog has ⌥1 to ⌥7 on the
+  note values; the shortcuts audit (#528 to 531) decides.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with

@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (drum step grid and articulations: editing 74 %; readiness ~66 %; beta ~160–330 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (drum step grid and articulations: editing 74 %; readiness ~66 %; beta ~158–322 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -19,8 +19,8 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 | **Menu parity** | 173 of 181 items live (96 %) | measured: `cargo xtask parity` |
 | **Feature breadth** (does each Guitar Pro feature exist?) | **~74 %** | partly measured, weights [below](#feature-breadth-74-weighted) |
 | **Readiness** (how deep is each dimension, weighted?) | **~66 %** (range 59–71) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~160–330 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~865–1,710 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| Remaining to **beta** | **~158–322 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~863–1,702 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -64,7 +64,7 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 | Dimension | Weight | % ready | Beta h | After beta h | Gaps | Evidence |
 |---|---:|---:|---:|---:|---|---|
 | Editing | 20% | 74% | 0 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends and the whammy bar have curves and editors, Paste Special, All-Track Copy, Unset; the drum step grid and articulations (G1) |
-| Notation | 15% | 74% | 6–22 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): all done; voice picking in notation is left |
+| Notation | 15% | 75% | 4–14 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): voices picked by their noteheads and the manual's shortcuts; slurs across bars and in Guitar Pro files are left |
 | Playback | 15% | 72% | 0 + human | 140–280 | G5 | a modelled grand piano and bowed strings (solo and sections) with resonating bodies; sampler (release samples, filters, curves, loops, OGG) with the bank installed from the app and an instrument per track, mixer, automations, effect chains, equalizer, mastering and articulations (synth and bank) in; master automation; samples in 16 bits, long ones streamed from disk (25 MB instead of 500 for the perf score); no pedalboard; checked by tests, not by ear |
 | Files and exchange | 10% | 72% | 0 + human | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 65–125 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view and homepage match Guitar Pro 8; depth (several documents, preferences, stylesheet) does not |
@@ -98,6 +98,7 @@ per format or subsystem, from its 1,004 merged PRs). The first measurement here,
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | Voice picking and shortcuts: notation 74% → 75%, its beta hours 6–22 → 4–14 |
 | 2026-10-31 | minor | Drum articulations: editing 72% → 74%, its beta hours 8–18 → 0; readiness stays ~66% |
 | 2026-10-31 | minor | The drum step grid: editing 70% → 72%, its beta hours 15–30 → 8–18; readiness stays ~66% |
 | 2026-10-18 | minor | A modelled grand piano and bowed strings (violin, viola, cello, double bass, sections) with resonating bodies: playback 70% → 72%; readiness stays ~66%; beta hours unchanged |
