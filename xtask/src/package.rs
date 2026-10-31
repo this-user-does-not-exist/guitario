@@ -138,7 +138,7 @@ fn deb_arch(arch: &str) -> &str {
 fn deb_control(version: &str, arch: &str, size_kb: u64) -> String {
     format!(
         "Package: guitario\nVersion: {version}\nSection: sound\nPriority: optional\nArchitecture: {}\nInstalled-Size: {size_kb}\n\
-         Maintainer: Guitario contributors <https://github.com/timothydaly1/guitario>\nHomepage: https://github.com/timothydaly1/guitario\n\
+         Maintainer: Guitario contributors <https://github.com/this-user-does-not-exist/guitario>\nHomepage: https://github.com/this-user-does-not-exist/guitario\n\
          Depends: libasound2t64 | libasound2\nRecommends: libxkbcommon0, libvulkan1 | libegl1, curl\nSuggests: git\n\
          Description: Guitar tablature and notation editor\n Write, play and print guitar tablature and standard notation; opens and saves\n Guitar Pro files, imports and exports MIDI and MusicXML.\n",
         deb_arch(arch)
