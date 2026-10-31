@@ -81,7 +81,7 @@ scores offscreen.
 edition palette that shows the current beat, selection with copy, cut, paste and transpose, voices
 1 to 4 with multivoice editing, grace notes, trills, tremolo picking, chord diagrams, lyrics, and
 undo for every edit. The menu bar is Guitar Pro's, and the items not built yet are greyed out
-([menu parity](docs/parity-checklist.md): 161 of 177 live).
+([menu parity](docs/parity-checklist.md): 173 of 181 live).
 
 **Files.** Opens Guitar Pro 3 to 8 files (`.gp3`, `.gp4`, `.gp5`, `.gpx`, `.gp`), including drum
 tracks. Saves `.gt` atomically. Exports `.gp`, `.gp5`, PDF, MIDI, WAV and ASCII tab. Checked on
@@ -148,9 +148,9 @@ Details: [architecture](docs/architecture.md), [contributing](docs/contributing.
 | | |
 |---|---|
 | **Stage** | alpha: the six-workflow [alpha gate](docs/roadmap.md#alpha-gate) passes |
-| **Beta gate** | 0 of 8 workflows pass end to end ([the eight](docs/roadmap.md#beta-gate)) |
-| **Menus** | 172 of 180 Guitar Pro menu items live |
-| **Readiness** | about 65 % of Guitar Pro 8, estimated from weighted dimensions |
+| **Beta gate** | 1 of 8 workflows pass end to end ([the eight](docs/roadmap.md#beta-gate)) |
+| **Menus** | 173 of 181 Guitar Pro menu items live |
+| **Readiness** | about 66 % of Guitar Pro 8, estimated from weighted dimensions |
 | **Languages** | English; the localization framework is a beta item |
 
 The [ROADMAP](ROADMAP.md) has every dimension and what comes next. [Gaps](docs/gaps.md) is the

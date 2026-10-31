@@ -88,7 +88,9 @@ Flags: `--tab-only`, `--playing` (shows the playback cursor without a sound card
 
 `cargo xtask scorecard` regenerates `docs/scorecard.md` from `scorecard/*.toml` and counts from the
 tree; `cargo xtask parity` regenerates `docs/parity-checklist.md` from the Guitar Pro menu catalog.
-CI runs both with `--check`. When parity rises, raise `FLOOR` in `crates/ui-egui/src/parity.rs`.
+CI runs both with `--check`. When parity rises, raise `FLOOR` in `crates/ui-egui/src/parity.rs`
+and update the menu count in `README.md` and `ROADMAP.md`: the scorecard fails while they disagree
+with the checklist.
 
 ## Demo suite
 

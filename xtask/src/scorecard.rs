@@ -6,12 +6,15 @@
 //! - counted from the tree: tests, engine commands, never-crash lint coverage, the demo suite, and
 //!   the live count in `docs/parity-checklist.md`.
 //!
-//! `--check` fails when `docs/scorecard.md` differs from what would be generated.
+//! `--check` fails when `docs/scorecard.md` differs from what would be generated. Both modes fail
+//! when a summary that quotes the menu count ([`SUMMARIES`]) disagrees with the checklist.
 
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
 pub const OUT: &str = "docs/scorecard.md";
+/// Hand-written pages that quote the live menu count.
+const SUMMARIES: [&str; 2] = ["README.md", "ROADMAP.md"];
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -233,10 +236,44 @@ pub fn render(lists: &[Checklist], m: &Measured) -> String {
     s
 }
 
+/// Every "N of M" on a line that mentions menus.
+fn menu_counts(text: &str) -> Vec<(u32, u32)> {
+    let mut out = Vec::new();
+    for line in text.lines().filter(|l| l.to_ascii_lowercase().contains("menu")) {
+        let words: Vec<&str> = line.split(|c: char| !c.is_ascii_alphanumeric()).filter(|w| !w.is_empty()).collect();
+        for w in words.windows(3) {
+            if let [n, "of", m] = w
+                && let (Ok(n), Ok(m)) = (n.parse(), m.parse())
+            {
+                out.push((n, m));
+            }
+        }
+    }
+    out
+}
+
+/// The summaries whose menu count differs from `live` (the checklist's "N of M menu items").
+fn stale_summaries(root: &Path, live: &str) -> Vec<String> {
+    let Some(&(n, m)) = menu_counts(live).first() else { return vec![format!("docs/parity-checklist.md: no live count in {live:?}")] };
+    let mut stale = Vec::new();
+    for page in SUMMARIES {
+        let text = std::fs::read_to_string(root.join(page)).unwrap_or_default();
+        for (a, b) in menu_counts(&text).into_iter().filter(|&c| c != (n, m)) {
+            stale.push(format!("{page} says {a} of {b} menu items live; docs/parity-checklist.md says {n} of {m}"));
+        }
+    }
+    stale
+}
+
 pub fn run(root: &Path, check: bool) -> Result<(), String> {
     let lists = checklists(root)?;
-    let text = render(&lists, &measure(root));
+    let measured = measure(root);
+    let text = render(&lists, &measured);
     let out = root.join(OUT);
+    let stale = stale_summaries(root, measured.parity.as_deref().unwrap_or(""));
+    if !stale.is_empty() {
+        return Err(stale.join("\n"));
+    }
     if check {
         let current = std::fs::read_to_string(&out).unwrap_or_default();
         if current != text {
@@ -270,6 +307,13 @@ mod tests {
     #[test]
     fn counts_commands_across_line_breaks() {
         assert_eq!(count_cmds("cmd(\"a\", 1)\ncmd(\n    \"b\",\n)\nconst fn cmd(id: &str)"), 2);
+    }
+
+    #[test]
+    fn finds_menu_counts_only_on_menu_lines() {
+        let page = "| **Menus** | 172 of 180 Guitar Pro menu items live |\n0 of 8 workflows\n([menu parity](x.md): 161 of 177 live)";
+        assert_eq!(menu_counts(page), vec![(172, 180), (161, 177)]);
+        assert_eq!(menu_counts("173 of 181 menu items (96%)"), vec![(173, 181)]);
     }
 
     #[test]
