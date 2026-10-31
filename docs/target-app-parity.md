@@ -63,7 +63,7 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 
 | Dimension | Weight | % ready | Beta h | After beta h | Gaps | Evidence |
 |---|---:|---:|---:|---:|---|---|
-| Editing | 20% | 70% | 15–30 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends and the whammy bar have curves and editors, Paste Special, All-Track Copy, Unset; no drum step grid (G1) |
+| Editing | 20% | 72% | 8–18 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends and the whammy bar have curves and editors, Paste Special, All-Track Copy, Unset; the drum step grid (G1); drum articulations are left |
 | Notation | 15% | 74% | 6–22 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): all done; voice picking in notation is left |
 | Playback | 15% | 72% | 0 + human | 140–280 | G5 | a modelled grand piano and bowed strings (solo and sections) with resonating bodies; sampler (release samples, filters, curves, loops, OGG) with the bank installed from the app and an instrument per track, mixer, automations, effect chains, equalizer, mastering and articulations (synth and bank) in; master automation; samples in 16 bits, long ones streamed from disk (25 MB instead of 500 for the perf score); no pedalboard; checked by tests, not by ear |
 | Files and exchange | 10% | 72% | 0 + human | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
@@ -98,6 +98,7 @@ subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | The drum step grid: editing 70% → 72%, its beta hours 15–30 → 8–18; readiness stays ~66% |
 | 2026-10-18 | minor | A modelled grand piano and bowed strings (violin, viola, cello, double bass, sections) with resonating bodies: playback 70% → 72%; readiness stays ~66%; beta hours unchanged |
 | 2026-10-18 | minor | Headers and footers with tokens (File › Stylesheet…, F7), printing selected bars, twelve paper formats and custom sizes: files 70% → 72%, menus 173/181; beta hours 185–380 → 175–360 |
 | 2026-10-18 | minor | Long samples stream from disk (25 MB instead of 500 MB for the perf score): playback 67% → 70%, readiness ~65% → ~66%; beta hours 200–415 → 185–380 |

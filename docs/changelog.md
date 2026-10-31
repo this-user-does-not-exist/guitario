@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-19 · **Change:** minor (G5: the bowed strings fitted to recordings, solo and sections; the piano fitted to recordings of two grands) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G1: the drum step grid) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -19,6 +19,16 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   triplet fill (`crates/engine/tests/demos.rs`).
 - **Landed 2026-10-16:** a second voice for the feet (stems down, hands up) as Guitar Pro writes
   drums: Edit › Voice 2, drawn and played, and read from `.gp5` and `.gp`.
+- **Landed 2026-10-31:** the step-grid drum editor (#98). On a drum track the instrument view's
+  gear offers **Pads** or **Step grid**; the grid shows the cursor's bar as ten kit pieces (and any
+  other piece the bar uses) × steps of an eighth, sixteenth or thirty-second, straight or in
+  triplets, with beat numbers, the cursor's and the playing beat's column lit, and a count of hits
+  between steps. A click runs `drums.setStep` (`drum`, `step`, `on?`, `measure?`, `resolution?`,
+  `triplet?`), one undo step a cell: a step where no beat starts splits the beat that covers it
+  into plain, dotted or triplet lengths, and a bar not yet full is padded with rests, so the
+  groove reads as ordinary beats in the tab and notation. `drums.grid` returns the same grid as
+  JSON for agents (`crates/engine/src/drum_grid.rs`, `crates/ui-egui/src/drum_grid.rs`; snapshot
+  flag `--drum-grid`).
 
 ### G2. Print depth
 - **Landed 2026-10-16:** PDF export (File › Export › PDF…, `file.exportPdf`, `guitario-cli convert

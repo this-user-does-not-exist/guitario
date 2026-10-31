@@ -94,9 +94,8 @@ note = "Session::run snapshots; failed_command_changes_nothing test"
 [[item]]
 id = "EDIT-15"
 target = "Drum tracks and a percussion editor"
-status = "partial"
-stage = "beta"
-note = "track.addDrums, note.setDrum, drum pad and two-digit GM entry (crates/engine/src/drums.rs, drum_tracks_take_kit_pieces_on_their_lanes); Voice 2 holds the feet (stems down) as Guitar Pro writes drums; no step grid"
+status = "done"
+note = "track.addDrums, note.setDrum, drum pad and two-digit GM entry (crates/engine/src/drums.rs, drum_tracks_take_kit_pieces_on_their_lanes); the step grid in the instrument view (drums.grid, drums.setStep: kit pieces × eighth to thirty-second steps or triplets, one undo step a cell, beats split where a step lands; crates/engine/src/drum_grid.rs, the_drum_step_grid_programs_a_beat_and_undoes_cell_by_cell); Voice 2 holds the feet (stems down) as Guitar Pro writes drums. Articulations beyond the kit map are G1's other beta item"
 
 [[item]]
 id = "EDIT-16"

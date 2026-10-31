@@ -33,7 +33,11 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     }
     let Some(track) = score.tracks.get(c.track) else { return };
     if track.is_drums() {
-        drum_pad(app, ui, track, c);
+        if app.view.drums.grid {
+            crate::drum_grid::show(app, ui, track, c);
+        } else {
+            drum_pad(app, ui, track, c);
+        }
         return;
     }
     let (beat, others) = instrument::beats(track, c, app.view.instrument);
