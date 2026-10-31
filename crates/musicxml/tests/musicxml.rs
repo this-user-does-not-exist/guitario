@@ -314,3 +314,24 @@ fn drum_articulations_and_flams_come_back() {
     assert!(b[1].notes.iter().any(|n| n.fret == 38 && n.effects.grace.is_some_and(|g| g.fret == 38)), "the flam");
     assert!(b[2].notes[0].effects.ghost);
 }
+
+#[test]
+fn a_slur_across_a_bar_line_comes_back() {
+    use guitario_score::{Measure, Note};
+    use guitario_theory::Duration;
+    let mut s = Score::new();
+    let h = s.headers[0].clone();
+    s.headers.push(h.clone());
+    s.tracks[0].measures.push(Measure::empty_for(&h));
+    for (mi, m) in s.tracks[0].measures.iter_mut().enumerate() {
+        m.voices[0].beats = (0..4u8).map(|i| Beat { rest: false, notes: vec![Note::new(1, i + 4 * mi as u8)], ..Beat::rest(Duration::QUARTER) }).collect();
+    }
+    for (m, b) in [(0, 2), (0, 3), (1, 0)] {
+        s.tracks[0].measures[m].voices[0].beats[b].legato = true;
+    }
+    let xml = export(&s).xml;
+    assert_eq!((xml.matches(r#"<slur type="start""#).count(), xml.matches(r#"<slur type="stop""#).count()), (1, 1));
+    let back = import(xml.as_bytes()).unwrap().score;
+    let legato = |s: &Score| -> Vec<bool> { s.tracks[0].measures.iter().flat_map(|m| &m.voices[0].beats).map(|b| b.legato).collect() };
+    assert_eq!(legato(&back), legato(&s));
+}

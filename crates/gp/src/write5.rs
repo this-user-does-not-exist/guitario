@@ -503,6 +503,9 @@ impl Writer {
     }
 
     fn beat(&mut self, t: &Track, b: &Beat, tempo: Option<u16>) {
+        if b.legato {
+            self.drop("slurs (Guitar Pro 5 has none)");
+        }
         let d = b.duration;
         let notes: Vec<(usize, &Note)> = if t.is_drums() {
             // Hits go on the drum track's strings in lane order; the fret is the drum number.

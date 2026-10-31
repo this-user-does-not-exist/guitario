@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G4: voice picking and shortcuts) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G4: slurs across bars, head room) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -231,6 +231,28 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   voice's rests; refused where that voice holds a note across the moment or on the string, one
   undo step. The manual's ⌥1 to ⌥4 for it are left unbound because the catalog has ⌥1 to ⌥7 on the
   note values; the shortcuts audit (#528 to 531) decides.
+
+- **Landed 2026-10-31 (second step):** slurs the way Guitar Pro stores them. A beat's
+  `legato` says it is slurred on to the next beat of its voice, across a bar line too, and a run of
+  them is one slur (`Beat::legato` replaces `Beat::slur`, which counted beats within one bar; older
+  `.gt` files are upgraded on opening, `Score::upgrade`). `beat.setSlur` now runs across bars, and
+  clearing it from any beat under a slur removes the whole slur. Each system draws its slurs once
+  its bars are painted: over (or under) the heads away from the stems, high enough to clear every
+  head under the slur, and over the tab's highest fret; a slur crossing a system break is open at
+  the system's edge (`page.rs` `slur_spans`). Bowed instruments play a run in one stroke as before.
+  `.gp` reads and writes `<Legato origin destination>` on every beat (checked on the corpus's
+  `slur_over_3_measures.gp` and `.gpx`, `slur_voices.gp`), a last beat slurred on to nothing is
+  cleared (`Score::end_slurs`); MusicXML writes and reads `<slur>` start and stop; `.gp5` has no
+  slurs and says so in the export's warnings. A stem-down head that steps right of a stem-up one
+  now widens its column by a head (`layout.rs` `stepped_aside`, sharing `notation::heads_clash`
+  with the painter). Tests: `a_slur_spans_notes_across_bars_and_never_starts_or_ends_on_a_rest`,
+  `notes_under_a_slur_are_marked_after_its_first` (across a bar line),
+  `a_placed_slur_is_one_arc_in_notation_and_one_over_the_tab`,
+  `slurs_run_from_their_first_beat_to_the_beat_after_and_across_system_breaks`,
+  `a_slur_across_a_bar_line_round_trips_as_a_legato_chain` (`.gp`),
+  `a_slur_across_a_bar_line_comes_back` (MusicXML),
+  `a_slur_saved_as_a_count_of_beats_opens_as_slurred_beats` (`.gt`),
+  `a_head_that_steps_aside_gets_room_in_its_column`.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with

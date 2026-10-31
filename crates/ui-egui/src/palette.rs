@@ -279,7 +279,7 @@ fn sections(s: &State) -> Vec<(&'static str, Vec<Button>)> {
         b(Art::Draw(draw_accent), "Accented note (A)", e.accent, hn, toggle("accent")),
         b(Art::Draw(draw_heavy_accent), "Heavily accented note", e.heavy_accent, hn, toggle("heavyAccent")),
         b(Art::Draw(draw_staccato), "Staccato", e.staccato, hn, toggle("staccato")),
-        b(Art::Draw(draw_slur), "Legato (slur)", beat.is_some_and(|b| b.slur.is_some()), hb, Act::Pop(Pop::Slur)),
+        b(Art::Draw(draw_slur), "Legato (slur)", beat.is_some_and(|b| b.legato), hb, Act::Pop(Pop::Slur)),
         b(Art::Italic("let\nring"), "Let ring (I)", e.let_ring, hn, toggle("letRing")),
         later(Art::Smufl('\u{E650}', 0.85, "Ped."), "Sustain pedal"),
         b(Art::Text("P.M."), "Palm mute (P)", e.palm_mute, hn, toggle("palmMute")),
@@ -791,7 +791,7 @@ fn popup(r: &egui::Response, kind: Pop, s: &State, acts: &mut Vec<Act>) {
                     ui.close();
                 }
             }
-            if ui.add_enabled(s.beat.is_some_and(|b| b.slur.is_some()), egui::Button::new("Remove slur")).clicked() {
+            if ui.add_enabled(s.beat.is_some_and(|b| b.legato), egui::Button::new("Remove slur")).clicked() {
                 acts.push(run("beat.setSlur", json!({"beats": null})));
                 ui.close();
             }

@@ -347,6 +347,31 @@ fn drum_articulations_flams_and_marks_round_trip() {
     assert_same("articulated kit", &as_gp(&s), &back);
 }
 
+/// Two bars of four quarters, slurred from the third beat of bar 1 to the second of bar 2.
+fn slurred_over_a_bar_line() -> Score {
+    let mut s = Score::new();
+    let h = s.headers[0].clone();
+    s.headers.push(h.clone());
+    s.tracks[0].measures.push(Measure::empty_for(&h));
+    for (mi, m) in s.tracks[0].measures.iter_mut().enumerate() {
+        m.voices[0].beats = (0..4u8).map(|i| Beat { rest: false, notes: vec![Note::new(1, i + 4 * mi as u8)], ..Beat::rest(Duration::QUARTER) }).collect();
+    }
+    for (m, b) in [(0, 2), (0, 3), (1, 0)] {
+        s.tracks[0].measures[m].voices[0].beats[b].legato = true;
+    }
+    s
+}
+
+#[test]
+fn a_slur_across_a_bar_line_round_trips_as_a_legato_chain() {
+    let s = slurred_over_a_bar_line();
+    let xml = score_gpif(&export_gp(&s).expect("export").bytes);
+    assert_eq!(xml.matches("<Legato origin=\"true\" destination=\"false\"/>").count(), 1, "one slur starts");
+    assert_eq!(xml.matches("<Legato origin=\"false\" destination=\"true\"/>").count(), 1, "and ends");
+    let (back, _, _) = round_trip(&s);
+    assert_same("slur", &as_gp(&s), &back);
+}
+
 #[test]
 fn a_long_score_exports_and_comes_back_whole() {
     let mut s = Score::new();

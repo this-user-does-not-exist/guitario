@@ -5,7 +5,7 @@
 use crate::fonts::{FontSet, sans, serif, serif_bold, serif_italic};
 use crate::glyphs::{self as g, Pen};
 use crate::layout::{LayoutMode, Metrics, PageBox, Part, SystemBox, layout_parts};
-use crate::notation::{Accidentals, Clef, beam_groups, spell, staff_pos};
+use crate::notation::{Accidentals, Clef, beam_groups, head_kind, heads_clash, spell, staff_pos};
 use crate::theme::{Tokens, tokens};
 use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
 use guitario_engine::Cursor;
@@ -182,6 +182,7 @@ pub fn paint_print_page(painter: &Painter, score: &Score, pl: &PrintLayout, page
                 t: &crate::theme::PAPER,
                 hits: Vec::new(),
                 heads: Default::default(),
+                slur_heads: Default::default(),
                 cursor_rect: None,
                 play: None,
                 play_rect: None,
@@ -265,6 +266,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
                 t,
                 hits: Vec::new(),
                 heads: Default::default(),
+                slur_heads: Default::default(),
                 cursor_rect: None,
                 play: view.play.filter(|_| mine),
                 play_rect: None,
@@ -447,6 +449,54 @@ struct Placed<'a> {
     x: f32,
     w: f32,
     beat: &'a Beat,
+    /// `(measure, beat)` in its voice.
+    at: (usize, usize),
+}
+
+/// A beat a slur touches, for drawing slurs across bar lines once the system is painted: where its
+/// arc end goes, whether it is slurred on to the next beat, whether one comes into it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct SlurPoint {
+    x: f32,
+    y: f32,
+    legato: bool,
+    from_prev: bool,
+}
+
+/// How far a slur `len` wide bulges: a short one by a staff space, a long one up to two and a half.
+fn slur_rise(len: f32, space: f32) -> f32 {
+    (space + len * 0.04).min(2.5 * space)
+}
+
+/// A slur in one system: from `a.x` to `b.x`, and the highest and lowest end `y` of the beats under
+/// it, so the arc can clear them all.
+type SlurSpan = (f32, f32, f32, f32);
+
+/// The arcs a voice's slurs make in a system running from `x0` to `x1`: from a slurred beat to
+/// the first beat after its run, opened at `x0` when a slur comes in from the system before and
+/// left open at `x1` when it goes on into the next.
+fn slur_spans(points: &[SlurPoint], x0: f32, x1: f32) -> Vec<SlurSpan> {
+    let mut out = Vec::new();
+    // Where the open slur starts, and the extent of the beats it covers so far.
+    let mut open: Option<(f32, f32, f32)> = None;
+    for (i, p) in points.iter().enumerate() {
+        if i == 0 && p.from_prev {
+            open = Some((x0, p.y, p.y));
+        }
+        match open {
+            Some((a, lo, hi)) if !p.legato => {
+                out.push((a, p.x, lo.min(p.y), hi.max(p.y)));
+                open = None;
+            }
+            Some((a, lo, hi)) => open = Some((a, lo.min(p.y), hi.max(p.y))),
+            None if p.legato => open = Some((p.x, p.y, p.y)),
+            None => {}
+        }
+    }
+    if let Some((a, lo, hi)) = open {
+        out.push((a, x1, lo, hi));
+    }
+    out
 }
 
 struct Ctx<'a> {
@@ -470,6 +520,8 @@ struct Ctx<'a> {
     multivoice: bool,
     /// The noteheads drawn in standard notation, so a click on one picks its voice and string.
     heads: std::cell::RefCell<Vec<HeadHit>>,
+    /// Per voice, the notation's slurred beats in this system, in order, for [`Ctx::slurs`].
+    slur_heads: std::cell::RefCell<Vec<(usize, SlurPoint, bool)>>,
 }
 
 /// A notehead in standard notation: where it was drawn and the note it is.
@@ -508,18 +560,6 @@ fn onsets(beats: &[Beat]) -> Vec<u32> {
             start
         })
         .collect()
-}
-
-/// Whether a stem-down chord at `down` must step right of a stem-up one at `up` sounding with it
-/// (staff positions, and each one's head kind and dots): a second between them, or one pitch in
-/// both with different heads or dots. Identical heads on one pitch are shared.
-fn heads_clash(up: &[i32], (up_kind, up_dots): (u32, u8), down: &[i32], (kind, dots): (u32, u8)) -> bool {
-    down.iter().any(|p| up.iter().any(|q| (p - q).abs() == 1 || (p == q && (up_kind != kind || up_dots != dots))))
-}
-
-/// The notehead a beat takes: whole, half or black.
-fn head_kind(beat: &Beat) -> u32 {
-    beat.duration.value.divisor().min(4)
 }
 
 /// The key of bar `mi`, C when there is no such bar.
@@ -889,7 +929,7 @@ impl<'a> Ctx<'a> {
                         }
                     }
                     if let Some((_, list)) = placed.get_mut(slot) {
-                        list.push(Placed { x, w, beat });
+                        list.push(Placed { x, w, beat, at: (mb.index, bi) });
                     }
                 }
             }
@@ -913,7 +953,60 @@ impl<'a> Ctx<'a> {
         if !m.notation {
             self.tab_rhythm(sys, x0, tb);
         }
+        self.slurs(&placed, x0, x1, tt);
         self.lyrics_lane(top, &voice1_x, x1);
+    }
+
+    /// Whether the beat before `beat` of `voice` (in the bar before for the first) is slurred on.
+    fn slurred_into(&self, voice: usize, measure: usize, beat: usize) -> bool {
+        let prev = match beat.checked_sub(1) {
+            Some(b) => self.track.measures.get(measure).and_then(|m| m.voices.get(voice)).and_then(|v| v.beats.get(b)),
+            None => measure.checked_sub(1).and_then(|m| self.track.measures.get(m)).and_then(|m| m.voices.get(voice)).and_then(|v| v.beats.last()),
+        };
+        prev.is_some_and(|b| b.legato)
+    }
+
+    /// The system's slurs, across its bar lines: in notation over (or under) the outer heads, away
+    /// from the stems, and in the tablature over the highest fret.
+    fn slurs(&self, placed: &[(usize, Vec<Placed>)], x0: f32, x1: f32, tt: f32) {
+        let (m, s) = (self.m, self.m.space);
+        let heads = std::mem::take(&mut *self.slur_heads.borrow_mut());
+        let mut voices: Vec<usize> = heads.iter().map(|h| h.0).collect();
+        voices.sort_unstable();
+        voices.dedup();
+        for voice in voices {
+            let points: Vec<SlurPoint> = heads.iter().filter(|h| h.0 == voice).map(|h| h.1).collect();
+            let above = heads.iter().find(|h| h.0 == voice).is_none_or(|h| h.2);
+            let stroke = Stroke::new((0.18 * s).max(1.0), self.voice_ink(voice));
+            for (a, b, lo, hi) in slur_spans(&points, x0, x1) {
+                let y = if above { lo } else { hi };
+                let dir = if above { -1.0 } else { 1.0 };
+                g::arc(self.p(), pos2(a + 0.4 * s, y), pos2(b - 0.4 * s, y), dir * slur_rise(b - a, s), stroke);
+            }
+        }
+        if !m.tab || m.drums {
+            return;
+        }
+        for (voice, list) in placed {
+            let points: Vec<SlurPoint> = list
+                .iter()
+                .filter(|pb| !pb.beat.rest)
+                .filter_map(|pb| {
+                    let from_prev = self.slurred_into(*voice, pb.at.0, pb.at.1);
+                    let top = pb.beat.notes.iter().map(|n| n.string).min()?;
+                    (pb.beat.legato || from_prev).then(|| SlurPoint {
+                        x: pb.x,
+                        y: self.tab_y(tt, usize::from(top)) - 0.7 * m.tab_gap,
+                        legato: pb.beat.legato,
+                        from_prev,
+                    })
+                })
+                .collect();
+            let stroke = Stroke::new((0.14 * s).max(1.0), self.voice_ink(*voice));
+            for (a, b, lo, _) in slur_spans(&points, x0, x1) {
+                g::arc(self.p(), pos2(a + 0.3 * s, lo), pos2(b - 0.3 * s, lo), -slur_rise(b - a, s) * 0.8, stroke);
+            }
+        }
     }
 
     /// The lines of lyrics under the system: each syllable centred under its beat, a hyphen midway
@@ -1628,16 +1721,12 @@ impl<'a> Ctx<'a> {
                         g::arc(self.p(), pos2(from + 0.6 * head_w, y), pos2(info.x - 0.6 * head_w, y), dir * 0.9 * s, arc);
                     }
                 }
-                // A slur the user placed: from the outer head of this beat to that of a later one.
-                if let Some(to) = beat.slur.and_then(|k| xs.get(bi + usize::from(k))).filter(|_| !beat.rest) {
-                    let end = bi + usize::from(beat.slur.unwrap_or(0));
-                    if let Some(Some(end_info)) = infos.get(end) {
-                        let outer = |i: &Info| if above { i.pos.last() } else { i.pos.first() }.map_or(4, |h| h.0);
-                        let lift = if above { -1.0 } else { 1.0 };
-                        let (y0, y1) = (self.nota_y(nt, outer(info)) + lift * 0.9 * s, self.nota_y(nt, outer(end_info)) + lift * 0.9 * s);
-                        let y = if above { y0.min(y1) } else { y0.max(y1) };
-                        g::arc(self.p(), pos2(info.x + 0.3 * head_w, y), pos2(mx + to - 0.3 * head_w, y), dir * 1.4 * s, arc);
-                    }
+                // A slur the user placed: its ends are drawn with the system's (it may cross bars).
+                let from_prev = self.slurred_into(slot, measure, bi);
+                if beat.legato || from_prev {
+                    let outer = if above { info.pos.last() } else { info.pos.first() }.map_or(4, |h| h.0);
+                    let y = self.nota_y(nt, outer) + dir * 0.9 * s;
+                    self.slur_heads.borrow_mut().push((slot, SlurPoint { x: info.x, y, legato: beat.legato, from_prev }, above));
                 }
                 for n in &beat.notes {
                     let Some(&(_, pos)) = info.by_string.iter().find(|(st, _)| *st == n.string) else { continue };
@@ -2905,18 +2994,45 @@ mod tests {
     }
 
     #[test]
-    fn a_placed_slur_is_one_arc_in_notation_and_nothing_in_the_tab() {
+    fn a_placed_slur_is_one_arc_in_notation_and_one_over_the_tab() {
         let plain = two_notes(|_| {}, |_| {});
         let mut slurred = plain.clone();
-        if let Some(b) = slurred.tracks[0].measures[0].voices[0].beats.first_mut() {
-            b.slur = Some(1);
-        }
-        assert_eq!(curves(&slurred, true), curves(&plain, true) + 1);
-        assert_eq!(curves(&slurred, false), curves(&plain, false));
-        // One that runs off the bar (a stale value after an edit) is skipped, not a panic.
-        if let Some(b) = slurred.tracks[0].measures[0].voices[0].beats.first_mut() {
-            b.slur = Some(30);
-        }
-        assert_eq!(curves(&slurred, true), curves(&plain, true));
+        slurred.tracks[0].measures[0].voices[0].beats[0].legato = true;
+        // Tab alone: one arc over the frets; with notation, one more over the heads.
+        assert_eq!(curves(&slurred, false), curves(&plain, false) + 1);
+        assert_eq!(curves(&slurred, true), curves(&plain, true) + 2);
+        // Slurred on from the last beat of a bar into the next bar: still one slur.
+        let mut across = plain.clone();
+        let h = across.headers[0].clone();
+        across.headers.push(h);
+        let mut next = across.tracks[0].measures[0].clone();
+        next.voices[0].beats.swap(0, 2);
+        across.tracks[0].measures.push(next);
+        let plain_two = across.clone();
+        across.tracks[0].measures[0].voices[0].beats[1].legato = true;
+        across.tracks[0].measures[0].voices[0].beats[2].legato = true;
+        assert_eq!(curves(&across, false), curves(&plain_two, false) + 1);
+        // One slurred off the end of the score is drawn to the end of the system, not a panic.
+        let mut dangling = plain.clone();
+        dangling.tracks[0].measures[0].voices[0].beats[1].legato = true;
+        assert_eq!(curves(&dangling, false), curves(&plain, false) + 1);
+    }
+
+    #[test]
+    fn slurs_run_from_their_first_beat_to_the_beat_after_and_across_system_breaks() {
+        let pt = |x: f32, legato: bool, from_prev: bool| SlurPoint { x, y: 0.0, legato, from_prev };
+        let xs = |spans: Vec<SlurSpan>| spans.iter().map(|s| (s.0, s.1)).collect::<Vec<_>>();
+        // A run over three beats ends on the fourth; a second slur starts later.
+        let points = [pt(10.0, true, false), pt(20.0, true, true), pt(30.0, false, true), pt(40.0, true, false), pt(50.0, false, true)];
+        assert_eq!(xs(slur_spans(&points, 0.0, 100.0)), vec![(10.0, 30.0), (40.0, 50.0)]);
+        // Coming in from the system before, and going on into the next.
+        assert_eq!(xs(slur_spans(&[pt(10.0, false, true)], 0.0, 100.0)), vec![(0.0, 10.0)]);
+        assert_eq!(xs(slur_spans(&[pt(10.0, true, true)], 0.0, 100.0)), vec![(0.0, 100.0)]);
+        assert_eq!(xs(slur_spans(&[pt(90.0, true, false)], 0.0, 100.0)), vec![(90.0, 100.0)]);
+        assert!(slur_spans(&[], 0.0, 100.0).is_empty());
+        // The arc clears the highest and lowest beat under it, not just its ends.
+        let hill =
+            [SlurPoint { y: 5.0, ..pt(10.0, true, false) }, SlurPoint { y: -8.0, ..pt(20.0, true, true) }, SlurPoint { y: 4.0, ..pt(30.0, false, true) }];
+        assert_eq!(slur_spans(&hill, 0.0, 100.0), vec![(10.0, 30.0, -8.0, 5.0)]);
     }
 }

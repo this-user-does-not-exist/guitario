@@ -2394,7 +2394,7 @@ mod tests {
     fn a_slur_is_one_bow_stroke_and_the_next_note_changes_bow() {
         let q = Duration::QUARTER;
         let note = |fret| Beat { rest: false, notes: vec![Note::new(1, fret)], ..Beat::rest(q) };
-        let s = on_instrument(40, guitario_theory::Tuning::violin(), vec![Beat { slur: Some(1), ..note(0) }, note(2), note(4), Beat::rest(q)]);
+        let s = on_instrument(40, guitario_theory::Tuning::violin(), vec![Beat { legato: true, ..note(0) }, note(2), note(4), Beat::rest(q)]);
         let mut p = Player::new(&s, 44_100, Options::default());
         p.play_from(0.0);
         let mut directions = Vec::new();
@@ -2465,7 +2465,7 @@ mod tests {
             beats.push(Beat {
                 rest: false,
                 notes: vec![n, Note::new(((i + 3) % 6) as u8, 36)],
-                slur: Some(2),
+                legato: true,
                 tremolo: (i == 7).then_some(guitario_score::TremoloSpeed::ThirtySecond),
                 ..Beat::rest(e)
             });

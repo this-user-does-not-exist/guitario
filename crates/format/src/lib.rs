@@ -51,13 +51,14 @@ pub fn from_bytes(bytes: &[u8]) -> Result<Score, FormatError> {
     if bytes.len() > MAX_BYTES {
         return Err(FormatError::TooLarge);
     }
-    let file: FileIn = serde_json::from_slice(bytes)?;
+    let mut file: FileIn = serde_json::from_slice(bytes)?;
     if file.format != FORMAT {
         return Err(FormatError::NotGuitario);
     }
     if file.version > VERSION {
         return Err(FormatError::TooNew(file.version));
     }
+    file.score.upgrade();
     file.score.validate()?;
     Ok(file.score)
 }
@@ -97,6 +98,25 @@ mod tests {
         let mut s = Score::new();
         s.meta.title = "Test".into();
         assert_eq!(from_bytes(&to_bytes(&s).unwrap()).unwrap(), s);
+    }
+
+    #[test]
+    fn a_slur_saved_as_a_count_of_beats_opens_as_slurred_beats() {
+        // Before 2026-10-31 a slur was `"slur": n` on its first beat: n beats on in the bar.
+        let mut s = Score::new();
+        let q = guitario_theory::Duration::QUARTER;
+        let note = guitario_score::Beat { rest: false, notes: vec![guitario_score::Note::new(0, 3)], ..guitario_score::Beat::rest(q) };
+        s.tracks[0].measures[0].voices[0].beats = vec![note.clone(), note.clone(), note.clone(), note];
+        let mut v: serde_json::Value = serde_json::from_slice(&to_bytes(&s).unwrap()).unwrap();
+        v["score"]["tracks"][0]["measures"][0]["voices"][0]["beats"][0]["slur"] = serde_json::json!(2);
+        // One that runs past the bar (stale) stops at its last beat.
+        v["score"]["tracks"][0]["measures"][0]["voices"][0]["beats"][2]["slur"] = serde_json::json!(9);
+        let back = from_bytes(&serde_json::to_vec(&v).unwrap()).unwrap();
+        let legato: Vec<bool> = back.tracks[0].measures[0].voices[0].beats.iter().map(|b| b.legato).collect();
+        assert_eq!(legato, [true, true, true, false]);
+        // Saved again, the new form only.
+        let text = String::from_utf8(to_bytes(&back).unwrap()).unwrap();
+        assert!(text.contains("\"legato\": true") && !text.contains("\"slur\""));
     }
 
     #[test]

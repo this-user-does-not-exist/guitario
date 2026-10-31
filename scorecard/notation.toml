@@ -31,7 +31,7 @@ note = "beams slope with the outer notes (at most a staff space, flat over an in
 id = "NOTE-5"
 target = "Ties and slurs drawn between notes in standard notation"
 status = "done"
-note = "tie arcs in notation and tab, across bar lines and system breaks; slurs for hammer-ons, pull-offs and legato slides; several voices with stems up and down, the stem-down head stepping right of a second or of a different head on one pitch (page.rs heads_clash, layout.rs, page::tests); user-placed slurs are not modelled"
+note = "tie arcs in notation and tab, across bar lines and system breaks; slurs for hammer-ons, pull-offs and legato slides; several voices with stems up and down, the stem-down head stepping right of a second or of a different head on one pitch, with its column widened to make room (notation::heads_clash, layout.rs stepped_aside, a_head_that_steps_aside_gets_room_in_its_column); user-placed slurs as Guitar Pro chains them (`Beat::legato`, slurred on to the next beat of the voice, across bar lines; beat.setSlur), drawn once per system over the heads and over the tab's highest fret, clearing every beat under them and open at a system break (page.rs slur_spans); older `.gt` slurs are upgraded on opening"
 
 [[item]]
 id = "NOTE-6"

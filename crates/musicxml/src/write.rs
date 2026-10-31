@@ -758,6 +758,13 @@ impl Writer<'_> {
             if tie_start {
                 notations.push_str(r#"<tied type="start"/>"#);
             }
+            // A slur stops on the first beat after its run and starts on its first slurred beat.
+            if first && prev.is_some_and(|p| p.legato) && !beat.legato {
+                notations.push_str(r#"<slur type="stop" number="1"/>"#);
+            }
+            if first && beat.legato && !prev.is_some_and(|p| p.legato) {
+                notations.push_str(r#"<slur type="start" number="1"/>"#);
+            }
             if first {
                 notations.push_str(&tuplet_marks);
             }

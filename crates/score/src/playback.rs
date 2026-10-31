@@ -219,6 +219,8 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
         let feel_of = track.interpretation;
         // Automatic let ring: the notes of each voice still ringing, until a rest stops them.
         let mut ringing: Vec<Vec<usize>> = Vec::new();
+        // Per voice: whether the last beat played is slurred to the next.
+        let mut slur_from: Vec<bool> = Vec::new();
         for &mi in &order {
             let Some(measure) = track.measures.get(mi) else { continue };
             let capacity = score.headers.get(mi).map_or(0, |h| h.capacity());
@@ -234,13 +236,15 @@ pub fn timeline(score: &Score) -> Vec<PlayedBeat> {
                 }
                 let Some(ties) = open_tie.get_mut(vi) else { continue };
                 let mut at = clock;
-                // The last beat the slurs drawn so far reach.
-                let mut slur_until: Option<usize> = None;
-                for (bi, beat) in voice.beats.iter().enumerate() {
-                    let slurred = slur_until.is_some_and(|end| bi <= end);
-                    if let Some(n) = beat.slur {
-                        let end = bi.saturating_add(usize::from(n));
-                        slur_until = Some(slur_until.map_or(end, |e| e.max(end)));
+                for beat in &voice.beats {
+                    // Under a slur: the beat before it in its voice (in the bar before, as played)
+                    // is slurred on to it.
+                    let slurred = slur_from.get(vi).copied().unwrap_or(false);
+                    if slur_from.len() <= vi {
+                        slur_from.resize(vi + 1, false);
+                    }
+                    if let Some(f) = slur_from.get_mut(vi) {
+                        *f = beat.legato;
                     }
                     let ticks = beat.duration.ticks();
                     // Swung start and end of this beat.
@@ -866,9 +870,18 @@ mod tests {
         let mut s = Score::new();
         let q = Duration::QUARTER;
         let note = |fret| Beat { rest: false, notes: vec![Note::new(0, fret)], ..Beat::rest(q) };
-        s.tracks[0].measures[0].voices[0].beats = vec![Beat { slur: Some(2), ..note(0) }, note(2), note(3), note(5)];
+        s.tracks[0].measures[0].voices[0].beats = vec![Beat { legato: true, ..note(0) }, Beat { legato: true, ..note(2) }, note(3), note(5)];
         let slurred: Vec<bool> = timeline(&s).iter().map(|p| p.slurred).collect();
         assert_eq!(slurred, [false, true, true, false]);
+        // Across a bar line: the last beat of bar 1 slurs into the first of bar 2.
+        let h = s.headers[0].clone();
+        s.headers.push(h);
+        let mut next = s.tracks[0].measures[0].clone();
+        next.voices[0].beats.iter_mut().for_each(|b| b.legato = false);
+        s.tracks[0].measures.push(next);
+        s.tracks[0].measures[0].voices[0].beats[3].legato = true;
+        let slurred: Vec<bool> = timeline(&s).iter().map(|p| p.slurred).collect();
+        assert_eq!(slurred, [false, true, true, false, true, false, false, false]);
     }
 
     #[test]
