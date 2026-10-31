@@ -61,6 +61,9 @@ pub struct Output {
     pub drag: Option<Range>,
     pub cursor_rect: Option<Rect>,
     pub play_rect: Option<Rect>,
+    /// The clickable noteheads of the cursor's track: rectangle, voice and string.
+    #[cfg(test)]
+    heads: Vec<(Rect, usize, u8)>,
 }
 
 /// The layout metrics for `track`: a drum staff or notation over tab, with room for chord names.
@@ -178,6 +181,7 @@ pub fn paint_print_page(painter: &Painter, score: &Score, pl: &PrintLayout, page
                 // Paper is white and the inks are the score's own, whatever the theme.
                 t: &crate::theme::PAPER,
                 hits: Vec::new(),
+                heads: Default::default(),
                 cursor_rect: None,
                 play: None,
                 play_rect: None,
@@ -201,7 +205,14 @@ pub fn paint_print_page(painter: &Painter, score: &Score, pl: &PrintLayout, page
 }
 
 pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Output {
-    let none = Output { click: None, drag: None, cursor_rect: None, play_rect: None };
+    let none = Output {
+        click: None,
+        drag: None,
+        cursor_rect: None,
+        play_rect: None,
+        #[cfg(test)]
+        heads: Vec::new(),
+    };
     if score.tracks.get(cursor.track).is_none() {
         return none;
     }
@@ -253,6 +264,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
                 cursor: if mine { cursor } else { Cursor { track: p.index, measure: usize::MAX, ..Cursor::default() } },
                 t,
                 hits: Vec::new(),
+                heads: Default::default(),
                 cursor_rect: None,
                 play: view.play.filter(|_| mine),
                 play_rect: None,
@@ -297,9 +309,15 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
         let string = (m.tab && pos.y >= h.tab_top - m.tab_gap / 2.0 && pos.y <= h.tab_top + m.tab_h() + m.tab_gap / 2.0)
             .then(|| (((pos.y - h.tab_top) / m.tab_gap).round().max(0.0) as usize).min(cx.track.string_count().saturating_sub(1)));
         let h = pick(&cx.hits, pos, string).unwrap_or(h);
-        let voice = (cx.multivoice && !h.edit).then_some(h.voice);
+        // A notehead in standard notation names its note: its string, and under Multivoice
+        // Editing its voice.
+        let head = cx.heads.borrow().iter().find(|hh| hh.rect.contains(pos)).map(|hh| (hh.measure, hh.beat, hh.voice, hh.string));
+        let (measure, beat, string, voice) = match head {
+            Some((measure, beat, voice, st)) => (measure, beat, Some(usize::from(st)), (voice != edit_voice(cx)).then_some(voice)),
+            None => (h.measure, h.beat, string, (cx.multivoice && !h.edit).then_some(h.voice)),
+        };
         let shift = ui.input(|i| i.modifiers.shift) && voice.is_none();
-        click = Some(Click::Beat { track: cx.cursor.track, measure: h.measure, beat: h.beat, string, voice, shift });
+        click = Some(Click::Beat { track: cx.cursor.track, measure, beat, string, voice, shift });
     }
     let mine = ctxs.iter().find(|c| c.cursor.track == cursor.track);
     // Off-screen systems are not painted, so a playing bar out of view has no mark yet: aim at
@@ -324,7 +342,14 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
     } else {
         None
     };
-    Output { click, drag, cursor_rect: mine.and_then(|c| c.cursor_rect), play_rect }
+    Output {
+        click,
+        drag,
+        cursor_rect: mine.and_then(|c| c.cursor_rect),
+        play_rect,
+        #[cfg(test)]
+        heads: mine.map(|c| c.heads.borrow().iter().map(|h| (h.rect, h.voice, h.string)).collect()).unwrap_or_default(),
+    }
 }
 
 /// One header or footer text on the line whose top is `y`, placed across the printable width.
@@ -391,6 +416,11 @@ fn paint_systems(ctxs: &mut [Ctx], page: &PageBox, rect: Rect, first_page: bool)
     }
 }
 
+/// The voice `cx`'s cursor edits.
+fn edit_voice(cx: &Ctx) -> usize {
+    cx.cursor.voice.min(guitario_score::MAX_VOICES - 1)
+}
+
 /// The beat a click at `pos` lands on. Under Multivoice Editing several voices' beats may be
 /// there: the one with a note on the clicked string wins, else the voice being edited.
 fn pick(hits: &[Hit], pos: egui::Pos2, string: Option<usize>) -> Option<&Hit> {
@@ -438,6 +468,17 @@ struct Ctx<'a> {
     lyrics: Vec<Vec<(usize, usize, guitario_score::Syllable)>>,
     /// Multivoice Editing: voices in colour and clickable. Never on paper.
     multivoice: bool,
+    /// The noteheads drawn in standard notation, so a click on one picks its voice and string.
+    heads: std::cell::RefCell<Vec<HeadHit>>,
+}
+
+/// A notehead in standard notation: where it was drawn and the note it is.
+struct HeadHit {
+    rect: Rect,
+    measure: usize,
+    beat: usize,
+    voice: usize,
+    string: u8,
 }
 
 /// Where in a bar (from its left edge) the beat starting `tick` ticks in sits: the first drawn
@@ -1267,7 +1308,7 @@ impl<'a> Ctx<'a> {
                 let j = pv.beats.iter().rposition(|b| !b.rest && b.note_on(string).is_some())?;
                 Some(pmx + cols.beats.get(j)?)
             };
-            self.notation_voice(h, &voice.beats, &xs, (vc.voice, multi), (mx, nt), &incoming, &mut acc);
+            self.notation_voice(h, mb.index, &voice.beats, &xs, (vc.voice, multi), (mx, nt), &incoming, &mut acc);
         }
     }
 
@@ -1289,6 +1330,7 @@ impl<'a> Ctx<'a> {
     fn notation_voice(
         &self,
         h: &MeasureHeader,
+        measure: usize,
         beats: &[Beat],
         xs: &[f32],
         (slot, multi): (usize, bool),
@@ -1464,6 +1506,13 @@ impl<'a> Ctx<'a> {
                 }
                 let glyph = if *kind == "n" { head } else { g::head_for(kind, info.div) };
                 self.pen.glyph(glyph, pos2(hx, y), ink);
+                // Clickable when its voice is (the edited one, or any under Multivoice Editing).
+                if let Some(&(string, _)) = info.by_string.iter().find(|(_, p)| p == pos)
+                    && (self.multivoice || slot == self.cursor.voice.min(guitario_score::MAX_VOICES - 1))
+                {
+                    let rect = Rect::from_center_size(pos2(hx + hw / 2.0, y), vec2(hw + 0.2 * s, s));
+                    self.heads.borrow_mut().push(HeadHit { rect, measure, beat: i, voice: slot, string });
+                }
                 // A ghost note is bracketed.
                 if info.ghosts.contains(pos) {
                     let pw = self.pen.width(g::PAREN_LEFT);
@@ -2465,6 +2514,61 @@ mod tests {
         assert_eq!((inked(true, false, one), inked(true, false, two)), (4, 4), "four frets in each voice's colour");
         assert_eq!(inked(true, true, one), 0, "paper is always black");
         assert!(inked(true, true, tokens().ink) >= 8);
+    }
+
+    /// Clicks the first notehead `want` accepts in a one-bar, two-voice score (Voice 1 on the
+    /// B string, Voice 2 on the low E) and returns what the click asked for.
+    fn click_head(multivoice: bool, cursor_voice: usize, want: fn(usize, u8) -> bool) -> Option<(Option<usize>, Option<usize>)> {
+        let mut score = Score::new();
+        let half = guitario_theory::Duration::new(guitario_theory::NoteValue::Half);
+        let beat = |string: u8, fret: u8| Beat { rest: false, notes: vec![guitario_score::Note::new(string, fret)], ..Beat::rest(half) };
+        score.tracks[0].measures[0].voices =
+            vec![guitario_score::Voice { beats: vec![beat(1, 1), beat(1, 3)] }, guitario_score::Voice { beats: vec![beat(5, 0), beat(5, 3)] }];
+        let cursor = Cursor { voice: cursor_voice, ..Cursor::default() };
+        type Seen = (Vec<(Rect, usize, u8)>, Option<(Option<usize>, Option<usize>)>);
+        let seen: std::sync::Arc<std::sync::Mutex<Seen>> = Default::default();
+        let sink = seen.clone();
+        let mut fonts = None;
+        let mut harness = egui_kittest::Harness::builder().with_size(vec2(1400.0, 800.0)).build_ui(move |ui| {
+            let Some(fonts) = fonts else {
+                fonts = Some(crate::fonts::install(ui.ctx()));
+                return;
+            };
+            let view = View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice, hidden: 0 };
+            let out = show(ui, &score, cursor, &view);
+            if let Ok(mut s) = sink.lock() {
+                s.0 = out.heads;
+                if let Some(Click::Beat { string, voice, .. }) = out.click {
+                    s.1 = Some((string, voice));
+                }
+            }
+        });
+        harness.run_steps(3);
+        let at = seen.lock().ok()?.0.iter().find(|(_, v, st)| want(*v, *st))?.0.center();
+        harness.input_mut().events.push(egui::Event::PointerMoved(at));
+        harness.step();
+        for pressed in [true, false] {
+            harness.input_mut().events.push(egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Default::default(),
+            });
+            harness.step();
+        }
+        harness.run_steps(2);
+        seen.lock().ok()?.1
+    }
+
+    #[test]
+    fn a_click_on_a_notehead_picks_its_string_and_under_multivoice_its_voice() {
+        // Under Multivoice Editing, Voice 2's head on the low E moves the cursor there.
+        assert_eq!(click_head(true, 0, |v, _| v == 1), Some((Some(5), Some(1))));
+        // Its own voice's head sets the string and keeps the voice.
+        assert_eq!(click_head(true, 0, |v, _| v == 0), Some((Some(1), None)));
+        // Without it, only the edited voice's heads answer: Voice 2's are locked.
+        assert!(click_head(false, 0, |v, _| v == 1).is_none());
+        assert_eq!(click_head(false, 1, |v, _| v == 1), Some((Some(5), None)));
     }
 
     #[test]

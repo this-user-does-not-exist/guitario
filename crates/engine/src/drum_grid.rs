@@ -81,7 +81,7 @@ pub fn grid(voice: Option<&Voice>, capacity: u32, step: Duration) -> Option<Drum
 
 /// `ticks` as a run of beat lengths, longest first: plain and dotted values, and triplets when
 /// `triplet`. `None` when no run adds up exactly.
-fn lengths(mut ticks: u32, triplet: bool) -> Option<Vec<Duration>> {
+pub(crate) fn lengths(mut ticks: u32, triplet: bool) -> Option<Vec<Duration>> {
     let mut choices: Vec<Duration> = NoteValue::ALL
         .into_iter()
         .flat_map(|v| {

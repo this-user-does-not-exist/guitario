@@ -93,4 +93,14 @@ mod tests {
             assert!(crate::keys::parse(i.shortcut).is_some(), "{}: bad shortcut {}", i.label, i.shortcut);
         }
     }
+
+    #[test]
+    fn no_two_items_share_a_shortcut() {
+        let keyed: Vec<_> = CATALOG.iter().filter_map(|i| Some((crate::keys::parse(i.shortcut)?, i.label))).collect();
+        for (n, (k, label)) in keyed.iter().enumerate() {
+            if let Some((_, other)) = keyed.iter().skip(n + 1).find(|(o, _)| o == k) {
+                panic!("{label} and {other} share {k:?}");
+            }
+        }
+    }
 }

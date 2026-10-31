@@ -178,11 +178,12 @@ pub static CATALOG: &[MenuItem] = &[
     c("Edit", "Transpose Up a Semitone", "edit.transposeUp", "", "Alt+Shift+Up"),
     c("Edit", "Transpose Down a Semitone", "edit.transposeDown", "", "Alt+Shift+Down"),
     u("Edit", "Transpose…", U::Transpose, ""),
-    u("Edit", "Multivoice Editing", U::ToggleMultivoice, ""),
-    c("Edit/Voice", "Voice 1", "edit.setVoice", r#"{"voice":1}"#, ""),
-    c("Edit/Voice", "Voice 2", "edit.setVoice", r#"{"voice":2}"#, ""),
-    c("Edit/Voice", "Voice 3", "edit.setVoice", r#"{"voice":3}"#, ""),
-    c("Edit/Voice", "Voice 4", "edit.setVoice", r#"{"voice":4}"#, ""),
+    // The manual's voice table: Cmd+1-4 move the cursor to a voice, Cmd+M toggles Multivoice.
+    u("Edit", "Multivoice Editing", U::ToggleMultivoice, "Cmd+M"),
+    c("Edit/Voice", "Voice 1", "edit.setVoice", r#"{"voice":1}"#, "Cmd+1"),
+    c("Edit/Voice", "Voice 2", "edit.setVoice", r#"{"voice":2}"#, "Cmd+2"),
+    c("Edit/Voice", "Voice 3", "edit.setVoice", r#"{"voice":3}"#, "Cmd+3"),
+    c("Edit/Voice", "Voice 4", "edit.setVoice", r#"{"voice":4}"#, "Cmd+4"),
     // Track
     u("Track", "Add Track", U::AddTrack, ""),
     c("Track", "Duplicate Track", "track.duplicate", "", ""),
@@ -319,7 +320,8 @@ pub static CATALOG: &[MenuItem] = &[
     u("View/Instrument View", "Drums", U::ToggleFretboard, ""),
     u("View", "Full Screen", U::FullScreen, "F11"),
     // Window
-    u("Window", "Minimize", U::Minimize, "Cmd+M"),
+    // Cmd+M is Multivoice Editing in Guitar Pro 8's voice table.
+    u("Window", "Minimize", U::Minimize, ""),
     m("Window", "Next Document"),
     // Help
     m("Help", "Guitario Help"),
