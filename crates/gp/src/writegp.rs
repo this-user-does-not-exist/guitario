@@ -284,6 +284,8 @@ struct Gpif {
     next_beat: usize,
     next_voice: usize,
     last_on_string: BTreeMap<StringKey, (usize, bool)>,
+    /// Whether the last beat written in each (track, voice) is slurred on to the next.
+    slurred_on: BTreeMap<(usize, usize), bool>,
     /// Every distinct chord of each track, in first-use order: a beat's `<Chord>` is its index.
     chords: Vec<Vec<Chord>>,
     /// The syllables each beat of a track's first voice is sung to, per lyrics line, by
@@ -583,6 +585,11 @@ impl Gpif {
                 Some(id) => xml.push_str(&format!("<Chord>{id}</Chord>")),
                 None => self.drop("chord names on drum tracks"),
             }
+        }
+        // A slur is a chain: each beat says whether it slurs on (origin) and whether one comes in.
+        let into = self.slurred_on.insert((ti, vi), b.legato).unwrap_or(false);
+        if b.legato || into {
+            xml.push_str(&format!("<Legato origin=\"{}\" destination=\"{into}\"/>", b.legato));
         }
         if !note_ids.is_empty() {
             xml.push_str(&format!("<Notes>{}</Notes>", note_ids.join(" ")));

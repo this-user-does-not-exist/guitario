@@ -586,6 +586,38 @@ pub fn sung_lengths(track: &Track) -> HashMap<(usize, usize), usize> {
     out
 }
 
+/// A drawn voice of a part in one bar: each beat with the tick it starts at.
+struct Timed<'b> {
+    part: usize,
+    voice: usize,
+    beats: Vec<(u64, &'b Beat)>,
+}
+
+/// Whether, in some part showing standard notation, a stem-down voice's beat starting at `t` steps
+/// aside for a stem-up voice's beat starting with it (`notation::heads_clash`).
+fn stepped_aside(parts: &[Part], timed: &[Timed], t: u64, key: i8) -> bool {
+    use crate::notation::{Clef, beat_positions, head_kind, heads_clash};
+    parts.iter().enumerate().filter(|(_, p)| p.metrics.notation && !p.metrics.drums).any(|(pi, part)| {
+        let clef = Clef::for_tuning(part.track.tuning.strings.iter().copied().max().unwrap_or(64));
+        let at = |up: bool| -> Vec<&Beat> {
+            timed
+                .iter()
+                .filter(|tv| tv.part == pi && (tv.voice % 2 == 0) == up)
+                .flat_map(|tv| tv.beats.iter())
+                .filter(|(st, b)| *st == t && !b.rest)
+                .map(|(_, b)| *b)
+                .collect()
+        };
+        let (ups, downs) = (at(true), at(false));
+        ups.iter().any(|u| {
+            let theirs = beat_positions(part.track, u, key, clef);
+            downs
+                .iter()
+                .any(|d| heads_clash(&theirs, (head_kind(u), u.duration.dots), &beat_positions(part.track, d, key, clef), (head_kind(d), d.duration.dots)))
+        })
+    })
+}
+
 /// One track of a layout: its index, the track and its metrics.
 pub struct Part<'a> {
     pub index: usize,
@@ -605,11 +637,6 @@ fn natural(score: &Score, parts: &[Part], mi: usize, s: f32, sung: &[HashMap<(us
     };
     // Every beat with the tick it starts at, per drawn voice of every track: beats that start
     // together in any track share a column, so the tracks of a multitrack system line up in time.
-    struct Timed<'b> {
-        part: usize,
-        voice: usize,
-        beats: Vec<(u64, &'b Beat)>,
-    }
     let mut timed: Vec<Timed> = Vec::new();
     for (pi, part) in parts.iter().enumerate() {
         let Some(measure) = part.track.measures.get(mi) else { continue };
@@ -631,6 +658,8 @@ fn natural(score: &Score, parts: &[Part], mi: usize, s: f32, sung: &[HashMap<(us
     let mut onsets: Vec<u64> = timed.iter().flat_map(|t| t.beats.iter().map(|(t, _)| *t)).collect();
     onsets.sort_unstable();
     onsets.dedup();
+    // Heads only step aside where a stem-down voice (2 or 4) is drawn.
+    let two_sided = timed.iter().any(|tv| tv.voice % 2 == 1);
     let mut pads = Vec::with_capacity(onsets.len());
     let cols: Vec<f32> = onsets
         .iter()
@@ -667,6 +696,10 @@ fn natural(score: &Score, parts: &[Part], mi: usize, s: f32, sung: &[HashMap<(us
             }
             if onsets.len() == 1 && beats.iter().all(|b| b.rest) {
                 w = w.max(8.0 * s);
+            }
+            // A stem-down head that steps right of a stem-up one sounding with it needs its width.
+            if two_sided && stepped_aside(parts, &timed, t, header.map_or(0, |h| h.key)) {
+                w += 1.3 * s;
             }
             w + pad
         })
@@ -895,6 +928,25 @@ mod tests {
         let after = room(&s);
         assert!(after[2] >= before[2] + GRACE_ROOM * m.space * 0.99, "{before:?} {after:?}");
         assert!((after[1] - before[1]).abs() < 0.01, "other beats are not moved off-centre");
+    }
+
+    #[test]
+    fn a_head_that_steps_aside_gets_room_in_its_column() {
+        use guitario_score::{Beat, Note, Voice};
+        use guitario_theory::Duration;
+        // Voice 1 holds the B string's C; Voice 2 sounds with it on the G string, at `fret`.
+        let bar = |fret: u8| {
+            let mut s = score(1);
+            let note = |string: u8, fret: u8| Beat { rest: false, notes: vec![Note::new(string, fret)], ..Beat::rest(Duration::QUARTER) };
+            s.tracks[0].measures[0].voices = vec![Voice { beats: vec![note(1, 1); 4] }, Voice { beats: vec![note(2, fret); 4] }];
+            let m = Metrics::new(1.0, true, 6);
+            let pages = layout(&s, 0, &m);
+            let v = &pages[0].systems[0].measures[0].voices[0];
+            (v.beats[1] - v.beats[0], m.space)
+        };
+        // B (a second below C) steps aside; E (a sixth below) does not.
+        let ((second, space), (sixth, _)) = (bar(4), bar(2));
+        assert!(second >= sixth + 1.2 * space, "{second} vs {sixth}");
     }
 
     #[test]

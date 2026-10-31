@@ -134,6 +134,27 @@ pub fn beam_groups(beats: &[guitario_score::Beat], header: &guitario_score::Meas
     groups
 }
 
+/// Whether a stem-down chord at `down` must step right of a stem-up one at `up` sounding with it
+/// (staff positions, and each one's head kind and dots): a second between them, or one pitch in
+/// both with different heads or dots. Identical heads on one pitch are shared.
+pub fn heads_clash(up: &[i32], (up_kind, up_dots): (u32, u8), down: &[i32], (kind, dots): (u32, u8)) -> bool {
+    down.iter().any(|p| up.iter().any(|q| (p - q).abs() == 1 || (p == q && (up_kind != kind || up_dots != dots))))
+}
+
+/// The notehead a beat takes: whole, half or black.
+pub fn head_kind(beat: &guitario_score::Beat) -> u32 {
+    beat.duration.value.divisor().min(4)
+}
+
+/// Where a fretted track's beat puts its heads on the staff, in key `key` (written an octave up).
+pub fn beat_positions(track: &guitario_score::Track, beat: &guitario_score::Beat, key: i8, clef: Clef) -> Vec<i32> {
+    beat.notes
+        .iter()
+        .filter_map(|n| track.tuning.pitch(usize::from(n.string), n.fret, track.capo))
+        .map(|p| staff_pos(spell(p.0.saturating_add(12).min(127), key), clef))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
 

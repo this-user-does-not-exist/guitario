@@ -1,8 +1,8 @@
 # Guitario roadmap
 
-**Stage: alpha** · next: beta, ~158–322 h away · then 1.0 (full parity), ~705–1,380 h further
+**Stage: alpha** · next: beta, ~154–308 h away · then 1.0 (full parity), ~705–1,380 h further
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (voice picking and shortcuts; beta ~158–322 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (slurs across bars and in Guitar Pro files; G4 done for beta; beta ~154–308 h) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [roadmap](docs/roadmap.md) (stages, gates, current focus), [target-app parity](docs/target-app-parity.md)
@@ -24,8 +24,8 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | Menus | 173 of 181 live (96 %) | measured |
 | Feature breadth | **~74 %** | partly measured: weights in [target-app parity](docs/target-app-parity.md#feature-breadth-74-weighted) |
 | Readiness | **~66 %** (59–71) | estimated: weighted dimension average |
-| Remaining to **beta** | **~158–322 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
-| Remaining to **full parity** | **~863–1,702 h** | beta plus the 1.0 column |
+| Remaining to **beta** | **~154–308 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
+| Remaining to **full parity** | **~859–1,688 h** | beta plus the 1.0 column |
 
 ## Stages
 
@@ -53,7 +53,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | Dimension | Weight | % ready | Beta h | Doc |
 |---|---:|---:|---:|---|
 | Editing | 20% | 74% | 0 | [scorecard](docs/scorecard.md#editing) |
-| Notation | 15% | 75% | 4–14 | [scorecard](docs/scorecard.md#notation-and-engraving) |
+| Notation | 15% | 77% | 0 | [scorecard](docs/scorecard.md#notation-and-engraving) |
 | Playback | 15% | 72% | 0 + human | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 10% | 72% | 0 + human | [file-format-parity](docs/file-format-parity.md) |
 | UI/UX fidelity | 10% | 62% | 70–135 | [ui-parity](docs/ui-parity.md) |
@@ -75,5 +75,4 @@ Ranked for the beta gate; the reasoning and the human steps are in [docs/roadmap
 |---|---|---|---:|
 | 1 | First release run, macOS file opening, signing | [G12](docs/gaps.md#g12-platforms-and-distribution) | 20–40 + human |
 | 2 | Several documents, shortcuts audit, user book | [G8](docs/gaps.md#g8-ui-depth) | 55–100 |
-| 3 | Slurs across bars, in the tab and in Guitar Pro files | [G4](docs/gaps.md#g4-notation-depth) | 4–14 |
-| 4 | Control channel and MCP, fuzzing, CI budgets, localization framework | [G10](docs/gaps.md#g10-automation), [G11](docs/gaps.md#g11-reliability-depth), [G9](docs/gaps.md#g9-performance-budgets), [G13](docs/gaps.md#g13-languages) | 85–175 |
+| 3 | Control channel and MCP, fuzzing, CI budgets, localization framework | [G10](docs/gaps.md#g10-automation), [G11](docs/gaps.md#g11-reliability-depth), [G9](docs/gaps.md#g9-performance-budgets), [G13](docs/gaps.md#g13-languages) | 85–175 |

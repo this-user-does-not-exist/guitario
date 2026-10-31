@@ -9,6 +9,7 @@ use guitario_score::{
 };
 use guitario_theory::{Duration, TICKS_PER_QUARTER};
 use serde_json::{Value, json};
+use std::sync::Arc;
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
@@ -56,7 +57,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Slur",
             "Note/Duration",
             None,
-            "beats (1..=32: the slur runs from the cursor beat to the beat that many beats later in the bar; 0 or null clears)",
+            "beats (1..=32: the slur runs from the cursor beat to the beat that many beats later in its voice, across bar lines too; 0 or null removes the slur the cursor beat is under)",
             true,
             set_slur,
         ),
@@ -219,25 +220,54 @@ fn set_beam(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     each_beat(s, |b| b.beam = mode)
 }
 
+/// Every beat of the cursor's voice in written order, as `(measure, beat)`.
+fn voice_beats(s: &Session) -> Vec<(usize, usize)> {
+    let (t, v) = (s.cursor.track, s.cursor.voice);
+    let Some(track) = s.score.tracks.get(t) else { return Vec::new() };
+    track.measures.iter().enumerate().flat_map(|(mi, m)| (0..m.voices.get(v).map_or(0, |x| x.beats.len())).map(move |bi| (mi, bi))).collect()
+}
+
+/// Beat `i` of `order` (from [`voice_beats`]) in voice `v` of track `t`.
+fn nth<'a>(score: &'a mut guitario_score::Score, order: &[(usize, usize)], (t, v): (usize, usize), i: usize) -> Option<&'a mut Beat> {
+    let &(m, b) = order.get(i)?;
+    score.tracks.get_mut(t)?.measures.get_mut(m)?.voices.get_mut(v)?.beats.get_mut(b)
+}
+
+/// A slur from the cursor beat to the beat `beats` on in its voice: every beat from the first to
+/// the one before the last is slurred on to the next, as Guitar Pro chains `Legato`.
 fn set_slur(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
-    let beats = p::opt_uint(params, "beats", 32)?.unwrap_or(0) as u8;
+    let beats = p::opt_uint(params, "beats", 32)?.unwrap_or(0) as usize;
+    let order = voice_beats(s);
+    let here =
+        order.iter().position(|&(m, b)| (m, b) == (s.cursor.measure, s.cursor.beat)).ok_or_else(|| EngineError::invalid("the cursor is not on a beat"))?;
+    let (t, v) = (s.cursor.track, s.cursor.voice);
+    let score = Arc::make_mut(&mut s.score);
     if beats == 0 {
-        s.beat_mut()?.slur = None;
+        // The run the cursor beat is in: back to its first slurred beat, on to its last.
+        let mut first = here;
+        while first > 0 && nth(score, &order, (t, v), first - 1).is_some_and(|b| b.legato) {
+            first -= 1;
+        }
+        let mut i = first;
+        while let Some(b) = nth(score, &order, (t, v), i).filter(|b| b.legato) {
+            b.legato = false;
+            i += 1;
+        }
         return ok_json();
     }
-    let at = s.cursor.beat;
-    let voice = s.voice_in(s.cursor.measure).ok_or_else(|| EngineError::invalid("the cursor is not in a measure"))?;
-    let to = at + usize::from(beats);
-    match voice.beats.get(to) {
-        None => return Err(EngineError::invalid("a slur ends in the same bar: there is no beat that far on")),
+    match nth(score, &order, (t, v), here + beats) {
+        None => return Err(EngineError::invalid("there is no beat that far on in this voice")),
         Some(end) if end.rest => return Err(EngineError::invalid("a slur ends on a note, not a rest")),
         Some(_) => {}
     }
-    let start = s.beat_mut()?;
-    if start.rest {
+    if nth(score, &order, (t, v), here).is_none_or(|b| b.rest) {
         return Err(EngineError::invalid("a slur starts on a note, not a rest"));
     }
-    start.slur = Some(beats);
+    for i in here..here + beats {
+        if let Some(b) = nth(score, &order, (t, v), i) {
+            b.legato = true;
+        }
+    }
     ok_json()
 }
 
@@ -355,21 +385,28 @@ mod tests {
     }
 
     #[test]
-    fn a_slur_spans_notes_of_one_bar_and_never_starts_or_ends_on_a_rest() {
+    fn a_slur_spans_notes_across_bars_and_never_starts_or_ends_on_a_rest() {
         let mut s = Session::new();
-        s.run("beat.setDuration", &json!({"value": 4})).unwrap();
-        for fret in [0, 2, 3] {
+        s.run("beat.setDuration", &json!({"value": 2})).unwrap();
+        // Two half notes a bar, over two bars.
+        for fret in [0, 2, 3, 5] {
             s.run("note.setFret", &json!({"fret": fret})).unwrap();
             s.move_right().unwrap();
         }
-        s.cursor.beat = 0;
+        let legato = |s: &Session| -> Vec<bool> { s.score().tracks[0].measures.iter().flat_map(|m| &m.voices[0].beats).map(|b| b.legato).collect() };
+        s.cursor.measure = 0;
+        s.cursor.beat = 1;
+        // From the second beat of bar 1 over the bar line to the second of bar 2.
         s.run("beat.setSlur", &json!({"beats": 2})).unwrap();
-        assert_eq!(s.beat_mut().unwrap().slur, Some(2));
+        assert_eq!(&legato(&s)[..4], [false, true, true, false]);
         assert!(s.run("beat.setSlur", &json!({"beats": 9})).is_err(), "past the last beat");
         assert!(s.run("beat.setSlur", &json!({"beats": 33})).is_err());
+        // Removing it from any beat it covers clears the whole run.
+        s.cursor.measure = 1;
+        s.cursor.beat = 0;
         s.run("beat.setSlur", &json!({"beats": null})).unwrap();
-        assert_eq!(s.beat_mut().unwrap().slur, None);
-        s.cursor.beat = 3;
+        assert!(legato(&s).iter().all(|l| !l));
+        s.cursor.beat = 2;
         assert!(s.run("beat.setSlur", &json!({"beats": 1})).is_err(), "a rest cannot start one");
     }
 

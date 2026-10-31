@@ -52,6 +52,8 @@ fn as_gp5(s: &Score) -> Score {
                     }
                 }
                 b.duration.dots = b.duration.dots.min(1);
+                // Guitar Pro 5 has no slurs.
+                b.legato = false;
                 // Guitar Pro 5 has no vibrato with the bar.
                 b.bar_vibrato = None;
                 if b.rest {

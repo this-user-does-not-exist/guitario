@@ -133,6 +133,9 @@ struct XNote {
     fret: Option<u8>,
     drum: Option<u8>,
     tie_stop: bool,
+    /// A slur starts or stops on this note.
+    slur_start: bool,
+    slur_stop: bool,
     dead: bool,
     effects: guitario_score::NoteEffects,
     /// A tremolo, a stroke, a technique, a brush: written on notes, held by the beat.
@@ -606,6 +609,11 @@ impl Reader {
             for e in no.children().filter(Node::is_element) {
                 match e.tag_name().name() {
                     "tied" if e.attribute("type") == Some("stop") => x.tie_stop = true,
+                    "slur" => match e.attribute("type") {
+                        Some("start") => x.slur_start = true,
+                        Some("stop") => x.slur_stop = true,
+                        _ => {}
+                    },
                     "slide" if e.attribute("type") == Some("start") => x.effects.slide = Some(Slide::Shift),
                     "glissando" if e.attribute("type") == Some("start") => x.effects.slide = Some(Slide::Legato),
                     "fermata" => x.fermata = true,
@@ -738,6 +746,7 @@ impl Reader {
         let mut score = std::mem::take(&mut self.score);
         score.headers = headers;
         score.tracks = tracks;
+        score.end_slurs();
         score.validate()?;
         let warnings = self.warnings.iter().map(|(w, n)| if *n > 1 { format!("{w} ({n}×)") } else { w.clone() }).collect();
         Ok(Import { score, warnings })
@@ -777,6 +786,8 @@ impl Reader {
         let mut lyric_marks: Vec<Vec<(usize, usize, String, String)>> = vec![Vec::new(); guitario_score::MAX_LYRIC_LINES];
         let mut overflow = 0usize;
         let mut dropped_voices = 0usize;
+        // Per voice: whether a slur is open, so each beat under it is slurred on to the next.
+        let mut slurring = [false; MAX_VOICES];
         for (mi, (xm, header)) in part.measures.iter().zip(headers).enumerate() {
             let cap = u64::from(header.capacity());
             let mut voices: Vec<Voice> = Vec::new();
@@ -799,12 +810,24 @@ impl Reader {
                         overflow += 1;
                         continue;
                     }
+                    let slurred = slurring.get(*vkey).copied().unwrap_or(false);
                     if start > at {
                         for d in fill(start - at) {
-                            voice.beats.push(Beat::rest(d));
+                            voice.beats.push(Beat { legato: slurred, ..Beat::rest(d) });
                         }
                         at = start;
                     }
+                    // A slur that stops here ends on this beat; one that starts here (perhaps as
+                    // another stops) slurs it on.
+                    if let Some(open) = slurring.get_mut(*vkey) {
+                        if xb.notes.iter().any(|n| n.slur_stop) {
+                            *open = false;
+                        }
+                        if xb.notes.iter().any(|n| n.slur_start) {
+                            *open = true;
+                        }
+                    }
+                    let slurred = slurring.get(*vkey).copied().unwrap_or(false);
                     let mut ticks = if xb.ticks == 0 && xb.notes.is_empty() { cap.saturating_sub(at) } else { xb.ticks };
                     if at + ticks > cap {
                         overflow += usize::from(at + ticks > cap + 1);
@@ -819,7 +842,7 @@ impl Reader {
                     };
                     let placed = if xb.notes.is_empty() { Vec::new() } else { self.place(&track, xb, &mut hand, &mut prev_strings) };
                     for (i, d) in pieces.into_iter().enumerate() {
-                        let mut beat = Beat::rest(d);
+                        let mut beat = Beat { legato: slurred, ..Beat::rest(d) };
                         if !placed.is_empty() {
                             beat.rest = false;
                             beat.notes =

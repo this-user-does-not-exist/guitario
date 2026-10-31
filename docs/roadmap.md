@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (voice picking and shortcuts; beta ~158–322 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (slurs across bars; G4 done for beta; beta ~154–308 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -115,12 +115,13 @@ what needs a human ear or signing material last, so the human steps overlap with
    reveal; Finder's double-click once a human decides on the `unsafe` delegate; signing waits on
    accounts. 20–40 h + human.
 2. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 55–100 h.
-3. **Slurs** across bars, in the tab and in Guitar Pro files ([G4](gaps.md#g4-notation-depth); voice
-   picking and shortcuts landed 2026-10-31). 4–14 h. (Drums, G1, landed 2026-10-31 with the step grid and the articulations; headers,
-   footers and selected bars, G2, landed 2026-10-18; a real printer is the human step.)
-4. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
+3. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
    cache** ([G11](gaps.md#g11-reliability-depth), [G9](gaps.md#g9-performance-budgets)); **the
    localization framework** ([G13](gaps.md#g13-languages)). 85–175 h.
+
+Drums (G1) and notation (G4) have no agent work left for beta: the step grid, the articulations,
+voice picking and slurs landed 2026-10-31. Headers, footers and selected bars (G2) landed
+2026-10-18; a real printer is the human step.
 
 Sound ([G5](gaps.md#g5-playback-realism)) has no agent work left for beta (articulations, the
 sampler's depth, streaming, the sound bank in the app, amp, effects and mastering landed
@@ -165,6 +166,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | Slurs across bars and in Guitar Pro files, room for a stepped-aside head: G4 done for beta; beta ~154–308 h |
 | 2026-10-31 | minor | Voice picking by notehead, ⌘1-4 and ⌘M, moving a note to a voice (G4); beta ~158–322 h |
 | 2026-10-31 | minor | Drum articulations (M6 done, G1 has no beta work left); beta ~160–330 h |
 | 2026-10-31 | minor | The drum step grid (M6, G1): B3 passes, the beta gate is 1 of 8; beta ~168–348 h |

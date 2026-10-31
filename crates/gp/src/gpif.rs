@@ -245,6 +245,7 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
     if unknown > 0 {
         warnings.push(format!("{unknown} Guitar Pro 6 drum hits on kit pieces Guitario does not know were dropped"));
     }
+    score.end_slurs();
     score.validate()?;
     Ok(Import { score, warnings })
 }
@@ -780,6 +781,7 @@ fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chor
         _ => Dynamic::Mf,
     };
     beat.text = text(bn, "FreeText").filter(|s| !s.is_empty()).map(str::to_string);
+    beat.legato = child(bn, "Legato").and_then(|l| l.attribute("origin")) == Some("true");
     beat.chord = text(bn, "Chord").and_then(|id| id.parse::<i64>().ok()).and_then(|id| chords.get(&id)).cloned();
     beat_effects(bn, &mut beat);
     // The fraction is the slash count's note value as Guitar Pro writes it: 1/8 one slash, 1/4 two, 1/2 three.
