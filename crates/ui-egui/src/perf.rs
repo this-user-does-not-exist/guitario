@@ -135,7 +135,8 @@ mod tests {
         });
         results.push(("render_per_second", render));
         // The modelled instruments: the same score with its pitched tracks as a grand piano, a
-        // string section (four players a note), a violin and a cello.
+        // string orchestra (each note by the section for its range, eight to sixteen players, a
+        // chord divided among them), a violin and a cello.
         let mut modelled = score.clone();
         for (t, program) in modelled.tracks.iter_mut().filter(|t| !t.is_drums()).zip([0u8, 48, 40, 42].into_iter().cycle()) {
             t.program = program;

@@ -121,6 +121,8 @@ struct PartInfo {
     channel: Option<u8>,
     volume: Option<u8>,
     pan: Option<i8>,
+    /// Players of the section that plays the part (`<ensemble>`); 0 when it does not say how many.
+    players: Option<u8>,
     /// Drum keys by instrument id.
     unpitched: BTreeMap<String, u8>,
 }
@@ -234,6 +236,13 @@ impl Reader {
                     short: text(sp, "part-abbreviation").unwrap_or("").to_string(),
                     ..PartInfo::default()
                 };
+                for si in children(sp, "score-instrument") {
+                    if let Some(e) = child(si, "ensemble") {
+                        let size = e.text().unwrap_or("").trim();
+                        info.players =
+                            Some(if size.is_empty() { 0 } else { size.parse::<u32>().map_or(0, |n| n.clamp(1, u32::from(guitario_score::MAX_PLAYERS)) as u8) });
+                    }
+                }
                 for mi in children(sp, "midi-instrument") {
                     if info.channel.is_none() {
                         info.channel = num::<u8>(mi, "midi-channel");
@@ -764,6 +773,10 @@ impl Reader {
         }
         if let Some(p) = part.info.pan {
             track.pan = p.clamp(-63, 63);
+        }
+        if let Some(n) = part.info.players.filter(|_| !part.drums) {
+            // A section of no stated size is an orchestra's.
+            track.players = if n == 0 { guitario_score::orchestral_section(program).unwrap_or(guitario_score::MAX_PLAYERS / 2) } else { n };
         }
         let mut hand = 0.0f32;
         let mut lyric_marks: Vec<Vec<(usize, usize, String, String)>> = vec![Vec::new(); guitario_score::MAX_LYRIC_LINES];

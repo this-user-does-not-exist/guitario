@@ -494,6 +494,25 @@ fn doom() -> R<Session> {
             bar("1 4:8 +lr"),
         ],
     )?;
+    // A section of ten cellos, seated right: a line over the riff, then an octave down for the
+    // lament under the lead.
+    add_track(&mut s, "Cellos", "cello", 42)?;
+    run(&mut s, "track.setPlayers", json!({"players": 10, "track": 3}))?;
+    run(&mut s, "track.setMix", json!({"pan": 30, "track": 3}))?;
+    play_track(
+        &mut s,
+        3,
+        &[
+            bar("1 2:5 @mf"),
+            bar("2. 1:1, 4 1:0"),
+            bar("4. 1:3, 8 1:1, 2 1:0"),
+            bar("1 2:5 +v"),
+            bar("1 3:5 @f"),
+            bar("2. 3:3, 4 3:2"),
+            bar("4. 2:3, 8 2:1, 2 2:0"),
+            bar("1 3:5 +v"),
+        ],
+    )?;
     let open = "4 bd cr @ff, 4 rd, 4 sd rd, 4 rd";
     let groove = "4 bd rd, 4 rd, 4 sd rd, 4 bd rd";
     let fill = "4 bd rd, 4 rd, 8 t1, 8 t2, 8 ft, 8 ft";

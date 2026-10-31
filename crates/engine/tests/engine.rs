@@ -502,8 +502,41 @@ fn a_track_is_created_set_up_in_one_step_or_replaces_one() {
         json!({"name": "x", "replace": 4}),
         json!({"name": "x", "standard": false, "tab": false}),
         json!({"name": "x", "color": "blue"}),
+        json!({"name": "x", "players": 17}),
+        json!({"name": "x", "pan": 64}),
     ] {
         assert!(s.run("track.create", &bad).is_err(), "{bad}");
     }
     assert_eq!(s.score().tracks.len(), 1, "refusals leave the score as it was");
+}
+
+#[test]
+fn a_string_section_is_created_resized_and_kept() {
+    let mut s = Session::new();
+    run(&mut s, "track.create", json!({"name": "Violins I", "tuning": "violin", "program": 40, "players": 16, "pan": -40}));
+    let t = &s.score().tracks[1];
+    assert_eq!((t.program, t.players, t.pan), (40, 16, -40));
+    let info = s.run("score.info", &json!(null)).unwrap();
+    assert_eq!(info["tracks"][1]["players"], 16);
+    assert_eq!(info["tracks"][0]["players"], 1, "a guitar has one player");
+    // Smaller, then a soloist: each one undo step.
+    assert_eq!(s.run("track.setPlayers", &json!({"players": 8})).unwrap()["players"], 8);
+    run(&mut s, "track.setProgram", json!({"program": 42, "players": 0}));
+    assert_eq!((s.score().tracks[1].program, s.score().tracks[1].players), (42, 0));
+    run(&mut s, "track.setProgram", json!({"program": 41}));
+    assert_eq!(s.score().tracks[1].players, 0, "a program alone keeps the players");
+    run(&mut s, "edit.undo", json!(null));
+    run(&mut s, "edit.undo", json!(null));
+    assert_eq!((s.score().tracks[1].program, s.score().tracks[1].players), (40, 8));
+    for bad in [json!({"players": 17}), json!({"players": -1}), json!({"players": "many"}), json!({})] {
+        assert!(s.run("track.setPlayers", &bad).is_err(), "{bad}");
+    }
+    assert!(s.run("track.setProgram", &json!({"program": 40, "players": 40})).is_err());
+    run(&mut s, "track.addDrums", json!({}));
+    assert!(s.run("track.setPlayers", &json!({"players": 4})).is_err(), "one drummer");
+    // Saved and opened again.
+    let bytes = guitario_format::to_bytes(s.score()).unwrap();
+    let back = guitario_format::from_bytes(&bytes).unwrap();
+    assert_eq!(back.tracks[1].players, 8);
+    assert!(back.validate().is_ok());
 }

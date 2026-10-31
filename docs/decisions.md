@@ -426,3 +426,35 @@ inharmonicity; tuned onto the model's strings it stretched further than they nee
 which reads as an out-of-tune upright. Tuning the model as a tuner would (each octave until its
 partials stop beating) keeps the stretch and the strings consistent whatever their data becomes.
 
+## 2026-10-19: A string section is many modelled players, not one player copied
+
+A section's sound is many independent instruments: each player's own intonation, vibrato, bow and
+timing, each instrument's own resonances and place on the stage. Copies of one voice detuned and
+delayed (a chorus) give the beating of a few, not a section, so every player is a full bowed
+string, and the voice was made four times cheaper to afford sixteen of them. Bodies cost more than
+strings, so a section has up to four (each shared by the players at its desks), chosen among the
+model's instruments for sounding like the soloist's on average: an orchestra matches its players'
+instruments, and the soloist's is the one a listener has approved. A chord in a section is played
+divisi, as orchestral writing means it (each note by a share of the players, so a section's work
+is bounded by its size), not as double stops by everyone.
+
+The size is a track property (`players`), not a new program: General MIDI has no section of one
+instrument, Guitar Pro has no place for one either, and MusicXML 4's `<ensemble>` carries exactly
+this number. The ensemble programs (string ensembles, tremolo and pizzicato strings) keep their
+meaning, a whole string orchestra, now at orchestral sizes.
+
+## 2026-10-19: The bowed strings are measured against recordings, and the recordings stay out
+
+A model can sound plausible and still be measurably unlike the instrument, and ears used to it
+stop hearing the difference: the strings had been "good" alone while the cello was twice as
+bright as a real one. So the violin family is compared, note for note, with free recordings of
+real soloists and sections (`docs/strings-calibration.md`), on measures that do not depend on
+the room or the microphones: the harmonics' levels lined up on the low partials, how they fall,
+the noise between them, the partials' width and wander, the stereo width. Where they disagree
+and the cause is physical (a violin's resonances scaled onto a cello, slips snapping to the
+sample clock), the model changes; where the recordings themselves are of a kind (sustain samples
+that swell into every note), it does not. The comparison is a tool (`strings_compare`) and the
+numbers that matter are tests, so the calibration cannot drift unnoticed. The recordings are
+fetched to measure against and never shipped or committed: their licences allow that use, and
+Guitario's sound stays its own model.
+

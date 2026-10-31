@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-18 · **Change:** minor (G5: modelled grand piano and bowed strings; G2: headers, footers, selected bars, twelve papers) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-19 · **Change:** minor (G5: orchestral string sections, measured against recordings) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -364,6 +364,63 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   under the discrete resonances, the felt's thud as force-shaped noise (-28 dB of the note in the
   bass, -18 dB in the treble over its first 20 ms), and phantom partials from the strings'
   stretching (-25 dB in the bass at ff, -37 dB at p, none above C6).
+- **Landed 2026-10-19:** orchestral string sections after a first listen ("solo violin and
+  cello good, string sections not so much"). A track of the violin family (programs 40 to 43,
+  110) now has players (`Track::players`, 1 to 16, `track.setPlayers`, `track.setProgram`'s and
+  `track.create`'s `players`): Add Track › Orchestra › Strings offers Violins I (16), Violins II
+  (14), Violas (12), Cellos (10) and Double Basses (8), seated by pan as an American-seated
+  orchestra; the Sound lists offer a section of each instrument and the inspector a Players
+  list; MusicXML reads and writes the size as `<ensemble>`. The string ensemble programs (44, 45,
+  48, 49) became a string orchestra: each note goes to the section for its range at that
+  section's orchestral size, violins on the left to basses on the right. Every player is a full
+  bowed string (`Seat` in `bowed.rs`): about 4.5 cents of intonation each way and a new one
+  every note, entries up to 16 ms apart plus 2 ms a desk further back (bow changes and slurs
+  too, not only first notes), a vibrato rate 8 % and depth 30 % their own, a bow 10 % faster or
+  slower, back desks a little quieter; a chord is divided (divisi), each note to every
+  `n`th player so it is spread through the section. Up to four instruments per section, each a
+  different body (`Body::instrument`) chosen to be within 1.5 dB of the soloist's in every
+  octave of its lowest three (tested; unchosen ones are up to 5 dB boomier), each at its own
+  place and heard as a near-coincident pair hears it (up to 0.5 ms sooner on its own side): a
+  section of twelve measures a left-right correlation of 0.41 against a soloist's 0.61 (the
+  body used to sum its input to mono, so placing players did nothing). Two flaws heard in
+  sections were fixed in every bowed note: one bow change in twenty fell into slipping twice a
+  period (an octave-up whistle: 8 of 160 bow changes swept across their timing, now 2; 7 of 192
+  across pitches and dynamics, now none); the player now presses up to 1.6 times harder within
+  a twentieth of a second when that happens below 1 kHz, as a player does by ear. To make sixteen
+  players affordable the voice works out pitch, loop length and bow ramps every 16 samples (7.7
+  to 2.1 ms of work per second of sound, the soloist's sound unchanged in level, width and
+  spectrum) and the bodies' sympathetic strings precompute their delays (6.0 to 4.1 ms). The
+  400-bar perf score with an ensemble track, now a whole orchestra, renders at 220 ms of work
+  per second (budget 250; was 161 with four players a note). `Funeral Procession` (demo 02)
+  gained a section of ten cellos. Auditions: `violin-section`, `viola-section`,
+  `cello-section`, `bass-section`, `violins-divisi`, `string-orchestra` (five sections on five
+  tracks), `low-strings-riff`. Checked by tests and spectra, not yet by ear.
+- **Landed 2026-10-19:** the bowed strings measured against recordings of real players
+  ([`strings-calibration.md`](strings-calibration.md)): 64 sustained vibrato notes of the
+  Sonatina Symphonic Orchestra's solo violin, viola, cello and double bass and of its sections at
+  the same pitches, with the CC0 VS Chamber Orchestra's sections as a second opinion, fetched only
+  to measure against. `cargo run -p guitario-playback --release --example strings_compare --
+  <dir>` renders the same notes and prints, per instrument, the difference in each half octave
+  and the medians that tell soloists and sections apart. Found and fixed: the larger instruments
+  were a violin scaled up and kept its strong high resonances (a cello 7 to 13 dB too strong from
+  650 Hz, a double bass 4 to 15 dB from 250 Hz, a viola 6 to 10 dB at 1.3 to 3.8 kHz); each body
+  is now voiced on its own (within 3 to 4 dB of the recordings across the range, the cello's and
+  double bass's fundamentals no longer cut, the loudness of a bowed string kept), which makes the
+  soloists darker too; a section's four instruments were chosen again to stay within 1 dB of the
+  soloist's. The hiss between the
+  harmonics was 9 dB above a real violin's: the bow's grip giving way snapped to the sample
+  clock; it is now placed between samples as a band-limited step (solo violin -24 to -32 dB,
+  real -33; violin section -25 to -30, real -29). Section players use less vibrato than a
+  soloist (violins and violas three quarters, cellos nearly as much, double basses about half:
+  the sections' partials now spread 12, 10, 11 and 6 cents against the recordings' 14, 11, 11
+  and 6.5), ease into long notes and enter more loosely on them, and are heard by microphones
+  some 35 cm apart (a violin section's left-right correlation 0.12 against the recordings'
+  0.11). A test holds each instrument's fall of harmonics to the recordings' on the
+  same notes (`crates/playback/tests/strings.rs`), another the bowed note's quietness between
+  harmonics. The 400-bar perf score with its string orchestra renders at 189 ms of work per
+  second of sound (was 220). Still apart: viola, cello and bass sections narrower than the
+  recordings (0.42, 0.53, 0.43 against 0.18, 0.14, 0.21), slower attacks in the recordings'
+  sustain samples, the violin weaker around 950 Hz.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

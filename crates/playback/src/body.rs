@@ -10,6 +10,10 @@
 //! right with its own weights, as a body radiates differently in each direction, so a mono
 //! string comes out wide.
 //!
+//! The players of a section each have their own instrument: the same design, its main modes a few
+//! percent apart and its dense ones elsewhere ([`Body::instrument`]). Together they fill each
+//! other's gaps, which is part of why a section sounds smoother than one instrument copied.
+//!
 //! A bowed instrument's other strings ring in sympathy through the bridge: four open strings
 //! tuned to the instrument's, fed a little of the bridge's motion. A piano's do too, all of them,
 //! while the sustain pedal holds the dampers off: the halo of a pedalled chord.
@@ -71,8 +75,26 @@ impl BodyKind {
         }
     }
 
+    /// The instruments the desks of a section play ([`Body::instrument`]): chosen, as an orchestra
+    /// matches its players' instruments, for being within 1 dB of the soloist's on average in
+    /// every octave of the instrument's lowest three, so a section sounds like the soloist's
+    /// instrument, not boomier or thinner (others are up to 5 dB apart).
+    pub fn section_instruments(self) -> [u32; 4] {
+        match self {
+            BodyKind::Violin | BodyKind::Piano => [47, 129, 83, 7],
+            BodyKind::Viola => [171, 91, 140, 6],
+            BodyKind::Cello => [48, 35, 24, 133],
+            BodyKind::DoubleBass => [39, 58, 80, 160],
+        }
+    }
+
     #[cfg(test)]
     pub const ALL: [BodyKind; 5] = [BodyKind::Piano, BodyKind::Violin, BodyKind::Viola, BodyKind::Cello, BodyKind::DoubleBass];
+}
+
+/// The voicing's gain at `f` Hz (none without one).
+fn voice(voicing: &[(f32, f32)], f: f32) -> f32 {
+    if voicing.is_empty() { 0.0 } else { curve(voicing, f.max(1.0).log2()) }
 }
 
 /// A body's design: signature modes, then the dense ones.
@@ -94,6 +116,9 @@ struct Design {
     /// The bottom, below which the body hardly radiates, and the top.
     low_cut: f32,
     high_cut: f32,
+    /// The instrument's own voice over the shape it shares with the violin, dB against log2 of
+    /// frequency: fitted to recordings of real players (see the module's notes).
+    voicing: &'static [(f32, f32)],
     seed: u32,
 }
 
@@ -102,10 +127,22 @@ const VIOLIN_MODES: [(f32, f32, f32); 6] =
 const VIOLIN_ENVELOPE: [(f32, f32); 7] = [(7.0, -14.0), (8.2, -4.0), (9.3, -6.0), (10.3, -3.0), (11.35, 4.0), (12.1, -2.0), (13.3, -18.0)];
 const VIOLIN_Q: [(f32, f32); 3] = [(8.0, 32.0), (11.0, 22.0), (13.0, 14.0)];
 
+/// What sets each instrument apart from a violin scaled up, measured: the harmonics of 64 notes
+/// sustained with vibrato, alone and by sections (Sonatina Symphonic Orchestra), against the same
+/// notes from the model, in half-octave bands. A viola is quieter around its bridge hill (2 to
+/// 4 kHz), a cello from 600 Hz up and a double bass from 250 Hz up, the more so the larger: what a
+/// scaled violin's shape gets wrong for bodies two to five times its size. The violin itself
+/// speaks a little more around 1 kHz.
+const VIOLIN_VOICE: [(f32, f32); 6] = [(9.3, 0.0), (9.55, 2.0), (9.9, 10.0), (10.25, 0.0), (11.4, 2.5), (11.7, 0.0)];
+const VIOLA_VOICE: [(f32, f32); 9] = [(9.6, 0.0), (9.9, 6.0), (10.2, 0.0), (10.4, -5.0), (10.9, -10.0), (11.4, -8.0), (11.9, -6.0), (12.4, -3.0), (13.0, 0.0)];
+const CELLO_VOICE: [(f32, f32); 7] = [(8.9, 0.0), (9.4, -10.0), (9.9, -13.0), (10.4, -11.0), (10.9, -7.0), (11.4, -7.0), (12.0, -4.0)];
+const BASS_VOICE: [(f32, f32); 10] =
+    [(6.6, 0.0), (6.9, 5.0), (7.2, 0.0), (7.6, 0.0), (8.0, -4.0), (8.9, -7.0), (9.4, -17.0), (9.9, -18.0), (10.4, -17.0), (10.9, -11.0)];
+
 fn design(kind: BodyKind) -> Design {
     // The violin family share a shape, scaled: the viola's body is about 15 % larger, the cello's
     // and the double bass's much more so, with their bridge hills lower but not as much lower.
-    let violin = |scale: f32, high_cut: f32, seed: u32| Design {
+    let violin = |scale: f32, low_cut: f32, high_cut: f32, voicing: &'static [(f32, f32)], seed: u32| Design {
         signature: &VIOLIN_MODES,
         dense: 88,
         low: 300.0,
@@ -114,8 +151,9 @@ fn design(kind: BodyKind) -> Design {
         q: &VIOLIN_Q,
         scale,
         direct: 0.08,
-        low_cut: 180.0 * scale.sqrt(),
+        low_cut,
         high_cut,
+        voicing,
         seed,
     };
     match kind {
@@ -130,12 +168,14 @@ fn design(kind: BodyKind) -> Design {
             direct: 0.55,
             low_cut: 40.0,
             high_cut: 12_000.0,
+            voicing: &[],
             seed: 11,
         },
-        BodyKind::Violin => violin(1.0, 11_000.0, 21),
-        BodyKind::Viola => violin(0.82, 9000.0, 31),
-        BodyKind::Cello => violin(0.37, 6500.0, 41),
-        BodyKind::DoubleBass => violin(0.22, 4000.0, 51),
+        // A cello's and a double bass's lowest notes are heard, fundamental and all.
+        BodyKind::Violin => violin(1.0, 180.0, 11_000.0, &VIOLIN_VOICE, 21),
+        BodyKind::Viola => violin(0.82, 163.0, 9000.0, &VIOLA_VOICE, 31),
+        BodyKind::Cello => violin(0.37, 45.0, 6500.0, &CELLO_VOICE, 41),
+        BodyKind::DoubleBass => violin(0.22, 55.0, 4000.0, &BASS_VOICE, 51),
     }
 }
 
@@ -154,7 +194,10 @@ struct Block {
 struct Sympathy {
     buf: Vec<f32>,
     pos: usize,
-    delay: f32,
+    /// The loop's delay as whole samples back from the write point and the fraction of a sample
+    /// forward from there.
+    back: usize,
+    frac: f32,
     gain: f32,
     lp: f32,
 }
@@ -171,24 +214,22 @@ impl Sympathy {
         let b = 1.0 - STRING_LP;
         let lp_delay = (b * w.sin()).atan2(1.0 - b * w.cos()) / w;
         let delay = (sr / f - lp_delay).max(2.0);
-        Sympathy { buf: vec![0.0; delay as usize + 4], pos: 0, delay, gain: 10f32.powf(-3.0 / (t60 * f)), lp: 0.0 }
+        let n = delay as usize + 4;
+        let delay = delay.clamp(1.0, (n - 2) as f32);
+        let back = delay.ceil() as usize;
+        Sympathy { buf: vec![0.0; n], pos: 0, back, frac: back as f32 - delay, gain: 10f32.powf(-3.0 / (t60 * f)), lp: 0.0 }
     }
 
     fn tick(&mut self, x: f32) -> f32 {
         let n = self.buf.len();
-        if n < 4 {
-            return 0.0;
-        }
-        let d = self.delay.clamp(1.0, (n - 2) as f32);
-        let read = self.pos as f32 + n as f32 - d;
-        let i0 = read.floor() as usize % n;
-        let frac = read - read.floor();
-        let y = self.buf.get(i0).copied().unwrap_or(0.0) * (1.0 - frac) + self.buf.get((i0 + 1) % n).copied().unwrap_or(0.0) * frac;
+        let i0 = if self.pos >= self.back { self.pos - self.back } else { self.pos + n - self.back };
+        let i1 = if i0 + 1 >= n { 0 } else { i0 + 1 };
+        let y = self.buf.get(i0).copied().unwrap_or(0.0) * (1.0 - self.frac) + self.buf.get(i1).copied().unwrap_or(0.0) * self.frac;
         self.lp = flush(self.lp + STRING_LP * (y - self.lp));
         if let Some(slot) = self.buf.get_mut(self.pos) {
             *slot = flush(x + self.lp * self.gain);
         }
-        self.pos = (self.pos + 1) % n;
+        self.pos = if self.pos + 1 >= n { 0 } else { self.pos + 1 };
         y
     }
 }
@@ -276,11 +317,71 @@ const PEDAL_HIGH: u8 = 96;
 const PEDAL_IN: f32 = 0.003;
 
 impl Body {
-    pub fn new(kind: BodyKind, sr: f32) -> Body {
-        let d = design(kind);
+    /// One of several instruments of a kind, for the players of a section: `0` is the soloist's;
+    /// the others have their main modes up to 3 % higher or lower, broader or sharper and up to
+    /// 2 dB apart, and dense modes of their own.
+    pub fn instrument(kind: BodyKind, which: u32, sr: f32) -> Body {
+        let mut body = Body::build(kind, which, sr, true);
+        if !design(kind).voicing.is_empty() {
+            // The voicing changes the body's colour, not its loudness: a bowed string across the
+            // instrument's range comes out as loud as through the shape it was cut from.
+            let plain = Body::build(kind, which, sr, false);
+            let (before, after) = (plain.string_power(), body.string_power());
+            if before > 0.0 && after > 0.0 {
+                body.wet = plain.wet * (before / after).sqrt() as f32;
+            }
+        }
+        body
+    }
+
+    /// The modes' power for a bowed string's harmonics (falling 6 dB an octave), summed over each
+    /// open string and the fifth and octave above it, worked out from the modes' responses.
+    fn string_power(&self) -> f64 {
+        let mut total = 0.0;
+        for &open in self.kind.open_strings() {
+            for step in [0.0f32, 7.0, 12.0] {
+                let f0 = 440.0 * 2f32.powf((f32::from(open) + step - 69.0) / 12.0);
+                let mut k = 1.0f32;
+                while k * f0 < (0.45 * self.sr).min(8000.0) {
+                    let w = std::f32::consts::TAU * k * f0 / self.sr;
+                    // Each mode is b (1 - z^-2) / (1 - a1 z^-1 + a2 z^-2) at z = e^jw.
+                    let (c1, s1, c2, s2) = (w.cos(), -w.sin(), (2.0 * w).cos(), -(2.0 * w).sin());
+                    let (num_re, num_im) = (1.0 - c2, -s2);
+                    let (mut l_re, mut l_im, mut r_re, mut r_im) = (0.0f32, 0.0f32, 0.0f32, 0.0f32);
+                    for b in &self.blocks {
+                        for ((a1, a2), (bb, (l, r))) in b.a1.iter().zip(&b.a2).zip(b.b.iter().zip(b.left.iter().zip(&b.right))) {
+                            let (den_re, den_im) = (1.0 - a1 * c1 + a2 * c2, -a1 * s1 + a2 * s2);
+                            let d = den_re * den_re + den_im * den_im;
+                            if d <= 0.0 {
+                                continue;
+                            }
+                            let h_re = bb * (num_re * den_re + num_im * den_im) / d;
+                            let h_im = bb * (num_im * den_re - num_re * den_im) / d;
+                            (l_re, l_im, r_re, r_im) = (l_re + l * h_re, l_im + l * h_im, r_re + r * h_re, r_im + r * h_im);
+                        }
+                    }
+                    total += f64::from(0.5 * (l_re * l_re + l_im * l_im + r_re * r_re + r_im * r_im) / (k * k));
+                    k += 1.0;
+                }
+            }
+        }
+        total
+    }
+
+    fn build(kind: BodyKind, which: u32, sr: f32, voiced: bool) -> Body {
+        let mut d = design(kind);
+        if !voiced {
+            d.voicing = &[];
+        }
+        let other = which > 0;
+        if other {
+            d.seed = d.seed.wrapping_add(which.wrapping_mul(1009));
+        }
         let mut modes: Vec<(f32, f32, f32)> = Vec::new();
-        for &(f, q, db) in d.signature {
-            modes.push((f * d.scale, q, db));
+        for (i, &(f, q, db)) in d.signature.iter().enumerate() {
+            let h = |k: u32| if other { hash01(d.seed.wrapping_add(k), i as u32) * 2.0 - 1.0 } else { 0.0 };
+            let f = f * d.scale * (1.0 + 0.03 * h(5));
+            modes.push((f, q * (1.0 + 0.2 * h(6)), db + 2.0 * h(7) + voice(d.voicing, f)));
         }
         let (lo, hi) = ((d.low * d.scale).log2(), (d.high * d.scale.sqrt()).log2());
         for i in 0..d.dense {
@@ -289,7 +390,7 @@ impl Body {
             let f = at.exp2();
             // The envelope is drawn for the violin's size; a larger body has it lower.
             let rel = at - d.scale.log2() * 0.6;
-            let level = curve(d.envelope, rel) + 20.0 * (0.25 + 0.75 * hash01(d.seed + 1, i as u32)).log10();
+            let level = curve(d.envelope, rel) + 20.0 * (0.25 + 0.75 * hash01(d.seed + 1, i as u32)).log10() + voice(d.voicing, f);
             let q = curve(d.q, rel) * (0.7 + 0.6 * hash01(d.seed + 2, i as u32));
             modes.push((f, q, level));
         }
@@ -495,7 +596,7 @@ mod tests {
     #[test]
     fn bodies_pass_noise_at_about_unit_power_and_go_quiet() {
         for kind in BodyKind::ALL {
-            let mut b = Body::new(kind, 48_000.0);
+            let mut b = Body::instrument(kind, 0, 48_000.0);
             let mut noise = crate::synth::Noise::new(3);
             let n = 48_000;
             let (mut ein, mut eout) = (0.0f32, 0.0f32);
@@ -516,12 +617,53 @@ mod tests {
         }
     }
 
+    /// The average response of a body over each octave from `low`, three octaves, in dB.
+    fn octaves(b: &mut Body, low: f32) -> [f32; 3] {
+        let sr = 48_000.0;
+        let ir: Vec<f32> = (0..24_000)
+            .map(|i| {
+                let x = if i == 0 { 1.0 } else { 0.0 };
+                let (l, r) = b.tick(x, x);
+                0.5 * (l + r)
+            })
+            .collect();
+        let mut out = [0.0f32; 3];
+        for (band, o) in out.iter_mut().enumerate() {
+            let mut sum = 0.0;
+            for semi in 0..12 {
+                // Goertzel at each semitone.
+                let w = std::f32::consts::TAU * low * 2f32.powf((band * 12 + semi) as f32 / 12.0) / sr;
+                let c = 2.0 * w.cos();
+                let (mut s1, mut s2) = (0.0f32, 0.0f32);
+                for x in &ir {
+                    (s1, s2) = (x + c * s1 - s2, s1);
+                }
+                sum += (s1 * s1 + s2 * s2 - c * s1 * s2) / 12.0;
+            }
+            *o = 10.0 * sum.log10();
+        }
+        out
+    }
+
+    #[test]
+    fn a_sections_instruments_sound_like_the_soloists() {
+        for (kind, low) in [(BodyKind::Violin, 196.0f32), (BodyKind::Viola, 130.8), (BodyKind::Cello, 65.4), (BodyKind::DoubleBass, 41.2)] {
+            let solo = octaves(&mut Body::instrument(kind, 0, 48_000.0), low);
+            for which in kind.section_instruments() {
+                let desk = octaves(&mut Body::instrument(kind, which, 48_000.0), low);
+                for (a, b) in desk.iter().zip(&solo) {
+                    assert!((a - b).abs() <= 1.1, "{kind:?} {which}: {desk:?} against {solo:?}");
+                }
+            }
+        }
+    }
+
     #[test]
     fn a_pedalled_chord_leaves_a_halo_the_dampers_stop() {
         // A second of a C major chord into the soundboard, then silence: with the pedal down the
         // other strings ring on, quieter than the chord; with it up, they barely sound.
         let tail = |pedal: bool| {
-            let mut b = Body::new(BodyKind::Piano, 48_000.0);
+            let mut b = Body::instrument(BodyKind::Piano, 0, 48_000.0);
             b.set_pedal(pedal);
             let sr = 48_000.0;
             let (mut during, mut after) = (0.0f32, 0.0f32);

@@ -174,7 +174,15 @@ const CORE: [CommandSpec; 55] = [
     cmd("track.rename", "Rename Track", "Track", None, "name", true, track_rename),
     cmd("track.setTuning", "Tuning", "Track", None, "preset | strings (highest first)", true, track_tuning),
     cmd("track.setCapo", "Capo", "Track", None, "fret (0..=24)", true, track_capo),
-    cmd("track.setProgram", "Instrument", "Track", None, "program (0..=127), track? (index; default the cursor's)", true, track_program),
+    cmd(
+        "track.setProgram",
+        "Instrument",
+        "Track",
+        None,
+        "program (0..=127), players? (0 or 1: one player; 2..=16: a section of that many, on the violin family), track? (index; default the cursor's)",
+        true,
+        track_program,
+    ),
     cmd("track.setMix", "Mix", "Track", None, "volume? (0..=127), pan? (-63..=63), muted?, solo?, track? (index; default the cursor's)", true, track_mix),
     cmd("track.select", "Select Track", "Track", None, "index", false, track_select),
     cmd(
@@ -850,7 +858,12 @@ pub(crate) fn mixer_track<'a>(s: &'a mut Session, params: &Value) -> Result<&'a 
 
 fn track_program(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let program = p::uint(params, "program", 127)? as u8;
-    mixer_track(s, params)?.program = program;
+    let players = p::opt_uint(params, "players", u64::from(guitario_score::MAX_PLAYERS))?;
+    let t = mixer_track(s, params)?;
+    t.program = program;
+    if let Some(n) = players {
+        t.players = n as u8;
+    }
     ok()
 }
 
@@ -911,7 +924,7 @@ fn info(s: &mut Session, _: &Value) -> Result<Value, EngineError> {
     let sc = &s.score;
     Ok(json!({
         "title": sc.meta.title, "artist": sc.meta.artist, "tempo": sc.tempo, "measures": sc.headers.len(),
-        "tracks": sc.tracks.iter().map(|t| json!({"name": t.name, "drums": t.is_drums(), "tuning": t.tuning.name, "strings": t.string_count(), "capo": t.capo, "program": t.program})).collect::<Vec<_>>(),
+        "tracks": sc.tracks.iter().map(|t| json!({"name": t.name, "drums": t.is_drums(), "tuning": t.tuning.name, "strings": t.string_count(), "capo": t.capo, "program": t.program, "players": t.players.max(1)})).collect::<Vec<_>>(),
         "cursor": s.cursor_json(), "dirty": s.dirty, "path": s.path.as_ref().map(|p| p.display().to_string()),
         "canUndo": s.can_undo(), "canRedo": s.can_redo(),
     }))

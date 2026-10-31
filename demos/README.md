@@ -12,7 +12,7 @@ software).
 |---|---|---|---|---|
 | `00-blank` | Template | 120 | Standard | Eight empty bars to start from |
 | `01-thrash-attack` | Thrash | 190 | Standard | Downpicked sixteenth chugs in E phrygian, power-chord hits, a hammer-on pentatonic run, repeats |
-| `02-funeral-procession` | Doom | 56 | Drop C | Whole-note chords with let ring and vibrato, a slow bending lead, three tracks |
+| `02-funeral-procession` | Doom | 56 | Drop C | Whole-note chords with let ring and vibrato, a slow bending lead, a section of ten cellos singing over the riff |
 | `03-burial-ground` | Death metal | 200 | Drop B | Thirty-second tremolo chugs, chromatic descents, a half-time breakdown with a tempo change |
 | `04-steel-horizon` | Power metal | 168 | Standard | Twin harmony leads in thirds, sweeping arpeggios, galloping rhythm guitar and bass (four tracks) |
 | `05-seven-strings-deep` | Djent | 128 | 7-string, drop A | A 3+3+3+3+4 polyrhythm in sixteenths, a half-time breakdown, a pinch harmonic |

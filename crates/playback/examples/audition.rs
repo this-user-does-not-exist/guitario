@@ -1,5 +1,5 @@
-//! Renders auditions of the modelled instruments (grand piano, violin family, string section) to
-//! WAV files, through the same player the app uses:
+//! Renders auditions of the modelled instruments (grand piano, violin family, string sections and
+//! a string orchestra) to WAV files, through the same player the app uses:
 //! `cargo run -p guitario-playback --release --example audition -- <dir> [name …]`.
 //!
 //! Each audition is an original phrase written in a small notation: bars split by `|`, beats by
@@ -116,7 +116,26 @@ struct Part {
     tuning: Vec<u8>,
     /// Voices, each a string of bars.
     voices: Vec<&'static str>,
+    /// Players of a section (0 is one), and the track's pan.
+    players: u8,
+    pan: i8,
 }
+
+impl Part {
+    fn new(name: &'static str, program: u8, tuning: Vec<u8>, voices: Vec<&'static str>) -> Part {
+        Part { name, program, tuning, voices, players: 0, pan: 0 }
+    }
+
+    /// Played by a section of `players`, placed at `pan`.
+    fn section(self, players: u8, pan: i8) -> Part {
+        Part { players, pan, ..self }
+    }
+}
+
+const VIOLIN: [u8; 4] = [76, 69, 62, 55];
+const VIOLA: [u8; 4] = [69, 62, 55, 48];
+const CELLO: [u8; 4] = [57, 50, 43, 36];
+const BASS: [u8; 4] = [43, 38, 33, 28];
 
 fn score(tempo: u16, parts: &[Part]) -> Score {
     let bars = parts.iter().flat_map(|p| p.voices.iter()).map(|v| v.split('|').count()).max().unwrap_or(1);
@@ -131,6 +150,8 @@ fn score(tempo: u16, parts: &[Part]) -> Score {
     for p in parts {
         let mut t = Track::new(p.name, Tuning { name: p.name.into(), strings: p.tuning.clone() }, &s.headers);
         t.program = p.program;
+        t.players = p.players;
+        t.pan = p.pan;
         t.interpretation.stringed = !matches!(p.program, 0..=7);
         for (vi, text) in p.voices.iter().enumerate() {
             let mut dynamic = Dynamic::Mf;
@@ -154,7 +175,7 @@ fn keyboard() -> Vec<u8> {
 }
 
 fn auditions() -> Vec<(&'static str, Score)> {
-    let piano = |voices: Vec<&'static str>| Part { name: "Piano", program: 0, tuning: keyboard(), voices };
+    let piano = |voices: Vec<&'static str>| Part::new("Piano", 0, keyboard(), voices);
     vec![
         (
             "piano-range",
@@ -202,38 +223,28 @@ fn auditions() -> Vec<(&'static str, Score)> {
             // Long notes swell into vibrato, then détaché eighths (a bow change each), then a slur.
             score(
                 76,
-                &[Part {
-                    name: "Violin",
-                    program: 40,
-                    tuning: vec![76, 69, 62, 55],
-                    voices: vec![
+                &[Part::new("Violin", 40, vec![76, 69, 62, 55], vec![
                         "2:B4@mp 2:E5 | 4.:G5@mf 8:F#5 4:E5 4:D5 | 1:E5 | 8:B4@f 8:C5 8:D5 8:E5 8:F#5 8:G5 8:A5 8:B5 | 4:C6@ff 4:B5 4:A5 4:G5 | 8:F#5@mf 8:G5!h 8:F#5!h 8:E5!h 2:D#5 | 1:E5@p",
-                    ],
-                }],
+                    ])],
             ),
         ),
         (
             "cello-solo",
             score(
                 66,
-                &[Part {
-                    name: "Cello",
-                    program: 42,
-                    tuning: vec![57, 50, 43, 36],
-                    voices: vec!["2:E2@mp 2:B2 | 4.:G3@mf 8:F#3 4:E3 4:D3 | 1:E3 | 8:B2@f 8:C3 8:D3 8:E3 8:F#3 8:G3 8:A3 8:B3 | 2:C4@ff 2:B3 | 1:E3@p"],
-                }],
+                &[Part::new("Cello", 42, vec![57, 50, 43, 36], vec!["2:E2@mp 2:B2 | 4.:G3@mf 8:F#3 4:E3 4:D3 | 1:E3 | 8:B2@f 8:C3 8:D3 8:E3 8:F#3 8:G3 8:A3 8:B3 | 2:C4@ff 2:B3 | 1:E3@p"])],
             ),
         ),
         (
             "viola-solo",
             score(
                 72,
-                &[Part { name: "Viola", program: 41, tuning: vec![69, 62, 55, 48], voices: vec!["2:E3@mp 2:B3 | 4.:G4@mf 8:F#4 4:E4 4:D4 | 1:E4 | 1:B3@p"] }],
+                &[Part::new("Viola", 41, vec![69, 62, 55, 48], vec!["2:E3@mp 2:B3 | 4.:G4@mf 8:F#4 4:E4 4:D4 | 1:E4 | 1:B3@p"])],
             ),
         ),
         (
             "double-bass",
-            score(60, &[Part { name: "Double Bass", program: 43, tuning: vec![43, 38, 33, 28], voices: vec!["2:E1@mf 2:B1 | 2:C2 2:D2 | 1:E1@f | 1:E1@p"] }]),
+            score(60, &[Part::new("Double Bass", 43, vec![43, 38, 33, 28], vec!["2:E1@mf 2:B1 | 2:C2 2:D2 | 1:E1@f | 1:E1@p"])]),
         ),
         (
             "string-section",
@@ -241,26 +252,98 @@ fn auditions() -> Vec<(&'static str, Score)> {
             // octaves, each note played by four players.
             score(
                 60,
-                &[Part {
-                    name: "Strings",
-                    program: 48,
-                    tuning: vec![103, 96, 89, 82, 75, 68, 61, 54, 47, 40, 33, 21],
-                    voices: vec![
+                &[Part::new("Strings", 48, vec![103, 96, 89, 82, 75, 68, 61, 54, 47, 40, 33, 21], vec![
                         "1:E2,B2,G3,E4,B4@mp | 1:C2,G2,E3,G4,C5@mf | 1:G1,D2,B3,G4,D5@f | 1:B1,F#2,D#4,F#4,B4@ff | 1:E2,B2,G3,E4,B4,E5@mp | 1:E2,B2,G3,E4,B4,E5@pp",
-                    ],
-                }],
+                    ])],
             ),
         ),
         (
             "string-tremolo",
             score(
                 90,
-                &[Part {
-                    name: "Tremolo Strings",
-                    program: 44,
-                    tuning: vec![103, 96, 89, 82, 75, 68, 61, 54, 47, 40, 33, 21],
-                    voices: vec!["1:E3,B3,E4,G4@p | 1:E3,B3,E4,G4@f | 1:F3,C4,F4,A4@ff | 1:E3,B3,E4,G#4@mp"],
-                }],
+                &[Part::new("Tremolo Strings", 44, vec![103, 96, 89, 82, 75, 68, 61, 54, 47, 40, 33, 21], vec!["1:E3,B3,E4,G4@p | 1:E3,B3,E4,G4@f | 1:F3,C4,F4,A4@ff | 1:E3,B3,E4,G#4@mp"])],
+            ),
+        ),
+        (
+            "violin-section",
+            // The violin's phrase by sixteen first violins.
+            score(
+                76,
+                &[Part::new(
+                    "Violins I",
+                    40,
+                    VIOLIN.to_vec(),
+                    vec![
+                        "2:B4@mp 2:E5 | 4.:G5@mf 8:F#5 4:E5 4:D5 | 1:E5 | 8:B4@f 8:C5 8:D5 8:E5 8:F#5 8:G5 8:A5 8:B5 | 4:C6@ff 4:B5 4:A5 4:G5 | 8:F#5@mf 8:G5!h 8:F#5!h 8:E5!h 2:D#5 | 1:E5@p",
+                    ],
+                )
+                .section(16, 0)],
+            ),
+        ),
+        (
+            "viola-section",
+            score(72, &[Part::new("Violas", 41, VIOLA.to_vec(), vec!["2:E3@mp 2:B3 | 4.:G4@mf 8:F#4 4:E4 4:D4 | 1:E4 | 1:B3@p"]).section(12, 0)]),
+        ),
+        (
+            "cello-section",
+            score(
+                66,
+                &[Part::new("Cellos", 42, CELLO.to_vec(), vec!["2:E2@mp 2:B2 | 4.:G3@mf 8:F#3 4:E3 4:D3 | 1:E3 | 8:B2@f 8:C3 8:D3 8:E3 8:F#3 8:G3 8:A3 8:B3 | 2:C4@ff 2:B3 | 1:E3@p"])
+                    .section(10, 0)],
+            ),
+        ),
+        (
+            "bass-section",
+            score(60, &[Part::new("Basses", 43, BASS.to_vec(), vec!["2:E1@mf 2:B1 | 2:C2 2:D2 | 1:E1@f | 1:E1@p"]).section(8, 0)]),
+        ),
+        (
+            "violins-divisi",
+            // Sixteen violins dividing three- and two-note chords among them.
+            score(66, &[Part::new("Violins I", 40, VIOLIN.to_vec(), vec!["1:E4,B4,G5@mp | 1:E4,C5,G5@mf | 1:F#4,B4,D#5@f | 2:G4,E5@mf 2:B4,E5@p"]).section(16, 0)]),
+        ),
+        (
+            "string-orchestra",
+            // An orchestra's five string sections, each on its track and seated: a dark chorale in
+            // E minor.
+            score(
+                60,
+                &[
+                    Part::new("Violins I", 40, VIOLIN.to_vec(), vec!["2:B4@mp 2:E5 | 4.:G5@mf 8:F#5 4:E5 4:D5 | 2:C5 2:B4 | 1:B4 | 2:E5@f 2:G5 | 2:F#5 4:E5 4:D#5 | 1:E5@mp | 1:E5@pp"])
+                        .section(16, -40),
+                    Part::new("Violins II", 40, VIOLIN.to_vec(), vec!["2:G4@mp 2:G4 | 2:B4@mf 2:A4 | 2:E4 2:F#4 | 1:F#4 | 2:B4@f 2:B4 | 2:A4 2:F#4 | 1:G4@mp | 1:G4@pp"])
+                        .section(14, -15),
+                    Part::new("Violas", 41, VIOLA.to_vec(), vec!["2:E4@mp 2:B3 | 2:E4@mf 2:F#4 | 2:A3 2:D#4 | 1:D#4 | 2:G4@f 2:E4 | 2:C4 2:B3 | 1:B3@mp | 1:B3@pp"]).section(12, 15),
+                    Part::new("Cellos", 42, CELLO.to_vec(), vec!["2:E3@mp 2:E3 | 2:E3@mf 2:D3 | 2:A2 2:B2 | 1:B2 | 2:E3@f 2:E3 | 2:A2 2:B2 | 1:E3@mp | 1:E2@pp"]).section(10, 35),
+                    Part::new("Basses", 43, BASS.to_vec(), vec!["2:E2@mp 2:E2 | 2:C2@mf 2:D2 | 2:A1 2:B1 | 1:B1 | 2:C2@f 2:C2 | 2:A1 2:B1 | 1:E1@mp | 1:E1@pp"]).section(8, 45),
+                ],
+            ),
+        ),
+        (
+            "low-strings-riff",
+            // Cellos and basses driving a staccato riff, violins holding over it.
+            score(
+                120,
+                &[
+                    Part::new("Violins I", 40, VIOLIN.to_vec(), vec!["1:B4@mf | 1:C5 | 1:B4 | 2:E5@f 2:D#5"]).section(16, -40),
+                    Part::new(
+                        "Cellos",
+                        42,
+                        CELLO.to_vec(),
+                        vec![
+                            "8:E2@f!s 8:E2!s 8:E2!s 8:G2 8:E2!s 8:E2!s 8:A#2@ff 8:A2 | 8:E2@f!s 8:E2!s 8:E2!s 8:G2 8:E2!s 8:E2!s 4:F2@ff | 8:E2@f!s 8:E2!s 8:E2!s 8:G2 8:E2!s 8:E2!s 8:A#2@ff 8:A2 | 2:B2@ff 2:B2",
+                        ],
+                    )
+                    .section(10, 35),
+                    Part::new(
+                        "Basses",
+                        43,
+                        BASS.to_vec(),
+                        vec![
+                            "8:E1@f!s 8:E1!s 8:E1!s 8:G1 8:E1!s 8:E1!s 8:A#1@ff 8:A1 | 8:E1@f!s 8:E1!s 8:E1!s 8:G1 8:E1!s 8:E1!s 4:F1@ff | 8:E1@f!s 8:E1!s 8:E1!s 8:G1 8:E1!s 8:E1!s 8:A#1@ff 8:A1 | 2:B1@ff 2:B1",
+                        ],
+                    )
+                    .section(8, 45),
+                ],
             ),
         ),
         (
@@ -268,27 +351,42 @@ fn auditions() -> Vec<(&'static str, Score)> {
             // The plucked-string synth at the same dynamics, to set the models' levels against.
             score(
                 80,
-                &[Part {
-                    name: "Guitar",
-                    program: 25,
-                    tuning: vec![64, 59, 55, 50, 45, 40],
-                    voices: vec!["2:E2@mf 2:B3 | 2:E4 2:G3 | 1:E2,B2,E3,G3,B3,E4 | 1:r"],
-                }],
+                &[Part::new("Guitar", 25, vec![64, 59, 55, 50, 45, 40], vec!["2:E2@mf 2:B3 | 2:E4 2:G3 | 1:E2,B2,E3,G3,B3,E4 | 1:r"])],
             ),
         ),
         (
             "pizzicato",
             score(
                 100,
-                &[Part {
-                    name: "Pizzicato Strings",
-                    program: 45,
-                    tuning: vec![103, 96, 89, 82, 75, 68, 61, 54, 47, 40, 33, 21],
-                    voices: vec!["4:E3@mf 4:G3 4:B3 4:E4 | 4:C3 4:E3 4:G3 4:C4 | 4:D3 4:F#3 4:A3 4:D4 | 2:E2,B2,E3,G3@f 2:r"],
-                }],
+                &[Part::new("Pizzicato Strings", 45, vec![103, 96, 89, 82, 75, 68, 61, 54, 47, 40, 33, 21], vec!["4:E3@mf 4:G3 4:B3 4:E4 | 4:C3 4:E3 4:G3 4:C4 | 4:D3 4:F#3 4:A3 4:D4 | 2:E2,B2,E3,G3@f 2:r"])],
             ),
         ),
     ]
+}
+
+/// Single long notes for comparing with recordings of real players: each instrument at a few
+/// pitches across its range, alone and as an orchestra's section (`ref-cello-10-a2` is ten
+/// cellos on A2), at mezzo-forte, five seconds each. Rendered only when asked for (`ref`, or by
+/// name).
+fn references() -> Vec<(String, Score)> {
+    type Instrument<'a> = (&'a str, u8, &'a [u8], u8, &'a [&'a str]);
+    let instruments: [Instrument; 4] = [
+        ("violin", 40, &VIOLIN, 16, &["G3", "C#4", "E4", "A#4", "C#5", "E5", "G5", "A#5"]),
+        ("viola", 41, &VIOLA, 12, &["C3", "D#3", "F#3", "A3", "C4", "D#4", "F#4", "A4"]),
+        ("cello", 42, &CELLO, 10, &["C2", "D#2", "F#2", "A2", "C3", "D#3", "F#3", "A3", "C4"]),
+        ("bass", 43, &BASS, 8, &["F#1", "A1", "C2", "D#2", "F#2", "A2", "C3"]),
+    ];
+    let mut out = Vec::new();
+    for (name, program, tuning, section, notes) in instruments {
+        for players in [1, section] {
+            for note in notes {
+                let voice: &'static str = Box::leak(format!("1:{note}@mf | 1:r").into_boxed_str());
+                let part = Part::new("Strings", program, tuning.to_vec(), vec![voice]).section(players, 0);
+                out.push((format!("ref-{name}-{players}-{}", note.to_lowercase()), score(48, &[part])));
+            }
+        }
+    }
+    out
 }
 
 fn main() {
@@ -296,8 +394,11 @@ fn main() {
     let dir = PathBuf::from(args.next().unwrap_or_else(|| "auditions".into()));
     let only: Vec<String> = args.collect();
     std::fs::create_dir_all(&dir).expect("output directory");
-    for (name, score) in auditions() {
-        if !only.is_empty() && !only.iter().any(|o| o == name) {
+    let all = auditions().into_iter().map(|(n, s)| (n.to_string(), s)).chain(references());
+    for (name, score) in all {
+        let reference = name.starts_with("ref-");
+        let asked = only.iter().any(|o| *o == name || (reference && o == "ref"));
+        if (only.is_empty() && reference) || (!only.is_empty() && !asked) {
             continue;
         }
         if let Err(e) = score.validate() {

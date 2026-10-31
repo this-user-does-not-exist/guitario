@@ -55,16 +55,17 @@ impl GuitarioApp {
         let mut open_eq = None;
         let mut drag = self.mixer.drag;
         let score = self.session.score().clone();
-        let tracks: Vec<(String, bool, Mix, u8)> = score.tracks.iter().map(|t| (t.name.clone(), t.is_drums(), Mix::of(t), t.program)).collect();
+        let tracks: Vec<(String, bool, Mix, String)> =
+            score.tracks.iter().map(|t| (t.name.clone(), t.is_drums(), Mix::of(t), crate::inspector::sound_name(t.program, t.players))).collect();
         egui::Window::new("Mixer").open(&mut open).resizable(false).collapsible(false).default_pos([140.0, 130.0]).show(ctx, |ui| {
             ui.horizontal_top(|ui| {
-                for (ti, (name, drums, mix, program)) in tracks.iter().enumerate() {
+                for (ti, (name, drums, mix, sound)) in tracks.iter().enumerate() {
                     ui.vertical(|ui| {
                         ui.set_width(92.0);
                         let (bar, _) = ui.allocate_exact_size(egui::vec2(92.0, 4.0), egui::Sense::hover());
                         ui.painter().rect_filled(bar, 1.0, track_color(&score, ti));
                         ui.label(egui::RichText::new(name).strong().small()).on_hover_text(name);
-                        let sound = if *drums { "Drum kit".to_string() } else { crate::inspector::program_name(*program) };
+                        let sound = if *drums { "Drum kit" } else { sound.as_str() };
                         ui.label(egui::RichText::new(sound).small().color(tokens().text_dim));
                         // Pan.
                         let mut pan = match drag {

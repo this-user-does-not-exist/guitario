@@ -19,6 +19,7 @@ Guitario is an open-source, native, Guitar Pro-comparable tablature and notation
 | `docs/parity-checklist.md` | Generated list of every Guitar Pro menu item, live or missing |
 | `docs/scorecard.md` | Generated scorecard: per-area checklists and counts from the tree |
 | `docs/decisions.md` | Implementation decisions and why |
+| `docs/strings-calibration.md` | How the modelled bowed strings compare with recordings of real players, and how to repeat it |
 | `demos/README.md` | The demo suite (original metal pieces) and how it is generated and tested |
 
 ## 2. Workspace map
