@@ -60,6 +60,8 @@ pub struct ViewPrefs {
     /// The instrument views' display mode and left-handed fretboard.
     pub instrument: crate::instrument::Display,
     pub left_handed: bool,
+    /// The drum track's pads or step grid.
+    pub drums: crate::instrument::DrumView,
 }
 
 impl Default for ViewPrefs {
@@ -76,6 +78,7 @@ impl Default for ViewPrefs {
             keyboard: false,
             instrument: crate::instrument::Display::Beat,
             left_handed: false,
+            drums: crate::instrument::DrumView::default(),
         }
     }
 }
@@ -121,6 +124,7 @@ impl Prefs {
     /// Clamps values a hand-edited file could set out of range.
     pub fn sanitized(mut self) -> Prefs {
         let v = &mut self.view;
+        v.drums = v.drums.sanitized();
         v.zoom = if v.zoom.is_finite() { v.zoom.clamp(0.25, 4.0) } else { 1.25 };
         self.ui.scale = if self.ui.scale.is_finite() { self.ui.scale.clamp(MIN_UI_SCALE, MAX_UI_SCALE) } else { 1.0 };
         let p = &mut self.playback;

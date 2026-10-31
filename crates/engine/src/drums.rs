@@ -37,7 +37,7 @@ fn add_drums(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     Ok(json!({"track": s.cursor.track}))
 }
 
-fn drum_param(params: &Value) -> Result<u8, EngineError> {
+pub(crate) fn drum_param(params: &Value) -> Result<u8, EngineError> {
     match params.get("drum") {
         Some(Value::Number(n)) => n
             .as_u64()

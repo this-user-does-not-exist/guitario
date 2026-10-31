@@ -242,6 +242,10 @@ fn main() {
     if args.iter().any(|a| a == "--multivoice") {
         app.view.multivoice = true;
     }
+    // `--drum-grid`: the instrument view shows a drum track's bar as the step grid.
+    if args.iter().any(|a| a == "--drum-grid") {
+        app.view.drums.grid = true;
+    }
     if args.iter().any(|a| a == "--audio-settings") {
         app.open_audio_settings_dialog();
     }

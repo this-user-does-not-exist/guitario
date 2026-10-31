@@ -13,6 +13,7 @@ mod bar_check;
 mod bend_dialog;
 mod bend_draw;
 mod chord_dialog;
+mod drum_grid;
 mod effects_ui;
 mod fonts;
 mod fretboard;
@@ -89,6 +90,8 @@ pub struct ViewState {
     pub instrument: instrument::Display,
     /// The fretboard drawn for a left-handed player, the nut at the right.
     pub left_handed: bool,
+    /// The drum track's pads or step grid.
+    pub drums: instrument::DrumView,
     /// A scale the Scale tool shows on the fretboard and keyboard views: its key note, its index
     /// in the scale library, and whether its key note is spelled with a flat.
     pub scale: Option<(u8, usize, bool)>,
@@ -215,6 +218,7 @@ impl GuitarioApp {
                 hidden: 0,
                 instrument: instrument::Display::Beat,
                 left_handed: false,
+                drums: instrument::DrumView::default(),
                 scale: None,
             },
             inspector_tab: inspector::Tab::Song,
@@ -292,6 +296,7 @@ impl GuitarioApp {
             hidden: 0,
             instrument: p.view.instrument,
             left_handed: p.view.left_handed,
+            drums: p.view.drums,
             scale: None,
         };
         self.panels =
@@ -339,6 +344,7 @@ impl GuitarioApp {
             keyboard: pn.keyboard,
             instrument: v.instrument,
             left_handed: v.left_handed,
+            drums: v.drums,
         };
         let playback = prefs::PlaybackPrefs {
             metronome: t.metronome,
@@ -1014,9 +1020,11 @@ impl GuitarioApp {
         }
         if self.panels.fretboard {
             // As tall as Guitar Pro's: about 15 points a string.
-            let strings = self.session.score().tracks.get(self.session.cursor().track).map_or(6, |t| t.string_count()) as f32;
+            let track = self.session.score().tracks.get(self.session.cursor().track);
+            let strings = track.map_or(6, |t| t.string_count()) as f32;
+            let grid = self.view.drums.grid && track.is_some_and(guitario_score::Track::is_drums);
             egui::Panel::bottom("fretboard")
-                .exact_size(fretboard::height(strings))
+                .exact_size(if grid { drum_grid::HEIGHT } else { fretboard::height(strings) })
                 .frame(egui::Frame::NONE.fill(t.chrome_dark))
                 .show(ui, |ui| fretboard::show(self, ui));
         }
