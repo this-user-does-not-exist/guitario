@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G4: slurs across bars, head room) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G8: several documents in tabs) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -633,6 +633,20 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   (Edit Section…, Next and Previous Section) and Guitar Pro's Section window; section letters kept
   apart from names in `.gp` both ways. Sound Mastering in the Song inspector (greyed); messages as a
   toast instead of a status bar, which Guitar Pro does not have.
+- **Landed 2026-10-31:** several documents open at once (#148), a tab each as in Guitar Pro 8:
+  File › New, Open, Import, a template, an example and a recovered score each open in a new tab
+  (or in place of an untouched untitled one), and opening a file that is already open shows its
+  tab. Each document keeps its own score, undo history, cursor, selection, hidden tracks and
+  autosave copy (the copies of the tabs behind are written and their heartbeats kept fresh too);
+  the clipboard follows the tab shown, so a copy in one pastes into another
+  (`Session::hand_clipboard_to`, `Session::sibling`). The tabs share the bar's width, the shown
+  one lit, names cut short with an ellipsis; a click shows a tab, a middle click closes it, hover
+  gives save and close, and the context menu has Close, Close Others and Close All. Close (⌘W)
+  shows the right-hand neighbour; the last tab leaves an untitled document. Close Others, Close
+  All and quitting ask about each unsaved document in turn, showing its tab, and Cancel stops
+  them. Window › Next Document (⌃⇥) and ⌃⇧⇥ go round the tabs; switching stops playback. The app
+  opens every file named on its command line, each in a tab. Tests in `documents.rs`; the
+  snapshot example's `--also a.gt,b.gp` opens more tabs.
 
 ### G9. Performance budgets
 - **Landed 2026-10-16:** `cargo xtask perf` and `perf/budgets.toml`: a 400-bar, six-track score

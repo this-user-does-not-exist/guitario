@@ -91,6 +91,8 @@ pub enum UiAction {
     ToggleKeyboard,
     About,
     CloseDocument,
+    /// Window › Next Document: the tab to the right, round to the first.
+    NextDocument,
     TripletFeel,
     Tuplet,
     Brush(&'static str),
@@ -322,7 +324,7 @@ pub static CATALOG: &[MenuItem] = &[
     // Window
     // Cmd+M is Multivoice Editing in Guitar Pro 8's voice table.
     u("Window", "Minimize", U::Minimize, ""),
-    m("Window", "Next Document"),
+    u("Window", "Next Document", U::NextDocument, "Ctrl+Tab"),
     // Help
     m("Help", "Guitario Help"),
     u("Help", "Keyboard Shortcuts", U::KeyboardShortcuts, ""),

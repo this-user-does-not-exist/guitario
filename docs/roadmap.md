@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (slurs across bars; G4 done for beta; beta ~154–308 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (several documents in tabs; beta ~144–293 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -14,7 +14,7 @@ for one agent working sequentially, and an upper bound (see
 [calibration](target-app-parity.md#calibration)).
 
 **Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
-today; ~175–360 h of work are left, ordered under [Current focus](#current-focus).
+today; ~144–293 h of work are left, ordered under [Current focus](#current-focus).
 
 ## Stages
 
@@ -69,7 +69,7 @@ live except the ones the scorecard stages for 1.0.
 | B4 | **Exchange.** Open any Guitar Pro 3 to 8 file (at least 95 % of a real corpus without warnings); a `.gp` export opens in Guitar Pro 8; MIDI and MusicXML go in and out | partial | the `.gp` check in Guitar Pro 8 (human); MIDI import, MusicXML and Guitar Pro 6 drums landed 2026-10-18 | [G3](gaps.md#g3-guitar-pro-exchange) |
 | B5 | **Practise with the tools.** Tune the guitar, look up a chord's voicings, show a scale on the fretboard | partial | a tuning check with a real guitar (human); the tuner, chord window and scale tool are done | [G7](gaps.md#g7-tools) |
 | B6 | **Print properly.** Headers and footers, selected bars, other paper; a page leaves a real printer on all three platforms | partial | the real-printer check (human); headers and footers with tokens, selected bars and twelve papers landed 2026-10-18 | [G2](gaps.md#g2-print-depth) |
-| B7 | **Work for hours.** Several scores open, a 1,000-bar score inside the performance budgets in CI, autosave and recovery, every reader fuzzed | partial | several documents, CI budgets, memory and startup budgets, `.gt` and decoder fuzzing, a guard around painting | [G8](gaps.md#g8-ui-depth), [G9](gaps.md#g9-performance-budgets), [G11](gaps.md#g11-reliability-depth) |
+| B7 | **Work for hours.** Several scores open, a 1,000-bar score inside the performance budgets in CI, autosave and recovery, every reader fuzzed | partial | CI budgets, memory and startup budgets, `.gt` and decoder fuzzing, a guard around painting | [G8](gaps.md#g8-ui-depth), [G9](gaps.md#g9-performance-budgets), [G11](gaps.md#g11-reliability-depth) |
 | B8 | **Drive it by agent.** An agent completes ten scripted edit tasks over MCP and takes screenshots of the running app | no | control channel, MCP server | [G10](gaps.md#g10-automation) |
 
 **Result: fails (1 of 8: B3).** Closest: B4, B6 and B7 (partial with a few named pieces); farthest:
@@ -114,7 +114,8 @@ what needs a human ear or signing material last, so the human steps overlap with
    (packages, file types and the workflow landed 2026-10-18) and fix what macOS and Windows
    reveal; Finder's double-click once a human decides on the `unsafe` delegate; signing waits on
    accounts. 20–40 h + human.
-2. **Several documents, shortcuts audit, user book** ([G8](gaps.md#g8-ui-depth)). 55–100 h.
+2. **Shortcuts audit, user book, click-to-edit** ([G8](gaps.md#g8-ui-depth)); several documents
+   landed 2026-10-31. 40–80 h.
 3. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
    cache** ([G11](gaps.md#g11-reliability-depth), [G9](gaps.md#g9-performance-budgets)); **the
    localization framework** ([G13](gaps.md#g13-languages)). 85–175 h.
@@ -166,6 +167,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | Several documents in tabs (G8, B7's first piece); beta ~144–293 h |
 | 2026-10-31 | minor | Slurs across bars and in Guitar Pro files, room for a stepped-aside head: G4 done for beta; beta ~154–308 h |
 | 2026-10-31 | minor | Voice picking by notehead, ⌘1-4 and ⌘M, moving a note to a voice (G4); beta ~158–322 h |
 | 2026-10-31 | minor | Drum articulations (M6 done, G1 has no beta work left); beta ~160–330 h |

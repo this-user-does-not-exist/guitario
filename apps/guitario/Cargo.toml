@@ -12,7 +12,6 @@ guitario-engine = { workspace = true }
 guitario-ui-egui = { workspace = true }
 eframe = { workspace = true }
 egui = { workspace = true }
-serde_json = { workspace = true }
 craft-quit = { workspace = true }
 
 [build-dependencies]
