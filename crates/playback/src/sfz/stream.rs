@@ -338,11 +338,13 @@ mod tests {
 
     #[test]
     fn the_streamer_fills_a_request() {
+        // The streamer is shared with every other test, and a request is dropped while its queue
+        // is full, so ask again as a voice does.
         let (s, _) = stream(10, 5000);
-        s.request();
         let t0 = std::time::Instant::now();
-        while s.try_tail().is_none() && t0.elapsed().as_secs() < 10 {
-            std::thread::yield_now();
+        while s.try_tail().is_none() && t0.elapsed().as_secs() < 60 {
+            s.request();
+            std::thread::sleep(std::time::Duration::from_millis(5));
         }
         assert!(s.try_tail().is_some(), "the streamer thread decoded it");
     }
