@@ -323,10 +323,9 @@ impl GuitarioApp {
         self
     }
 
-    /// Opens persistent preferences the suite's way: `config.toml` in the platform folder, or
-    /// `GUITARIO_CONFIG_DIR`. The first run after the rename imports Guitario's preferences.
+    /// Opens persistent preferences: `config.toml` in the platform folder, or `GUITARIO_CONFIG_DIR`.
     pub fn open_settings() -> (prefs::Store, craft_settings::LoadReport) {
-        prefs::Store::open_with(craft_settings::OpenOptions::new(craft_settings::Location::Auto).legacy(prefs::legacy_files()))
+        prefs::Store::open_with(craft_settings::OpenOptions::new(craft_settings::Location::Auto))
     }
 
     /// Writes the current UI state into the settings store; it saves shortly after a change.

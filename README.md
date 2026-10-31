@@ -4,7 +4,6 @@
   <b>An open-source tablature and notation editor, in pure Rust.</b><br>
   Guitar Pro's layout, menus and keys; tab and standard notation on real pages; playback you can loop and slow down;<br>
   Guitar Pro files in and out. Native, offline, and yours.<br>
-  <sub>Formerly Guitario: <code>.gt</code> files still open.</sub>
 </p>
 
 <p align="center">

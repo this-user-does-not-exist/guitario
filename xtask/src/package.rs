@@ -468,7 +468,7 @@ mod tests {
         assert!(meta.contains("<release version=\"1.2.3\" date=\"") && !meta.contains('@'), "{meta}");
         assert_eq!(plist.matches("<dict>").count(), plist.matches("</dict>").count());
         assert_eq!(plist.matches("<array>").count(), plist.matches("</array>").count());
-        for ext in ["gt", "gt", "gp", "gpx", "gp5", "gp4", "gp3", "musicxml", "mxl"] {
+        for ext in ["gt", "gp", "gpx", "gp5", "gp4", "gp3", "musicxml", "mxl"] {
             assert!(plist.contains(&format!("<string>{ext}</string>")), "{ext}");
         }
         assert!(plist.contains("public.midi-audio") && plist.contains("NSMicrophoneUsageDescription"));

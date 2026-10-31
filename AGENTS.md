@@ -1,6 +1,6 @@
 # AGENTS.md: guide for AI agents and contributors
 
-Guitario is an open-source, native, Guitar Pro-comparable tablature and notation editor written in **Rust only** (no JavaScript or TypeScript). **No Tauri, Electron or webview shells:** the desktop app is native egui/eframe on wgpu, and the engine crates build for WebAssembly. Never add Tauri (or any webview/JS UI framework) as a dependency, build step or packaging target. The product name is always written **Guitario** in user-facing text: UI, window titles, About, installers, release names, docs prose (it was called Guitario until 2026-10-16). Machine names stay lowercase: crates (`guitario-*`), binaries, file names, ids (`ai.storyteller.guitario`), environment variables (`GUITARIO_*`). The native file extension is `.gt`; files saved as `.gt` by earlier builds still open. Guitario still shares standards and libraries with the sibling apps (another app, another app, another app …): standards and learnings shared across them live in `../shared-rules` (read its `README.md`; the repository is not public — outside contributors should ask a maintainer for the standards relevant to their change). Shared Rust components live in [storytold/craft-libs](https://github.com/storytold/craft-libs) and are pinned by immutable git revision. The goal is 1:1 Guitar Pro parity (same layout, menus, shortcuts, behaviour and file fidelity) with better performance, and every feature drivable by agents. Read this file first, then `docs/`.
+Guitario is an open-source, native, Guitar Pro-comparable tablature and notation editor written in **Rust only** (no JavaScript or TypeScript). **No Tauri, Electron or webview shells:** the desktop app is native egui/eframe on wgpu, and the engine crates build for WebAssembly. Never add Tauri (or any webview/JS UI framework) as a dependency, build step or packaging target. The product name is always written **Guitario** in user-facing text: UI, window titles, About, installers, release names, docs prose. Machine names stay lowercase: crates (`guitario-*`), binaries, file names, ids (`ai.storyteller.guitario`), environment variables (`GUITARIO_*`). The native file extension is `.gt`. Shared Rust components (atomic saves, settings, quit handling, PDF and printing) live in [storytold/craft-libs](https://github.com/storytold/craft-libs) and are pinned by immutable git revision. The goal is 1:1 Guitar Pro parity (same layout, menus, shortcuts, behaviour and file fidelity) with better performance, and every feature drivable by agents. Read this file first, then `docs/`.
 
 ## 1. Orientation (5 minutes)
 
@@ -46,7 +46,7 @@ scorecard/                checklists behind docs/scorecard.md
 
 ### Never crash (outranks feature work)
 
-People trust Guitario with their work, and a crash loses it. A malformed file, a bad command param, a corrupt settings file, an odd keystroke or a full disk must produce an error the user or agent can act on, never a panic. The shared standard is `../shared-rules/standards/never-crash.md`.
+People trust Guitario with their work, and a crash loses it. A malformed file, a bad command param, a corrupt settings file, an odd keystroke or a full disk must produce an error the user or agent can act on, never a panic.
 
 - **Non-test code never panics.** No `unwrap()`, `expect()`, `panic!`, `unreachable!`, `todo!` or `unimplemented!`, and no `[i]` indexing: the workspace denies them in clippy (`clippy.toml` allows them in tests only). Return the crate's error type and propagate with `?`; use `get()`, `let .. else`, `if let`, or `unwrap_or*` where a fallback is truly correct.
 - **No `unsafe`.** The workspace sets `unsafe_code = "forbid"`.
@@ -67,7 +67,7 @@ People trust Guitario with their work, and a crash loses it. A malformed file, a
 
 ## 4. Picking work
 
-1. **Read `ROADMAP.md`, then `docs/roadmap.md` → Current focus and `docs/gaps.md`.** The target is the **beta gate** (eight workflows in `docs/roadmap.md`); take the highest-ranked gap with beta work in it that nobody is working on. When your work lands, move its text from `docs/gaps.md` to `docs/changelog.md`, update the gap's hours, the parity doc and the scorecard, with the date, and bump their status line and revision history (shared-rules `standards/progress-docs.md`).
+1. **Read `ROADMAP.md`, then `docs/roadmap.md` → Current focus and `docs/gaps.md`.** The target is the **beta gate** (eight workflows in `docs/roadmap.md`); take the highest-ranked gap with beta work in it that nobody is working on. When your work lands, move its text from `docs/gaps.md` to `docs/changelog.md`, update the gap's hours, the parity doc and the scorecard, with the date, and bump their status line and revision history.
 2. **Check `docs/scorecard.md`** for `missing` and `partial` rows in your area. Every row that is not done carries a stage (`beta` or `1.0`, in `scorecard/*.toml`); the summary counts what is still open for beta, and a new row needs a stage too.
 3. **GitHub issues** hold the detail (milestones Alpha, Beta, 1.0 Guitar Pro parity; label `source: gp8-manual` for the manual review). Labels lag the code: check the scorecard before starting an open issue, and close it with the PR that finishes it.
 4. `docs/parity-checklist.md` → missing menu items; low-hanging fruit is a menu item whose logic already exists.
@@ -100,11 +100,11 @@ Then append a terse entry to `log/devlog.md` (gitignored): what landed, numbers,
 
 ## 8. Keeping the native format complete
 
-`.gt` is the serde form of `guitario-score`. When you add a model field, give it `#[serde(default)]` so older files still load, and map it in `crates/gp` if Guitar Pro has it. Files from before the rename (`.gt`, format tag `guitario`) must keep loading.
+`.gt` is the serde form of `guitario-score`. When you add a model field, give it `#[serde(default)]` so older files still load, and map it in `crates/gp` if Guitar Pro has it.
 
 ## Guitar Pro format notes
 
-The author's notes on the GP7/8 container and `score.gpif` are in `a private folder` (not in this repo). Key facts the importer relies on: `.gp` is a ZIP; only `Content/score.gpif` is needed; the XML is a flat id-referenced model (MasterBar → Bars → Voices → Beats → Notes/Rhythms); objects may be shared or unused; `Tuning/Pitches` and note `String` are lowest-string-first; repeat `count` is total plays.
+The maintainer keeps private notes on the GP7/8 container and `score.gpif` (not in this repo). Key facts the importer relies on: `.gp` is a ZIP; only `Content/score.gpif` is needed; the XML is a flat id-referenced model (MasterBar → Bars → Voices → Beats → Notes/Rhythms); objects may be shared or unused; `Tuning/Pitches` and note `String` are lowest-string-first; repeat `count` is total plays.
 
 ## Contributor credits
 

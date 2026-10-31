@@ -596,7 +596,7 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
 - **Landed 2026-10-18:** packages (`cargo xtask package [--target <triple>] [--no-build]`,
   templates in `packaging/`, output in `dist/`). macOS: `Guitario.app` with both binaries, the
   icon and an `Info.plist` that declares the Guitario score type (`ai.storyteller.guitario.score`
-  for `.gt` and `.gt`, owned), Guitar Pro (`.gp` `.gpx` `.gp5` `.gp4` `.gp3`), MIDI and
+  for `.gt`, owned), Guitar Pro (`.gp` `.gpx` `.gp5` `.gp4` `.gp3`), MIDI and
   MusicXML, and the microphone use the tuner needs, zipped with `ditto` and as a `.dmg`. Linux:
   a `.tar.gz` (binaries, desktop entry, MIME types `application/x-guitario` and
   `application/x-guitar-pro`, AppStream metadata, icons, `install.sh` for `~/.local` or a prefix,

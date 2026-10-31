@@ -23,7 +23,7 @@ string gave 7-string guitars a bass clef.
 
 ## 2026-10-15: Fonts are found, not bundled
 
-Under the suite's font rule nothing is committed: the page looks for a SMuFL music font (Bravura or
+Nothing font-related is committed: the page looks for a SMuFL music font (Bravura or
 Leland, both SIL OFL) and Times New Roman/Arial equivalents (Guitar Pro's stylesheet defaults) on
 the system or in `CRAFT_FONTS_DIR`/`GUITARIO_FONTS_DIR`, and draws simpler symbols without them.
 Moving Bravura into craft-fonts is the long-term answer.
@@ -49,15 +49,6 @@ import is an unsaved document, so Save never writes native JSON over a Guitar Pr
 were checked against public test files from other projects, used only as data in a local folder
 (`GUITARIO_GP_CORPUS`, `crates/gp/tests/corpus.rs`); they are not committed, and no code of those
 projects was read. Committed tests round-trip our own demos through the `.gp5` writer instead.
-
-## 2026-10-16: Renamed from Guitario to Guitario
-
-The product is **Guitario**; crates, binaries, ids and environment variables are `guitario`
-(`GUITARIO_*`), and the native file extension is `.gt`. Nothing a user made is lost: `.gt`
-files and the old `"guitario"` format tag still open, the first run imports Guitario's
-`config.toml` through craft-settings' legacy-file hook, and a sound bank installed in Guitario's
-data folder is used until Guitario has its own. Guitario keeps using the shared craft-libs crates
-and shared-rules standards.
 
 ## 2026-10-16: Voices share columns by time
 
@@ -367,7 +358,7 @@ Windows and Linux hand a double-clicked file to the program on its command line,
 already opens. macOS sends it as an Apple Event to the application delegate, and winit 0.30
 registers none and leaves it to the program: receiving it needs an `NSApplicationDelegate`
 declared with objc2, whose class declarations and message sends are `unsafe`. The workspace forbids
-`unsafe_code` (shared-rules' never-crash standard), so the bundle declares the file types (Finder
+`unsafe_code` (the never-crash rule in `AGENTS.md`), so the bundle declares the file types (Finder
 shows the icons and Open With) but a double-click starts Guitario without opening the file.
 The options, for a human: allow one reviewed `unsafe` module in the desktop app (about 60 lines,
 macOS only, the file list handed to the shell as the command line is), or wait for winit to

@@ -122,20 +122,12 @@ impl SoundBank {
         Ok(SoundBank { dir: dir.to_path_buf(), entries, cache: std::sync::Mutex::default() })
     }
 
-    /// Where banks live by default: `$GUITARIO_SOUNDS`, else the per-user data folder. A bank
-    /// installed before the app was renamed from Guitario is used where it is until Guitario has
-    /// its own.
+    /// Where banks live by default: `$GUITARIO_SOUNDS`, else the per-user data folder.
     pub fn default_dir() -> Option<PathBuf> {
         if let Some(d) = std::env::var_os("GUITARIO_SOUNDS").filter(|d| !d.is_empty()) {
             return Some(PathBuf::from(d));
         }
-        let dir = data_dir("Guitario", "guitario")?;
-        if !dir.exists()
-            && let Some(old) = data_dir("Guitario", "guitario").filter(|d| d.exists())
-        {
-            return Some(old);
-        }
-        Some(dir)
+        data_dir("Guitario", "guitario")
     }
 
     /// The bank at [`default_dir`](Self::default_dir), if one is installed.

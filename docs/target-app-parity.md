@@ -81,8 +81,8 @@ sixties or better while the 1.0 tail (stylesheet, Design Mode, translations) sta
 ## Calibration
 
 Hours are Opus 5.5 agent wall-clock hours for one agent working sequentially, including tests.
-The rates were first borrowed from another app (2–9 h per checklist item, 8–20 h per format or
-subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17:
+The rates were first borrowed from an earlier Rust desktop app (2–9 h per checklist item, 8–20 h
+per format or subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17:
 
 - **33 pull requests merged in 35 hours of calendar time** (2026-10-16 11:08 to 2026-10-17
   21:51 UTC), about one batch an hour, about 99,000 lines added and 26,000 removed.

@@ -1,6 +1,6 @@
 # UI design
 
-Guitario's look follows Guitar Pro 8's dark editor; the rules follow the sibling apps.
+Guitario's look follows Guitar Pro 8's dark editor.
 
 ## Tokens
 
