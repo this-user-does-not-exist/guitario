@@ -258,11 +258,13 @@ fn every_guitar_pro_5_copy_opens_as_its_score() {
         let (a, b) = (native.score(), s.score());
         assert_eq!((a.headers.len(), a.tracks.len(), a.tempo, &a.meta), (b.headers.len(), b.tracks.len(), b.tempo, &b.meta), "{name}");
         for (ta, tb) in a.tracks.iter().zip(&b.tracks) {
+            // Guitar Pro 5's drums are General MIDI: an articulation comes back as the piece it varies.
+            let gm = |t: &guitario_score::Track, f: u8| if t.is_drums() { guitario_theory::drums::plays(f) } else { f };
             let notes = |t: &guitario_score::Track| {
                 t.measures
                     .iter()
                     .flat_map(|m| &m.voices[0].beats)
-                    .map(|b| (b.duration, b.notes.iter().map(|n| (n.string, n.fret, n.kind)).collect::<Vec<_>>()))
+                    .map(|b| (b.duration, b.notes.iter().map(|n| (n.string, gm(t, n.fret), n.kind)).collect::<Vec<_>>()))
                     .collect::<Vec<_>>()
             };
             assert_eq!(notes(ta), notes(tb), "{name}: track `{}`", ta.name);

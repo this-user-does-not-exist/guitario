@@ -89,10 +89,14 @@ pub fn legato_in_order(played: &[PlayedBeat]) -> Vec<bool> {
         .collect()
 }
 
-/// The key a note plays on a sampled instrument: the drum number, the pitch heard (a harmonic's
-/// partial), or for a dead note the open string's pitch. None for a note without one.
+/// The key a note plays on a sampled instrument: the drum number (the General MIDI drum an
+/// articulation varies), the pitch heard (a harmonic's partial), or for a dead note the open
+/// string's pitch. None for a note without one.
 pub fn sample_key(score: &Score, note: &PlayedBeat) -> Option<u8> {
     let track = score.tracks.get(note.track)?;
+    if track.is_drums() {
+        return note.pitch.map(|p| guitario_theory::drums::plays(p.0));
+    }
     if let Some(h) = note.harmonic {
         return Some(h.key());
     }

@@ -261,6 +261,28 @@ fn drum_tracks_take_kit_pieces_on_their_lanes() {
     assert!(s.run("note.setDrum", &json!({"drum": "kick"})).is_err());
 }
 
+#[test]
+fn drum_articulations_replace_their_piece_and_keep_its_marks() {
+    let mut s = Session::new();
+    run(&mut s, "track.addDrums", json!({}));
+    let t = s.cursor().track;
+    run(&mut s, "note.setDrum", json!({"drum": "crash"}));
+    run(&mut s, "note.toggleEffect", json!({"effect": "accent"}));
+    // Choking the crash keeps the hit, its lane and its accent.
+    run(&mut s, "note.setDrum", json!({"drum": "crc"}));
+    let n = s.score().tracks[t].measures[0].voices[0].beats[0].notes[0];
+    assert_eq!((n.string, n.fret, n.effects.accent), (0, 97, true));
+    // Every articulation Guitar Pro 7 numbers is accepted by number; the half-open hat sits with the hats.
+    for d in 91..=98u8 {
+        run(&mut s, "note.setDrum", json!({"drum": d}));
+    }
+    run(&mut s, "note.setDrum", json!({"drum": 92}));
+    let beat = &s.score().tracks[t].measures[0].voices[0].beats[0];
+    assert!(beat.notes.iter().all(|n| n.fret != 92), "toggled off again");
+    assert!(beat.notes.iter().any(|n| n.string == 2 && n.fret == 46) || beat.notes.iter().all(|n| n.string != 2));
+    assert!(s.score().validate().is_ok());
+}
+
 #[allow(clippy::unwrap_used)]
 fn grid(s: &mut Session, params: Value) -> Value {
     s.run("drums.grid", &params).map_err(|e| format!("drums.grid: {e}")).unwrap()

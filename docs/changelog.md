@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G1: the drum step grid) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G1: drum articulations) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -29,6 +29,35 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   groove reads as ordinary beats in the tab and notation. `drums.grid` returns the same grid as
   JSON for agents (`crates/engine/src/drum_grid.rs`, `crates/ui-egui/src/drum_grid.rs`; snapshot
   flag `--drum-grid`).
+- **Landed 2026-10-31 (second step):** drum articulations (#99). The kit takes Guitar Pro 7's own
+  articulation numbers, read from its drum kit in a GP7 file: 91 snare rim shot, 92 half-open
+  hi-hat, 93 ride edge and 94 to 98 the ride, splash, china, crash and second crash choked. Each
+  sits on its piece's lane with Guitar Pro's staff line and head, and says which General MIDI drum
+  sounds it (`guitario_theory::drums`: `Head`, `Mark`, `plays`, `articulations`). The heads follow
+  the kit too: heavy crosses for the crashes (the second crash moved to the hi-hat's line, the toms
+  to Guitar Pro's lines), a hatted cross for the china, a circled cross for the open hi-hat, a
+  slashed circle for the half-open one and diamonds for the bell and rim shot; a choke gets
+  Guitar Pro's staccato dot over the stem and the ride edge its pictogram. `note.setDrum` takes the
+  numbers or the short names (`crc`, `ho`, `rs` …); another piece on a lane replaces the hit and
+  keeps its accent, ghost and flam; a pad's right-click menu lists its articulations and a lit pad
+  shows the one playing. Flams are grace notes on a drum hit (`note.setGrace` takes a drum number
+  or name there), drawn as small heads slurred into the hit and played before it; ghost notes are
+  bracketed in standard notation on every track. In playback a choked cymbal stops at the end of
+  its note and the half-open hi-hat after at most 0.18 s, synthesised or sampled (the sample of
+  the piece it varies), and a rim shot is louder; MIDI export writes the General MIDI drum. `.gp`
+  writes the articulations as kit entries with Guitar Pro's heads and technique signs and flams
+  as grace beats, and reads both; Guitar Pro 6's kit variations now map to them (rim shot,
+  half-open, edge, chokes); GP3-5 flams on drums are read; `.gp5` export writes an articulation as
+  its plain piece with a warning. MusicXML writes the General MIDI drum in `midi-unpitched`, the
+  articulation's name and head, and flams, and reads them back. Drum tab writes `#` for a choke,
+  `f` a flam, `g` a ghost and capitals for accents. `14-drum-grooves` gained a bar of flams, ghosts
+  and chokes. Tests: `articulations_sit_with_their_piece_and_sound_as_it`,
+  `drum_articulations_replace_their_piece_and_keep_its_marks`, `a_drum_hit_takes_a_flam`,
+  `a_choked_cymbal_stops_at_the_end_of_its_note`, `drum_articulations_flams_and_marks_round_trip`
+  (`.gp`), `drum_articulations_become_their_pieces_and_flams_survive` (`.gp5`),
+  `drum_articulations_and_flams_come_back` (MusicXML), `drums_go_to_channel_ten` (MIDI). Not
+  checked: a file with articulations in use from Guitar Pro itself (the local corpus has the kit
+  table but no hits on it).
 
 ### G2. Print depth
 - **Landed 2026-10-16:** PDF export (File › Export › PDF…, `file.exportPdf`, `guitario-cli convert

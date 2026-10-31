@@ -145,7 +145,7 @@ impl crate::Score {
                             return Err(bad(format!("trill fret {} is above {}", trill.fret, track.max_fret())));
                         }
                         if let Some(grace) = note.effects.grace
-                            && (grace.fret > track.max_fret() || track.is_drums())
+                            && grace.fret > track.max_fret()
                         {
                             return Err(bad(format!("grace note fret {} is not allowed here", grace.fret)));
                         }

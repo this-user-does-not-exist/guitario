@@ -282,3 +282,35 @@ fn a_file_written_by_musescore_imports_with_the_same_music() {
         assert_eq!(heard(ta), heard(tb), "{}", ta.name);
     }
 }
+
+#[test]
+fn drum_articulations_and_flams_come_back() {
+    use guitario_score::{Grace, Note, Track};
+    use guitario_theory::{Duration, NoteValue, drums::lane_for};
+    let mut s = Score::new();
+    s.tracks = vec![Track::drums("Drums", &s.headers)];
+    let hit = |midi: u8| Note::new(lane_for(midi), midi);
+    let mut flam = hit(38);
+    flam.effects.grace = Some(Grace::new(38));
+    let mut ghost = hit(91);
+    ghost.effects.ghost = true;
+    s.tracks[0].measures[0].voices[0].beats = vec![
+        Beat { rest: false, notes: vec![hit(97), hit(36)], ..Beat::rest(Duration::QUARTER) },
+        Beat { rest: false, notes: vec![hit(92), flam], ..Beat::rest(Duration::QUARTER) },
+        Beat { rest: false, notes: vec![ghost], ..Beat::rest(Duration::new(NoteValue::Half)) },
+    ];
+    let xml = export(&s).xml;
+    // Other programs hear the General MIDI drum and see the head.
+    assert!(xml.contains("<midi-unpitched>50</midi-unpitched>") && xml.contains("Crash (choke)"), "the choke sounds as the crash");
+    assert!(xml.contains("<notehead>circled</notehead>") && xml.contains(r#"<notehead parentheses="yes">diamond</notehead>"#));
+    let back = import(xml.as_bytes()).unwrap().score;
+    let b = &back.tracks[0].measures[0].voices[0].beats;
+    let frets = |i: usize| {
+        let mut f: Vec<u8> = b[i].notes.iter().map(|n| n.fret).collect();
+        f.sort_unstable();
+        f
+    };
+    assert_eq!((frets(0), frets(1), frets(2)), (vec![36, 97], vec![38, 92], vec![91]));
+    assert!(b[1].notes.iter().any(|n| n.fret == 38 && n.effects.grace.is_some_and(|g| g.fret == 38)), "the flam");
+    assert!(b[2].notes[0].effects.ghost);
+}

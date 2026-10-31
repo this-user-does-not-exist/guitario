@@ -1318,6 +1318,10 @@ impl<'a> Ctx<'a> {
             /// The pitch each bend reaches (when the stylesheet shows it): the bent note's staff
             /// position, then the target's, its accidental and whether it is a quarter tone higher.
             bends: Vec<(i32, i32, Option<i8>, bool)>,
+            /// Staff positions of ghost notes, drawn in brackets.
+            ghosts: Vec<i32>,
+            /// A drum articulation's sign over the beat (a choke, a cymbal's edge).
+            marks: Vec<guitario_theory::drums::Mark>,
         }
         let mut infos: Vec<Option<Info>> = Vec::new();
         for (bi, beat) in beats.iter().enumerate() {
@@ -1346,9 +1350,14 @@ impl<'a> Ctx<'a> {
             let graces: Vec<Head> = beat
                 .notes
                 .iter()
-                .filter(|n| n.kind != NoteKind::Tie && !self.m.drums)
+                .filter(|n| n.kind != NoteKind::Tie)
                 .filter_map(|n| {
                     let g = n.effects.grace?;
+                    if self.m.drums {
+                        // A flam: a small head of the piece it strikes.
+                        let piece = guitario_theory::drums::piece(g.fret);
+                        return Some((piece.map_or(6, |p| i32::from(p.staff_pos)), None, piece.map_or("n", |p| drum_head_code(p.head))));
+                    }
                     let p = self.track.tuning.pitch(usize::from(n.string), g.fret, self.track.capo)?;
                     let sp = spell(p.0.saturating_add(12).min(127), h.key);
                     Some((staff_pos(sp, self.clef), acc.next(sp, h.key), if g.dead { "x" } else { "n" }))
@@ -1363,7 +1372,7 @@ impl<'a> Ctx<'a> {
                         // Drum notation: the kit map places each piece; cymbals take a cross.
                         let piece = guitario_theory::drums::piece(n.fret);
                         let pos = piece.map_or(6, |p| i32::from(p.staff_pos));
-                        return Some((n.string, (pos, None, if piece.is_some_and(|p| p.cross) { "x" } else { "n" })));
+                        return Some((n.string, (pos, None, piece.map_or("n", |p| drum_head_code(p.head)))));
                     }
                     let p = self.track.tuning.pitch(usize::from(n.string), n.fret, self.track.capo)?;
                     let written = p.0.saturating_add(12).min(127);
@@ -1394,12 +1403,22 @@ impl<'a> Ctx<'a> {
             } else {
                 Vec::new()
             };
+            let ghosts =
+                keyed.iter().filter(|(st, _)| beat.note_on(*st).is_some_and(|n| n.effects.ghost && n.kind == NoteKind::Normal)).map(|(_, p)| p.0).collect();
+            let mut marks: Vec<guitario_theory::drums::Mark> = Vec::new();
+            if self.m.drums {
+                for m in beat.notes.iter().filter_map(|n| guitario_theory::drums::piece(n.fret)?.mark) {
+                    if !marks.contains(&m) {
+                        marks.push(m);
+                    }
+                }
+            }
             let by_string = keyed.iter().map(|(st, p)| (*st, p.0)).collect();
             let mut pos: Vec<Head> = keyed.into_iter().map(|(_, p)| p).collect();
             pos.sort_by_key(|p| p.0);
             let avg = pos.iter().map(|p| p.0).sum::<i32>() as f32 / pos.len().max(1) as f32;
             // Drum parts are written stems up (one voice, hands and feet together).
-            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed, fingers, bends }));
+            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed, fingers, bends, ghosts, marks }));
         }
 
         let groups = beam_groups(beats, h);
@@ -1443,7 +1462,14 @@ impl<'a> Ctx<'a> {
                     self.p().line_segment([pos2(hx - 0.4 * s, ly), pos2(hx + hw + 0.4 * s, ly)], ledger);
                     lp += if *pos <= -2 { -2 } else { 2 };
                 }
-                self.pen.glyph(if *kind == "x" { g::HEAD_X } else { head }, pos2(hx, y), ink);
+                let glyph = if *kind == "n" { head } else { g::head_for(kind, info.div) };
+                self.pen.glyph(glyph, pos2(hx, y), ink);
+                // A ghost note is bracketed.
+                if info.ghosts.contains(pos) {
+                    let pw = self.pen.width(g::PAREN_LEFT);
+                    self.pen.glyph(g::PAREN_LEFT, pos2(hx - pw - 0.1 * s, y), ink);
+                    self.pen.glyph(g::PAREN_RIGHT, pos2(hx + hw + 0.1 * s, y), ink);
+                }
                 if let Some(a) = accidental {
                     let c = match a {
                         1 => g::SHARP,
@@ -1670,6 +1696,20 @@ impl<'a> Ctx<'a> {
                     None => self.slashes(info.x, self.nota_y(nt, hi) - 1.8 * s, speed.slashes()),
                 }
             }
+            // A drum articulation's sign sits over the stem: Guitar Pro writes a choke as a
+            // staccato dot above, the cymbal's edge with its pictogram.
+            if !info.marks.is_empty() {
+                let top = stem_ends.get(i).copied().flatten().filter(|_| info.up).map_or(self.nota_y(nt, hi), |(_, y)| y).min(self.nota_y(nt, 8));
+                for (k, m) in info.marks.iter().enumerate() {
+                    // Pictograms are drawn large in SMuFL fonts; the edge sign is shrunk to an articulation's size.
+                    let (c, scale) = match m {
+                        guitario_theory::drums::Mark::Choke => (g::STACCATO_ABOVE, 1.0),
+                        guitario_theory::drums::Mark::Edge => (g::EDGE_OF_CYMBAL, 0.5),
+                    };
+                    let w = self.pen.width(c) * scale;
+                    self.pen.glyph_scaled(c, pos2(info.x - w / 2.0, top - 0.9 * s - k as f32 * 1.1 * s), scale, ink);
+                }
+            }
             if b.notes.iter().any(|n| n.effects.trill.is_some()) {
                 let next = infos.iter().skip(i + 1).flatten().next().map(|n| n.x - 0.8 * s);
                 // Clear of the heads (and of an up-stem), but inside the lane above the staff.
@@ -1733,7 +1773,7 @@ impl<'a> Ctx<'a> {
                 self.p().line_segment([pos2(left - 0.25 * s, ly), pos2(left + hw + 0.25 * s, ly)], thin);
                 lp += if *pos <= -2 { -2 } else { 2 };
             }
-            self.pen.glyph_scaled(if *kind == "x" { g::HEAD_X } else { g::HEAD_BLACK }, pos2(left, y), SCALE, ink);
+            self.pen.glyph_scaled(g::head_for(kind, 4), pos2(left, y), SCALE, ink);
             if let Some(a) = accidental {
                 let c = match a {
                     1 => g::SHARP,
@@ -2151,6 +2191,21 @@ pub fn short_name(track: &Track) -> String {
     match by_program {
         Some(s) if lower.contains("guitar") || lower.contains("bass") || lower.starts_with("track") => s.to_string(),
         _ => track.name.chars().take(8).collect(),
+    }
+}
+
+/// The head code ([`g::head_for`]) of a drum kit head.
+fn drum_head_code(head: guitario_theory::drums::Head) -> &'static str {
+    use guitario_theory::drums::Head;
+    match head {
+        Head::Normal => "n",
+        Head::X => "x",
+        Head::HeavyX => "X",
+        Head::HeavyXHat => "h",
+        Head::CircleX => "o",
+        Head::CircleSlash => "/",
+        Head::Diamond => "d",
+        Head::Triangle => "t",
     }
 }
 

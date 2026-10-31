@@ -26,7 +26,7 @@ note = "physical-model synth (Karplus-Strong) with a natural decay by pitch (abo
 id = "PLAY-4"
 target = "Drum playback (General MIDI kit)"
 status = "done"
-note = "synthesised kit (kick, snare, hats with choke, cymbals, toms), drums_sound_and_hats_choke; MIDI channel 10"
+note = "synthesised kit (kick, snare, hats with choke, cymbals, toms), drums_sound_and_hats_choke; MIDI channel 10; Guitar Pro's articulations sound as the piece they vary, synthesised or sampled: a choked cymbal stops at the end of its note, the half-open hi-hat after at most 0.18 s, a rim shot is louder (a_choked_cymbal_stops_at_the_end_of_its_note); MIDI export writes the General MIDI drum"
 
 [[item]]
 id = "PLAY-5"
