@@ -7,7 +7,7 @@
 <meta name="description" content="Guitario is an open-source tablature and notation editor in pure Rust, with Guitar Pro's layout, menus and shortcuts, playback you can loop and slow down, and Guitar Pro files in and out.">
 <meta property="og:title" content="Guitario">
 <meta property="og:description" content="An open-source tablature and notation editor, in pure Rust. Native, offline, and yours.">
-<meta property="og:image" content="images/guitario-steel-horizon.png">
+<meta property="og:image" content="images/guitario-caprice.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0d0e11">
@@ -47,23 +47,23 @@
         <a class="btn btn-ghost" href="guide/">Read the guide →</a>
       </div>
     </div>
-    <figure class="tab-card" aria-label="A lick from the Thrash Attack demo as ASCII tab">
+    <figure class="tab-card" aria-label="The theme of Paganini's Caprice No. 24 as ASCII tab">
       <figcaption><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-        01-thrash-attack.txt <span class="tempo">♩ = 190</span></figcaption>
-<pre>E|<i>15</i>-<i>12</i>----------------------------------<i>12</i>-<i>15</i>-<i>12</i>-|----|
-B|------<i>15</i>-<i>12</i>----------------------<i>12</i>-<i>15</i>----------|----|
-G|------------<i>14</i>-<i>12</i>----------<i>12</i>-<i>14</i>----------------|----|
-D|------------------<i>14</i>-<i>12</i>-<i>14</i>----------------------|<i>2</i>---|
-A|------------------------------------------------|<i>2</i>---|
-E|------------------------------------------------|<i>0</i>---|</pre>
-      <p class="tab-note">Exported straight from a demo score with <code>file.exportAscii</code>.</p>
+        11-caprice-24.txt <span class="tempo">♩ = 112</span></figcaption>
+<pre>E|<i>5</i>---<i>5</i>-<i>5</i>-<i>8</i>-<i>7</i>-<i>5</i>-|<i>12</i>---<i>0</i>-<i>0</i>-<i>4</i>-<i>2</i>-<i>0</i>-|<i>5</i>---<i>5</i>-<i>5</i>-<i>8</i>-<i>7</i>-<i>5</i>-|<i>10</i>-<i>0</i>---|
+B|--------------|---------------|--------------|-------|
+G|--------------|---------------|--------------|-------|
+D|--------------|---------------|--------------|-------|
+A|--------------|---------------|--------------|-------|
+E|--------------|---------------|--------------|-------|</pre>
+      <p class="tab-note">Paganini's theme, exported straight from a demo score with <code>file.exportAscii</code>.</p>
     </figure>
   </div>
 
   <div class="wrap">
     <figure class="shot shot-hero">
-      <img src="images/guitario-steel-horizon.png" alt="Guitario showing Steel Horizon, an original power-metal demo, in the multitrack view: twin lead guitars in standard notation over tab, with lyrics, the edition palette, the inspector, the fretboard and the global view of five tracks" width="1800" height="1100">
-      <figcaption><em>Steel Horizon</em>, an original power-metal demo, in the multitrack view: twin harmony leads, rhythm guitar, bass and drums.</figcaption>
+      <img src="images/guitario-caprice.png" alt="Guitario showing Paganini's Caprice No. 24 arranged for metal band in the multitrack view: the lead guitar's theme in standard notation over tab with pull-offs, the palm-muted rhythm guitar below, the edition palette, the inspector, the fretboard and the global view of four tracks" width="1800" height="1100">
+      <figcaption>Paganini's <em>Caprice No. 24</em> arranged for metal band, in the multitrack view: lead and rhythm guitar, bass and drums.</figcaption>
     </figure>
   </div>
   <div class="tracks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
@@ -88,7 +88,7 @@ E|------------------------------------------------|<i>0</i>---|</pre>
     </header>
 
     <article class="feature">
-      <img src="images/guitario-odd-meters.png" alt="Odd Meter Assault: 7/8, 5/4, 13/16, 6/8 and 12/8 bars in drop D with palm-mute and let-ring lanes, tempo changes and a key change" loading="lazy">
+      <img src="images/guitario-mars.png" alt="Holst's Mars in 5/4 for a drop D guitar: the ostinato's triplet, quarters and eighths with accents and palm-mute lanes, and a string-by-string tuning legend" loading="lazy">
       <div>
         <p class="num">01</p>
         <h3>Notation that reads like Guitar Pro</h3>
@@ -97,7 +97,7 @@ E|------------------------------------------------|<i>0</i>---|</pre>
         <ul class="ticks">
           <li>Any tuning from 4 to 12 strings</li>
           <li>Presets for drop D, D and C standard, drop B and seven-string</li>
-          <li>Odd meters such as 7/8, 13/16 and 12/8, with tempo and key changes</li>
+          <li>Odd meters such as 5/4, 7/8, 13/16 and 12/8, with tempo and key changes</li>
         </ul>
       </div>
     </article>
@@ -143,7 +143,7 @@ E|------------------------------------------------|<i>0</i>---|</pre>
     </article>
 
     <article class="feature wide">
-      <img src="images/guitario-print-preview.png" alt="Print Preview: an A4 page of Steel Horizon with title, tuning, tempo, tab, standard notation and lyrics, with options for this track, all tracks and a full score" loading="lazy">
+      <img src="images/guitario-print-preview.png" alt="Print Preview: an A4 page of Bach's Little Fugue in G minor with title, composer, tuning, tempo, section marks, standard notation and tab, with options for this track, all tracks and a full score" loading="lazy">
       <div>
         <p class="num">05</p>
         <h3>Pages that print</h3>
@@ -181,31 +181,32 @@ E|------------------------------------------------|<i>0</i>---|</pre>
 <section id="demos" class="section section-alt">
   <div class="wrap">
     <header class="section-head">
-      <p class="kicker">Fifteen original metal pieces</p>
+      <p class="kicker">Classics, arranged for metal</p>
       <h2>Load a demo, press Space.</h2>
-      <p>Thrash, doom, death, djent, power metal, black metal and more are all original compositions, generated from code and tested
-        on every change. Each one comes as a <code>.gt</code>, a Guitar Pro 5 file, MIDI and ASCII tab.</p>
+      <p>Bach, Beethoven, Vivaldi, Paganini and more: public-domain pieces arranged for metal band, plus two
+        reference scores. They are generated from code and tested on every change, and each one comes as a
+        <code>.gt</code>, a Guitar Pro 5 file, MIDI, MusicXML and ASCII tab.</p>
     </header>
 
     <div class="demos">
-      <a class="demo" href="demos/01-thrash-attack.gp5"><b>01</b><strong>Thrash Attack</strong><span>Thrash · 190 bpm · Standard</span><em>Downpicked sixteenth chugs in E phrygian, a hammer-on pentatonic run</em></a>
-      <a class="demo" href="demos/02-funeral-procession.gp5"><b>02</b><strong>Funeral Procession</strong><span>Doom · 56 bpm · Drop C</span><em>Whole-note chords with let ring and vibrato, a slow bending lead</em></a>
-      <a class="demo" href="demos/03-burial-ground.gp5"><b>03</b><strong>Burial Ground</strong><span>Death metal · 200 bpm · Drop B</span><em>Thirty-second tremolo chugs, chromatic descents, a half-time breakdown</em></a>
-      <a class="demo" href="demos/04-steel-horizon.gp5"><b>04</b><strong>Steel Horizon</strong><span>Power metal · 168 bpm · Standard</span><em>Twin harmony leads in thirds, sweeping arpeggios, gallops</em></a>
-      <a class="demo" href="demos/05-seven-strings-deep.gp5"><b>05</b><strong>Seven Strings Deep</strong><span>Djent · 128 bpm · 7-string drop A</span><em>A 3+3+3+3+4 polyrhythm, a half-time breakdown, a pinch harmonic</em></a>
-      <a class="demo" href="demos/06-odd-meter-assault.gp5"><b>06</b><strong>Odd Meter Assault</strong><span>Progressive · 150 bpm · Drop D</span><em>7/8, 5/4, 13/16, 6/8 and 12/8 with tempo and key changes</em></a>
-      <a class="demo" href="demos/07-iron-gallop.gp5"><b>07</b><strong>Iron Gallop</strong><span>Heavy metal · 168 bpm · Standard</span><em>Harmonised twin leads in A minor over a galloping bass</em></a>
-      <a class="demo" href="demos/08-frostbitten-dawn.gp5"><b>08</b><strong>Frostbitten Dawn</strong><span>Black metal · 190 bpm · Standard</span><em>A tremolo-picked melody in F# minor, open-fifth tremolo chords</em></a>
-      <a class="demo" href="demos/09-breakdown-protocol.gp5"><b>09</b><strong>Breakdown Protocol</strong><span>Metalcore · 140 bpm · Drop B</span><em>Syncopated palm-muted chugs, dead notes, a slide-out</em></a>
-      <a class="demo" href="demos/10-ashes-to-distortion.gp5"><b>10</b><strong>Ashes to Distortion</strong><span>Ballad into heavy · 84 → 112 bpm</span><em>A fingerpicked nylon intro that the distorted band joins</em></a>
-      <a class="demo" href="demos/11-fretboard-fury.gp5"><b>11</b><strong>Fretboard Fury</strong><span>Shred solo · 140 bpm · Standard</span><em>Bends, legato runs, a shift slide, triplet pentatonics</em></a>
-      <a class="demo" href="demos/12-metal-technique-showcase.gp5"><b>12</b><strong>Technique Showcase</strong><span>Reference · 120 bpm · Standard</span><em>One bar per technique: slides, bends, harmonics, trills…</em></a>
-      <a class="demo" href="demos/13-bass-rumble.gp5"><b>13</b><strong>Bass Rumble</strong><span>Bass study · 180 bpm · Bass</span><em>Pick gallops, a climbing line and a fill over a rock beat</em></a>
+      <a class="demo" href="demos/01-flight-of-the-bumblebee.gp5"><b>01</b><strong>Flight of the Bumblebee</strong><span>Rimsky-Korsakov · Thrash · 150 bpm</span><em>The chromatic line in sixteenths over palm-muted chugs</em></a>
+      <a class="demo" href="demos/02-funeral-march.gp5"><b>02</b><strong>Funeral March</strong><span>Chopin · Doom · 56 bpm · Drop C</span><em>Let-ring chords rocking between C minor and A-flat, the march as a lead</em></a>
+      <a class="demo" href="demos/03-hall-of-the-mountain-king.gp5"><b>03</b><strong>In the Hall of the Mountain King</strong><span>Grieg · Death metal · 112 → 200 bpm · Drop B</span><em>Palm-muted in B minor, then tremolo picked over blast beats</em></a>
+      <a class="demo" href="demos/04-summer-presto.gp5"><b>04</b><strong>Summer: Presto</strong><span>Vivaldi · Power metal · 150 bpm</span><em>Twin leads in thirds over pedal notes and falling scales</em></a>
+      <a class="demo" href="demos/05-toccata-and-fugue.gp5"><b>05</b><strong>Toccata and Fugue in D minor</strong><span>Bach · Djent · 7-string drop A</span><em>The call with its fermatas, chugged low, then a 3+3+3+3+4 figure</em></a>
+      <a class="demo" href="demos/06-mars.gp5"><b>06</b><strong>Mars, the Bringer of War</strong><span>Holst · Progressive · 5/4 · Drop D</span><em>The ostinato, from one string to power chords</em></a>
+      <a class="demo" href="demos/07-little-fugue.gp5"><b>07</b><strong>Little Fugue in G minor</strong><span>Bach · Heavy metal · 100 bpm</span><em>The subject, then the answer under the countersubject</em></a>
+      <a class="demo" href="demos/08-moonlight-sonata.gp5"><b>08</b><strong>Moonlight Sonata: Presto agitato</strong><span>Beethoven · Black metal · 150 bpm</span><em>Rising arpeggios in C# minor, then tremolo picking</em></a>
+      <a class="demo" href="demos/09-fifth-symphony.gp5"><b>09</b><strong>Symphony No. 5</strong><span>Beethoven · Metalcore · Drop B</span><em>The motto with its fermatas, then a half-time breakdown</em></a>
+      <a class="demo" href="demos/10-lagrima.gp5"><b>10</b><strong>Lágrima</strong><span>Tárrega · Ballad into heavy · 72 → 112 bpm</span><em>Nylon strings with chord diagrams, then a distorted lead with slides</em></a>
+      <a class="demo" href="demos/11-caprice-24.gp5"><b>11</b><strong>Caprice No. 24</strong><span>Paganini · Shred · 112 bpm</span><em>The theme with pull-offs, a bend and a shift slide</em></a>
+      <a class="demo" href="demos/12-metal-technique-showcase.gp5"><b>12</b><strong>Technique Showcase</strong><span>Reference · 120 bpm · Standard</span><em>One bar per technique, then 7/8, 13/16, 6/8 and 12/8</em></a>
+      <a class="demo" href="demos/13-cello-prelude.gp5"><b>13</b><strong>Cello Suite No. 1: Prelude</strong><span>Bach · Bass study · 84 bpm</span><em>The opening bars on a picked bass</em></a>
       <a class="demo" href="demos/14-drum-grooves.gp5"><b>14</b><strong>Drum Grooves</strong><span>Drum reference · 160 → 200 bpm</span><em>Skank beat, d-beat, double kick, blast beats, a tom fill</em></a>
-      <a class="demo" href="demos/15-two-voices.gp5"><b>15</b><strong>Two Voices</strong><span>Fingerstyle · 92 bpm · Standard</span><em>A melody in voice 1 over a bass in voice 2 on one staff</em></a>
+      <a class="demo" href="demos/15-bourree-in-e-minor.gp5"><b>15</b><strong>Bourrée in E minor</strong><span>Bach · Fingerstyle · 120 bpm</span><em>Melody in voice 1 over the bass in voice 2 on one staff</em></a>
     </div>
-    <p class="fine">Each card downloads the Guitar Pro 5 file. The native <code>.gt</code>, MIDI and ASCII tab copies are in
-      <a href="https://github.com/this-user-does-not-exist/guitario/tree/main/demos"><code>demos/</code></a>.</p>
+    <p class="fine">Each card downloads the Guitar Pro 5 file. The native <code>.gt</code>, MIDI, MusicXML and ASCII tab copies are in
+      <a href="https://github.com/this-user-does-not-exist/guitario/tree/main/demos"><code>demos/</code></a>, with the sources the notes came from.</p>
   </div>
 </section>
 
@@ -313,7 +314,7 @@ E|------------------------------------------------|<i>0</i>---|</pre>
       <p class="code-title">terminal</p>
 <pre><span class="g">$</span> git clone https://github.com/this-user-does-not-exist/guitario
 <span class="g">$</span> cd guitario
-<span class="g">$</span> cargo run --release -p guitario -- demos/01-thrash-attack.gt</pre>
+<span class="g">$</span> cargo run --release -p guitario -- demos/01-flight-of-the-bumblebee.gt</pre>
     </div>
   </div>
 </section>

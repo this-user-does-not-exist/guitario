@@ -1,7 +1,7 @@
 # Getting started
 
 Build and start the editor with `cargo run --release -p guitario`, or open a score directly:
-`cargo run --release -p guitario -- demos/01-thrash-attack.gt`.
+`cargo run --release -p guitario -- demos/01-flight-of-the-bumblebee.gt`.
 
 The window follows Guitar Pro's layout. The toolbar runs, left to right: Home (new, open, recent
 files), the panel toggles (palette, global view, inspector), zoom, display mode, undo and redo,
@@ -18,4 +18,4 @@ Guitario remembers your layout.
 line of bars (**Horizontal**). **View › Multitrack** shows every track of the song stacked in each
 system, lined up in time; click any track's notes to edit that track.
 
-The `demos/` folder has original metal pieces to try: open one, click a bar and press **Space**.
+The `demos/` folder has classical pieces arranged for metal band to try: open one, click a bar and press **Space**.

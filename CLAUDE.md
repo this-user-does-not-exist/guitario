@@ -12,7 +12,7 @@ notes that are spread across `docs/`.
 
 ```sh
 cargo run -p guitario                              # desktop editor
-cargo run -p guitario -- demos/01-thrash-attack.gt
+cargo run -p guitario -- demos/01-flight-of-the-bumblebee.gt
 cargo run -p guitario-cli -- commands              # every engine command id with its params
 cargo run -p guitario-cli -- run <file|-> script.json [--save out.gt]   # script = [["cmd.id", {params}], ...]
 cargo run -p guitario-cli -- convert in.gp out.pdf # .gt .gp .gp5 .pdf .mid .wav .flac .txt
@@ -37,7 +37,7 @@ cargo nextest run --workspace                               # parallel; doctests
 Offscreen UI render (no window; look at the PNG afterwards):
 
 ```sh
-cargo run -p guitario-ui-egui --example snapshot -- out.png 1440 900 --file demos/05-seven-strings-deep.gt --zoom 1.0
+cargo run -p guitario-ui-egui --example snapshot -- out.png 1440 900 --file demos/05-toccata-and-fugue.gt --zoom 1.0
 # flags: --tab-only --playing --selection --track n
 ```
 

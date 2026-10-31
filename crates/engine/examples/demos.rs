@@ -1,8 +1,9 @@
 //! Generates the demo suite in `demos/`: `cargo run -p guitario-engine --example demos`.
 //!
 //! Scores are written in a small tab mini-language and entered through the engine's own commands,
-//! so every demo also exercises the editing path. Every piece is an original composition, and the
-//! suite is built around metal, with drum parts on every band piece.
+//! so every demo also exercises the editing path. The pieces are public-domain classical works
+//! arranged here for metal band, with drum parts on every band piece; the technique showcase and
+//! the drum grooves are original reference material.
 //!
 //! A bar is a comma-separated list of beats. A beat is a duration (`8`, `4.`, `2..`, `8t` for a
 //! triplet), then notes as `string:fret` (string 1 is the high E, `x` is a dead note) or `r` for a
@@ -396,6 +397,71 @@ fn eighths(cymbal: &str, crash: bool) -> String {
     format!("{first}, 8 {cymbal}, 8 sd {cymbal}, 8 {cymbal}, 8 bd {cymbal}, 8 bd {cymbal}, 8 sd {cymbal}, 8 {cymbal}")
 }
 
+// ---- writing lines with note names -------------------------------------------------------
+
+/// Open-string pitches, top string first, for the tunings the arrangements write by note name.
+const STANDARD: [u8; 6] = [64, 59, 55, 50, 45, 40];
+const DROP_C: [u8; 6] = [62, 57, 53, 48, 43, 36];
+const DROP_B: [u8; 6] = [61, 56, 52, 47, 42, 35];
+const BASS: [u8; 4] = [43, 38, 33, 28];
+
+/// The MIDI pitch of a note name: `E2`, `F#4`, `Bb3`.
+fn midi(name: &str) -> Option<u8> {
+    let mut chars = name.chars();
+    let step: i32 = match chars.next()? {
+        'C' => 0,
+        'D' => 2,
+        'E' => 4,
+        'F' => 5,
+        'G' => 7,
+        'A' => 9,
+        'B' => 11,
+        _ => return None,
+    };
+    let rest = chars.as_str();
+    let (shift, octave) = match rest.strip_prefix('#') {
+        Some(o) => (1, o),
+        None => rest.strip_prefix('b').map_or((0, rest), |o| (-1, o)),
+    };
+    let octave: i32 = octave.parse().ok()?;
+    u8::try_from((octave + 1) * 12 + step + shift).ok()
+}
+
+/// Where to play `pitch` on `strings` (open pitches, top string first): the string that keeps the
+/// fret in or nearest `lo..=lo + 4`, so a phrase stays in one hand position.
+fn place(strings: &[u8], lo: u8, pitch: u8) -> Option<String> {
+    let off = |f: u8| lo.saturating_sub(f).max(f.saturating_sub(lo + 4));
+    strings
+        .iter()
+        .enumerate()
+        .filter_map(|(i, open)| pitch.checked_sub(*open).filter(|f| *f <= 24).map(|f| (i, f)))
+        .min_by_key(|(i, f)| (off(*f), *i))
+        .map(|(i, f)| format!("{}:{f}", i + 1))
+}
+
+/// Applies `f` to every token of every beat in a line.
+fn map_tokens(line: &str, f: impl Fn(&str) -> String) -> String {
+    let beats: Vec<String> = line.split(',').map(|beat| beat.split_whitespace().map(&f).collect::<Vec<_>>().join(" ")).collect();
+    j(&beats)
+}
+
+/// A line written with note names (`8 G4, 4. Bb3 +v`), turned into `string:fret` on `strings`.
+/// Tokens that are not note names, `5:5` included, pass through unchanged.
+fn on(strings: &[u8], lo: u8, line: &str) -> String {
+    map_tokens(line, |tok| midi(tok).and_then(|p| place(strings, lo, p)).unwrap_or_else(|| tok.to_string()))
+}
+
+/// Adds `fx` after every note of a line, such as `+pm` to palm mute a whole riff.
+fn every(line: &str, fx: &str) -> String {
+    map_tokens(line, |tok| if tok.contains(':') && !tok.starts_with(['&', '%']) { format!("{tok} {fx}") } else { tok.to_string() })
+}
+
+/// Sixteenth notes from a list of note names: `sixteenths("G1 D2 B2")`.
+fn sixteenths(notes: &str) -> String {
+    let beats: Vec<String> = notes.split_whitespace().map(|n| format!("16 {n}")).collect();
+    j(&beats)
+}
+
 // ---- the demos --------------------------------------------------------------------------
 
 fn blank() -> R<Session> {
@@ -406,215 +472,226 @@ fn blank() -> R<Session> {
     Ok(s)
 }
 
-fn thrash() -> R<Session> {
+fn bumblebee() -> R<Session> {
     let mut s = new_demo(
-        "Thrash Attack",
-        "Guitario",
-        "Downpicked sixteenth chugs in E phrygian. Palm mutes on every chug; try 50% speed to build up.",
-        190,
-        "Rhythm Guitar",
-        30,
+        "Flight of the Bumblebee",
+        "Nikolai Rimsky-Korsakov",
+        "From The Tale of Tsar Saltan (1900), arranged for metal band: the chromatic line in sixteenths over palm-muted chugs. Try it at 50% first.",
+        150,
+        "Lead Guitar",
+        29,
         "standard",
     )?;
-    let a1 = format!("{}, 16 6:3 +pm, 16 6:3 +pm, 16 6:1 +pm, 16 6:1 +pm, 4 {} *a", rep(8, "16 6:0 +pm"), p5(6, 3));
-    let a2 = format!(
-        "{}, 16 6:1 +pm, 16 6:1 +pm, 16 6:0 +pm, 16 6:0 +pm, 16 6:3 +pm, 16 6:3 +pm, 16 6:0 +pm, 16 6:0 +pm, 8 6:6 5:8 4:8 *a, 8 6:5 5:7 4:7 *a",
-        rep(4, "16 6:0 +pm")
-    );
-    let hits = format!("8 {} *a, 8 r, 8 {} *a, 8 r, 8 {} *a, 8 r, 8 {} *a, 8 r", p5(6, 0), p5(6, 0), p5(6, 3), p5(6, 5));
-    // A descending then ascending run in the E minor pentatonic, with hammer-ons.
-    let run16 = "16 1:15 +h, 16 1:12, 16 2:15 +h, 16 2:12, 16 3:14 +h, 16 3:12, 16 4:14 +h, 16 4:12, 16 4:14, 16 3:12, 16 3:14, 16 2:12, 16 2:15, 16 1:12, 16 1:15, 16 1:12";
+    let fall_hi = on(&STANDARD, 7, &sixteenths("E5 D#5 D5 C#5 D5 C#5 C5 B4 C5 B4 A#4 A4 G#4 G4 F#4 F4"));
+    let fall_lo = on(&STANDARD, 0, &sixteenths("E4 D#4 D4 C#4 D4 C#4 C4 B3 C4 B3 A#3 A3 G#3 G3 F#3 F3"));
+    let theme_e = on(&STANDARD, 8, &sixteenths("E5 D#5 D5 C#5 C5 F5 E5 D#5 E5 D#5 D5 C#5 C5 C#5 D5 D#5"));
+    let theme_a = on(&STANDARD, 1, &sixteenths("A4 G#4 G4 F#4 F4 A#4 A4 G#4 A4 G#4 G4 F#4 F4 F#4 G4 G#4"));
     play_track(
         &mut s,
         0,
         &[
-            bar(&a1).mark("Riff").open(),
-            bar(&a2),
-            bar(&a1),
-            bar(&a2).close(1),
-            bar(&hits).mark("Hits"),
-            bar(run16).mark("Run"),
-            bar(format!("2 {} *lr *v, 2 r", p5(6, 0))),
+            bar(&fall_hi).mark("Intro"),
+            bar(&fall_lo),
+            bar(&theme_e).mark("Theme").open(),
+            bar(&theme_e),
+            bar(&theme_a),
+            bar(&theme_a).close(1),
+            bar(&theme_e),
+            bar("4 1:5 +v @ff, 4 r, 2 r"),
         ],
     )?;
+    add_track(&mut s, "Rhythm Guitar", "standard", 30)?;
+    let chug = |string: u8| bar(format!("16 {string}:0 +pm +a, {}", rep(15, &format!("16 {string}:0 +pm"))));
+    let end = format!("4 {} *a, 4 r, 2 r", p5(5, 0));
+    play_track(&mut s, 1, &[chug(6), chug(6), chug(6), chug(6), chug(5), chug(5), chug(6), bar(&end)])?;
     add_track(&mut s, "Bass", "bass", 34)?;
-    let eights = rep(8, "8 4:0");
-    let bhits = "8 4:0, 8 r, 8 4:0, 8 r, 8 4:3, 8 r, 8 4:5, 8 r";
-    play_track(&mut s, 1, &[bar(&eights), bar(&eights), bar(&eights), bar(&eights), bar(bhits), bar("1 4:0"), bar("2 4:0, 2 r")])?;
+    let e8 = rep(8, "8 4:0");
+    let a8 = rep(8, "8 3:0");
+    play_track(&mut s, 2, &[bar(&e8), bar(&e8), bar(&e8), bar(&e8), bar(&a8), bar(&a8), bar(&e8), bar("4 3:0, 4 r, 2 r")])?;
     let fill = format!("{}, {}, {}, {}", strokes(4, 16, "sd"), strokes(4, 16, "t1"), strokes(4, 16, "t2"), strokes(4, 16, "ft"));
     drums(
         &mut s,
-        &[bar(skank(true)), bar(skank(false)), bar(skank(false)), bar(skank(false)), bar(strokes(4, 8, "bd cr, 8 r")), bar(fill), bar("2 bd cr, 2 r")],
+        &[bar(skank(true)), bar(fill), bar(skank(true)), bar(skank(false)), bar(skank(false)), bar(skank(false)), bar(skank(true)), bar("4 bd cr, 4 r, 2 r")],
     )?;
     Ok(s)
 }
 
-fn doom() -> R<Session> {
+fn funeral_march() -> R<Session> {
     let mut s = new_demo(
-        "Funeral Procession",
-        "Guitario",
-        "Doom in Drop C at 56 bpm. Let every chord ring and lean on the vibrato.",
+        "Funeral March",
+        "Frédéric Chopin",
+        "The march from the Piano Sonata No. 2 (1839), taken down to C minor for doom in Drop C. Let every chord ring and lean on the vibrato.",
         56,
         "Rhythm Guitar",
         30,
         "drop c",
     )?;
-    let d1 = format!("1 {} *lr *v @ff", pd(0));
-    let d2 = format!("2. {} *lr, 4 {} *lr", pd(3), pd(2));
-    let d3 = format!("4. {} *lr, 8 {}, 2 {} *lr", pd(5), pd(3), pd(2));
-    let d4 = format!("1 {} *lr", pd(0));
-    play_track(&mut s, 0, &[bar(&d1).mark("Procession"), bar(&d2), bar(&d3), bar(&d4), bar(&d1).mark("Lament"), bar(&d2), bar(&d3), bar(&d4)])?;
+    // Chopin's left hand rocks between the tonic and the chord a third below it: C minor and A-flat.
+    let rock = format!("2 {} *lr *v @ff, 2 {} *lr", pd(0), pd(8));
+    let mut rh: Vec<Bar> = (0..7).map(|_| bar(&rock)).collect();
+    rh[0] = bar(&rock).mark("Procession");
+    rh.push(bar(format!("1 {} *lr *v", pd(0))));
+    play_track(&mut s, 0, &rh)?;
     add_track(&mut s, "Lead Guitar", "drop c", 29)?;
-    play_track(
-        &mut s,
-        1,
-        &[
-            bar("1 r"),
-            bar("1 r"),
-            bar("1 r"),
-            bar("1 r"),
-            bar("2 1:3 +v, 4 1:1, 4 2:3"),
-            bar("2. 1:5 +b +v, 4 1:3"),
-            bar("4 1:6, 4 1:5, 2 1:3 +v"),
-            bar("1 1:0 +v"),
-        ],
-    )?;
+    let m1 = on(&DROP_C, 8, "4 C5, 8. C5, 16 C5, 2 C5 +v");
+    let m2 = on(&DROP_C, 8, "4. Eb5, 8 D5, 8. D5, 16 C5, 8. C5, 16 B4");
+    let ending = on(&DROP_C, 8, "2 Bb4 +b +v, 2 C5 +v");
+    play_track(&mut s, 1, &[bar("1 r"), bar("1 r"), bar(&m1).mark("March"), bar(&m2), bar(&m1), bar(&m2), bar(&ending), bar(on(&DROP_C, 8, "1 C5 +v"))])?;
     add_track(&mut s, "Bass", "bass", 33)?;
-    play_track(
-        &mut s,
-        2,
-        &[
-            bar("1 4:8 +lr"),
-            bar("2. 4:11, 4 4:10"),
-            bar("4. 4:13, 8 4:11, 2 4:10"),
-            bar("1 4:8 +lr"),
-            bar("1 4:8 +lr"),
-            bar("2. 4:11, 4 4:10"),
-            bar("4. 4:13, 8 4:11, 2 4:10"),
-            bar("1 4:8 +lr"),
-        ],
-    )?;
+    let b = "2 4:8 +lr, 2 4:4 +lr";
+    play_track(&mut s, 2, &[bar(b), bar(b), bar(b), bar(b), bar(b), bar(b), bar(b), bar("1 4:8 +lr")])?;
     let open = "4 bd cr @ff, 4 rd, 4 sd rd, 4 rd";
     let groove = "4 bd rd, 4 rd, 4 sd rd, 4 bd rd";
     let fill = "4 bd rd, 4 rd, 8 t1, 8 t2, 8 ft, 8 ft";
-    drums(&mut s, &[bar(open), bar(groove), bar(groove), bar(fill), bar(open), bar(groove), bar(groove), bar("1 bd cr")])?;
+    drums(&mut s, &[bar(open), bar(fill), bar(open), bar(groove), bar(groove), bar(fill), bar(groove), bar("1 bd cr")])?;
     Ok(s)
 }
 
-fn death() -> R<Session> {
+fn mountain_king() -> R<Session> {
     let mut s = new_demo(
-        "Burial Ground",
-        "Guitario",
-        "Death metal in Drop B: thirty-second tremolo chugs and a slow, crushing breakdown.",
-        200,
+        "In the Hall of the Mountain King",
+        "Edvard Grieg",
+        "From Peer Gynt (1875), in its own key of B minor on a Drop B guitar: palm-muted at 112, then the reprise at 200 in tremolo-picked thirty-seconds over blast beats.",
+        112,
         "Rhythm Guitar",
         30,
         "drop b",
     )?;
-    let trem = rep(8, "32 6:0 +pm");
-    let x1 = format!("{trem}, 16 6:0 +pm, 16 6:1 +pm, 16 6:0 +pm, 16 6:1 +pm, {trem}, 8 {} *a, 8 {} *a", pd(3), pd(2));
-    let x2 = format!("16 6:5 +pm, 16 6:4 +pm, 16 6:3 +pm, 16 6:2 +pm, 16 6:1 +pm, 16 6:0 +pm, 16 6:0 +pm, 16 6:0 +pm, {trem}, 4 {} *a", pd(0));
-    let x3 = format!("4 {} *lr @ff, 4 r, 4 {} *lr, 8 {} *a, 8 {} *a", pd(0), pd(0), pd(3), pd(2));
-    let x4 = format!("{}, 2 {} *lr *v", rep(8, "16 6:0 +pm"), pd(0));
-    play_track(
-        &mut s,
-        0,
-        &[bar(&x1).mark("Tremolo riff").open(), bar(&x2), bar(&x1), bar(&x2).close(1), bar(&x3).mark("Breakdown").tempo(100), bar(&x4).tempo(200)],
-    )?;
+    let theme = [
+        "8 B1, 8 C#2, 8 D2, 8 E2, 8 F#2, 8 D2, 4 F#2",
+        "8 F2, 8 C#2, 4 F2, 8 E2, 8 C2, 4 E2",
+        "8 B1, 8 C#2, 8 D2, 8 E2, 8 F#2, 8 D2, 8 F#2, 8 B2",
+        "8 A2, 8 F#2, 8 D2, 8 F#2, 2 A2",
+    ];
+    let fsharp = [
+        "8 F#2, 8 G#2, 8 A#2, 8 B2, 8 C#3, 8 A#2, 4 C#3",
+        "8 D3, 8 A#2, 4 D3, 8 C#3, 8 A#2, 4 C#3",
+        "8 F#2, 8 G#2, 8 A#2, 8 B2, 8 C#3, 8 A#2, 4 C#3",
+        "8 D3, 8 A#2, 4 D3, 2 C#3",
+    ];
+    let gtr = |line: &str, fx: &str| every(&on(&DROP_B, 0, line), fx);
+    let mut g: Vec<Bar> = theme.iter().chain(&fsharp).map(|l| bar(gtr(l, "+pm"))).collect();
+    g.extend(theme.iter().map(|l| bar(gtr(l, "+pm &tp32"))));
+    g.push(bar(format!("4 {} *a @ff, 4 r, 4 {} *a, 4 r", pd(0), pd(0))));
+    g[0] = bar(gtr(theme[0], "+pm")).mark("In the hall").key(2);
+    g[4] = bar(gtr(fsharp[0], "+pm")).mark("F-sharp major");
+    g[8] = bar(gtr(theme[0], "+pm &tp32")).mark("Accelerando").tempo(200);
+    play_track(&mut s, 0, &g)?;
     add_track(&mut s, "Bass", "bass", 34)?;
-    let pedal = rep(8, "8 4:7");
-    play_track(&mut s, 1, &[bar(&pedal), bar(&pedal), bar(&pedal), bar(&pedal), bar("4 4:7, 4 r, 4 4:7, 4 4:10"), bar(format!("{}, 2 4:7", rep(4, "8 4:7")))])?;
-    drums(
-        &mut s,
-        &[
-            bar(blast("rd", true)),
-            bar(blast("rd", false)),
-            bar(blast("rd", true)),
-            bar(blast("rd", false)),
-            bar("4 bd ch, 4 r, 4 bd ch, 8 sd, 8 sd"),
-            bar(format!("{}, 2 bd cr", strokes(8, 16, "bd"))),
-        ],
-    )?;
+    let mut b: Vec<Bar> = theme.iter().chain(&fsharp).chain(&theme).map(|l| bar(on(&BASS, 0, l))).collect();
+    b.push(bar(on(&BASS, 0, "4 B1, 4 r, 4 B1, 4 r")));
+    play_track(&mut s, 1, &b)?;
+    let march = |crash| bar(eighths("hh", crash));
+    let mut d: Vec<Bar> = vec![march(true), march(false), march(false), march(false), march(true), march(false), march(false), march(false)];
+    d.extend([bar(blast("rd", true)), bar(blast("rd", false)), bar(blast("rd", false)), bar(blast("cr", false)), bar("4 bd cr, 4 r, 4 bd cr, 4 r")]);
+    drums(&mut s, &d)?;
     Ok(s)
 }
 
-fn power_metal() -> R<Session> {
+fn summer() -> R<Session> {
     let mut s = new_demo(
-        "Steel Horizon",
-        "Guitario",
-        "Power metal in E minor: twin harmony leads, galloping rhythm and sweeping arpeggios.",
-        168,
+        "Summer: Presto",
+        "Antonio Vivaldi",
+        "The storm that opens the last movement of Summer from The Four Seasons (1725), an octave down for twin guitars in thirds over a galloping rhythm section.",
+        150,
         "Lead Guitar",
         29,
         "standard",
     )?;
-    let lead1 = [
-        "8 1:7, 8 1:10, 4 1:12, 8 1:10, 8 1:7, 4 1:5",
-        "4 1:8, 8 1:7, 8 1:5, 4 1:3, 4 1:5",
-        "8 1:10, 8 1:12, 8 1:14, 8 1:12, 2 1:10 +v",
-        "2 1:7 +v, 4 1:5, 4 1:3",
+    // Repeated notes under a falling top line, then scales: the violin part, an octave lower.
+    let pedal = |top: &str, under: &str, lo: u8| on(&STANDARD, lo, &format!("16 {top}, {}", rep(11, &format!("16 {under}"))));
+    let pedal_end = |top: &str, under: &str, lo: u8| on(&STANDARD, lo, &format!("16 {top}, {}, 8 {under}, 8 r", rep(7, &format!("16 {under}"))));
+    let lead = [
+        pedal("G4", "G3", 0),
+        pedal("F4", "G3", 0),
+        pedal("Eb4", "G3", 0),
+        pedal_end("D4", "G3", 0),
+        "2. r &fm".to_string(),
+        pedal("D5", "D4", 0),
+        pedal("C5", "D4", 0),
+        pedal("Bb4", "D4", 0),
+        pedal_end("A4", "D4", 0),
+        on(&STANDARD, 5, "16 r, 16 D5, 16 C5, 16 Bb4, 16 A4, 16 G4, 16 F#4, 16 E4, 16 D4, 16 C4, 16 Bb3, 16 A3"),
+        rep(12, "16 3:0"),
+        on(&STANDARD, 10, "16 3:0, 16 G5, 16 F5, 16 Eb5, 16 D5, 16 C5, 16 Bb4, 16 A4, 16 G4, 16 F4, 16 Eb4, 16 D4"),
+        rep(12, "16 2:1"),
+        on(&STANDARD, 13, "16 2:1, 16 Bb5, 16 A5, 16 G5, 16 F5, 16 Eb5, 16 D5, 16 C5, 16 Bb4, 16 A4, 16 G4, 16 F4"),
+        rep(12, "16 2:4"),
+        "2. 1:3 +v".to_string(),
     ];
-    let lead2 = [
-        "8 2:8, 8 2:12, 4 2:13, 8 2:12, 8 2:8, 4 1:2",
-        "4 2:10, 8 2:8, 8 2:6, 4 2:5, 4 2:6",
-        "8 2:12, 8 2:13, 8 2:15, 8 2:13, 2 2:12 +v",
-        "2 2:8 +v, 4 2:7, 4 2:5",
-    ];
-    let arp = |notes: [&str; 8]| {
-        let group: Vec<String> = notes.iter().map(|n| format!("16 {n}")).collect();
-        let g = j(&group);
-        format!("{g}, {g}")
-    };
-    let arps = [
-        arp(["4:2", "3:0", "2:0", "1:0", "2:0", "3:0", "4:2", "3:0"]),
-        arp(["5:3", "4:2", "3:0", "2:1", "1:0", "2:1", "3:0", "4:2"]),
-        arp(["4:0", "3:2", "2:3", "1:2", "2:3", "3:2", "4:0", "3:2"]),
-        arp(["5:2", "4:4", "3:4", "2:4", "3:4", "4:4", "5:2", "4:4"]),
-    ];
-    let mut l1: Vec<Bar> = lead1.iter().map(bar).collect();
-    l1.extend(arps.iter().map(bar));
-    l1[0] = bar(lead1[0]).mark("Verse");
-    l1[4] = bar(&arps[0]).mark("Chorus");
-    play_track(&mut s, 0, &l1)?;
-    // Original words for the verse melody, one syllable per note.
-    run(&mut s, "track.select", json!({"index": 0}))?;
-    run(
-        &mut s,
-        "track.setLyrics",
-        json!({"lines": [{"text": "[Verse] Steel ho-ri-zon, burn-ing in the dy-ing light, ban-ners raised, we ride in-to night"}]}),
-    )?;
+    let mut l: Vec<Bar> = lead.iter().map(bar).collect();
+    l[0] = bar(&lead[0]).ts(3, 4).key(-2).mark("Presto");
+    l[9] = bar(&lead[9]).mark("Storm");
+    play_track(&mut s, 0, &l)?;
     add_track(&mut s, "Harmony Guitar", "standard", 29)?;
-    let mut l2: Vec<Bar> = lead2.iter().map(bar).collect();
-    l2.extend(["1 1:7 +v", "1 1:8 +v", "1 1:10 +v", "1 1:7 +v"].map(bar));
-    play_track(&mut s, 1, &l2)?;
+    let harmony = [
+        pedal("Bb4", "Bb3", 3),
+        pedal("A4", "Bb3", 3),
+        pedal("G4", "Bb3", 3),
+        pedal_end("F4", "Bb3", 3),
+        "2. r".to_string(),
+        pedal("F5", "F4", 5),
+        pedal("Eb5", "F4", 5),
+        pedal("D5", "F4", 5),
+        pedal_end("C5", "F4", 5),
+        on(&STANDARD, 8, "16 r, 16 F5, 16 Eb5, 16 D5, 16 C5, 16 Bb4, 16 A4, 16 G4, 16 F4, 16 Eb4, 16 D4, 16 C4"),
+        on(&STANDARD, 3, &rep(12, "16 Bb3")),
+        on(&STANDARD, 13, "16 3:3, 16 Bb5, 16 A5, 16 G5, 16 F5, 16 Eb5, 16 D5, 16 C5, 16 Bb4, 16 A4, 16 G4, 16 F4"),
+        on(&STANDARD, 3, &rep(12, "16 Eb4")),
+        on(&STANDARD, 15, "16 2:4, 16 D6, 16 C6, 16 Bb5, 16 A5, 16 G5, 16 F5, 16 Eb5, 16 D5, 16 C5, 16 Bb4, 16 A4"),
+        on(&STANDARD, 3, &rep(12, "16 G4")),
+        "2. 1:6 +v".to_string(),
+    ];
+    play_track(&mut s, 1, &harmony.iter().map(bar).collect::<Vec<_>>())?;
     add_track(&mut s, "Rhythm Guitar", "standard", 30)?;
-    let roots = [(6u8, 0u8), (5, 3), (5, 5), (5, 2)];
-    let chords = [p5(6, 0), p5(5, 3), p5(5, 5), p5(5, 2)];
-    let mut rh: Vec<Bar> = roots.iter().map(|(st, f)| bar(rep(4, &gallop(*st, *f)))).collect();
-    rh.extend(chords.iter().map(|c| bar(rep(4, &format!("4 {c} *a")))));
-    play_track(&mut s, 2, &rh)?;
+    // G for the first phrase, D for the second, then the scales' G, C and E-flat; (0, 0) rests.
+    let roots: [(u8, u8); 15] = [(6, 3), (6, 3), (6, 3), (6, 3), (0, 0), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (6, 3), (6, 3), (5, 3), (5, 3), (5, 6)];
+    let mut r: Vec<Bar> = roots.iter().map(|&(st, f)| if st == 0 { bar("2. r") } else { bar(rep(3, &gallop(st, f))) }).collect();
+    r.push(bar(format!("2. {} *lr", p5(6, 3))));
+    play_track(&mut s, 2, &r)?;
     add_track(&mut s, "Bass", "bass", 34)?;
-    let broots = [(4u8, 0u8), (3, 3), (3, 5), (3, 2)];
-    let mut bb: Vec<Bar> = broots.iter().map(|(st, f)| bar(rep(4, &gallop_open(*st, *f)))).collect();
-    bb.extend(broots.iter().map(|(st, f)| bar(rep(4, &format!("4 {st}:{f}")))));
-    play_track(&mut s, 3, &bb)?;
-    let dk = |crash| bar(double_kick("hh", crash));
-    let dr = |crash| bar(double_kick("rd", crash));
-    drums(&mut s, &[dk(true), dk(false), dk(false), dk(false), dr(true), dr(false), dr(false), dr(false)])?;
+    let on_bass = |root: (u8, u8)| match root {
+        (6, 3) => (4, 3),
+        (5, 5) => (2, 0),
+        (5, 3) => (3, 3),
+        _ => (3, 6),
+    };
+    let mut b: Vec<Bar> = roots
+        .iter()
+        .map(|&root| {
+            if root.0 == 0 {
+                bar("2. r")
+            } else {
+                let (st, f) = on_bass(root);
+                bar(rep(3, &gallop_open(st, f)))
+            }
+        })
+        .collect();
+    b.push(bar("2. 4:3"));
+    play_track(&mut s, 3, &b)?;
+    // Double kick in 3/4, the snare on beat 2.
+    let dk = |crash: bool| {
+        let first = if crash { "16 bd cr" } else { "16 bd hh" };
+        bar(format!("{first}, 16 bd, 16 bd hh, 16 bd, 16 bd sd hh, 16 bd, 16 bd hh, 16 bd, 16 bd hh, 16 bd, 16 bd hh, 16 bd"))
+    };
+    let mut d: Vec<Bar> = (0..16).map(|i| dk(matches!(i, 0 | 5 | 9 | 12))).collect();
+    d[4] = bar("2. r");
+    d[15] = bar("2. bd cr");
+    drums(&mut s, &d)?;
     Ok(s)
 }
 
-fn djent() -> R<Session> {
+fn toccata() -> R<Session> {
     let mut s = new_demo(
-        "Seven Strings Deep",
-        "Guitario",
-        "Djent on a 7-string in drop A: a 3+3+3+3+4 polyrhythm over four beats, then a half-time breakdown.",
-        128,
+        "Toccata and Fugue in D minor",
+        "Johann Sebastian Bach",
+        "The opening of BWV 565 on a 7-string in drop A: the call in two octaves, the same falling line chugged on the low strings, then a 3+3+3+3+4 djent figure in D.",
+        60,
         "7-String Guitar",
         30,
         "7 string drop a",
     )?;
-    // Sixteen sixteenths split into accented groups.
+    // Sixteen sixteenths split into accented groups on the low string.
     let grp = |groups: &[(usize, u8)]| {
         let mut beats = Vec::new();
         for (len, fret) in groups {
@@ -623,19 +700,29 @@ fn djent() -> R<Session> {
         }
         j(&beats)
     };
-    let p1 = grp(&[(3, 0), (3, 0), (3, 0), (3, 0), (4, 0)]);
-    let p1b = grp(&[(3, 0), (3, 0), (3, 3), (3, 0), (4, 5)]);
-    let p2 = grp(&[(3, 0), (3, 3), (3, 0), (3, 5), (4, 6)]);
-    let p3 = "4 7:0 6:0 5:2 *a *lr, 4 r, 8 7:3 +pm, 8 7:3 +pm, 4 7:0 6:0 5:2 *a";
-    let p4 = "8 7:0 +pm, 8 7:0 +pm, 8 7:5 +pm, 8 7:0 +pm, 4. 3:7 +ph +v, 8 r";
+    let p1 = grp(&[(3, 5), (3, 5), (3, 5), (3, 5), (4, 5)]);
+    let p2 = grp(&[(3, 5), (3, 5), (3, 8), (3, 5), (4, 4)]);
     play_track(
         &mut s,
         0,
-        &[bar(&p1).mark("3-3-3-3-4").open(), bar(&p1b), bar(&p2), bar(p3).mark("Breakdown").tempo(110), bar(&p1).tempo(128), bar(p4).close(1)],
+        &[
+            bar("32 1:17, 32 1:15, 4. 1:17 &fl, 16 1:15, 16 1:13, 16 1:12, 16 1:10, 16 1:9, 4 1:10 +v &fl").mark("Adagio"),
+            bar("32 1:5, 32 1:3, 4. 1:5 &fl, 16 1:3, 16 1:1, 16 1:0, 16 2:3, 16 2:2, 4 2:3 +v &fl"),
+            bar("32 5:0, 32 6:3, 4. 7:0 6:0 5:0 *lr &fl, 16 6:3 +pm, 16 6:1 +pm, 16 6:0 +pm, 16 7:5 +pm, 16 7:4 +pm, 4 7:5 6:5 5:5 *lr &fl"),
+            bar(&p1).mark("3-3-3-3-4").tempo(128).open(),
+            bar(&p2).close(1),
+            bar(&p1),
+            bar("8 7:5 +pm, 8 7:5 +pm, 8 7:8 +pm, 8 7:5 +pm, 4. 3:7 +ph +v, 8 r"),
+            bar("1 7:5 6:5 5:5 *lr *v"),
+        ],
     )?;
     add_track(&mut s, "Bass", "bass", 34)?;
-    let b8 = rep(8, "8 4:5");
-    play_track(&mut s, 1, &[bar(&b8), bar(&b8), bar(&b8), bar("4 4:5, 4 r, 8 4:8, 8 4:8, 4 4:5"), bar(&b8), bar("8 4:5, 8 4:5, 8 4:10, 8 4:5, 4. 4:5, 8 r")])?;
+    let b8 = rep(8, "8 2:0");
+    play_track(
+        &mut s,
+        1,
+        &[bar("1 r"), bar("1 r"), bar("2 3:0, 2 2:0"), bar(&b8), bar(&b8), bar(&b8), bar("8 2:0, 8 2:0, 8 2:3, 8 2:0, 4. 2:0, 8 r"), bar("1 2:0")],
+    )?;
     // The kick locks to the guitar's accented groups; snare on beat 3, hi-hat on eighths.
     let locked = |groups: &[usize]| {
         let mut starts = Vec::new();
@@ -661,215 +748,320 @@ fn djent() -> R<Session> {
             .collect();
         j(&beats)
     };
-    let p1 = locked(&[3, 3, 3, 3, 4]);
+    let k = locked(&[3, 3, 3, 3, 4]);
     drums(
         &mut s,
-        &[bar(&p1), bar(&p1), bar(&p1), bar("4 bd ch, 4 r, 8 bd, 8 bd, 4 bd sd ch"), bar(&p1), bar("8 bd hh, 8 bd hh, 8 bd hh, 8 bd hh, 4. bd cr, 8 r")],
+        &[bar("1 r"), bar("1 r"), bar("2 bd cr, 2 bd cr"), bar(&k), bar(&k), bar(&k), bar("8 bd hh, 8 bd hh, 8 bd hh, 8 bd hh, 4. bd cr, 8 r"), bar("1 bd cr")],
     )?;
     Ok(s)
 }
 
-fn odd_meters() -> R<Session> {
+fn mars() -> R<Session> {
     let mut s = new_demo(
-        "Odd Meter Assault",
-        "Guitario",
-        "Progressive metal in Drop D: 7/8, 5/4, 13/16, 6/8 and 12/8 with tempo and key changes.",
+        "Mars, the Bringer of War",
+        "Gustav Holst",
+        "The 5/4 ostinato that opens The Planets (1914-16): a triplet, two quarters, two eighths and a quarter, all on G. It starts quietly on one string and grows into power chords.",
         150,
         "Rhythm Guitar",
         30,
         "drop d",
     )?;
-    let seven = format!("8 6:0 +pm, 8 6:0 +pm, 8 {} *a, 8 6:0 +pm, 8 {} *a, 8 6:0 +pm, 8 {} *a", pd(3), pd(5), pd(6));
-    let seven_b = format!("8 6:0 +pm, 8 6:0 +pm, 8 {} *a, 8 6:3 +pm, 8 {} *a, 8 6:5 +pm, 8 {} *a", pd(3), pd(5), pd(7));
-    let five = format!("4 6:0 +pm, 8 6:0 +pm, 8 6:0 +pm, 4 {} *a, 4 {} *a, 4 {} *lr", pd(3), pd(5), pd(6));
-    let thirteen = format!("{}, 16 {} *a, {}, 16 {} *a, {}, 16 {} *a", rep(3, "16 6:0 +pm"), pd(3), rep(3, "16 6:0 +pm"), pd(5), rep(4, "16 6:0 +pm"), pd(6));
-    let six = format!("4. {} *lr, 8 {}, 8 {}, 8 {}", pd(0), pd(3), pd(5), pd(3));
-    let twelve = format!("4. {} *lr, 4. {}, 4. {}, 4. {} *a", pd(0), pd(0), pd(3), pd(5));
+    let ost = |ch: &str, dynamic: &str| format!("8t {ch} *pm {dynamic}, 8t {ch} *pm, 8t {ch} *pm, 4 {ch} *a, 4 {ch} *a, 8 {ch} *pm, 8 {ch} *pm, 4 {ch} *a");
+    let g = "6:5";
+    let chord = pd(5);
     play_track(
         &mut s,
         0,
         &[
-            bar(&seven).ts(7, 8).mark("7/8 (3+2+2)").beams(&[3, 2, 2]).open(),
-            bar(&seven_b).beams(&[3, 2, 2]).close(1),
-            bar(&five).ts(5, 4).mark("5/4").tempo(132),
-            bar(&thirteen).ts(13, 16).mark("13/16 (4+4+5)").tempo(150),
-            bar(&six).ts(6, 8).mark("6/8").tempo(100).key(-3),
-            bar(&twelve).ts(12, 8).mark("12/8").tempo(70),
-            bar(format!("1 {} *lr *v", pd(0))).ts(4, 4).mark("Outro").tempo(70).key(0),
+            bar(ost(g, "@p")).ts(5, 4).mark("Ostinato"),
+            bar(ost(g, "")),
+            bar(ost(g, "@mf")),
+            bar(ost(g, "")),
+            bar(ost(&chord, "@f")).mark("Full force"),
+            bar(ost(&chord, "")),
+            bar(ost(&chord, "@ff")),
+            bar(ost(&chord, "")),
+            bar(format!("2 {chord} *lr *a, 2. r")),
         ],
     )?;
-    let thirteen_d = format!("16 bd cr, {}, 16 sd hh, 16 bd hh, {}, 16 sd hh, 16 bd hh, {}, 16 sd, 16 sd", rep(2, "16 hh"), rep(2, "16 hh"), rep(2, "16 hh"));
+    add_track(&mut s, "Bass", "bass", 34)?;
+    let b = ost("4:3", "").replace(" *pm", "").replace(" *a", "");
+    play_track(&mut s, 1, &[bar(&b), bar(&b), bar(&b), bar(&b), bar(&b), bar(&b), bar(&b), bar(&b), bar("2 4:3, 2. r")])?;
+    let quiet = "8t sd, 8t sd, 8t sd, 4 bd, 4 bd, 8 sd, 8 sd, 4 bd";
+    let loud = |crash: &str| format!("8t bd sd {crash}, 8t sd, 8t sd, 4 bd ch, 4 bd ch, 8 sd, 8 sd, 4 bd sd ch");
+    drums(&mut s, &[bar(quiet), bar(quiet), bar(quiet), bar(quiet), bar(loud("cr")), bar(loud("hh")), bar(loud("cr")), bar(loud("hh")), bar("2 bd cr, 2. r")])?;
+    Ok(s)
+}
+
+fn little_fugue() -> R<Session> {
+    let mut s = new_demo(
+        "Little Fugue in G minor",
+        "Johann Sebastian Bach",
+        "The exposition of BWV 578 for twin guitars: the subject alone, then the answer in D minor under the countersubject, over a galloping bass.",
+        100,
+        "Lead Guitar",
+        29,
+        "standard",
+    )?;
+    let subject = [
+        on(&STANDARD, 5, "4 G4, 4 D5, 4. Bb4, 8 A4"),
+        on(&STANDARD, 5, "8 G4, 8 Bb4, 8 A4, 8 G4, 8 F#4, 8 A4, 4 D4"),
+        on(&STANDARD, 5, "8 G4, 8 D4, 8 A4, 8 D4, 8 Bb4, 16 A4, 16 G4, 8 A4, 8 D4"),
+        on(&STANDARD, 5, "8 G4, 16 D4, 16 G4, 8 A4, 16 D4, 16 A4, 8 Bb4, 16 A4, 16 G4, 16 A4, 16 D4, 16 D5, 16 C5"),
+        on(&STANDARD, 5, &sixteenths("Bb4 A4 G4 Bb4 A4 G4 F#4 A4 G4 D4 G4 A4 Bb4 C5 D5 E5")),
+    ];
+    let countersubject = [
+        on(&STANDARD, 9, "16 F5, 16 E5, 16 D5, 16 F5, 16 E5, 16 D5, 16 C#5, 16 E5, 8 D5, 8 A4, 8 D5, 8 E5"),
+        on(
+            &STANDARD,
+            13,
+            "16 F5, 16 G5, 16 F5, 16 G5, 32 A5, 32 G5, 32 A5, 32 G5, 32 A5, 32 G5, 32 F5, 32 G5, 16 A5, 16 G5, 16 A5, 16 Bb5, 16 A5, 16 G5, 16 F5, 16 E5",
+        ),
+        on(&STANDARD, 9, &sixteenths("F5 A5 G5 A5 C#5 A5 G5 A5 D5 A5 G5 A5 C#5 A5 G5 A5")),
+        on(&STANDARD, 9, &sixteenths("F5 D5 C#5 D5 G5 D5 C#5 D5 A5 D5 C#5 D5 G5 D5 C#5 D5")),
+        on(&STANDARD, 5, "8 A4, 8 F5, 8 G4, 8 E5, 8 F4, 8 A4, 8 D5, 8 F5"),
+    ];
+    let mut l1: Vec<Bar> = subject.iter().chain(&countersubject).map(bar).collect();
+    l1[0] = bar(&subject[0]).mark("Subject").key(-2);
+    l1[5] = bar(&countersubject[0]).mark("Answer");
+    l1.push(bar(on(&STANDARD, 9, "1 D5 +v")));
+    play_track(&mut s, 0, &l1)?;
+    add_track(&mut s, "Harmony Guitar", "standard", 29)?;
+    let answer = [
+        "4 D4, 4 A4, 4. F4, 8 E4",
+        "8 D4, 8 F4, 8 E4, 8 D4, 8 C#4, 8 E4, 4 A3",
+        "8 D4, 8 A3, 8 E4, 8 A3, 8 F4, 16 E4, 16 D4, 8 E4, 8 A3",
+        "8 D4, 16 A3, 16 D4, 8 E4, 16 A3, 16 E4, 8 F4, 16 E4, 16 D4, 16 E4, 16 A3, 16 A4, 16 G4",
+        "16 F4, 16 E4, 16 D4, 16 F4, 16 E4, 16 D4, 16 C#4, 16 E4, 16 D4, 16 A3, 16 D4, 16 E4, 16 F4, 16 G4, 16 A4, 16 B4",
+    ];
+    let mut l2: Vec<Bar> = (0..5).map(|_| bar("1 r")).collect();
+    l2.extend(answer.iter().map(|a| bar(on(&STANDARD, 3, a))));
+    l2.push(bar(on(&STANDARD, 3, "1 A4 +v")));
+    play_track(&mut s, 1, &l2)?;
+    add_track(&mut s, "Bass", "bass", 34)?;
+    // G and D under the subject, D and A under the answer.
+    let g = |st: u8, f: u8| bar(rep(4, &gallop_open(st, f)));
+    play_track(&mut s, 2, &[g(4, 3), g(2, 0), g(4, 3), g(2, 0), g(4, 3), g(2, 0), g(3, 0), g(2, 0), g(3, 0), g(2, 0), bar("1 2:0")])?;
+    let k = |crash| bar(kick_gallop(crash));
+    drums(&mut s, &[k(true), k(false), k(false), k(false), k(false), k(true), k(false), k(false), k(false), k(false), bar("1 bd cr")])?;
+    Ok(s)
+}
+
+fn moonlight() -> R<Session> {
+    let mut s = new_demo(
+        "Moonlight Sonata: Presto agitato",
+        "Ludwig van Beethoven",
+        "The rising arpeggios of the last movement of Op. 27 No. 2 (1801) in C# minor (four sharps), then the same harmony tremolo picked in thirty-seconds over blast beats.",
+        150,
+        "Tremolo Guitar",
+        30,
+        "standard",
+    )?;
+    // Each bar climbs a chord's tones in overlapping groups of four, as Beethoven's right hand does.
+    let up = |t: [&str; 9]| {
+        let i = [0, 1, 2, 3, 1, 2, 3, 4, 2, 3, 4, 5, 3, 4, 5];
+        format!("16 r, {}", j(&i.map(|k| format!("16 {}", t[k]))))
+    };
+    let top = |t: [&str; 9], chord: &str| {
+        let i = [6, 4, 5, 6, 7, 5, 6, 7, 8, 6, 7, 8];
+        format!("{}, 8 {chord} *a, 8 {chord} *a", j(&i.map(|k| format!("16 {}", t[k]))))
+    };
+    let csm = ["6:4", "5:4", "4:2", "4:6", "3:6", "2:5", "2:9", "1:9", "1:12"];
+    let gsharp = ["6:4", "5:3", "4:1", "4:6", "3:5", "2:4", "2:9", "1:8", "1:11"];
+    let t = |frets: [&str; 4]| j(&frets.map(|f| format!("4 {f} &tp32")));
+    play_track(
+        &mut s,
+        0,
+        &[
+            bar(up(csm)).mark("Arpeggios").key(4),
+            bar(top(csm, "3:6 2:5 1:4")),
+            bar(up(gsharp)),
+            bar(top(gsharp, "3:5 2:4 1:4")),
+            bar(t(["1:9", "1:12", "1:9", "2:9"])).mark("Tremolo").open(),
+            bar(t(["1:8", "1:11", "1:8", "2:9"])).close(1),
+            bar("1 5:4 4:6 3:6 *lr *v"),
+        ],
+    )?;
+    add_track(&mut s, "Bass", "bass", 34)?;
+    let cs = rep(8, "8 3:4");
+    let gs = rep(8, "8 4:4");
+    play_track(&mut s, 1, &[bar(&cs), bar(&cs), bar(&gs), bar(&gs), bar(&cs), bar(&gs), bar("1 3:4")])?;
+    let d_beat = "8 bd hh, 8 bd hh, 8 sd hh, 8 bd hh, 8 bd hh, 8 bd hh, 8 sd hh, 8 hh";
+    drums(&mut s, &[bar(d_beat), bar(d_beat), bar(d_beat), bar(d_beat), bar(blast("rd", true)), bar(blast("cr", false)), bar("1 bd cr")])?;
+    Ok(s)
+}
+
+fn fifth_symphony() -> R<Session> {
+    let mut s = new_demo(
+        "Symphony No. 5",
+        "Ludwig van Beethoven",
+        "The opening of the Fifth (1808) as a metalcore riff in Drop B: the four-note motto with its fermatas, then the same motto as a half-time breakdown with dead notes and a pinch harmonic.",
+        108,
+        "Rhythm Guitar",
+        30,
+        "drop b",
+    )?;
+    let three = |note: &str| on(&DROP_B, 0, &format!("8 r, 8 {note} +pm, 8 {note} +pm, 8 {note} +pm"));
+    play_track(
+        &mut s,
+        0,
+        &[
+            bar(three("G2")).ts(2, 4).mark("Allegro con brio"),
+            bar(format!("2 {} *lr &fl", pd(4))),
+            bar(three("F2")),
+            bar(format!("2 {} *lr", pd(3))),
+            bar("2 6:3 ~ 5:3 ~ 4:3 ~ &fl"),
+            bar(format!("{}, 2 {} *a", three("G2"), pd(4))).ts(4, 4).mark("Breakdown").tempo(140),
+            bar(format!("{}, 2 {} *a", three("F2"), pd(3))),
+            bar("8 6:0 +pm, 8 6:x, 8 6:0 +pm, 8 6:x, 4 3:7 +ph +v, 4 r"),
+            bar(format!("1 {} *lr *a", pd(1))),
+        ],
+    )?;
+    add_track(&mut s, "Bass", "bass", 34)?;
+    let b = |line: &str| bar(on(&BASS, 0, line));
+    play_track(
+        &mut s,
+        1,
+        &[
+            b("8 r, 8 G1, 8 G1, 8 G1"),
+            b("2 Eb2"),
+            b("8 r, 8 F1, 8 F1, 8 F1"),
+            b("2 D2"),
+            b("2 D2 ~"),
+            b("8 r, 8 G1, 8 G1, 8 G1, 2 Eb2"),
+            b("8 r, 8 F1, 8 F1, 8 F1, 2 D2"),
+            b("8 B1, 8 r, 8 B1, 8 r, 4 B1, 4 r"),
+            b("1 C2"),
+        ],
+    )?;
+    let motto = "8 r, 8 bd sd, 8 bd sd, 8 bd sd";
+    let half = "8 r, 8 bd, 8 bd, 8 bd, 2 bd sd ch";
     drums(
         &mut s,
         &[
-            bar("8 bd cr, 8 hh, 8 sd hh, 8 bd hh, 8 sd hh, 8 bd hh, 8 sd hh"),
-            bar("8 bd hh, 8 hh, 8 sd hh, 8 bd hh, 8 sd hh, 8 bd hh, 8 sd ch"),
-            bar("4 bd cr, 8 bd, 8 bd, 4 sd, 4 bd, 4 sd ch"),
-            bar(&thirteen_d),
-            bar("8 bd rd, 8 rd, 8 rd, 8 sd rd, 8 rd, 8 rd"),
-            bar("8 bd cr, 8 rd, 8 rd, 8 sd rd, 8 rd, 8 rd, 8 bd rd, 8 rd, 8 rd, 8 sd rd, 8 t1, 8 ft"),
+            bar(motto),
+            bar("2 bd cr"),
+            bar(motto),
+            bar("2 bd cr"),
+            bar("2 r"),
+            bar(half),
+            bar(half),
+            bar("8 bd hh, 8 sd, 8 bd hh, 8 sd, 4 bd cr, 4 r"),
             bar("1 bd cr"),
         ],
     )?;
     Ok(s)
 }
 
-fn nwobhm() -> R<Session> {
+fn lagrima() -> R<Session> {
     let mut s = new_demo(
-        "Iron Gallop",
-        "Guitario",
-        "Twin-guitar harmony in A minor over a galloping bass, in the spirit of classic British heavy metal.",
-        168,
-        "Lead Guitar",
-        29,
-        "standard",
-    )?;
-    let l1 = [
-        "4 1:5, 8 1:8, 8 1:10, 4. 1:12, 8 1:10",
-        "4 1:8, 8 1:10, 8 1:8, 4 1:5, 4 1:8",
-        "8 1:7, 8 1:8, 8 1:10, 8 1:12, 2 1:15 +b +v",
-        "2 1:12 +v, 4 1:10, 4 1:8",
-    ];
-    let l2 = [
-        "4 2:6, 8 2:10, 8 2:12, 4. 2:13, 8 2:12",
-        "4 2:10, 8 2:12, 8 2:10, 4 2:6, 4 2:10",
-        "8 2:8, 8 2:10, 8 2:12, 8 2:13, 2 2:17 +v",
-        "2 2:13 +v, 4 2:12, 4 2:10",
-    ];
-    let mut a: Vec<Bar> = l1.iter().map(bar).collect();
-    a[0] = bar(l1[0]).mark("Theme").open();
-    a[3] = bar(l1[3]).close(1);
-    a.push(bar("1 1:5 +v"));
-    play_track(&mut s, 0, &a)?;
-    add_track(&mut s, "Harmony Guitar", "standard", 29)?;
-    let mut b: Vec<Bar> = l2.iter().map(bar).collect();
-    b.push(bar("1 2:6 +v"));
-    play_track(&mut s, 1, &b)?;
-    add_track(&mut s, "Bass", "bass", 34)?;
-    let g = |st: u8, f: u8| bar(rep(4, &gallop_open(st, f)));
-    play_track(&mut s, 2, &[g(3, 0), g(4, 1), g(4, 3), g(4, 0), bar("1 3:0")])?;
-    drums(&mut s, &[bar(kick_gallop(true)), bar(kick_gallop(false)), bar(kick_gallop(false)), bar(kick_gallop(false)), bar("1 bd cr")])?;
-    Ok(s)
-}
-
-fn black_metal() -> R<Session> {
-    let mut s = new_demo(
-        "Frostbitten Dawn",
-        "Guitario",
-        "Tremolo-picked melody in F# minor over open fifths. Each quarter note is tremolo picked in thirty-seconds.",
-        190,
-        "Tremolo Guitar",
-        30,
-        "standard",
-    )?;
-    let t = |fret: u8| format!("4 2:{fret} &tp32");
-    let c = |chord: &str| format!("4 {chord} &tp32");
-    let t1 = j(&[t(7), t(9), t(10), t(9)]);
-    let t2 = j(&[t(12), t(10), t(9), t(7)]);
-    let t3 = j(&[c("6:2 5:4 4:4"), c("6:0 5:2 4:2"), c("6:4 5:6 4:6"), c("6:2 5:4 4:4")]);
-    play_track(&mut s, 0, &[bar(&t1).mark("Tremolo melody").key(3).open(), bar(&t2).close(1), bar(&t3).mark("Open fifths"), bar("1 6:2 5:4 4:4 *lr *v")])?;
-    add_track(&mut s, "Bass", "bass", 34)?;
-    play_track(&mut s, 1, &[bar(rep(8, "8 4:2")), bar(rep(8, "8 4:2")), bar("4 4:2, 4 4:0, 4 4:4, 4 4:2"), bar("1 4:2")])?;
-    drums(&mut s, &[bar(blast("rd", true)), bar(blast("rd", false)), bar(blast("cr", true)), bar("1 bd cr")])?;
-    Ok(s)
-}
-
-fn breakdown() -> R<Session> {
-    let mut s = new_demo(
-        "Breakdown Protocol",
-        "Guitario",
-        "Metalcore half-time breakdown in Drop B: syncopated palm-muted chugs, dead notes and a pinch harmonic.",
-        140,
-        "Rhythm Guitar",
-        30,
-        "drop b",
-    )?;
-    let m1 = format!("8 {} *a, 8 6:0 +pm, 8 r, 8 6:0 +pm, 8 r, 8 6:3 +pm, 4 {} *a", pd(0), pd(0));
-    let m2 = format!("4 {} *a *lr, 4 r, 8 6:0 +pm, 8 6:0 +pm, 4 6:5 +slo", pd(0));
-    let m3 = "8 6:0 +pm, 8 6:x, 8 6:0 +pm, 8 6:x, 4 3:7 +ph +v, 4 r";
-    play_track(
-        &mut s,
-        0,
-        &[bar(&m1).mark("Breakdown").open(), bar(&m2), bar(&m1), bar(&m2).close(1), bar(m3).mark("Pinch"), bar(format!("1 {} *lr *a", pd(0)))],
-    )?;
-    add_track(&mut s, "Bass", "bass", 34)?;
-    let b1 = "8 4:7, 8 4:7, 8 r, 8 4:7, 8 r, 8 4:10, 4 4:7";
-    let b2 = "4 4:7, 4 r, 8 4:7, 8 4:7, 4 4:12";
-    play_track(&mut s, 1, &[bar(b1), bar(b2), bar(b1), bar(b2), bar("8 4:7, 8 r, 8 4:7, 8 r, 4 4:7, 4 r"), bar("1 4:7")])?;
-    let d1 = "8 bd ch, 8 bd, 8 r, 8 bd, 8 sd, 8 bd, 4 bd ch";
-    let d2 = "4 bd cr, 4 sd, 8 bd, 8 bd, 4 sd ch";
-    drums(&mut s, &[bar(d1), bar(d2), bar(d1), bar(d2), bar("8 bd hh, 8 sd, 8 bd hh, 8 sd, 4 bd cr, 4 r"), bar("1 bd cr")])?;
-    Ok(s)
-}
-
-fn ballad() -> R<Session> {
-    let mut s = new_demo(
-        "Ashes to Distortion",
-        "Guitario",
-        "A fingerpicked nylon intro in Am - F - C - G that the band crashes into at bar 5.",
-        84,
+        "Lágrima",
+        "Francisco Tárrega",
+        "Tárrega's prelude for guitar: the E major half on nylon strings with chord names, then the E minor half as a distorted lead with slides over the full band.",
+        72,
         "Nylon Guitar",
         24,
         "standard",
     )?;
-    let arp = |bass: &str, mid: &str, top: &str| format!("8 {bass} +lr @mp, 8 {mid}, 8 {top}, 8 1:0, 8 {top}, 8 {mid}, 8 {top}, 8 1:0");
-    let _ = &arp;
-    let am = "8 5:0 +lr @mp %Am=x02210, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
-    let f = "8 4:3 +lr %Fmaj7=xx3210, 8 3:2, 8 2:1, 8 1:0, 8 2:1, 8 3:2, 8 2:1, 8 1:0";
-    let c = "8 5:3 +lr %C=x32010, 8 3:0, 8 2:1, 8 1:0, 8 2:1, 8 3:0, 8 2:1, 8 1:0";
-    let g = "8 6:3 +lr %G=320003, 8 4:0, 8 3:0, 8 2:0, 8 3:0, 8 4:0, 8 3:0, 8 2:0";
-    play_track(&mut s, 0, &[bar(am).mark("Acoustic intro"), bar(f), bar(c), bar(g), bar(am).mark("Heavy").tempo(112), bar(f), bar(c), bar(g)])?;
-    add_track(&mut s, "Distortion Guitar", "standard", 30)?;
-    let chug = |chord: String| format!("8 {chord} *pm @f, 8 {chord} *pm, 8 {chord} *pm, 8 r, 8 {chord} *pm, 8 {chord} *pm, 4 {chord} *a");
-    let mut gbars: Vec<Bar> = (0..4).map(|_| bar("1 r")).collect();
-    gbars.extend([chug(p5(5, 0)), chug(p5(6, 1)), chug(p5(5, 3)), chug(p5(6, 3))].map(bar));
-    play_track(&mut s, 1, &gbars)?;
+    let e = "8 1:4 +lr @mp %E=022100, 8 2:0, 8 1:5, 8 2:0, 8 1:7, 8 2:0";
+    let b7 = "8 1:2 4:1 *lr %B7=x21202, 8 2:0, 8 3:2, 8 2:0, 8 5:2, 8 2:0";
+    let mut n: Vec<Bar> = vec![
+        bar(e).mark("Andante").ts(3, 4).key(4),
+        bar(b7),
+        bar(e),
+        bar(b7),
+        bar("4 1:12, 4 1:11, 4 1:9"),
+        bar("8 1:7, 8 1:4, 8 2:2, 8 1:0, 8 1:2, 8 1:5"),
+        bar("8 1:4, 8 1:0, 8 2:2, 8 1:2, 8 1:2 ~, 8 2:4 3:2"),
+        bar("2 1:0 3:1 *lr %E=022100, 4 r"),
+    ];
+    n.extend((0..8).map(|_| bar("2. r")));
+    n[8] = bar("2. r").mark("Heavy").key(1).tempo(112);
+    play_track(&mut s, 0, &n)?;
+    add_track(&mut s, "Lead Guitar", "standard", 29)?;
+    let mut l: Vec<Bar> = (0..8).map(|_| bar("2. r")).collect();
+    l.extend(
+        [
+            "8 2:8 +sl, 8 2:13, 8 2:12, 8 2:5, 8 2:7 +sl, 8 2:8",
+            "2. 2:5 +v",
+            "8 r, 8 1:12, 8 r, 8 1:8, 8 r, 8 1:5",
+            "2 2:7 +v, 8 r, 8 2:7",
+            "4 2:8, 4 2:10, 4 2:12",
+            "8 2:15, 8 2:13, 8 2:12, 8 2:10, 8 2:8, 8 2:7",
+            "4 2:5, 4 2:7, 4 3:4",
+            "2 2:5 +v, 4 r",
+        ]
+        .map(bar),
+    );
+    play_track(&mut s, 1, &l)?;
+    add_track(&mut s, "Rhythm Guitar", "standard", 30)?;
+    let chug = |chord: String| bar(format!("8 {chord} *pm @f, 8 {chord} *pm, 8 {chord} *pm, 8 {chord} *pm, 4 {chord} *a"));
+    let mut r: Vec<Bar> = (0..8).map(|_| bar("2. r")).collect();
+    r.extend([p5(5, 3), p5(5, 0), p5(5, 0), p5(5, 2), p5(6, 0), p5(5, 3), p5(5, 2)].map(chug));
+    r.push(bar(format!("2. {} *lr", p5(6, 0))));
+    play_track(&mut s, 2, &r)?;
     add_track(&mut s, "Bass", "bass", 34)?;
-    let mut bbars: Vec<Bar> = (0..4).map(|_| bar("1 r")).collect();
-    bbars.extend(["3:0", "4:1", "3:3", "4:3"].map(|r| bar(rep(8, &format!("8 {r}")))));
-    play_track(&mut s, 2, &bbars)?;
-    let mut d: Vec<Bar> = (0..4).map(|_| bar("1 r")).collect();
-    d.extend([bar(eighths("hh", true)), bar(eighths("hh", false)), bar(eighths("hh", false)), bar(eighths("hh", false))]);
+    let mut b: Vec<Bar> = (0..8).map(|_| bar("2. r")).collect();
+    b.extend(["3:3", "3:0", "3:0", "3:2", "4:0", "3:3", "3:2"].map(|n| bar(rep(6, &format!("8 {n}")))));
+    b.push(bar("2. 4:0"));
+    play_track(&mut s, 3, &b)?;
+    let groove = |crash: bool| bar(format!("8 bd {}, 8 hh, 8 sd hh, 8 hh, 8 bd hh, 8 bd hh", if crash { "cr" } else { "hh" }));
+    let mut d: Vec<Bar> = (0..8).map(|_| bar("2. r")).collect();
+    d.extend([groove(true), groove(false), groove(false), groove(false), groove(true), groove(false), groove(false), bar("2. bd cr")]);
     drums(&mut s, &d)?;
     Ok(s)
 }
 
-fn solo() -> R<Session> {
+fn caprice() -> R<Session> {
     let mut s = new_demo(
-        "Fretboard Fury",
-        "Guitario",
-        "A lead-guitar solo in E minor with bends, legato runs, harmonics and triplet pentatonics.",
-        140,
+        "Caprice No. 24",
+        "Niccolò Paganini",
+        "The theme of the last of the 24 Caprices for solo violin (1817) as a lead-guitar solo in A minor: legato pull-offs, a bend and a shift slide over a galloping band.",
+        112,
         "Lead Guitar",
         29,
         "standard",
     )?;
-    let triplets = ["1:15", "1:12", "2:15", "2:12", "3:14", "3:12", "3:14", "2:12", "2:15", "1:12", "1:15", "1:17"].map(|n| format!("8t {n}"));
-    let solo_bars = [
-        "4 1:12 +gr10h +b +v, 8 1:15, 8 1:12, 4 2:15 +b, 4 2:12".to_string(),
-        "16 1:15 +h, 16 1:12, 16 2:15 +h, 16 2:12, 16 3:14 +h, 16 3:12, 16 4:14 +h, 16 4:12, 8 3:14 +sl, 8 3:17, 4 3:14 +v".to_string(),
-        "2 1:12 +nh, 4 1:15 +b +v, 4 1:12".to_string(),
-        j(&triplets),
-        "4. 1:17 +gr15s +b +v, 8 1:15, 4 1:12, 4 2:15 +gr14h".to_string(),
-        "8 2:15 +h, 8 2:12, 8 3:14 +h, 8 3:12, 4 4:14, 4 4:12".to_string(),
-        "2 1:15 +b +v, 2 1:12 +v".to_string(),
-        "1 1:12 +v &fl".to_string(),
+    let theme = [
+        "8 1:5, 16 r, 16 1:5, 16 1:5, 16 1:8 +h, 16 1:7 +h, 16 1:5",
+        "8 1:12, 16 r, 16 1:0, 16 1:0, 16 1:4 +h, 16 1:2 +h, 16 1:0",
+        "8 1:5, 16 r, 16 1:5, 16 1:5, 16 1:8 +h, 16 1:7 +h, 16 1:5",
+        "4 1:10 +b +v, 8 1:0, 8 r",
+        "8 1:17, 16 r, 16 1:17, 16 1:17, 16 1:18 +h, 16 1:17 +h, 16 1:15",
+        "8 1:13, 16 r, 16 1:10, 16 1:10, 16 1:13 +h, 16 1:12 +h, 16 1:10",
+        "8 1:15, 16 r, 16 1:15, 16 1:15, 16 1:17 +h, 16 1:15 +h, 16 1:13",
+        "8 1:12, 16 r, 16 1:8, 16 1:8, 16 1:12 +h, 16 1:10 +h, 16 1:8",
+        "8 1:13, 16 r, 16 1:7, 16 1:7, 16 1:10 +h, 16 1:8 +h, 16 1:7",
+        "8 1:12, 16 r, 16 1:5, 16 1:5, 16 1:8 +h, 16 1:7 +h, 16 1:5",
+        "8 1:1, 16 r, 16 1:11, 16 1:0, 16 1:12 +sl, 16 1:10, 16 1:7",
+        "4 1:5 +v, 8 3:2, 8 r",
+        "2 1:17 +v &fl",
     ];
-    let mut b: Vec<Bar> = solo_bars.iter().map(bar).collect();
-    b[0] = bar(&solo_bars[0]).mark("Solo");
-    play_track(&mut s, 0, &b)?;
+    let mut l: Vec<Bar> = theme.iter().map(bar).collect();
+    l[0] = bar(theme[0]).ts(2, 4).mark("Tema").open();
+    l[3] = bar(theme[3]).close(1);
+    play_track(&mut s, 0, &l)?;
     add_track(&mut s, "Rhythm Guitar", "standard", 30)?;
-    let em = rep(4, &gallop(6, 0));
-    let cc = rep(4, &gallop(5, 3));
-    let dd = rep(4, &gallop(5, 5));
-    play_track(&mut s, 1, &[bar(&em), bar(&em), bar(&cc), bar(&dd), bar(&em), bar(&em), bar(&cc), bar(format!("1 {} *lr", p5(6, 0)))])?;
+    // A, E, A, E; then A, D, G, C, G, A, E, A.
+    let roots = [(5u8, 0u8), (6, 0), (5, 0), (6, 0), (5, 0), (5, 5), (6, 3), (5, 3), (6, 3), (5, 0), (6, 0), (5, 0)];
+    let mut r: Vec<Bar> = roots.iter().map(|&(st, f)| bar(rep(2, &gallop(st, f)))).collect();
+    r.push(bar(format!("2 {} *lr", p5(5, 0))));
+    play_track(&mut s, 1, &r)?;
     add_track(&mut s, "Bass", "bass", 34)?;
-    let eight = rep(8, "8 4:0");
-    let c8 = rep(8, "8 3:3");
-    let d8 = rep(8, "8 3:5");
-    play_track(&mut s, 2, &[bar(&eight), bar(&eight), bar(&c8), bar(&d8), bar(&eight), bar(&eight), bar(&c8), bar("1 4:0")])?;
-    let d = |crash| bar(eighths("rd", crash));
-    drums(&mut s, &[d(true), d(false), d(false), d(false), d(true), d(false), d(false), bar("1 bd cr")])?;
+    let on_bass = |root: (u8, u8)| match root {
+        (5, 0) => (3, 0),
+        (6, 0) => (4, 0),
+        (5, 5) => (2, 0),
+        (6, 3) => (4, 3),
+        _ => (3, 3),
+    };
+    let mut b: Vec<Bar> = roots.iter().map(|&root| on_bass(root)).map(|(st, f)| bar(rep(2, &gallop_open(st, f)))).collect();
+    b.push(bar("2 3:0"));
+    play_track(&mut s, 2, &b)?;
+    let kick = |crash: bool| bar(format!("8 bd {}, 16 bd, 16 bd, 8 sd hh, 16 bd, 16 bd", if crash { "cr" } else { "hh" }));
+    let mut d: Vec<Bar> = (0..12).map(|i| kick(i % 4 == 0)).collect();
+    d.push(bar("2 bd cr"));
+    drums(&mut s, &d)?;
     Ok(s)
 }
 
@@ -877,7 +1069,7 @@ fn techniques() -> R<Session> {
     let mut s = new_demo(
         "Metal Technique Showcase",
         "Guitario",
-        "One bar per technique: use it to check how every effect is drawn and played back.",
+        "One bar per technique, then the odd meters: use it to check how every effect and time signature is drawn and played back.",
         120,
         "Lead Guitar",
         30,
@@ -904,31 +1096,26 @@ fn techniques() -> R<Session> {
             bar("8 6:0 +pm, 8 6:x, 8 5:2 +g, 8 6:x, 8 6:0, 8 6:x, 8 5:2 +a, 8 6:x").mark("Dead, ghost, accent"),
             bar("4 1:5 @p, 4 1:5 ~, 2 1:7 @ff").mark("Ties and dynamics"),
             bar("8t 1:0, 8t 1:3, 8t 1:5, 8t 1:0, 8t 1:3, 8t 1:5, 4 1:7, 4 r").mark("Triplets"),
-            bar("4 6:0 5:2 4:2 3:1 2:0 1:0 *lr @mf, 4 r, 2 r"),
+            bar(format!("8 6:0 +pm, 8 6:0 +pm, 8 {} *a, 8 6:0 +pm, 8 {} *a, 8 6:0 +pm, 8 {} *a", p5(6, 3), p5(6, 5), p5(6, 7)))
+                .ts(7, 8)
+                .beams(&[3, 2, 2])
+                .mark("7/8 (3+2+2)"),
+            bar(format!(
+                "{}, 16 {} *a, {}, 16 {} *a, {}, 16 {} *a",
+                rep(3, "16 6:0 +pm"),
+                p5(6, 3),
+                rep(3, "16 6:0 +pm"),
+                p5(6, 5),
+                rep(4, "16 6:0 +pm"),
+                p5(6, 7)
+            ))
+            .ts(13, 16)
+            .mark("13/16 (4+4+5)"),
+            bar(format!("4. {} *lr, 8 {}, 8 {}, 8 {}", p5(6, 0), p5(6, 3), p5(6, 5), p5(6, 3))).ts(6, 8).mark("6/8"),
+            bar(format!("4. {} *lr, 4. {}, 4. {}, 4. {} *a", p5(6, 0), p5(6, 0), p5(6, 3), p5(6, 5))).ts(12, 8).mark("12/8"),
+            bar("4 6:0 5:2 4:2 3:1 2:0 1:0 *lr @mf, 4 r, 2 r").ts(4, 4),
         ],
     )?;
-    Ok(s)
-}
-
-fn bass_rumble() -> R<Session> {
-    let mut s = new_demo(
-        "Rumble",
-        "Guitario",
-        "A metal bass study in E: pick gallops, a climbing line, and a fill. Practise slowly with the metronome on.",
-        180,
-        "Picked Bass",
-        34,
-        "bass",
-    )?;
-    let gal = |f: u8| gallop_open(4, f);
-    let r1 = rep(4, &gal(0));
-    let r2 = j(&[gal(0), gal(0), gal(3), gal(5)]);
-    let r3 = "8 4:0, 8 4:0, 8 4:0, 8 4:3, 8 4:0, 8 4:0, 8 4:5, 8 4:6";
-    let r4 = "16 3:7, 16 3:5, 16 3:3, 16 3:0, 16 4:7, 16 4:5, 16 4:3, 16 4:0, 2 4:0 +v";
-    play_track(&mut s, 0, &[bar(&r1).mark("Gallop").open(), bar(&r2), bar(r3), bar(r4).close(1), bar("1 4:0 +v")])?;
-    let beat = format!("{}, {}", "8 bd cr, 8 hh, 8 sd hh, 8 hh", "8 bd hh, 8 hh, 8 sd hh, 8 hh");
-    let beat2 = format!("{}, {}", "8 bd hh, 8 hh, 8 sd hh, 8 hh", "8 bd hh, 8 bd hh, 8 sd hh, 8 hh");
-    drums(&mut s, &[bar(&beat), bar(&beat2), bar(&beat2), bar(&beat2), bar("1 bd cr")])?;
     Ok(s)
 }
 
@@ -970,38 +1157,82 @@ fn drum_grooves() -> R<Session> {
     Ok(s)
 }
 
-fn two_voices() -> R<Session> {
+fn cello_prelude() -> R<Session> {
     let mut s = new_demo(
-        "Two Voices",
-        "Guitario",
-        "A fingerstyle study in A minor: the melody is Voice 1 (stems up), the bass is Voice 2 (stems down). The G in bar 4 is tied over the bar line.",
-        92,
+        "Cello Suite No. 1: Prelude",
+        "Johann Sebastian Bach",
+        "The opening of the Prelude from BWV 1007 played on a picked bass, an octave below the cello, over a ride beat. Practise slowly with the metronome on.",
+        84,
+        "Picked Bass",
+        34,
+        "bass",
+    )?;
+    let twice = |notes: &str| on(&BASS, 0, &sixteenths(&format!("{notes} {notes}")));
+    play_track(
+        &mut s,
+        0,
+        &[
+            bar(twice("G1 D2 B2 A2 B2 D2 B2 D2")).mark("Prelude").key(1),
+            bar(twice("G1 E2 C3 B2 C3 E2 C3 E2")),
+            bar(twice("G1 F#2 C3 B2 C3 F#2 C3 F#2")),
+            bar(on(&BASS, 0, &sixteenths("G1 G2 B2 A2 B2 G2 B2 G2 G1 G2 B2 A2 B2 G2 B2 F#2"))),
+            bar(on(&BASS, 0, &sixteenths("G1 E2 B2 A2 B2 G2 F#2 G2 E2 G2 F#2 G2 B1 D2 C#2 B1"))),
+            bar(on(&BASS, 0, "1 G1 +lr")),
+        ],
+    )?;
+    let d = |crash| bar(eighths("rd", crash));
+    drums(&mut s, &[d(true), d(false), d(false), d(false), d(false), bar("1 bd cr")])?;
+    Ok(s)
+}
+
+fn bourree() -> R<Session> {
+    let mut s = new_demo(
+        "Bourrée in E minor",
+        "Johann Sebastian Bach",
+        "The first half of the Bourrée from the Lute Suite BWV 996: the melody is Voice 1 (stems up), the bass is Voice 2 (stems down), on one staff. It starts with a one-beat pickup, so the last bar is three beats long.",
+        120,
         "Nylon Guitar",
         24,
         "standard",
     )?;
     let melody = [
-        "4 2:1 @mp, 8 1:0, 8 2:1, 4 3:2, 4 2:1",
-        "4 2:1, 8 1:1, 8 2:1, 4 3:2, 4 2:1",
-        "4 2:1, 8 2:0, 8 2:1, 4 1:0, 4 2:1",
-        "4 2:0, 4 3:0, 2 1:3",
-        "2 1:3 ~, 4 2:1, 4 3:2",
-        "4 1:1, 8 2:3, 8 2:1, 4 1:0, 4 2:3",
-        "4 2:0, 8 3:1, 8 2:0, 4 1:0, 4 2:0",
-        "1 2:1 +lr",
+        "8 E4 @mp, 8 F#4",
+        "4 G4, 8 F#4, 8 E4, 4 D#4, 8 E4, 8 F#4",
+        "4 B3, 8 C#4, 8 D#4, 4 E4, 8 D4, 8 C4",
+        "4 B3, 8 A3, 8 G3, 4 F#3, 8 G3, 8 A3",
+        "8 B3, 8 A3, 8 G3, 8 F#3, 4 E3, 8 E4, 8 F#4",
+        "4 G4, 8 F#4, 8 E4, 4 D#4, 8 E4, 8 F#4",
+        "4 B3, 8 C#4, 8 D#4, 4 E4, 8 D4, 8 C4",
+        "4 B3, 8 A3, 8 G3, 4. F#3, 8 G3",
+        "2. B2 D3 G3 *lr",
     ];
+    // Bach's low D at the end of bar 8 is below the guitar, so both Ds sound an octave up, on the
+    // A string to leave the D string to the melody's F#.
     let bass = [
-        "2 5:0 +lr, 2 4:2",
-        "2 6:1 +lr, 2 5:3",
-        "2 5:3 +lr, 2 4:2",
-        "2 6:3 +lr, 2 5:2",
-        "2 5:0 +lr, 2 4:2",
-        "2 4:0 +lr, 2 3:2",
-        "2 6:0 +lr, 2 5:2",
-        "1 5:0 +lr",
+        "8 G2, 8 F#2",
+        "4 E2, 4 A2, 4 B2, 4 A2",
+        "4 G2, 4 F#2, 4 E2, 4 F#2",
+        "4 G2, 4 A2, 4 B2, 4 A2",
+        "4 G2, 4 B2, 8 E2, 8 F#2, 8 G2, 8 F#2",
+        "4 E2, 4 A2, 4 B2, 4 A2",
+        "4 G2, 4 F#2, 4 E2, 4 F#2",
+        "4 G2, 4 C3, 4 5:5, 4 5:5",
+        "2. G2",
     ];
-    let bars: Vec<Bar> =
-        melody.iter().zip(bass).enumerate().map(|(i, (m, b))| if i == 0 { bar(m).with_voice2(b).mark("Verse") } else { bar(m).with_voice2(b) }).collect();
+    let bars: Vec<Bar> = melody
+        .iter()
+        .zip(bass)
+        .enumerate()
+        .map(|(i, (m, b))| {
+            let v = bar(on(&STANDARD, 0, m)).with_voice2(on(&STANDARD, 0, b));
+            match i {
+                0 => v.ts(1, 4).key(1).mark("Bourrée"),
+                1 => v.ts(2, 2),
+                8 => v.ts(3, 4),
+                _ => v,
+            }
+        })
+        .collect();
     play_track(&mut s, 0, &bars)?;
     Ok(s)
 }
@@ -1029,21 +1260,21 @@ fn main() -> ExitCode {
     type Make = fn() -> R<Session>;
     let all: [(&str, Make); 16] = [
         ("00-blank", blank),
-        ("01-thrash-attack", thrash),
-        ("02-funeral-procession", doom),
-        ("03-burial-ground", death),
-        ("04-steel-horizon", power_metal),
-        ("05-seven-strings-deep", djent),
-        ("06-odd-meter-assault", odd_meters),
-        ("07-iron-gallop", nwobhm),
-        ("08-frostbitten-dawn", black_metal),
-        ("09-breakdown-protocol", breakdown),
-        ("10-ashes-to-distortion", ballad),
-        ("11-fretboard-fury", solo),
+        ("01-flight-of-the-bumblebee", bumblebee),
+        ("02-funeral-march", funeral_march),
+        ("03-hall-of-the-mountain-king", mountain_king),
+        ("04-summer-presto", summer),
+        ("05-toccata-and-fugue", toccata),
+        ("06-mars", mars),
+        ("07-little-fugue", little_fugue),
+        ("08-moonlight-sonata", moonlight),
+        ("09-fifth-symphony", fifth_symphony),
+        ("10-lagrima", lagrima),
+        ("11-caprice-24", caprice),
         ("12-metal-technique-showcase", techniques),
-        ("13-bass-rumble", bass_rumble),
+        ("13-cello-prelude", cello_prelude),
         ("14-drum-grooves", drum_grooves),
-        ("15-two-voices", two_voices),
+        ("15-bourree-in-e-minor", bourree),
     ];
     let mut failed = false;
     for (name, make) in all {

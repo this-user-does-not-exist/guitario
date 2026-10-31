@@ -19,7 +19,7 @@ Guitario is an open-source, native, Guitar Pro-comparable tablature and notation
 | `docs/parity-checklist.md` | Generated list of every Guitar Pro menu item, live or missing |
 | `docs/scorecard.md` | Generated scorecard: per-area checklists and counts from the tree |
 | `docs/decisions.md` | Implementation decisions and why |
-| `demos/README.md` | The demo suite (original metal pieces) and how it is generated and tested |
+| `demos/README.md` | The demo suite (public-domain classics arranged for metal) and how it is generated and tested |
 
 ## 2. Workspace map
 
@@ -36,7 +36,7 @@ apps/
   guitario             desktop app (eframe/wgpu)
   guitario-cli         headless CLI (commands/info/convert/run)
 xtask/                    cargo xtask layers | wasm | ci | stats | parity | scorecard | version
-demos/                    original metal demo scores (+ MIDI, ASCII tab) and a .gp fixture
+demos/                    public-domain classics arranged for metal (+ MIDI, ASCII tab) and a .gp fixture
 scorecard/                checklists behind docs/scorecard.md
 ```
 
@@ -57,7 +57,7 @@ People trust Guitario with their work, and a crash loses it. A malformed file, a
 1. **Everything is a command.** New user-visible behaviour = a command in the engine (`crates/engine/src/commands.rs`, or a new module with `specs()` such as `selection.rs`) with id, label, menu path, shortcut, params doc, `mutates` and `run`, plus tests. The UI, CLI and tests dispatch by id. Point the matching Guitar Pro item in `crates/ui-egui/src/menu_catalog.rs` at it and the menu item goes live. Only pure view state (zoom, panels, transport toggles) belongs to the shell.
 2. **Look and behave like Guitar Pro.** Layout, engraving, palette, menus and shortcuts match Guitar Pro 8 unless there is a strong reason not to. Engraving defaults come from GP's stylesheet (`layout.rs` cites them). Colours come from `theme.rs` tokens.
 3. **Clean-room.** Behaviour and look only, from public format notes and observation. Never copy code, sounds, fonts or stylesheets from Guitar Pro or other tab software. Assets must be permissively licensed, keep their licence beside them and get a row in `ATTRIBUTION.md`. **Never commit font files:** fonts live in craft-fonts; the app finds them at runtime (`fonts.rs`).
-4. **Original content.** Demo scores, examples and screenshots are original compositions centred on metal; never transcribe existing songs.
+4. **Public-domain or original content.** Demo scores, examples and screenshots are either original or our own arrangements of public-domain works (composer long dead, arranged from the original score), centred on metal. Never transcribe or copy a copyrighted song, a modern edition, a recording's arrangement or someone else's tab.
 5. **Strings are numbered from the top.** String 0 is the highest string (the top tab line); Guitar Pro numbers them from the bottom and `crates/gp` flips them.
 6. **Tests are the gate.** Every change comes with tests. Formats get round-trip and malformed-input tests. Keep menu parity from regressing (`FLOOR` in `crates/ui-egui/src/parity.rs`).
 7. **The UI is thin.** It reads the session and turns input into commands; it never edits the score directly.
