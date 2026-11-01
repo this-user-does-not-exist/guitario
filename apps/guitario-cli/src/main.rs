@@ -1,8 +1,12 @@
 //! Headless Guitario: inspect, convert and script scores through the same command registry the
 //! app uses.
 
+use guitario_engine::control::Host;
+use guitario_engine::mcp::McpServer;
 use guitario_engine::{EngineError, Session, registry};
 use serde_json::{Value, json};
+use std::io::{BufRead, BufReader, Write};
+use std::net::TcpStream;
 use std::process::ExitCode;
 
 const USAGE: &str = "guitario-cli <command>
@@ -17,7 +21,59 @@ const USAGE: &str = "guitario-cli <command>
                                  --score stacks the tracks in every system as a full score
   run <file|-> <script.json>     run [[\"command.id\", {params}], ...] on a score; `-` starts a new one;
                                  prints each result as JSON. Add --save <path> to write the result.
+  mcp [file] [--connect <port>]  an MCP server on stdin and stdout: drives a headless session on [file],
+                                 or with --connect the running app (`guitario --control <port>`),
+                                 which adds the view and screenshot tools. See docs/control.md
+  send <port> <method> [params]  one control request to the running app; prints the reply
 ";
+
+/// The running app, reached over its control channel.
+struct App {
+    out: TcpStream,
+    replies: std::io::Lines<BufReader<TcpStream>>,
+    next: u64,
+}
+
+impl App {
+    fn connect(port: &str) -> Result<App, String> {
+        let port: u16 = port.parse().map_err(|_| format!("`{port}` is not a port number"))?;
+        let s = TcpStream::connect(("127.0.0.1", port))
+            .map_err(|e| format!("no Guitario control channel on port {port} ({e}); start the app with --control {port}"))?;
+        let out = s.try_clone().map_err(|e| e.to_string())?;
+        Ok(App { out, replies: BufReader::new(s).lines(), next: 1 })
+    }
+}
+
+impl Host for App {
+    fn call(&mut self, method: &str, params: &Value) -> Result<Value, EngineError> {
+        let id = self.next;
+        self.next += 1;
+        writeln!(self.out, "{}", json!({"id": id, "method": method, "params": params}))?;
+        self.out.flush()?;
+        let line = self.replies.next().ok_or_else(|| EngineError::invalid("the app closed the control channel"))??;
+        let mut reply: Value = serde_json::from_str(&line).map_err(|e| EngineError::invalid(format!("the app sent a bad reply: {e}")))?;
+        if let Some(m) = reply.pointer("/error/message").and_then(Value::as_str) {
+            return Err(EngineError::invalid(m));
+        }
+        Ok(reply.get_mut("result").map(Value::take).unwrap_or(Value::Null))
+    }
+}
+
+/// Serves MCP over stdin and stdout, one JSON-RPC message per line, until stdin closes.
+fn serve_mcp(host: &mut dyn Host, app: bool) -> Result<(), String> {
+    let mut server = McpServer::new(app);
+    let mut stdout = std::io::stdout().lock();
+    for line in std::io::stdin().lock().lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        if let Some(reply) = server.handle_line(host, &line) {
+            writeln!(stdout, "{reply}").and_then(|()| stdout.flush()).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
 
 fn open(s: &mut Session, path: &str) -> Result<(), EngineError> {
     if path == "-" {
@@ -113,6 +169,27 @@ fn real_main(args: &[String]) -> Result<(), String> {
             if let Some(pos) = args.iter().position(|x| x == "--save") {
                 s.run("file.save", &json!({"path": a(pos + 1)?})).map_err(e)?;
             }
+        }
+        "mcp" => {
+            if let Some(pos) = args.iter().position(|x| x == "--connect") {
+                let mut app = App::connect(a(pos + 1)?)?;
+                app.call("hello", &Value::Null).map_err(e)?;
+                serve_mcp(&mut app, true)?;
+            } else {
+                if let Some(file) = args.get(2).filter(|f| !f.starts_with("--")) {
+                    open(&mut s, file).map_err(e)?;
+                }
+                serve_mcp(&mut s, false)?;
+            }
+        }
+        "send" => {
+            let mut app = App::connect(a(2)?)?;
+            let params = match args.get(4) {
+                Some(p) => serde_json::from_str(p).map_err(|err| format!("params must be JSON: {err}"))?,
+                None => Value::Null,
+            };
+            let r = app.call(a(3)?, &params).map_err(e)?;
+            println!("{}", serde_json::to_string_pretty(&r).map_err(|e| e.to_string())?);
         }
         _ => return Err(USAGE.into()),
     }

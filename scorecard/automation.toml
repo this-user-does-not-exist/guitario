@@ -1,4 +1,4 @@
-# Scorecard checklist: automation (agents, CLI). Verified 2026-10-15.
+# Scorecard checklist: automation (agents, CLI). Verified 2026-10-31.
 area = "automation"
 title = "Automation"
 order = 6
@@ -16,14 +16,14 @@ status = "done"
 [[item]]
 id = "AUTO-3"
 target = "JSON control channel to drive and screenshot the running app"
-status = "missing"
-stage = "beta"
+status = "done"
+note = "guitario --control <port>; docs/control.md"
 
 [[item]]
 id = "AUTO-4"
 target = "MCP server"
-status = "missing"
-stage = "beta"
+status = "done"
+note = "guitario-cli mcp [--connect <port>]; ten agent tasks in apps/guitario-cli/tests/agent_tasks.rs"
 
 [[item]]
 id = "AUTO-5"

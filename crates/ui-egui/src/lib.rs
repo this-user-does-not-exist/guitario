@@ -13,6 +13,7 @@ mod bar_check;
 mod bend_dialog;
 mod bend_draw;
 mod chord_dialog;
+mod control;
 mod documents;
 mod drum_grid;
 mod effects_ui;
@@ -185,6 +186,10 @@ pub struct GuitarioApp {
     /// Autosave and crash recovery for the document shown; off until the persistent preferences
     /// are in use.
     autosave: autosave::Autosave,
+    /// The control channel, when the app was started with `--control <port>`.
+    control: Option<control::Server>,
+    /// Where the score was drawn last frame, for screenshots of the score area.
+    score_rect: Option<egui::Rect>,
 }
 
 /// What the unsaved-changes prompt will do once the user answers. It always asks about the
@@ -273,6 +278,8 @@ impl GuitarioApp {
             shortcuts_open: false,
             fullscreen: false,
             viewport_cmds: Vec::new(),
+            control: None,
+            score_rect: None,
         }
     }
 
@@ -1013,6 +1020,7 @@ impl GuitarioApp {
             return;
         }
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.title()));
+        self.control_tick(&ctx);
         if !self.modal_open() {
             self.handle_keys(&ctx);
         }
@@ -1058,6 +1066,7 @@ impl GuitarioApp {
         egui::Panel::top("topbar").exact_size(54.0).frame(bar(t.chrome)).show(ui, |ui| topbar::show(self, ui));
         egui::Panel::top("doctabs").exact_size(tabbar::HEIGHT).frame(egui::Frame::NONE.fill(t.chrome_dark)).show(ui, |ui| tabbar::show(self, ui));
         if self.home.open {
+            self.score_rect = None;
             egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.panel)).show(ui, |ui| home::show(self, ui));
             return;
         }
@@ -1139,6 +1148,7 @@ impl GuitarioApp {
                 self.follow_cursor = false;
             }
         });
+        self.score_rect = Some(central.response.rect);
         self.toast(ui.ctx(), central.response.rect);
     }
 

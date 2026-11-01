@@ -480,3 +480,24 @@ tab takes from the one before (`Session::sibling`). Switching tabs stops playbac
 different score cannot keep playing under the cursor of another. Opening a file into an
 untouched untitled document replaces it instead of adding a tab, so the start-up document never
 lingers next to the first file opened.
+
+## 2026-10-31: Agents drive the app over a loopback socket, and MCP is a translation of it
+
+There is one control protocol (JSON lines: `run`, `batch`, `state`, `view`, `screenshot` …) and
+everything outside the window speaks it: a headless `Session` answers it in the engine, the app
+serves it, and the MCP server only translates MCP's JSON-RPC to it. The protocol and the MCP
+translation are pure engine code, so they are tested without a socket and build for wasm; the
+sockets live in the shell and the CLI. MCP stays out of the app itself: `guitario-cli mcp
+--connect` bridges stdio to the socket, so the app needs no MCP code and an MCP client can start
+and stop the bridge as it likes.
+
+The socket is TCP on 127.0.0.1, off unless asked for (`--control <port>` or `GUITARIO_CONTROL`),
+the way other Craft apps expose theirs. A Unix socket would limit it to the user's own processes
+but does not exist on every Windows the app supports; a token would add a step for every agent.
+What a loopback port does expose to is a web page posting to it, so a line that is not a JSON
+request closes the connection before an HTTP body is read, and that is tested. Requests are
+answered on the UI thread between frames, so an agent sees exactly what the window shows and its
+edits are undo steps the person at the window can take back. A `batch` is all or nothing (the
+session's undo, path and selection are put back with the score) so an agent's half-applied plan
+never lands in someone's document. Screenshots come from egui's own `ViewportCommand::Screenshot`,
+which `egui_kittest` fulfils too, so the end-to-end test takes real pixels without a window.

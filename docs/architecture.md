@@ -42,6 +42,12 @@ the previous `Arc` as one undo step. A failed command restores it exactly, so no
 a half-edited score. The UI reads `session.score()` every frame and never edits it directly:
 clicks and keys become commands (`cursor.set`, `note.setFret`, …).
 
+Outside programs reach the same commands through the control protocol
+(`engine/src/control.rs`, pure): a headless `Session` answers it directly, the running app serves
+it on a loopback socket and answers between frames (`ui-egui/src/control.rs`, which adds the view
+and screenshots), and `engine/src/mcp.rs` turns MCP tool calls into it for `guitario-cli mcp`.
+See [control](control.md).
+
 ## Page layout
 
 `ui-egui/src/layout.rs` is pure (tested without a GPU): measure widths from beat durations, system

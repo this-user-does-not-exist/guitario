@@ -24,6 +24,8 @@ craft-pdf = { workspace = true }
 craft-print = { workspace = true }
 rfd = { workspace = true }
 skrifa = { workspace = true }
+# Screenshots over the control channel (already in the tree through egui_kittest).
+png = "0.18"
 
 [dev-dependencies]
 hound = "3.5.1"

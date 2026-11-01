@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (several documents in tabs; beta ~144–293 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (control channel and MCP: B8 passes; beta ~104–213 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -14,7 +14,7 @@ for one agent working sequentially, and an upper bound (see
 [calibration](target-app-parity.md#calibration)).
 
 **Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
-today; ~144–293 h of work are left, ordered under [Current focus](#current-focus).
+today; ~104–213 h of work are left, ordered under [Current focus](#current-focus).
 
 ## Stages
 
@@ -70,10 +70,10 @@ live except the ones the scorecard stages for 1.0.
 | B5 | **Practise with the tools.** Tune the guitar, look up a chord's voicings, show a scale on the fretboard | partial | a tuning check with a real guitar (human); the tuner, chord window and scale tool are done | [G7](gaps.md#g7-tools) |
 | B6 | **Print properly.** Headers and footers, selected bars, other paper; a page leaves a real printer on all three platforms | partial | the real-printer check (human); headers and footers with tokens, selected bars and twelve papers landed 2026-10-18 | [G2](gaps.md#g2-print-depth) |
 | B7 | **Work for hours.** Several scores open, a 1,000-bar score inside the performance budgets in CI, autosave and recovery, every reader fuzzed | partial | CI budgets, memory and startup budgets, `.gt` and decoder fuzzing, a guard around painting | [G8](gaps.md#g8-ui-depth), [G9](gaps.md#g9-performance-budgets), [G11](gaps.md#g11-reliability-depth) |
-| B8 | **Drive it by agent.** An agent completes ten scripted edit tasks over MCP and takes screenshots of the running app | no | control channel, MCP server | [G10](gaps.md#g10-automation) |
+| B8 | **Drive it by agent.** An agent completes ten scripted edit tasks over MCP and takes screenshots of the running app | yes | nothing: the control channel, screenshots, the MCP server and the ten tasks landed 2026-10-31 ([control](control.md)) | [G10](gaps.md#g10-automation) |
 
-**Result: fails (1 of 8: B3).** Closest: B4, B6 and B7 (partial with a few named pieces); farthest:
-B1, B5 and B8 (nothing built) and B2 (the biggest piece).
+**Result: fails (2 of 8: B3, B8).** Closest: B4, B6 and B7 (partial with a few named pieces);
+farthest: B1 and B5 (human steps left) and B2 (the biggest piece).
 
 ## 1.0 gate
 
@@ -100,7 +100,7 @@ Engineering milestones, each with a definition of done. The GitHub milestones Al
 | M6 Drums | ✅ | kit tracks, pad, step grid, notation, GM playback, `.gp` drum import and export, two voices, articulations (flams, rolls, ghosts, chokes, half-open hi-hat, rim shot, ride edge) | beta |
 | M7 Print, PDF, MusicXML | 🟡 | PDF export, printing, print preview, the stylesheet's page and header and footer tabs, MusicXML | beta |
 | M8 Tools | 🟡 | chord diagram editor and namer; no tuner, chord window or scale tool | beta |
-| M9 Automation | ⬜ | control channel, MCP | beta |
+| M9 Automation | ✅ | control channel, screenshots, MCP, ten agent tasks (2026-10-31) | beta |
 | M10 Distribution | 🟡 | icon in every format, CI green on three platforms, packages, file types and a release workflow; no signing, no first release, Finder's double-click does not open the file | beta |
 
 ## Current focus
@@ -116,9 +116,10 @@ what needs a human ear or signing material last, so the human steps overlap with
    accounts. 20–40 h + human.
 2. **Shortcuts audit, user book, click-to-edit** ([G8](gaps.md#g8-ui-depth)); several documents
    landed 2026-10-31. 40–80 h.
-3. **Control channel and MCP** ([G10](gaps.md#g10-automation)); **fuzzing, CI budgets, layout
-   cache** ([G11](gaps.md#g11-reliability-depth), [G9](gaps.md#g9-performance-budgets)); **the
-   localization framework** ([G13](gaps.md#g13-languages)). 85–175 h.
+3. **Fuzzing, CI budgets, layout cache** ([G11](gaps.md#g11-reliability-depth),
+   [G9](gaps.md#g9-performance-budgets)); **the localization framework**
+   ([G13](gaps.md#g13-languages)). 45–95 h. The control channel and MCP
+   ([G10](gaps.md#g10-automation)) landed 2026-10-31.
 
 Drums (G1) and notation (G4) have no agent work left for beta: the step grid, the articulations,
 voice picking and slurs landed 2026-10-31. Headers, footers and selected bars (G2) landed
@@ -167,6 +168,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | The control channel, screenshots, the MCP server and ten agent tasks (M9, G10): B8 passes, the beta gate is 2 of 8; beta ~104–213 h |
 | 2026-10-31 | minor | Several documents in tabs (G8, B7's first piece); beta ~144–293 h |
 | 2026-10-31 | minor | Slurs across bars and in Guitar Pro files, room for a stepped-aside head: G4 done for beta; beta ~154–308 h |
 | 2026-10-31 | minor | Voice picking by notehead, ⌘1-4 and ⌘M, moving a note to a voice (G4); beta ~158–322 h |

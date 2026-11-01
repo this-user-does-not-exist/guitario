@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G8: several documents in tabs) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G10: control channel and MCP) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -676,6 +676,25 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   instead of freezing; Play now costs 2 ms on the UI thread.
 
 ### G10. Automation
+- **Landed 2026-10-31:** the control channel (AUTO-3, #162, #163): `guitario --control <port>`
+  (or `GUITARIO_CONTROL`) serves JSON lines on 127.0.0.1 with `hello`, `commands`, `run`, `batch`
+  (all or nothing), `state`, `view` (zoom, layout, multitrack, multivoice, Homepage) and
+  `screenshot` (the window or the score area, as base64 or written to a path). Requests are
+  answered on the UI thread between frames; `file.open` and `file.new` open tabs as the menus do.
+  A line that is not the protocol (an HTTP request) closes the connection; lines are capped at
+  8 MiB and clients at eight. `guitario-cli send <port> <method> [params]` sends one request.
+- **Landed 2026-10-31:** the MCP server (AUTO-4, #164): `guitario-cli mcp [file]` on stdio with
+  the tools `commands`, `run`, `batch` and `state` over a headless session, and with `--connect
+  <port>` over the running app, where `view` and `screenshot` (an image) join them. Speaks MCP
+  2025-06-18, 2025-03-26 and 2024-11-05 as newline-delimited JSON-RPC; checked against the
+  running app on macOS. Protocol and setup in [`control.md`](control.md).
+- **Landed 2026-10-31:** the agent task suite (#165, M9's definition of done): ten edit tasks run
+  through the real binary over MCP (`apps/guitario-cli/tests/agent_tasks.rs`): a riff, title and
+  tempo, a bass track, power chords, a bend and vibrato saved to `.gt`, a repeat, a bar copied,
+  a selection transposed, a mistake undone and a bad batch refused, a `.gp5` opened and exported
+  to MIDI and `.gp` and saved. An end-to-end test drives the app over its socket and takes real
+  screenshots (`an_agent_drives_the_app_end_to_end`; it skips the pixels on a machine without a
+  GPU adapter).
 
 ### G11. Reliability depth
 - **Landed 2026-10-16:** a last-resort panic guard in `Session::run` (a panicking command puts
