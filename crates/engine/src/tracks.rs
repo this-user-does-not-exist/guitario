@@ -49,9 +49,19 @@ pub fn specs() -> Vec<CommandSpec> {
             "Add Track",
             "Track",
             None,
-            "kind? (strings|drums), name, shortName?, color? (#rrggbb), tuning? (preset) | strings? (pitches, highest first), program? (0..=127), standard?, tab?, replace? (index of a track to replace instead of adding)",
+            "kind? (strings|drums), name, shortName?, color? (#rrggbb), tuning? (preset) | strings? (pitches, highest first), program? (0..=127), \
+             players? (0..=16: a section of the violin family), pan? (-63..=63), standard?, tab?, replace? (index of a track to replace instead of adding)",
             true,
             create,
+        ),
+        cmd(
+            "track.setPlayers",
+            "Players",
+            "Sound",
+            None,
+            "players (0 or 1: one player; 2..=16: a section of that many; on the violin family's programs, violin to double bass), track? (index; default the cursor's)",
+            true,
+            set_players,
         ),
         cmd("track.duplicate", "Duplicate Track", "Track", None, "", true, duplicate),
         cmd(
@@ -182,6 +192,8 @@ fn create(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
         Tuning::standard()
     };
     let program = params::opt_uint(p, "program", 127)?;
+    let players = params::opt_uint(p, "players", u64::from(guitario_score::MAX_PLAYERS))?;
+    let pan = p.get("pan").map(|_| params::int(p, "pan", -63, 63)).transpose()?;
     let flag = |key: &str| p.get(key).map(|_| params::boolean(p, key)).transpose();
     let (standard, tab) = (flag("standard")?, flag("tab")?);
     let replace = params::opt_uint(p, "replace", 10_000)?.map(|i| i as usize);
@@ -190,6 +202,12 @@ fn create(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
     track.name = name.chars().take(100).collect();
     if let Some(program) = program.filter(|_| !drums) {
         track.program = program as u8;
+    }
+    if let Some(n) = players.filter(|_| !drums) {
+        track.players = n as u8;
+    }
+    if let Some(pan) = pan {
+        track.pan = pan as i8;
     }
     if !drums {
         track.notation.standard = standard.unwrap_or(true);
@@ -228,6 +246,17 @@ fn create(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
     }
     s.clamp_cursor();
     Ok(json!({"track": index}))
+}
+
+/// How many play the track: a soloist, or a section (on the violin family's programs).
+fn set_players(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
+    let players = params::uint(p, "players", u64::from(guitario_score::MAX_PLAYERS))? as u8;
+    let t = crate::commands::mixer_track(s, p)?;
+    if t.is_drums() {
+        return Err(EngineError::invalid("a drum kit is played by one drummer"));
+    }
+    t.players = players;
+    Ok(json!({"players": players.max(1)}))
 }
 
 fn duplicate(s: &mut Session, _: &Value) -> Result<Value, EngineError> {

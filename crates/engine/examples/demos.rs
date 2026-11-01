@@ -542,6 +542,13 @@ fn funeral_march() -> R<Session> {
     add_track(&mut s, "Bass", "bass", 33)?;
     let b = "2 4:8 +lr, 2 4:4 +lr";
     play_track(&mut s, 2, &[bar(b), bar(b), bar(b), bar(b), bar(b), bar(b), bar(b), bar("1 4:8 +lr")])?;
+    // A section of ten cellos, seated right, doubling the march two octaves under the lead.
+    add_track(&mut s, "Cellos", "cello", 42)?;
+    run(&mut s, "track.setPlayers", json!({"players": 10, "track": 3}))?;
+    run(&mut s, "track.setMix", json!({"pan": 30, "track": 3}))?;
+    let c1 = "4 2:5 @mf, 8. 2:5, 16 2:5, 2 2:5 +v";
+    let c2 = "4. 1:1, 8 1:0, 8. 1:0, 16 2:5, 8. 2:5, 16 2:4";
+    play_track(&mut s, 3, &[bar("1 r"), bar("1 r"), bar(c1), bar(c2), bar(c1), bar(c2), bar("2 2:3 +v, 2 2:5 +v"), bar("1 2:5 +v")])?;
     let open = "4 bd cr @ff, 4 rd, 4 sd rd, 4 rd";
     let groove = "4 bd rd, 4 rd, 4 sd rd, 4 bd rd";
     let fill = "4 bd rd, 4 rd, 8 t1, 8 t2, 8 ft, 8 ft";

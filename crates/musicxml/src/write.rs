@@ -219,7 +219,9 @@ impl Writer<'_> {
                 // Channels 1-16 skipping 10, as the MIDI export assigns them.
                 channel = if channel == 9 { 11 } else { channel + 1 };
                 let ch = if channel > 16 { 16 } else { channel };
-                self.line(3, &format!(r#"<score-instrument id="P{id}-I1"><instrument-name>{}</instrument-name></score-instrument>"#, esc(&t.name)));
+                // A section says how many play it.
+                let ensemble = t.section().map_or_else(String::new, |n| format!("<ensemble>{n}</ensemble>"));
+                self.line(3, &format!(r#"<score-instrument id="P{id}-I1"><instrument-name>{}</instrument-name>{ensemble}</score-instrument>"#, esc(&t.name)));
                 self.line(
                     3,
                     &format!(

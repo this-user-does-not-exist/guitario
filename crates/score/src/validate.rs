@@ -100,6 +100,9 @@ impl crate::Score {
         if track.bank.as_ref().is_some_and(|b| b.trim().is_empty() || b.len() > crate::MAX_BANK_NAME || b.contains('\0')) {
             return Err(sound(format!("its sound bank name is empty, has a NUL or is longer than {} bytes", crate::MAX_BANK_NAME)));
         }
+        if track.players > crate::MAX_PLAYERS {
+            return Err(sound(format!("has {} players; a section has at most {}", track.players, crate::MAX_PLAYERS)));
+        }
         if track.lyrics.len() > crate::MAX_LYRIC_LINES {
             return Err(ScoreError::Track { track: ti, what: format!("has {} lines of lyrics; at most {}", track.lyrics.len(), crate::MAX_LYRIC_LINES) });
         }

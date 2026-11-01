@@ -11,7 +11,8 @@ use guitario_theory::Tuning;
 use serde_json::json;
 
 /// An instrument the window offers: its name in the list, the new track's name and short name, its
-/// General MIDI program and the tunings it takes (the first is the default).
+/// General MIDI program and the tunings it takes (the first is the default); for an orchestra's
+/// string section, its players and its seat (the track's pan).
 pub(crate) struct Instrument {
     pub name: &'static str,
     pub track: &'static str,
@@ -19,10 +20,18 @@ pub(crate) struct Instrument {
     pub program: u8,
     pub tunings: &'static [&'static str],
     pub drums: bool,
+    pub players: u8,
+    pub pan: i8,
 }
 
 const fn inst(name: &'static str, track: &'static str, short: &'static str, program: u8, tunings: &'static [&'static str]) -> Instrument {
-    Instrument { name, track, short, program, tunings, drums: false }
+    Instrument { name, track, short, program, tunings, drums: false, players: 0, pan: 0 }
+}
+
+/// A symphony orchestra's string section, seated the American way: violins on the left, violas in
+/// the middle, cellos and double basses on the right.
+const fn section(name: &'static str, short: &'static str, program: u8, tunings: &'static [&'static str], players: u8, pan: i8) -> Instrument {
+    Instrument { name, track: name, short, program, tunings, drums: false, players, pan }
 }
 
 const GUITAR: &[&str] = &["Standard", "Drop D", "D Standard", "Drop C", "Drop B", "Half step down", "DADGAD", "Open G"];
@@ -83,6 +92,11 @@ pub(crate) const ORCHESTRA: [Family; 4] = [
             inst("Viola", "Viola", "vla.", 41, &["Viola"]),
             inst("Cello", "Cello", "vc.", 42, &["Cello"]),
             inst("Double Bass", "Double Bass", "cb.", 43, &["Double bass"]),
+            section("Violins I", "vln. I", 40, &["Violin"], 16, -40),
+            section("Violins II", "vln. II", 40, &["Violin"], 14, -15),
+            section("Violas", "vlas.", 41, &["Viola"], 12, 15),
+            section("Cellos", "vcs.", 42, &["Cello"], 10, 35),
+            section("Double Basses", "cbs.", 43, &["Double bass"], 8, 45),
         ],
     },
     Family { name: "Winds", instruments: &[] },
@@ -90,8 +104,10 @@ pub(crate) const ORCHESTRA: [Family; 4] = [
     Family { name: "Keyboards", instruments: &[] },
 ];
 
-pub(crate) const DRUMS: [Family; 1] =
-    [Family { name: "Drum Kit", instruments: &[Instrument { name: "Drum Kit", track: "Drums", short: "drms", program: 0, tunings: &[], drums: true }] }];
+pub(crate) const DRUMS: [Family; 1] = [Family {
+    name: "Drum Kit",
+    instruments: &[Instrument { name: "Drum Kit", track: "Drums", short: "drms", program: 0, tunings: &[], drums: true, players: 0, pan: 0 }],
+}];
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -130,6 +146,7 @@ pub struct AddTrack {
     tab: bool,
     tuning: usize,
     program: u8,
+    players: u8,
 }
 
 impl AddTrack {
@@ -144,6 +161,7 @@ impl AddTrack {
             self.name = i.track.to_string();
             self.short = i.short.to_string();
             self.program = i.program;
+            self.players = i.players;
             self.tuning = 0;
             self.standard = true;
             self.tab = !i.drums;
@@ -161,6 +179,12 @@ impl AddTrack {
         } else {
             p.insert("tuning".into(), json!(i.tunings.get(self.tuning).copied().unwrap_or("Standard")));
             p.insert("program".into(), json!(self.program));
+            if self.players > 1 {
+                p.insert("players".into(), json!(self.players));
+            }
+            if i.pan != 0 {
+                p.insert("pan".into(), json!(i.pan));
+            }
             p.insert("standard".into(), json!(self.standard));
             p.insert("tab".into(), json!(self.tab));
         }
@@ -183,6 +207,12 @@ impl GuitarioApp {
         self.add_track = AddTrack { open: true, replace, next, ..AddTrack::default() };
         let kind = if keep_kind == Kind::Midi { Kind::Stringed } else { keep_kind };
         self.add_track.choose(kind, 0, 0);
+    }
+
+    /// Opens the Add Track window on the orchestra's strings, the `i`th instrument chosen.
+    pub fn open_add_track_strings(&mut self, i: usize) {
+        self.open_add_track(None);
+        self.add_track.choose(Kind::Orchestra, 0, i);
     }
 
     pub(crate) fn add_track_window(&mut self, ctx: &egui::Context) {
@@ -258,16 +288,18 @@ impl GuitarioApp {
                     }
                 }
                 ui.add_space(8.0);
-                // Families at the left, their instruments at the right.
-                let (lists, _) = ui.allocate_exact_size(vec2(ui.available_width(), 120.0), Sense::hover());
+                // Families at the left, their instruments at the right, as tall as the kind's longest
+                // list (at least five rows).
+                let families = w.kind.families();
+                let row_h = 24.0;
+                let rows = families.iter().map(|f| f.instruments.len()).chain([families.len(), 5]).max().unwrap_or(5);
+                let (lists, _) = ui.allocate_exact_size(vec2(ui.available_width(), rows as f32 * row_h), Sense::hover());
                 let half = (lists.width() - 10.0) / 2.0;
                 let left = Rect::from_min_size(lists.min, vec2(half, lists.height()));
                 let right = Rect::from_min_size(pos2(lists.right() - half, lists.top()), vec2(half, lists.height()));
                 ui.painter().rect_filled(left, 4.0, t.chrome_dark);
                 ui.painter().rect_filled(right, 4.0, t.chrome_dark);
-                let families = w.kind.families();
                 let mut pick: Option<(usize, usize)> = None;
-                let row_h = 24.0;
                 for (fi, f) in families.iter().enumerate() {
                     let r = Rect::from_min_size(left.min + vec2(2.0, 2.0 + fi as f32 * row_h), vec2(left.width() - 4.0, row_h - 2.0));
                     let enabled = !f.instruments.is_empty();
@@ -398,12 +430,13 @@ impl GuitarioApp {
                     });
                     ui.horizontal(|ui| {
                         label(ui, "Sound:", true);
-                        egui::ComboBox::from_id_salt("add-track-sound").width(220.0).selected_text(crate::inspector::program_name(w.program)).show_ui(
+                        egui::ComboBox::from_id_salt("add-track-sound").width(220.0).selected_text(crate::inspector::sound_name(w.program, w.players)).show_ui(
                             ui,
                             |ui| {
-                                for (program, name) in crate::inspector::PROGRAMS {
-                                    if ui.selectable_label(w.program == program, name).clicked() {
-                                        w.program = program;
+                                let current = (w.program, crate::inspector::players_of(w.program, w.players));
+                                for (program, players, name) in crate::inspector::SOUNDS {
+                                    if ui.selectable_label(current == (program, players), name).clicked() {
+                                        (w.program, w.players) = (program, players);
                                     }
                                 }
                             },
@@ -506,6 +539,10 @@ mod tests {
                     let before = s.score().tracks.len();
                     s.run("track.create", &params).unwrap_or_else(|e| panic!("{params}: {e}"));
                     assert_eq!(s.score().tracks.len(), before + 1);
+                    // A section with its players, in its seat.
+                    if let (Some(t), Some(i)) = (s.score().tracks.last(), f.instruments.get(ii)) {
+                        assert_eq!((t.players, t.pan), (i.players, i.pan), "{}", i.name);
+                    }
                     // Keep under the track limit.
                     s.run("track.remove", &json!(null)).ok();
                 }

@@ -1,8 +1,8 @@
 use crate::articulation::{Articulation, legato_flags, sample_key, used_keys_by_articulation};
 use crate::body::{Body, BodyKind, curve};
-use crate::bowed::{BowedVoice, Stroke, section_player};
+use crate::bowed::{BowedVoice, Seat, Stroke};
 use crate::fx::Chain;
-use crate::instrument::Voicing;
+use crate::instrument::{MAX_PLAYERS, Voicing};
 use crate::piano::{PianoTone, PianoVoice, key_of};
 use crate::sfz::{Instrument, SampleVoice};
 use crate::synth::{Click, DrumVoice, Noise, Pluck, SlideTime, StringVoice, WhammyTime, curve_semis};
@@ -234,10 +234,63 @@ struct TrackBus {
     wide: bool,
     /// The modelled instrument the track plays when it has no sampled one.
     voicing: Voicing,
-    /// Its bodies, each with what its voices put into it this sample.
-    bodies: Vec<(Body, (f32, f32))>,
+    /// Its bodies: a soloist's, or a section's instruments across the stage.
+    bodies: Vec<Placed>,
     /// A piano's sustain pedal is down: a let-ring note is sounding.
     pedal: bool,
+}
+
+/// One of a track's instrument bodies: what its strings put into it this sample, and where it
+/// sits. A section's instruments are spread across the stage, heard as a near-coincident pair of
+/// microphones hears them: louder and a little sooner on their own side.
+struct Placed {
+    body: Body,
+    into: (f32, f32),
+    gain: (f32, f32),
+    /// Samples the far channel arrives after the near one (the left's or the right's), and the
+    /// recent output it is read from.
+    lag: (usize, usize),
+    past: Vec<(f32, f32)>,
+    pos: usize,
+}
+
+/// How much later a sound at the far side of the stage reaches the far one of the pair of
+/// microphones, in seconds: a pair some 35 cm apart. Recordings of real sections measure a
+/// left-right correlation of 0.1 to 0.2; a near-coincident pair (17 cm) gave 0.3 to 0.55.
+const STAGE_LAG: f32 = 0.001;
+
+impl Placed {
+    fn new(desk: crate::instrument::Desk, sr: f32) -> Placed {
+        let samples = |side: f32| (side.max(0.0) * STAGE_LAG * sr).round() as usize;
+        let lag = (samples(desk.place), samples(-desk.place));
+        let past = if lag == (0, 0) { Vec::new() } else { vec![(0.0, 0.0); lag.0.max(lag.1) + 1] };
+        Placed { body: Body::instrument(desk.kind, desk.which, sr), into: (0.0, 0.0), gain: pan_gains(desk.place), lag, past, pos: 0 }
+    }
+
+    /// The body's sound this sample, at its place.
+    fn tick(&mut self) -> (f32, f32) {
+        let (l, r) = self.body.tick(self.into.0, self.into.1);
+        self.into = (0.0, 0.0);
+        let (l, r) = (l * self.gain.0, r * self.gain.1);
+        let n = self.past.len();
+        if n == 0 {
+            return (l, r);
+        }
+        if let Some(slot) = self.past.get_mut(self.pos) {
+            *slot = (l, r);
+        }
+        let at = |lag: usize| (self.pos + n - lag.min(n - 1)) % n;
+        let out = (self.past.get(at(self.lag.0)).map_or(0.0, |p| p.0), self.past.get(at(self.lag.1)).map_or(0.0, |p| p.1));
+        self.pos = (self.pos + 1) % n;
+        out
+    }
+}
+
+/// Constant-power gains to the left and right for a place from -1 (left) to 1 (right); the middle
+/// is unity on both.
+fn pan_gains(place: f32) -> (f32, f32) {
+    let angle = (place.clamp(-1.0, 1.0) + 1.0) * std::f32::consts::FRAC_PI_4;
+    (angle.cos() * std::f32::consts::SQRT_2, angle.sin() * std::f32::consts::SQRT_2)
 }
 
 /// A note on a sampled instrument with release samples (`trigger=release`): they start when it
@@ -258,12 +311,13 @@ const NO_STRING: u8 = u8::MAX;
 const MAX_VOICES: usize = 96;
 /// Piano keys sounding at once (a held pedal through a run can ring many).
 const MAX_PIANO_VOICES: usize = 64;
-const MAX_BOWED_VOICES: usize = 128;
-/// A section's level against a solo player's, each player at 1/sqrt(players) of it: a section is
-/// fuller than one player, not as much louder as its numbers.
-const SECTION_LEVEL: f32 = 0.8;
+/// Strings bowed at once: an orchestra's sections, each player its own string.
+const MAX_BOWED_VOICES: usize = 256;
 /// Players a section may have.
-const MAX_SEATS: usize = 8;
+const MAX_SEATS: usize = MAX_PLAYERS;
+/// Players of a pizzicato section plucking each note: plucks are short, and a few already blur
+/// into a section's.
+const PIZZICATO_PLAYERS: usize = 6;
 /// Sampled kits layer several microphones per hit, so they get a bigger pool.
 const MAX_SAMPLE_VOICES: usize = 256;
 const MAX_SECONDS: f64 = 60.0 * 60.0;
@@ -497,7 +551,7 @@ impl Player {
                         PlayingStyle::BassSlap => 1.3,
                     };
                 let stringed = t.interpretation.stringed;
-                let voicing = if t.is_drums() { Voicing::Plucked } else { Voicing::of(t.program) };
+                let voicing = if t.is_drums() { Voicing::Plucked } else { Voicing::of(t.program, t.players) };
                 TrackBus {
                     gain_l,
                     gain_r,
@@ -516,7 +570,7 @@ impl Player {
                     sampled: false,
                     wide: false,
                     voicing,
-                    bodies: voicing.bodies().into_iter().map(|(k, desk)| (Body::at_desk(k, sr, desk), (0.0, 0.0))).collect(),
+                    bodies: voicing.desks().into_iter().map(|d| Placed::new(d, sr)).collect(),
                     pedal: false,
                 }
             })
@@ -791,7 +845,7 @@ impl Player {
             || !self.drums.is_empty()
             || !self.pianos.is_empty()
             || !self.bowed.is_empty()
-            || self.buses.iter().any(|b| b.bodies.iter().any(|(body, _)| !body.is_idle()))
+            || self.buses.iter().any(|b| b.bodies.iter().any(|p| !p.body.is_idle()))
             || !self.sampled.is_empty()
             || !self.active_clicks.is_empty()
             || (tails && (self.quiet as f32) < self.sr * 0.25)
@@ -985,7 +1039,8 @@ impl Player {
         self.retarget();
     }
 
-    fn start_note(&mut self, n: &NoteEvent) {
+    /// Starts `n`, the score's note `index`.
+    fn start_note(&mut self, n: &NoteEvent, index: usize) {
         // A muted (or not soloed) track starts no voices; when it is heard again its next notes
         // sound. Volume, even an automation at zero, only scales what plays.
         let any_solo = self.mix.iter().any(|m| m.solo);
@@ -1003,8 +1058,8 @@ impl Player {
         let voicing = self.buses.get(n.track).map_or(Voicing::Plucked, |b| b.voicing);
         match voicing {
             Voicing::Piano(tone) => return self.start_piano(n, tone),
-            Voicing::Bowed { body, players, tremolo, slow } => return self.start_bowed(n, body, players, tremolo, slow),
-            Voicing::Pizzicato { body, players } => return self.start_pizzicato(n, body, players),
+            Voicing::Bowed { body, tremolo, slow, .. } => return self.start_bowed(n, index, voicing, body, tremolo, slow),
+            Voicing::Pizzicato { body, .. } => return self.start_pizzicato(n, index, voicing, body),
             Voicing::Plucked => {}
         }
         let freq = n.freq * self.opts.pitch_ratio();
@@ -1073,12 +1128,6 @@ impl Player {
         self.voices.push(v);
     }
 
-    /// The track's body of `kind` (at a section's `desk`), by its place among the track's bodies.
-    fn body_slot(&self, track: usize, kind: BodyKind, desk: Option<u8>) -> Option<usize> {
-        let bodies = &self.buses.get(track)?.bodies;
-        bodies.iter().position(|(b, _)| b.kind == kind && b.desk == desk).or_else(|| bodies.iter().position(|(b, _)| b.kind == kind))
-    }
-
     fn start_piano(&mut self, n: &NoteEvent, tone: PianoTone) {
         let freq = n.freq * self.opts.pitch_ratio();
         // A dead note on a piano is a key struck softly and let go at once.
@@ -1107,12 +1156,45 @@ impl Player {
         self.pianos.push(v);
     }
 
-    fn start_bowed(&mut self, n: &NoteEvent, body: Option<BodyKind>, players: usize, tremolo: bool, slow: bool) {
+    /// The track's bodies of `kind`, by their places among the track's bodies.
+    fn body_slots(&self, track: usize, kind: BodyKind) -> Vec<usize> {
+        self.buses.get(track).map_or_else(Vec::new, |b| b.bodies.iter().enumerate().filter(|(_, p)| p.body.kind == kind).map(|(i, _)| i).collect())
+    }
+
+    /// The chord note `index` (`n`) is in: the notes of its track starting with it. Returns how
+    /// many of them `with` keeps, where `n` stands among those from the top, and whether `n` is the
+    /// first of the track's notes there to start.
+    fn chord(&self, index: usize, n: &NoteEvent, with: impl Fn(&NoteEvent) -> bool) -> (usize, usize, bool) {
+        let lo = self.notes.partition_point(|x| x.start < n.start);
+        let hi = self.notes.partition_point(|x| x.start <= n.start);
+        let together = self.notes.get(lo..hi).unwrap_or(&[]);
+        let first = together.iter().position(|x| x.track == n.track).is_none_or(|i| lo + i >= index);
+        let kept = || together.iter().enumerate().filter(|(_, x)| x.track == n.track && with(x));
+        let count = kept().count().max(1);
+        let above = kept().filter(|(i, x)| x.pitch > n.pitch || (x.pitch == n.pitch && lo + i < index)).count();
+        (count, above.min(count - 1), first)
+    }
+
+    /// The players of a section of `players` who play note `rank` of a chord of `count` (divisi):
+    /// every `count`th from the `rank`th, so each note has its share spread through the section;
+    /// one plays it when there are more notes than players.
+    fn divisi(players: usize, rank: usize, count: usize) -> Vec<usize> {
+        let players = players.clamp(1, MAX_SEATS);
+        let seats: Vec<usize> = (rank..players).step_by(count.max(1)).collect();
+        if seats.is_empty() { vec![rank % players] } else { seats }
+    }
+
+    fn start_bowed(&mut self, n: &NoteEvent, index: usize, voicing: Voicing, body: Option<BodyKind>, tremolo: bool, slow: bool) {
         let ratio = self.opts.pitch_ratio();
+        let shift = 12.0 * ratio.log2();
         // A harmonic sounds its partial, flute-like, from a lighter bow.
         let freq = freq_of(n.pitch) * ratio;
-        let kind = body.unwrap_or_else(|| BodyKind::for_pitch(n.pitch + 12.0 * ratio.log2()));
-        let Some(first) = self.body_slot(n.track, kind, None) else { return };
+        let kind = body.unwrap_or_else(|| BodyKind::for_pitch(n.pitch + shift));
+        let section = voicing.section(kind);
+        let slots = self.body_slots(n.track, kind);
+        if slots.is_empty() {
+            return;
+        }
         let seconds = (n.end - n.start).max(0.0) as f32;
         let velocity = if n.dead {
             n.velocity * 0.3
@@ -1131,35 +1213,38 @@ impl Player {
             slow,
             direction: 1.0,
             crossing: false,
-            section: players > 1,
+            ease: 1.0,
         };
         let seed = ((self.noise.next() + 1.0) * 1.0e6) as u32;
         let end = if n.dead { n.start + 0.08 } else { n.end };
-        // A slur keeps the stroke going (the notes of a chord share one too); anything else is a
-        // new stroke, the other way.
+        // A slur keeps the stroke going; anything else is a new stroke the other way, for every
+        // player at once at the chord's first note (the notes of a chord share it). A section
+        // divides a chord among its players; an orchestra's sections each take their range.
         let slur = n.legato_from_prev || n.slurred;
-        let chord = self.bowed.iter().any(|v| v.track == n.track && v.note_start == n.start && v.string != n.string);
-        for seat in 0..players.clamp(1, MAX_SEATS) {
-            let (detune, onset, place) = if players > 1 { section_player(seat, seed) } else { (0.0, 0.0, 0.0) };
-            // A section's players on the left sound through one desk's instruments, those on the
-            // right through the other's.
-            let slot = self.body_slot(n.track, kind, (players > 1).then_some(u8::from(place >= 0.0))).unwrap_or(first);
-            if let Some(dir) = self.bow_dir.get_mut(n.track).and_then(|d| d.get_mut(seat)) {
-                if !slur && !chord {
-                    *dir = -*dir;
-                }
-                stroke.direction = *dir;
-            }
+        let (count, rank, first) = self.chord(index, n, |x| body.is_some() || BodyKind::for_pitch(x.pitch + shift) == kind);
+        if first
+            && !slur
+            && let Some(dirs) = self.bow_dir.get_mut(n.track)
+        {
+            dirs.iter_mut().for_each(|d| *d = -*d);
+        }
+        for (i, seat) in Self::divisi(section.players, rank, count).into_iter().enumerate() {
+            let player = if section.players > 1 { Seat::of(seat, n.track as u32, seed, kind, seconds) } else { Seat::SOLO };
+            let slot = slots.get((i + rank) % slots.len()).copied().unwrap_or(0);
+            let delay = (player.late * self.sr) as u32;
+            stroke.direction = self.bow_dir.get(n.track).and_then(|d| d.get(seat)).copied().unwrap_or(1.0);
+            stroke.velocity = (velocity * player.bow).clamp(0.0, 1.0);
+            stroke.ease = player.ease;
             stroke.crossing = n.slurred && !n.legato_from_prev;
             let sounding = self.bowed.iter().position(|v| v.track == n.track && v.string == n.string && v.seat == seat && !v.finished());
-            let reuse = sounding.and_then(|i| self.bowed.get_mut(i)).filter(|v| v.body == kind && v.slot == slot && v.fits(freq));
+            let reuse = sounding.and_then(|i| self.bowed.get_mut(i)).filter(|v| v.body == kind);
             let v = match reuse {
                 Some(v) => {
                     // A slur moves the finger under the same stroke; anything else is a bow change.
                     if slur && !v.released {
-                        v.slur_to(freq, n.open, seconds);
+                        v.slur_after(freq, n.open, seconds, delay);
                     } else {
-                        v.bow(&stroke);
+                        v.bow_after(&stroke, delay);
                     }
                     v
                 }
@@ -1171,12 +1256,9 @@ impl Player {
                     v.seat = seat;
                     v.slot = slot;
                     // A section is fuller than one player, not as much louder as its numbers.
-                    v.level_scale = SECTION_LEVEL / (players.max(1) as f32).sqrt();
-                    v.detune = detune;
-                    // Together on short notes, a little apart on long ones.
-                    v.wait = (onset * (seconds / 0.6).clamp(0.3, 1.0) * self.sr) as u32;
-                    let angle = (place + 1.0) * std::f32::consts::FRAC_PI_4;
-                    v.pan = (angle.cos() * std::f32::consts::SQRT_2, angle.sin() * std::f32::consts::SQRT_2);
+                    v.level_scale = player.level / (section.players.max(1) as f32).sqrt();
+                    v.wait = delay;
+                    v.personalise(player.rate, player.depth);
                     if self.bowed.len() >= MAX_BOWED_VOICES {
                         self.bowed.remove(0);
                     }
@@ -1185,36 +1267,43 @@ impl Player {
                     v
                 }
             };
+            v.detune = player.detune;
             v.vibrato = n.vibrato;
             v.wide = n.wide_vibrato;
             v.let_ring = n.let_ring;
             v.fade = n.fade;
             v.gain = fade_gain(n.fade, 0.0);
-            (v.note_start, v.note_end, v.bend, v.whammy, v.slide) = (n.start, end, n.bend, n.whammy, n.slide);
+            let late = f64::from(player.late);
+            (v.note_start, v.note_end, v.bend, v.whammy, v.slide) = (n.start + late, end + late + f64::from(player.lingers), n.bend, n.whammy, n.slide);
             v.bend_semis = curve_semis(n.bend, n.whammy, n.slide, n.start, n.start, end);
         }
     }
 
     /// A string plucked with a finger on a bowed instrument: soft, short, and coloured by its body.
-    fn start_pizzicato(&mut self, n: &NoteEvent, body: Option<BodyKind>, players: usize) {
+    fn start_pizzicato(&mut self, n: &NoteEvent, index: usize, voicing: Voicing, body: Option<BodyKind>) {
         let ratio = self.opts.pitch_ratio();
+        let shift = 12.0 * ratio.log2();
         let freq = n.freq * ratio;
-        let kind = body.unwrap_or_else(|| BodyKind::for_pitch(n.pitch + 12.0 * ratio.log2()));
+        let kind = body.unwrap_or_else(|| BodyKind::for_pitch(n.pitch + shift));
+        let section = voicing.section(kind);
+        let slots = self.body_slots(n.track, kind);
         for v in self.voices.iter_mut().filter(|v| v.track == n.track && v.string == n.string) {
             v.damp();
         }
         // A stopped string under the finger rings briefly; an open one longer.
         let ring = curve(&[(5.0, 1.6), (8.0, 0.8), (11.0, 0.3)], freq.max(20.0).log2()) * if n.open { 2.0 } else { 1.0 };
         let seed = ((self.noise.next() + 1.0) * 1.0e6) as u32;
-        for seat in 0..players.max(1) {
-            let (detune, _, place) = if players > 1 { section_player(seat, seed) } else { (0.0, 0.0, 0.0) };
-            let slot = self.body_slot(n.track, kind, (players > 1).then_some(u8::from(place >= 0.0)));
-            let level = if players > 1 { SECTION_LEVEL / (players as f32).sqrt() } else { 1.0 };
-            let mut pluck = Pluck::plain(freq * 2f32.powf(detune / 12.0), n.velocity * level, 0.3);
+        let (count, rank, _) = self.chord(index, n, |x| body.is_some() || BodyKind::for_pitch(x.pitch + shift) == kind);
+        let heard = section.players.min(PIZZICATO_PLAYERS);
+        for (i, seat) in Self::divisi(section.players, rank, count).into_iter().take(PIZZICATO_PLAYERS).enumerate() {
+            let player = if section.players > 1 { Seat::of(seat, n.track as u32, seed, kind, 0.1) } else { Seat::SOLO };
+            let velocity = (n.velocity * player.bow).min(1.0) * player.level / (heard.max(1) as f32).sqrt();
+            let mut pluck = Pluck::plain(freq * 2f32.powf(player.detune / 12.0), velocity, 0.3);
             pluck.decay = Some(ring);
             pluck.damping = 0.35;
             let mut v = StringVoice::new(n.track, n.string, self.sr, &pluck, &mut self.noise);
-            v.slot = slot;
+            v.slot = slots.get((i + rank) % slots.len().max(1)).copied();
+            v.wait = (player.late * self.sr) as u32;
             v.let_ring = true;
             (v.note_start, v.note_end) = (n.start, n.end);
             if self.voices.len() >= MAX_VOICES {
@@ -1256,7 +1345,7 @@ impl Player {
                 }
                 if self.t >= self.count_in_end {
                     while let Some(n) = self.notes.get(self.next_note).filter(|n| n.start <= self.t).cloned() {
-                        self.start_note(&n);
+                        self.start_note(&n, self.next_note);
                         self.next_note += 1;
                     }
                     if !self.releases.is_empty() {
@@ -1333,9 +1422,9 @@ impl Player {
             for v in &mut self.voices {
                 let y = v.tick();
                 match v.slot.and_then(|s| self.buses.get_mut(v.track).and_then(|b| b.bodies.get_mut(s))) {
-                    Some((_, into)) => {
-                        into.0 += y;
-                        into.1 += y;
+                    Some(p) => {
+                        p.into.0 += y;
+                        p.into.1 += y;
                     }
                     None => {
                         if let Some(a) = self.acc.get_mut(v.track) {
@@ -1348,17 +1437,17 @@ impl Player {
                 let (yl, yr) = v.tick();
                 if let Some(bus) = self.buses.get_mut(v.track) {
                     bus.pedal |= v.let_ring && !v.released;
-                    if let Some((_, into)) = bus.bodies.first_mut() {
-                        into.0 += yl;
-                        into.1 += yr;
+                    if let Some(p) = bus.bodies.first_mut() {
+                        p.into.0 += yl;
+                        p.into.1 += yr;
                     }
                 }
             }
             for v in &mut self.bowed {
                 let y = v.tick();
-                if let Some((_, into)) = self.buses.get_mut(v.track).and_then(|b| b.bodies.get_mut(v.slot)) {
-                    into.0 += y * v.pan.0;
-                    into.1 += y * v.pan.1;
+                if let Some(p) = self.buses.get_mut(v.track).and_then(|b| b.bodies.get_mut(v.slot)) {
+                    p.into.0 += y;
+                    p.into.1 += y;
                 }
             }
             for d in &mut self.drums {
@@ -1384,13 +1473,12 @@ impl Player {
                 bus.hp = bus.lp - bus.hp_prev + 0.995 * bus.hp;
                 bus.hp_prev = bus.lp;
                 let (mut tl, mut tr) = (bus.hp + s.0 * 0.85, bus.hp + s.1 * 0.85);
-                // A modelled instrument's strings through its body.
-                for (body, into) in &mut bus.bodies {
-                    body.set_pedal(bus.pedal);
-                    let (bl, br) = body.tick(into.0, into.1);
+                // A modelled instrument's strings through its body, at its place.
+                for p in &mut bus.bodies {
+                    p.body.set_pedal(bus.pedal);
+                    let (bl, br) = p.tick();
                     tl += bl;
                     tr += br;
-                    *into = (0.0, 0.0);
                 }
                 bus.pedal = false;
                 if bus.fx {
@@ -2409,41 +2497,87 @@ mod tests {
     }
 
     #[test]
-    fn a_string_section_plays_each_note_with_several_players_and_pizzicato_through_a_body() {
+    fn an_orchestra_gives_each_note_to_the_section_for_its_range_and_pizzicato_plucks_through_bodies() {
+        // E5 to the violins (sixteen), G3 to the violas (twelve).
         let note = Beat { rest: false, notes: vec![Note::new(0, 0), Note::new(3, 0)], ..Beat::rest(Duration::QUARTER) };
         let (p, out) = play_for(&on_instrument(48, guitario_theory::Tuning::violin(), vec![note.clone()]), 0.3);
-        assert_eq!(p.bowed.len(), 8, "two notes, four players each");
+        assert_eq!(p.bowed.len(), 28);
+        assert_eq!(p.bowed.iter().filter(|v| v.body == BodyKind::Viola).count(), 12);
         assert!(rms(&out) > 0.005);
         let (p, out) = play_for(&on_instrument(45, guitario_theory::Tuning::violin(), vec![note]), 0.3);
-        assert!(p.bowed.is_empty() && p.voices.len() == 6 && p.voices.iter().all(|v| v.slot.is_some()));
+        assert!(p.bowed.is_empty());
+        assert_eq!(p.voices.len(), 2 * PIZZICATO_PLAYERS);
+        assert!(p.voices.iter().all(|v| v.slot.is_some()));
         assert!(rms(&out) > 0.005);
     }
 
+    fn section(players: u8, beats: Vec<Beat>) -> Score {
+        let mut s = on_instrument(40, guitario_theory::Tuning::violin(), beats);
+        s.tracks[0].players = players;
+        s
+    }
+
     #[test]
-    fn a_string_section_sounds_wide_and_a_soloist_narrower() {
-        // Recorded violin sections are as good as uncorrelated between left and right (0.05); a
-        // violin through its one body much less so. Dry, without the hall strings default to, once
-        // the section has swelled in.
-        let correlation = |program: u8| {
-            let notes = (0..4).map(|string| Note::new(string, 3)).collect();
-            let note = Beat { rest: false, notes, ..Beat::rest(Duration::WHOLE) };
-            let mut s = on_instrument(program, guitario_theory::Tuning::violin(), vec![note]);
-            s.tracks[0].effects = Some(Vec::new());
-            let mut p = Player::new(&s, 44_100, Options::default());
+    fn a_section_plays_each_note_with_every_player_spread_across_its_desks() {
+        let q = Duration::QUARTER;
+        let note = |notes: Vec<Note>| Beat { rest: false, notes, ..Beat::rest(q) };
+        let (p, out) = play_for(&section(16, vec![note(vec![Note::new(1, 0)]), Beat::rest(q)]), 0.2);
+        assert_eq!(p.bowed.len(), 16, "one note, sixteen players");
+        assert!(rms(&out) > 0.005 && out.iter().all(|x| x.is_finite()));
+        let mut slots: Vec<usize> = p.bowed.iter().map(|v| v.slot).collect();
+        slots.sort_unstable();
+        slots.dedup();
+        assert_eq!(slots.len(), 4, "four instruments across the stage");
+        // Never quite together: the players come in over a few tens of milliseconds.
+        let waits: Vec<u32> = (0..16).map(|seat| crate::bowed::Seat::of(seat, 0, 7, BodyKind::Violin, 0.5)).map(|s| (s.late * 44_100.0) as u32).collect();
+        let (first, last) = (waits.iter().min().copied().unwrap(), waits.iter().max().copied().unwrap());
+        assert!(last > first + 441 && last < 2205, "{first} {last}");
+        // A chord is divided: each note has half the players.
+        let (p, _) = play_for(&section(16, vec![note(vec![Note::new(0, 0), Note::new(2, 0)])]), 0.2);
+        assert_eq!(p.bowed.len(), 16);
+        assert_eq!(p.bowed.iter().filter(|v| v.string == 0).count(), 8);
+        // A soloist plays a double stop alone, on the soloist's instrument.
+        let (p, _) = play_for(&section(1, vec![note(vec![Note::new(0, 0), Note::new(2, 0)])]), 0.2);
+        assert_eq!(p.bowed.len(), 2);
+        assert!(p.bowed.iter().all(|v| v.seat == 0 && v.slot == 0));
+        assert_eq!(p.buses[0].bodies.len(), 1);
+    }
+
+    #[test]
+    fn a_section_changes_bow_together_and_slurs_together() {
+        let q = Duration::QUARTER;
+        let note = |fret| Beat { rest: false, notes: vec![Note::new(1, fret)], ..Beat::rest(q) };
+        let s = section(8, vec![Beat { legato: true, ..note(0) }, note(2), note(4), Beat::rest(q)]);
+        let mut p = Player::new(&s, 44_100, Options::default());
+        p.play_from(0.0);
+        let mut directions = Vec::new();
+        for _ in 0..3 {
+            let mut out = vec![0.0; 22_050];
+            p.render(&mut out, 1);
+            directions.push(p.bow_dir[0]);
+            assert_eq!(p.bowed.len(), 8, "one string, a voice a player");
+        }
+        assert_eq!(directions[0], directions[1], "the slurred note keeps every stroke");
+        assert!((0..8).all(|seat| directions[2][seat] == -directions[1][seat]), "the next note is a bow change for all");
+    }
+
+    #[test]
+    fn a_section_is_wider_than_a_soloist() {
+        // The same long note, alone and by twelve players: the section's two channels differ more.
+        let long = vec![Beat { rest: false, notes: vec![Note::new(1, 3)], ..Beat::rest(Duration::WHOLE) }];
+        let correlation = |players: u8| {
+            let mut p = Player::new(&section(players, long.clone()), 44_100, Options::default());
             p.play_from(0.0);
-            let mut out = vec![0.0; 44_100 * 19 / 10 * 2];
+            let mut out = vec![0.0; 44_100 * 2 * 2];
             p.render(&mut out, 2);
-            let (mut lr, mut ll, mut rr) = (0.0f64, 0.0f64, 0.0f64);
-            for f in out.chunks(2).skip(44_100) {
-                lr += f64::from(f[0] * f[1]);
-                ll += f64::from(f[0] * f[0]);
-                rr += f64::from(f[1] * f[1]);
-            }
-            lr / (ll * rr).sqrt().max(1e-12)
+            let tail = &out[44_100..];
+            let (l, r): (Vec<f32>, Vec<f32>) = tail.chunks(2).map(|c| (c[0], c[1])).unzip();
+            let dot = |a: &[f32], b: &[f32]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f32>();
+            dot(&l, &r) / (dot(&l, &l) * dot(&r, &r)).sqrt()
         };
-        let (section, solo) = (correlation(48), correlation(40));
-        println!("left/right correlation: section {section:.2}, solo {solo:.2}");
-        assert!(section.abs() < 0.4 && solo > section + 0.2, "section {section}, solo {solo}");
+        let (solo, section) = (correlation(1), correlation(12));
+        println!("left-right correlation: soloist {solo:.2}, section {section:.2}");
+        assert!(section < solo - 0.1, "solo {solo}, section {section}");
     }
 
     #[test]
@@ -2471,8 +2605,9 @@ mod tests {
             });
         }
         let tuning = guitario_theory::Tuning { name: "wide".into(), strings: vec![100, 80, 60, 40, 20, 0] };
-        for program in [0u8, 1, 3, 40, 41, 42, 43, 44, 45, 48, 49, 110] {
-            let s = on_instrument(program, tuning.clone(), beats.clone());
+        for (program, players) in [(0u8, 0u8), (1, 0), (3, 0), (40, 0), (41, 16), (42, 0), (43, 8), (44, 0), (45, 0), (48, 0), (49, 0), (110, 3)] {
+            let mut s = on_instrument(program, tuning.clone(), beats.clone());
+            s.tracks[0].players = players;
             for rate in [8_000u32, 192_000] {
                 let mut p = Player::new(&s, rate, Options { transpose: 12, ..Options::default() });
                 p.play_from(0.0);

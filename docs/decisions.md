@@ -417,6 +417,38 @@ inharmonicity; tuned onto the model's strings it stretched further than they nee
 which reads as an out-of-tune upright. Tuning the model as a tuner would (each octave until its
 partials stop beating) keeps the stretch and the strings consistent whatever their data becomes.
 
+## 2026-10-19: A string section is many modelled players, not one player copied
+
+A section's sound is many independent instruments: each player's own intonation, vibrato, bow and
+timing, each instrument's own resonances and place on the stage. Copies of one voice detuned and
+delayed (a chorus) give the beating of a few, not a section, so every player is a full bowed
+string, and the voice was made four times cheaper to afford sixteen of them. Bodies cost more than
+strings, so a section has up to four (each shared by the players at its desks), chosen among the
+model's instruments for sounding like the soloist's on average: an orchestra matches its players'
+instruments, and the soloist's is the one a listener has approved. A chord in a section is played
+divisi, as orchestral writing means it (each note by a share of the players, so a section's work
+is bounded by its size), not as double stops by everyone.
+
+The size is a track property (`players`), not a new program: General MIDI has no section of one
+instrument, Guitar Pro has no place for one either, and MusicXML 4's `<ensemble>` carries exactly
+this number. The ensemble programs (string ensembles, tremolo and pizzicato strings) keep their
+meaning, a whole string orchestra, now at orchestral sizes.
+
+## 2026-10-19: The bowed strings are measured against recordings, and the recordings stay out
+
+A model can sound plausible and still be measurably unlike the instrument, and ears used to it
+stop hearing the difference: the strings had been "good" alone while the cello was twice as
+bright as a real one. So the violin family is compared, note for note, with free recordings of
+real soloists and sections (`docs/strings-calibration.md`), on measures that do not depend on
+the room or the microphones: the harmonics' levels lined up on the low partials, how they fall,
+the noise between them, the partials' width and wander, the stereo width. Where they disagree
+and the cause is physical (a violin's resonances scaled onto a cello, slips snapping to the
+sample clock), the model changes; where the recordings themselves are of a kind (sustain samples
+that swell into every note), it does not. The comparison is a tool (`strings_compare`) and the
+numbers that matter are tests, so the calibration cannot drift unnoticed. The recordings are
+fetched to measure against and never shipped or committed: their licences allow that use, and
+Guitario's sound stays its own model.
+
 ## 2026-10-19: The piano is fitted to recordings, not tuned by ear
 
 Four listening rounds tuned the modelled piano one complaint at a time, and each fix overshot
@@ -434,87 +466,6 @@ repository either (the workspace is Rust only); the method is in the changelog a
 in `piano.rs`, whose module notes say which curves are fitted. Where the physical model and the recordings disagree
 the recordings win, as calibration: the spectrum's lean with dynamics is applied where the strings
 meet the bridge, because applied to the hammer's blow the simulated felt sharpened to undo it.
-
-## 2026-10-19: The bowed strings are fitted to recordings of real ones, which are measured, not bundled
-
-The violin family was first checked by tests and spectra of its own output, against nothing. It is
-now fitted to recordings: VSCO 2 Community Edition (CC0: a solo violin with vibrato at piano and
-forte, a solo double bass with and without vibrato, violin, viola and cello sections) and
-Sonatina Symphonic Orchestra (CC Sampling Plus 1.0: two solo violins, one on every semitone with
-and without vibrato, a solo viola, cello and double bass, and first violins, violas, cellos and
-basses). Both are listed in `ATTRIBUTION.md`. Nothing of them is in the repository or the app:
-only numbers measured from them (the bodies' response curves, the player's vibrato, bowing and
-attack, the section's spread) and the targets the tests hold the model to.
-
-The model renders the same notes the recordings have, held, at piano and forte (`cargo run -p
-guitario-playback --release --example notes`), and both are measured the same way: the pitch
-track (vibrato rate and depth), the level of every harmonic, the noise between harmonics and
-under the fundamental, how much each harmonic's level swings with the vibrato and how much more
-slowly with the bow, the attack, the change from piano to forte in level and per harmonic, and
-for sections the width of each harmonic's line, the left/right correlation per octave and the
-vibrato heard as one. A body's response is estimated from the harmonics of every note at once by
-least squares (each harmonic's level, with the bow's sawtooth taken out, is the body at its
-frequency plus the note's own gain); the model's estimate is moved onto the recordings' by
-adjusting the body's envelope, a few rounds. The spectra are taken per channel and their power
-averaged, as a stereo listener hears them: a mono sum would make a widely miked recording sound
-duller than it is.
-
-What the recordings changed, beyond the bodies' curves, and why each is physical rather than a
-filter painted on afterwards:
-
-- **The player.** Louder is the bow nearer the bridge (a sixth of the string to a thirteenth) and
-  much faster (the recordings are 12.7 dB louder at forte; the first model gave 5); a harder bow
-  keeps the Helmholtz corner sharper (a shelf on the bridge's force, its gain set by the
-  dynamic: the recordings' harmonics from the ninth up are 7 dB stronger at forte); soft long
-  notes swell in; vibrato is slower and narrower softly, wider high up, slow and narrow on a
-  double bass.
-- **The bow at the ends of the range.** A player keeps the bow a few centimetres from the
-  bridge, so on a string stopped short it is further along it, and presses lighter: pressed as
-  hard as a low string needs, a short string falls into patterns of two and four periods
-  (anomalous low frequencies, a growl an octave or two under the note, which the first model had
-  at A6 louder than the note). A long, low string has the opposite trouble, a narrow window
-  between slipping twice a period and raucousness, so drawn loudly the bow stays a little further
-  out and a little firmer, and the lowest strings lose their highs a little faster (an over-sharp
-  corner's ripples let the bow slip twice or stick for a period now and then). Run over eight
-  draws of the arm's wander and the rosin's noise, the first model slipped irregularly at scattered
-  dynamics below 100 Hz (its test passed for the one draw it tried); now one slip per period holds
-  from 46 Hz up at every dynamic a score has, with an occasional extra slip left on a double bass's
-  open E. Below 100 Hz the test allows that occasional extra slip, since when it comes depends on
-  the last bits of the arithmetic.
-- **Time resolution.** The stick-slip is solved once a sample, so each slip lands on a sample;
-  the junction now places the change of state between samples (a band-limited step), high
-  strings run at two or three times the output rate (below 40 samples a period the bow slipped
-  twice now and then), and a high-pass under each note's fundamental takes away what still leaks
-  there. Noise between the harmonics went from 23 dB under them to 31 to 34, where the
-  recordings have 31 to 35.
-- **The box.** Its modes are spread nearer evenly in frequency (a few apart low down, many
-  overlapping up high) and sharper, and below the air mode it falls off a cliff (a sixth-order
-  Chebyshev high-pass): the recordings' open G has its fundamental 21 to 30 dB under its
-  strongest harmonic and C4 none.
-- **The arm.** A player never draws quite evenly: the bow's place, speed and weight wander
-  slowly, which the recordings show as a fifth of each harmonic's swing being slower than
-  2.5 Hz.
-- **Sections.** Recorded sections are as good as uncorrelated between left and right, swell in
-  more slowly, and their vibrato heard as one is half a soloist's. A section's left and right
-  halves now play through their own bodies (the same modes, radiated differently), each heard on
-  the far side through a few milliseconds of all-passes; its players are further apart in tuning
-  and time, swell in more slowly and vibrate narrower (four players have to blur as a dozen do).
-
-The bodies are fitted to one draw of their irregular modes: another draw has another average
-response, so a section's desks keep the modes and change only how they radiate. Cost stays
-about where it was: a string is cheaper than before (its pitch, vibrato and the arm's wander are
-worked out every 8 samples, not every one, and a finished ramp no longer evaluates a cosine), high
-strings and sections (two bodies a kind) dearer; the perf score's modelled render is at 224 to
-244 ms of its 250, tight.
-
-With twelve decibels between piano and forte where there were five, the level is anchored at
-forte rather than mezzo-forte: a forte bowed note sits where it sat (near a plucked string), so
-fortissimo chords keep their headroom; past forte the bow answers a third as much (fortissimo a
-few decibels over forte, not as much again as forte over piano), and each body has a trim that
-keeps the instruments' balance as it was.
-
-Still not judged by ear. The measurements say how close the model is to these recordings; a
-listening pass on speakers is still the gate.
 
 ## 2026-10-31: Several documents live in the shell, one `Session` each
 

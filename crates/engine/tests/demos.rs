@@ -155,6 +155,8 @@ fn specific_pieces_have_their_signature_features() {
     assert_eq!(load("toccata").score().tracks[0].string_count(), 7);
     // Summer has twin leads, rhythm, bass and drums.
     assert_eq!(load("summer").score().tracks.len(), 5);
+    // The funeral march has a section of ten cellos.
+    assert!(load("funeral").score().tracks.iter().any(|t| t.program == 42 && t.section() == Some(10)));
     // The technique showcase touches every effect.
     let t = load("technique");
     let notes: Vec<_> = t.score().tracks[0].measures.iter().flat_map(|m| &m.voices[0].beats).flat_map(|b| b.notes.iter()).copied().collect();

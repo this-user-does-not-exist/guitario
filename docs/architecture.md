@@ -78,8 +78,9 @@ The General MIDI program picks a modelled instrument instead (`playback/src/inst
 grand piano (`piano.rs`: modes per key struck by a nonlinear felt hammer) or the violin family
 (`bowed.rs`: a waveguide string driven by a bow's stick-slip friction), each sounding through a
 body of resonances per track (`body.rs`: soundboard, or violin, viola, cello and double bass
-boxes with sympathetic strings; a string section has two of each, its left and right halves). The
-strings' bowing, vibrato and bodies are fitted to recordings of real instruments (see
-[decisions](decisions.md), 2026-10-19).
+boxes with sympathetic strings). A string section is a bowed string per player (up to sixteen,
+`Track::players`), with their own intonation, timing, vibrato and bow, on up to four matched
+instruments across the stage, chords divided among them. The strings are measured against
+recordings of real players ([strings-calibration](strings-calibration.md)).
 `audio::AudioOut` pulls samples from a shared player slot on the sound card's thread with
 `try_lock`, so the UI never blocks audio.

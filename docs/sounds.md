@@ -10,7 +10,7 @@ physical models built into the synthesiser (`piano.rs`, `bowed.rs`, `body.rs`; s
 [decisions](decisions.md)). `cargo run -p guitario-playback --release --example audition -- <dir>`
 renders a phrase on each to WAV; `--example notes -- <dir> <program> <midi,...> [dynamics]`
 renders held notes, dry, to compare with recordings of the real instruments (the strings are
-fitted to VSCO 2 CE's and Sonatina's; see `ATTRIBUTION.md`).
+measured against VSCO 2 CE's and Sonatina's; see `docs/strings-calibration.md` and `ATTRIBUTION.md`).
 
 ## Install the recommended libraries
 

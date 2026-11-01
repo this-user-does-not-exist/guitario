@@ -438,6 +438,63 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   under the discrete resonances, the felt's thud as force-shaped noise (-28 dB of the note in the
   bass, -18 dB in the treble over its first 20 ms), and phantom partials from the strings'
   stretching (-25 dB in the bass at ff, -37 dB at p, none above C6).
+- **Landed 2026-10-19:** orchestral string sections after a first listen ("solo violin and
+  cello good, string sections not so much"). A track of the violin family (programs 40 to 43,
+  110) now has players (`Track::players`, 1 to 16, `track.setPlayers`, `track.setProgram`'s and
+  `track.create`'s `players`): Add Track › Orchestra › Strings offers Violins I (16), Violins II
+  (14), Violas (12), Cellos (10) and Double Basses (8), seated by pan as an American-seated
+  orchestra; the Sound lists offer a section of each instrument and the inspector a Players
+  list; MusicXML reads and writes the size as `<ensemble>`. The string ensemble programs (44, 45,
+  48, 49) became a string orchestra: each note goes to the section for its range at that
+  section's orchestral size, violins on the left to basses on the right. Every player is a full
+  bowed string (`Seat` in `bowed.rs`): about 4.5 cents of intonation each way and a new one
+  every note, entries up to 16 ms apart plus 2 ms a desk further back (bow changes and slurs
+  too, not only first notes), a vibrato rate 8 % and depth 30 % their own, a bow 10 % faster or
+  slower, back desks a little quieter; a chord is divided (divisi), each note to every
+  `n`th player so it is spread through the section. Up to four instruments per section, each a
+  different body (`Body::instrument`) chosen to be within 1.5 dB of the soloist's in every
+  octave of its lowest three (tested; unchosen ones are up to 5 dB boomier), each at its own
+  place and heard as a near-coincident pair hears it (up to 0.5 ms sooner on its own side): a
+  section of twelve measures a left-right correlation of 0.41 against a soloist's 0.61 (the
+  body used to sum its input to mono, so placing players did nothing). Two flaws heard in
+  sections were fixed in every bowed note: one bow change in twenty fell into slipping twice a
+  period (an octave-up whistle: 8 of 160 bow changes swept across their timing, now 2; 7 of 192
+  across pitches and dynamics, now none); the player now presses up to 1.6 times harder within
+  a twentieth of a second when that happens below 1 kHz, as a player does by ear. To make sixteen
+  players affordable the voice works out pitch, loop length and bow ramps every 16 samples (7.7
+  to 2.1 ms of work per second of sound, the soloist's sound unchanged in level, width and
+  spectrum) and the bodies' sympathetic strings precompute their delays (6.0 to 4.1 ms). The
+  400-bar perf score with an ensemble track, now a whole orchestra, renders at 220 ms of work
+  per second (budget 250; was 161 with four players a note). `Funeral Procession` (demo 02)
+  gained a section of ten cellos. Auditions: `violin-section`, `viola-section`,
+  `cello-section`, `bass-section`, `violins-divisi`, `string-orchestra` (five sections on five
+  tracks), `low-strings-riff`. Checked by tests and spectra, not yet by ear.
+- **Landed 2026-10-19:** the bowed strings measured against recordings of real players
+  ([`strings-calibration.md`](strings-calibration.md)): 64 sustained vibrato notes of the
+  Sonatina Symphonic Orchestra's solo violin, viola, cello and double bass and of its sections at
+  the same pitches, with the CC0 VS Chamber Orchestra's sections as a second opinion, fetched only
+  to measure against. `cargo run -p guitario-playback --release --example strings_compare --
+  <dir>` renders the same notes and prints, per instrument, the difference in each half octave
+  and the medians that tell soloists and sections apart. Found and fixed: the larger instruments
+  were a violin scaled up and kept its strong high resonances (a cello 7 to 13 dB too strong from
+  650 Hz, a double bass 4 to 15 dB from 250 Hz, a viola 6 to 10 dB at 1.3 to 3.8 kHz); each body
+  is now voiced on its own (within 3 to 4 dB of the recordings across the range, the cello's and
+  double bass's fundamentals no longer cut, the loudness of a bowed string kept), which makes the
+  soloists darker too; a section's four instruments were chosen again to stay within 1 dB of the
+  soloist's. The hiss between the
+  harmonics was 9 dB above a real violin's: the bow's grip giving way snapped to the sample
+  clock; it is now placed between samples as a band-limited step (solo violin -24 to -32 dB,
+  real -33; violin section -25 to -30, real -29). Section players use less vibrato than a
+  soloist (violins and violas three quarters, cellos nearly as much, double basses about half:
+  the sections' partials now spread 12, 10, 11 and 6 cents against the recordings' 14, 11, 11
+  and 6.5), ease into long notes and enter more loosely on them, and are heard by microphones
+  some 35 cm apart (a violin section's left-right correlation 0.12 against the recordings'
+  0.11). A test holds each instrument's fall of harmonics to the recordings' on the
+  same notes (`crates/playback/tests/strings.rs`), another the bowed note's quietness between
+  harmonics. The 400-bar perf score with its string orchestra renders at 189 ms of work per
+  second of sound (was 220). Still apart: viola, cello and bass sections narrower than the
+  recordings (0.42, 0.53, 0.43 against 0.18, 0.14, 0.21), slower attacks in the recordings'
+  sustain samples, the violin weaker around 950 Hz.
 - **Landed 2026-10-18:** the piano's bass after a second listen ("the low end still sounds too
   plastic"): its spectrum hardly changed as it rang (A0 and E1 had the same balance of partials at
   2 s as at the blow). Partials now decay at rates rising in proportion to their frequency, from a
@@ -478,46 +535,6 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   decay envelopes by band within 3 dB median (8 before; the two grands differ from each other by 4),
   spectra within 5 dB (7 to 9 between the grands). As a note rings its highs (1.5 to 6 kHz) stay 20
   to 30 dB under its mids, as on both grands; the previous change had taken them to 45 to 60 dB.
-- **Landed 2026-10-19:** the bowed strings fitted to recordings of real ones (PLAY-11), solo
-  first, then sections. The references are VSCO 2 Community Edition (CC0) and Sonatina Symphonic
-  Orchestra (CC Sampling Plus 1.0), measured and never bundled (`ATTRIBUTION.md`); the method is
-  in [decisions](decisions.md). `cargo run -p guitario-playback --release --example notes -- <dir>
-  <program> <midi,...> [dynamics] [seconds]` renders held notes, dry (`WET=1` keeps the hall), to
-  set against them. Solo violin, first model → now → recordings: vibrato 5.6 → 5.2 Hz (5.2), 15
-  → 8.7 cents at piano and 15 → 13.5 at forte (7.8, 14.3); forte 4.8 → 12–13 dB louder than piano
-  (12.7) with its harmonics from the ninth up 0 → 6–7 dB stronger (7); noise between the harmonics
-  23 → 31–34 dB under them (31 to 35); the body's response, estimated from every note's harmonics,
-  4.1 → 0.5 dB from the recordings' (rms, 250 Hz to 10 kHz; the two libraries are 2.9 dB apart)
-  and each note's third-octave balance 7.5 → 2.3 dB; under a high note's fundamental -7 dB at A6 (a growl louder than the note)
-  → -27 to -44 (-21 to -40); the open G's fundamental -5 → -23 dB under its strongest harmonic
-  (-21 to -30); piano attacks 0.03 → 0.25 s; each harmonic's level swinging 0.9 → 1.7 dB dry and
-  2.6 with the hall (2.6 to 4.2 recorded in a room), a third of it slower than 2.5 Hz as the bow
-  wanders. Viola, cello and double bass bodies have curves of their own fitted the same way
-  (1.2, 2.0 and 2.0 dB rms over each one's range; the two double basses recorded are 4.8 dB
-  apart); the double bass vibrates at 3.8 Hz and 4 cents, as recorded. The model changes behind it: the bow nearer the bridge and much faster loudly, a
-  shelf on the bridge's force for the sharper corner a harder bow keeps, the bow further along a
-  string stopped short and lighter on it high up (no more anomalous low frequencies) and a little
-  further out and firmer on a low string drawn loudly, the lowest strings' highs lost a little
-  faster (one slip a period from 46 Hz up at every dynamic, over eight draws of the bow's noise;
-  the first model slipped irregularly below 100 Hz for some draws and its test tried one), the slip
-  placed between samples (a band-limited step), high strings at two or three times the output
-  rate and a high-pass under each note's fundamental, rosin noise in the band the string carries,
-  the arm's slow wander in the bow's place, speed and weight, body modes spread nearer evenly in
-  frequency and sharper, and a Chebyshev cliff below the air mode. Sections, then: recorded ones
-  are as good as uncorrelated between left and right (0.05); the model's was 0.72 and is now about
-  0 (its cellos 0.2; recorded cello sections 0.1 to 0.5), its left and right halves playing through their own bodies (the same modes, radiated
-  differently, the far side through a few milliseconds of all-passes); its players are further
-  apart in tuning (line width 10.3 cents, recorded 9.9 to 13.9) and time (up to 40 ms on long
-  notes), vibrate narrower (heard as one, 8.3 → 5.5 cents; recorded 5.2 to 5.8) and swell in more
-  slowly; its tone is 2.4 dB from the recorded violin sections' and 3.2 from the cello sections'
-  (rms; the two libraries are 2.1 and 5.1 dB apart). Tests hold the model to the
-  recordings: forte's level and brightness, nothing growling under high notes, the open G's weak
-  fundamental, vibrato with the dynamic, a section wide and a soloist narrower, high strings
-  oversampled. Levels: a forte bowed note sits where it did (piano is now 12 dB under it, not 5),
-  fortissimo a few dB over forte, mezzo-forte 3 dB lower than before on every instrument (their
-  balance kept by a trim per body); the auditions' levels are within 3 dB of what they were. The perf score's modelled render costs 224 to 244 ms of work per second of sound
-  (budget 250; it varies from run to run) (the piano's retuning had already taken it from 161 to about 220; a string is now cheaper,
-  worked out partly every 8 samples, and sections dearer). Still not judged by ear.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double

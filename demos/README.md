@@ -14,7 +14,7 @@ software) and MusicXML in `musicxml/`.
 |---|---|---|---|---|---|
 | `00-blank` | Template | | 120 | Standard | Eight empty bars to start from |
 | `01-flight-of-the-bumblebee` | Rimsky-Korsakov, *Flight of the Bumblebee* (1900) | Thrash | 150 | Standard | The chromatic line in sixteenths over palm-muted chugs, a repeat, a tom fill |
-| `02-funeral-march` | Chopin, *Funeral March* from the Piano Sonata No. 2 (1839) | Doom, in C minor | 56 | Drop C | Let-ring chords rocking between C minor and A-flat, the march as a lead with a closing bend |
+| `02-funeral-march` | Chopin, *Funeral March* from the Piano Sonata No. 2 (1839) | Doom, in C minor | 56 | Drop C | Let-ring chords rocking between C minor and A-flat, the march as a lead with a closing bend, doubled two octaves down by a section of ten cellos |
 | `03-hall-of-the-mountain-king` | Grieg, *In the Hall of the Mountain King* (1875) | Death metal | 112 → 200 | Drop B | The theme palm-muted in B minor, the F-sharp major answer, then the reprise tremolo picked over blast beats |
 | `04-summer-presto` | Vivaldi, *Summer*, Presto, from *The Four Seasons* (1725) | Power metal | 150 | Standard | Twin leads in thirds over repeated-note pedals and falling scales, 3/4 gallops (five tracks) |
 | `05-toccata-and-fugue` | Bach, *Toccata and Fugue in D minor*, BWV 565 | Djent | 60 → 128 | 7-string, drop A | The call with its fermatas in two octaves, chugged low, then a 3+3+3+3+4 figure and a pinch harmonic |

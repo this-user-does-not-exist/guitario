@@ -23,7 +23,7 @@ same change that adds an asset, and keep the licence file next to the asset.
 
 Recordings the modelled instruments were fitted to. Nothing of them is in the repository or the
 app: only numbers measured from them (response curves, vibrato, bowing, a section's spread; see
-[`docs/decisions.md`](docs/decisions.md), 2026-10-19).
+[`docs/strings-calibration.md`](docs/strings-calibration.md)).
 
 | What | Author | Source | Licence |
 |---|---|---|---|

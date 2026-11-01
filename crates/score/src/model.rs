@@ -602,10 +602,35 @@ pub struct Track {
     /// to the bank's folder).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bank: Option<String>,
+    /// How many play the part on the violin family's programs (violin, viola, cello, double bass,
+    /// fiddle): 0 or 1 a soloist, 2 to [`MAX_PLAYERS`] a section of that many (MusicXML's
+    /// `<ensemble>`). The string ensemble programs are a whole string orchestra, and other
+    /// instruments one player, whatever it says.
+    #[serde(default, skip_serializing_if = "is_solo")]
+    pub players: u8,
 }
 
 /// The longest sound bank name or `.sfz` path a track may hold, in bytes.
 pub const MAX_BANK_NAME: usize = 4096;
+
+/// The most players a track's section may have: a symphony orchestra's first violins.
+pub const MAX_PLAYERS: u8 = 16;
+
+/// The players of a symphony orchestra's section of a General MIDI program's instrument: sixteen
+/// (first) violins, twelve violas, ten cellos, eight double basses; none for other instruments.
+pub fn orchestral_section(program: u8) -> Option<u8> {
+    match program {
+        40 | 110 => Some(16),
+        41 => Some(12),
+        42 => Some(10),
+        43 => Some(8),
+        _ => None,
+    }
+}
+
+fn is_solo(players: &u8) -> bool {
+    *players == 0
+}
 
 /// Guitar Pro's audio engines: RSE plays recorded samples, MIDI a lighter synthesised sound.
 /// Guitario's RSE is the sampled sound bank (the synth where the bank has no such instrument).
@@ -745,6 +770,7 @@ impl Track {
             effects: None,
             eq: crate::mixer_eq(),
             bank: None,
+            players: 0,
         }
     }
 
@@ -756,6 +782,12 @@ impl Track {
 
     pub fn string_count(&self) -> usize {
         self.tuning.string_count()
+    }
+
+    /// How many play the track when a section does: two or more on the violin family's programs
+    /// (violin, viola, cello, double bass, fiddle).
+    pub fn section(&self) -> Option<u8> {
+        (matches!(self.program, 40..=43 | 110) && self.players > 1 && !self.is_drums()).then_some(self.players)
     }
 
     pub fn is_drums(&self) -> bool {

@@ -63,6 +63,8 @@ pub struct StringVoice {
     pub string: u8,
     /// The track's instrument body it sounds through (a pizzicato), if any.
     pub slot: Option<usize>,
+    /// Samples before the string is plucked: the players of a section never pluck together.
+    pub wait: u32,
     buf: Vec<f32>,
     w: usize,
     prev: f32,
@@ -216,6 +218,7 @@ impl StringVoice {
             track,
             string,
             slot: None,
+            wait: 0,
             buf,
             w: period.min(len.saturating_sub(1)),
             prev: 0.0,
@@ -308,6 +311,10 @@ impl StringVoice {
 
     #[inline]
     pub fn tick(&mut self) -> f32 {
+        if self.wait > 0 {
+            self.wait -= 1;
+            return 0.0;
+        }
         // Pitch: glide, bend and vibrato.
         if self.glide_per_sample != 0.0 {
             self.log_freq += self.glide_per_sample;

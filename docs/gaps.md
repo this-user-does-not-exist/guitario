@@ -64,9 +64,15 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 - **Landed 2026-10-18:** a modelled grand piano and the bowed strings (violin, viola, cello,
   double bass, sections, tremolo, pizzicato) for the programs that name them, each through a
   resonating body; slurs play in one bow stroke (PLAY-11); see the [changelog](changelog.md).
-- **Landed 2026-10-19:** the bowed strings fitted to recordings of real violins, violas, cellos,
-  double basses and sections (measured, not bundled): dynamics, vibrato, noise, the bodies'
-  response, high notes without a growl, sections as wide as recorded ones (PLAY-11); see the
+- **Landed 2026-10-19:** orchestral string sections: a violin-family track has its players (up
+  to sixteen, each bowing with their own tuning, timing and vibrato on one of several matched
+  instruments across the stage, chords divided), Add Track offers the five sections of a
+  symphony orchestra, and the string ensemble programs play a whole string orchestra (PLAY-11);
+  see the [changelog](changelog.md).
+- **Landed 2026-10-19:** the bowed strings measured against recordings of real soloists and
+  sections and recalibrated: each instrument's body voiced on its own, the hiss between
+  harmonics down to a real violin's, section vibrato, entries and microphones from the
+  recordings ([`strings-calibration.md`](strings-calibration.md)); see the
   [changelog](changelog.md).
 - **Beta:** nothing an agent can finish: the listening pass below.
 - **After beta:** more modelled instruments (organ, electric piano, winds, brass; PLAY-11), the
@@ -245,12 +251,14 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | G5: orchestral string sections and the recalibrated bowed strings from the 2026-10-19 branch merged; they replace the earlier recordings fit (beta unchanged: the listening pass) |
 | 2026-10-31 | minor | G8: several documents in tabs with their own undo, autosave and unsaved-changes prompts, the clipboard across tabs, Window › Next Document (50–95 h to 40–80 h beta) |
 | 2026-10-31 | minor | G4: slurs as a `legato` chain across bars and systems, in the tab, exchanged with `.gp`/`.gpx`/MusicXML; a stepped-aside head gets room (4–14 h to 0 beta) |
 | 2026-10-31 | minor | G4: a notehead click picks its note and voice, ⌘1-4 and ⌘M, note.moveToVoice (6–22 h to 4–14 h beta) |
 | 2026-10-31 | minor | G1: drum articulations as Guitar Pro 7 numbers them (rim shot, half-open hi-hat, ride edge, five chokes), flams, ghost brackets; heads, playback, `.gp`/`.gp5`/MusicXML/MIDI exchange (8–18 h to 0 beta) |
 | 2026-10-31 | minor | G1: the drum step grid (drums.grid, drums.setStep, the instrument view's Step grid; 15–30 h to 8–18 h beta); B3 has every piece |
-| 2026-10-19 | minor | G5: the bowed strings fitted to recordings of real ones, solo and sections (beta unchanged: the listening pass) |
+| 2026-10-19 | minor | G5: the bowed strings measured against recordings of real players and recalibrated (beta unchanged: the listening pass) |
+| 2026-10-19 | minor | G5: orchestral string sections (players per track, divisi, matched instruments across the stage) and fewer whistling bow changes (beta unchanged: the listening pass) |
 | 2026-10-18 | minor | G5: a modelled grand piano and bowed strings with resonating bodies, slurs bowed in one stroke (beta unchanged: the listening pass) |
 | 2026-10-18 | minor | G2: headers and footers with tokens, selected bars, twelve papers and custom sizes (10–20 h to 0 h + human beta) |
 | 2026-10-18 | minor | G5: long samples stream their tails from disk (15–35 h to 0 h + human beta); only the listening pass is left for beta |

@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--master-automation] [--audio-settings] [--sound-bank dir] [--sound-offer] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--section] [--crowded] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--master-automation] [--audio-settings] [--sound-bank dir] [--sound-offer] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--add-strings i] [--section] [--crowded] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -313,6 +313,10 @@ fn main() {
     }
     if args.iter().any(|a| a == "--add-track") {
         app.open_add_track(None);
+    }
+    // `--add-strings i`: Add Track on the orchestra's strings, the `i`th instrument (a section from 4).
+    if let Some(i) = value("--add-strings").and_then(|i| i.parse::<usize>().ok()) {
+        app.open_add_track_strings(i);
     }
     if args.iter().any(|a| a == "--section") {
         app.open_section();

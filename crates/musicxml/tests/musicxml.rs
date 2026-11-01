@@ -117,6 +117,33 @@ fn the_export_is_well_formed_and_names_its_tuning() {
     assert!(xml.contains("<technical><string>"));
 }
 
+#[test]
+fn a_string_section_keeps_its_players() {
+    let mut s = Score::new();
+    s.tracks[0].program = 41;
+    s.tracks[0].players = 12;
+    let xml = export(&s).xml;
+    assert!(xml.contains("<ensemble>12</ensemble></score-instrument>"));
+    assert_eq!(import(xml.as_bytes()).unwrap().score.tracks[0].players, 12);
+    // A guitar is one player, whatever it says: nothing written.
+    s.tracks[0].program = 25;
+    assert!(!export(&s).xml.contains("<ensemble>"));
+    // Another program's section of no stated size is an orchestra's; an absurd one the largest.
+    for (ensemble, players) in [("<ensemble/>", 10), ("<ensemble>  </ensemble>", 10), ("<ensemble>99</ensemble>", 16), ("<ensemble>many</ensemble>", 10)] {
+        let xml = format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0"><part-list><score-part id="P1"><part-name>Cellos</part-name>
+<score-instrument id="P1-I1"><instrument-name>Cellos</instrument-name>{ensemble}</score-instrument>
+<midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>43</midi-program></midi-instrument></score-part></part-list>
+<part id="P1"><measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>F</sign><line>4</line></clef></attributes>
+<note><pitch><step>E</step><octave>2</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type></note></measure></part></score-partwise>"#
+        );
+        let r = import(xml.as_bytes()).unwrap();
+        assert_eq!((r.score.tracks[0].program, r.score.tracks[0].players), (42, players), "{ensemble}");
+        assert!(r.score.validate().is_ok());
+    }
+}
+
 /// A guitar part as notation programs write it: a standard staff and a tab staff with the same
 /// notes, and a second part without any string or fret.
 const TWO_STAVES: &str = r#"<?xml version="1.0" encoding="UTF-8"?>

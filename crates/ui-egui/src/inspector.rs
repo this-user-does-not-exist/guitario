@@ -14,43 +14,72 @@ pub enum Tab {
     Track,
 }
 
-/// General MIDI programs Guitario sounds: the fretted instruments on the plucked-string synth,
-/// and the grand pianos and bowed strings it models.
-pub(crate) const PROGRAMS: [(u8, &str); 29] = [
-    (0, "Grand piano"),
-    (1, "Bright piano"),
-    (2, "Electric grand"),
-    (3, "Honky-tonk piano"),
-    (24, "Nylon guitar"),
-    (25, "Steel guitar"),
-    (26, "Jazz guitar"),
-    (27, "Clean guitar"),
-    (28, "Muted guitar"),
-    (29, "Overdrive guitar"),
-    (30, "Distortion guitar"),
-    (31, "Guitar harmonics"),
-    (32, "Acoustic bass"),
-    (33, "Fingered bass"),
-    (34, "Picked bass"),
-    (35, "Fretless bass"),
-    (36, "Slap bass"),
-    (40, "Violin"),
-    (41, "Viola"),
-    (42, "Cello"),
-    (43, "Contrabass"),
-    (44, "Tremolo strings"),
-    (45, "Pizzicato strings"),
-    (48, "String ensemble"),
-    (49, "Slow strings"),
-    (104, "Sitar"),
-    (105, "Banjo"),
-    (106, "Shamisen"),
-    (110, "Fiddle"),
+/// The sounds the instrument lists offer: a General MIDI program, how many play it (0 is one
+/// player) and its name. The fretted instruments play on the plucked-string synth; the grand
+/// pianos and the bowed strings are modelled, the violin family alone or as an orchestra's
+/// sections.
+pub(crate) const SOUNDS: [(u8, u8, &str); 33] = [
+    (0, 0, "Grand piano"),
+    (1, 0, "Bright piano"),
+    (2, 0, "Electric grand"),
+    (3, 0, "Honky-tonk piano"),
+    (24, 0, "Nylon guitar"),
+    (25, 0, "Steel guitar"),
+    (26, 0, "Jazz guitar"),
+    (27, 0, "Clean guitar"),
+    (28, 0, "Muted guitar"),
+    (29, 0, "Overdrive guitar"),
+    (30, 0, "Distortion guitar"),
+    (31, 0, "Guitar harmonics"),
+    (32, 0, "Acoustic bass"),
+    (33, 0, "Fingered bass"),
+    (34, 0, "Picked bass"),
+    (35, 0, "Fretless bass"),
+    (36, 0, "Slap bass"),
+    (40, 0, "Violin"),
+    (40, 16, "Violin section"),
+    (41, 0, "Viola"),
+    (41, 12, "Viola section"),
+    (42, 0, "Cello"),
+    (42, 10, "Cello section"),
+    (43, 0, "Contrabass"),
+    (43, 8, "Contrabass section"),
+    (44, 0, "Tremolo strings"),
+    (45, 0, "Pizzicato strings"),
+    (48, 0, "String ensemble"),
+    (49, 0, "Slow strings"),
+    (104, 0, "Sitar"),
+    (105, 0, "Banjo"),
+    (106, 0, "Shamisen"),
+    (110, 0, "Fiddle"),
 ];
 
-/// The name of a General MIDI program as the instrument lists show it.
-pub(crate) fn program_name(program: u8) -> String {
-    PROGRAMS.iter().find(|p| p.0 == program).map_or_else(|| format!("GM program {program}"), |p| p.1.to_string())
+/// Whether a section can play the program: the violin family's, violin to double bass.
+pub(crate) fn sectioned(program: u8) -> bool {
+    guitario_score::orchestral_section(program).is_some()
+}
+
+/// How many play a track's program as the sound lists count them: 0 for one player.
+pub(crate) fn players_of(program: u8, players: u8) -> u8 {
+    if sectioned(program) && players > 1 { players } else { 0 }
+}
+
+/// The name of a sound as the instrument lists show it; a section of a size they do not offer
+/// says how many play.
+pub(crate) fn sound_name(program: u8, players: u8) -> String {
+    let players = players_of(program, players);
+    if let Some(s) = SOUNDS.iter().find(|s| s.0 == program && s.1 == players) {
+        return s.2.to_string();
+    }
+    let base = SOUNDS.iter().find(|s| s.0 == program && s.1 == 0).map_or_else(|| format!("GM program {program}"), |s| s.2.to_string());
+    if players > 1 { format!("{base} section of {players}") } else { base }
+}
+
+/// The section sizes the Players list offers: one player, a few desks, a symphony orchestra's.
+const PLAYER_CHOICES: [u8; 11] = [1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16];
+
+fn players_label(n: u8) -> String {
+    if n <= 1 { "1 (soloist)".to_string() } else { format!("{n} (section)") }
 }
 
 pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
@@ -626,7 +655,7 @@ fn sounds(app: &mut GuitarioApp, ui: &mut egui::Ui, tr: &guitario_score::Track, 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 1.0;
         let w = (ui.available_width() - 2.0 * 27.0 - 2.0).max(80.0);
-        let name = if tr.is_drums() { "Drum kit".to_string() } else { program_name(tr.program) };
+        let name = if tr.is_drums() { "Drum kit".to_string() } else { sound_name(tr.program, tr.players) };
         let (r, resp) = ui.allocate_exact_size(egui::vec2(w, 30.0), egui::Sense::click());
         let p = ui.painter().clone();
         p.rect_filled(r, egui::CornerRadius { nw: 5, sw: 5, ne: 0, se: 0 }, if resp.hovered() && !tr.is_drums() { t.control_hover } else { t.control });
@@ -641,9 +670,10 @@ fn sounds(app: &mut GuitarioApp, ui: &mut egui::Ui, tr: &guitario_score::Track, 
         }
         if !tr.is_drums() {
             egui::Popup::menu(&resp).show(|ui| {
-                for (program, label) in PROGRAMS {
-                    if ui.selectable_label(tr.program == program, label).clicked() {
-                        actions.push(("track.setProgram", json!({"track": ti, "program": program})));
+                let current = (tr.program, players_of(tr.program, tr.players));
+                for (program, players, label) in SOUNDS {
+                    if ui.selectable_label(current == (program, players), label).clicked() {
+                        actions.push(("track.setProgram", json!({"track": ti, "program": program, "players": players})));
                         ui.close();
                     }
                 }
@@ -668,7 +698,29 @@ fn sounds(app: &mut GuitarioApp, ui: &mut egui::Ui, tr: &guitario_score::Track, 
         sresp.on_hover_text(format!("Lock this sound over sound automations{later}"));
     });
     ui.add_space(4.0);
+    if sectioned(tr.program) {
+        players_row(ui, tr, ti, actions);
+    }
     bank_row(app, ui, tr, ti, actions);
+}
+
+/// How many play a bowed string track: a soloist or a section, up to an orchestra's sixteen.
+fn players_row(ui: &mut egui::Ui, tr: &guitario_score::Track, ti: usize, actions: &mut Vec<(&'static str, Value)>) {
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new("Players").color(tokens().text_dim));
+        let current = tr.players.max(1);
+        let resp = ui.add(egui::Button::new(egui::RichText::new(players_label(current)).size(13.0)).min_size(egui::vec2(ui.available_width(), 24.0)));
+        let resp = resp.on_hover_text("One player, or a section: each player bows with their own tuning, timing and vibrato on their own instrument");
+        egui::Popup::menu(&resp).show(|ui| {
+            for n in PLAYER_CHOICES {
+                if ui.selectable_label(current == n, players_label(n)).clicked() {
+                    actions.push(("track.setPlayers", json!({"track": ti, "players": n})));
+                    ui.close();
+                }
+            }
+        });
+    });
+    ui.add_space(4.0);
 }
 
 /// What a track plays from the sound bank, and the choice of it: its instrument's role, another
@@ -755,5 +807,25 @@ fn track(app: &mut GuitarioApp, ui: &mut egui::Ui, actions: &mut Vec<(&'static s
     });
     if !tr.is_drums() {
         section(ui, "Interpretation", |ui| interpretation(ui, tr, c.track, actions));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sounds_name_sections_and_their_sizes() {
+        assert_eq!(sound_name(40, 0), "Violin");
+        assert_eq!(sound_name(40, 1), "Violin");
+        assert_eq!(sound_name(40, 16), "Violin section");
+        assert_eq!(sound_name(42, 6), "Cello section of 6");
+        assert_eq!(sound_name(25, 16), "Steel guitar", "a guitar is one player whatever it says");
+        assert_eq!(sound_name(99, 0), "GM program 99");
+        // Every section offered is one of the violin family's, at a size a track may have.
+        for (program, players, _) in SOUNDS {
+            assert!(players == 0 || (sectioned(program) && players <= guitario_score::MAX_PLAYERS && PLAYER_CHOICES.contains(&players)), "{program} {players}");
+        }
+        assert!(PLAYER_CHOICES.iter().all(|&n| n <= guitario_score::MAX_PLAYERS));
     }
 }
