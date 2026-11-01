@@ -16,7 +16,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Drum Hit",
             "",
             None,
-            "drum: General MIDI number (35-81 …) or a kit name such as \"kick\", \"snare\", \"hh\"; toggles the hit at the cursor beat",
+            "drum: General MIDI number (35-81 …), a Guitar Pro articulation (91 rim shot, 92 half-open hi-hat, 93 ride edge, 94-98 ride, splash, china, crash and crash 2 choked) or a kit name such as \"kick\", \"snare\", \"hh\", \"crc\"; toggles the hit at the cursor beat, and another piece on its lane takes its place",
             true,
             set_drum,
         ),
@@ -37,7 +37,7 @@ fn add_drums(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     Ok(json!({"track": s.cursor.track}))
 }
 
-fn drum_param(params: &Value) -> Result<u8, EngineError> {
+pub(crate) fn drum_param(params: &Value) -> Result<u8, EngineError> {
     match params.get("drum") {
         Some(Value::Number(n)) => n
             .as_u64()
@@ -61,9 +61,15 @@ fn set_drum(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
         Some(i) if beat.notes.get(i).is_some_and(|n| n.fret == midi) => {
             beat.notes.remove(i);
         }
+        // Another piece or articulation on the lane (a crash choked): the hit keeps its accent,
+        // ghost, flam and the rest.
         Some(i) => {
             if let Some(n) = beat.notes.get_mut(i) {
-                *n = Note::new(lane, midi);
+                n.fret = midi;
+                n.kind = guitario_score::NoteKind::Normal;
+                if let Some(g) = n.effects.grace.as_mut().filter(|g| drums::lane_for(g.fret) == lane) {
+                    g.fret = midi;
+                }
             }
         }
         None => {

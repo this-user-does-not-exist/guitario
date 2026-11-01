@@ -39,6 +39,29 @@ impl Display {
         [(Display::Beat, "Current beat"), (Display::BeatAndBar, "Current beat and bar"), (Display::BeatAndNext, "Current and next beat")];
 }
 
+/// How the instrument view shows a drum track: Guitar Pro's pads, or the step grid of the bar.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(default, rename_all = "camelCase")]
+pub struct DrumView {
+    pub grid: bool,
+    /// The grid's step: 8, 16, 32 or 64.
+    pub resolution: u8,
+    pub triplet: bool,
+}
+
+impl Default for DrumView {
+    fn default() -> Self {
+        DrumView { grid: false, resolution: 16, triplet: false }
+    }
+}
+
+impl DrumView {
+    pub fn sanitized(self) -> DrumView {
+        let resolution = if [8, 16, 32, 64].contains(&self.resolution) { self.resolution } else { 16 };
+        DrumView { resolution, ..self }
+    }
+}
+
 /// The beat at `c` and the beats `mode` adds, rests left out of the second.
 pub fn beats(track: &Track, c: Cursor, mode: Display) -> (Option<&Beat>, Vec<&Beat>) {
     let voice = |m: usize| track.measures.get(m).and_then(|m| m.voices.get(c.voice));
@@ -61,7 +84,7 @@ pub fn pitch_label(midi: u8) -> String {
 }
 
 /// The side column at the left of `rect`: the arrows move the cursor, the gear opens the view's
-/// settings. `fretboard` adds the left-handed switch. Returns the rest of `rect`.
+/// settings. `fretboard` adds the left-handed switch, a drum track the pads or step grid choice. Returns the rest of `rect`.
 pub fn side(app: &mut GuitarioApp, ui: &mut egui::Ui, rect: Rect, fretboard: bool) -> Rect {
     let p = ui.painter().clone();
     let col = Rect::from_min_size(rect.min, vec2(SIDE, rect.height()));
@@ -97,6 +120,21 @@ pub fn side(app: &mut GuitarioApp, ui: &mut egui::Ui, rect: Rect, fretboard: boo
         if fretboard {
             ui.separator();
             ui.checkbox(&mut app.view.left_handed, "Left-handed");
+        }
+        let drums = app.session.score().tracks.get(app.session.cursor().track).is_some_and(Track::is_drums);
+        if drums {
+            ui.separator();
+            let d = &mut app.view.drums;
+            ui.radio_value(&mut d.grid, false, "Pads");
+            ui.radio_value(&mut d.grid, true, "Step grid");
+            if d.grid {
+                ui.indent("grid-steps", |ui| {
+                    for (r, label) in [(8, "Eighths"), (16, "Sixteenths"), (32, "Thirty-seconds")] {
+                        ui.radio_value(&mut d.resolution, r, label);
+                    }
+                    ui.checkbox(&mut d.triplet, "Triplets");
+                });
+            }
         }
     });
     Rect::from_min_max(pos2(col.right(), rect.top()), rect.max)

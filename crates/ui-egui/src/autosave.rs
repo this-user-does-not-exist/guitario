@@ -2,7 +2,8 @@
 //! [`INTERVAL`] to `recovery/` beside the preferences, on a worker thread with the native format's
 //! atomic save. Saving or closing cleanly removes it. Each running Guitario keeps a heartbeat file
 //! fresh; a copy whose heartbeat has gone stale was left by a Guitario that stopped without
-//! saving, and is offered back at the next start (`file.recover` reopens it).
+//! saving, and is offered back at the next start (`file.recover` reopens it). Each open document
+//! has its own copy and heartbeat ([`Autosave::sibling`]).
 
 use guitario_engine::Session;
 use guitario_score::Score;
@@ -66,10 +67,14 @@ impl Autosave {
 
     /// Autosave into `dir`, and look there for what stopped runs left.
     pub fn at(dir: PathBuf) -> Autosave {
-        let stamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_millis());
-        let id = format!("unsaved-{stamp}-{}", std::process::id());
         let found = orphans(&dir, SystemTime::now());
-        Autosave { dir: Some(dir), id, found, ..Autosave::off() }
+        Autosave { dir: Some(dir), id: fresh_id(), found, ..Autosave::off() }
+    }
+
+    /// Autosave for another document in the same folder, under its own name; it offers nothing
+    /// back (the first one did).
+    pub fn sibling(&self) -> Autosave {
+        Autosave { dir: self.dir.clone(), id: fresh_id(), ..Autosave::off() }
     }
 
     fn file(&self, ext: &str) -> Option<PathBuf> {
@@ -157,7 +162,9 @@ impl Autosave {
 impl crate::GuitarioApp {
     /// Runs autosave for this frame and wakes the app when the next write is due.
     pub(crate) fn autosave_tick(&mut self, ctx: &egui::Context) {
-        if let Some(after) = self.autosave.tick(Instant::now(), &self.session) {
+        let now = Instant::now();
+        let shown = self.autosave.tick(now, &self.session);
+        if let Some(after) = shown.into_iter().chain(self.autosave_others(now)).min() {
             ctx.request_repaint_after(after);
         }
         if let Some(e) = self.autosave.error.take() {
@@ -170,7 +177,6 @@ impl crate::GuitarioApp {
     pub(crate) fn recovery_dialog(&mut self, ctx: &egui::Context) {
         let Some(found) = self.autosave.found.first().cloned() else { return };
         let more = self.autosave.found.len() - 1;
-        let busy = self.session.is_dirty();
         let ago = found.saved.and_then(|t| t.elapsed().ok()).map_or_else(String::new, |d| match d.as_secs() / 60 {
             0 => " less than a minute ago".to_string(),
             1 => " a minute ago".to_string(),
@@ -188,8 +194,7 @@ impl crate::GuitarioApp {
             }
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                let recover = ui.add_enabled(!busy, egui::Button::new("Recover"));
-                if recover.on_disabled_hover_text("Save or close the score that is open first.").clicked() {
+                if ui.button("Recover").clicked() {
                     answer = Some(Recovery::Recover);
                 }
                 if ui.button("Discard").clicked() {
@@ -214,7 +219,9 @@ impl crate::GuitarioApp {
         match answer {
             Recovery::Recover => {
                 let original = found.original.as_ref().map(|p| p.display().to_string());
-                if self.run("file.recover", serde_json::json!({"path": found.file.display().to_string(), "original": original})).is_some() {
+                let params = serde_json::json!({"path": found.file.display().to_string(), "original": original});
+                // In a tab of its own, unless the one shown is an untouched untitled document.
+                if self.open_in_tab(|app| app.run("file.recover", params).is_some()) {
                     // This run autosaves it from now on.
                     found.discard();
                     self.status = format!("Recovered \u{201c}{}\u{201d}. Save it to keep it.", found.name());
@@ -233,6 +240,14 @@ pub(crate) enum Recovery {
     Recover,
     Discard,
     Later,
+}
+
+/// A file stem no other document of any run uses: the time, the process and a counter.
+fn fresh_id() -> String {
+    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let stamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_millis());
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("unsaved-{stamp}-{}-{n}", std::process::id())
 }
 
 /// Autosaved scores in `dir` whose run is no longer alive, newest first.

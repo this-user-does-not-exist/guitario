@@ -11,6 +11,7 @@ mod bends;
 mod chords;
 mod clipboard;
 mod commands;
+mod drum_grid;
 mod drums;
 mod error;
 mod exchange;
@@ -41,6 +42,7 @@ pub use bars::direction_targets;
 pub use chords::spec_json;
 pub use clipboard::{Clip, TrackBars};
 pub use commands::{CommandSpec, registry};
+pub use drum_grid::{DrumGrid, grid as drum_grid, step_duration as drum_step};
 pub use error::EngineError;
 pub use print::{DuplexMode, MAX_COPIES, PrintJob, PrintReceipt, PrintTask, PrinterInfo, Spooler};
 pub use render::{PageRenderer, PdfDocument, PdfRequest};
@@ -52,6 +54,6 @@ pub const GUITAR_PRO_EXTENSIONS: [&str; 5] = guitario_gp::EXTENSIONS;
 pub const MIDI_EXTENSIONS: [&str; 2] = ["mid", "midi"];
 /// File extensions `file.open` imports as MusicXML.
 pub const MUSICXML_EXTENSIONS: [&str; 3] = guitario_musicxml::EXTENSIONS;
-/// Native file extensions: `.gt`, and `.gt` from before the rename.
-pub const NATIVE_EXTENSIONS: [&str; 2] = guitario_format::EXTENSIONS;
+/// Native file extensions.
+pub const NATIVE_EXTENSIONS: [&str; 1] = guitario_format::EXTENSIONS;
 pub use session::{Cursor, Session};

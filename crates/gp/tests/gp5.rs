@@ -34,6 +34,7 @@ fn as_gp5(s: &Score) -> Score {
     }
     for t in &mut s.tracks {
         t.tuning.name.clear();
+        let drums = t.is_drums();
         t.volume = ((t.volume.saturating_add(4) / 8).min(16) * 8).min(127);
         let balance = ((i16::from(t.pan) + 64 + 4) / 8).clamp(0, 16);
         t.pan = (balance * 8 - 64).clamp(-63, 63) as i8;
@@ -43,7 +44,16 @@ fn as_gp5(s: &Score) -> Score {
                 m.voices.pop();
             }
             for b in m.voices.iter_mut().flat_map(|v| &mut v.beats) {
+                // Guitar Pro 5's drums are General MIDI: an articulation becomes its piece.
+                for n in b.notes.iter_mut().filter(|_| drums) {
+                    n.fret = guitario_theory::drums::plays(n.fret);
+                    if let Some(g) = n.effects.grace.as_mut() {
+                        g.fret = guitario_theory::drums::plays(g.fret);
+                    }
+                }
                 b.duration.dots = b.duration.dots.min(1);
+                // Guitar Pro 5 has no slurs.
+                b.legato = false;
                 // Guitar Pro 5 has no vibrato with the bar.
                 b.bar_vibrato = None;
                 if b.rest {
@@ -366,4 +376,40 @@ fn a_bend_held_through_a_tie_survives_guitar_pro_5() {
             (NoteKind::Tie, Some(Bend::preset(BendKind::Release, 4)))
         ]
     );
+}
+
+/// A drum bar with Guitar Pro's articulations and a drummer's marks: a choked crash with an
+/// accent, a flammed snare, a ghost note, the half-open hat, a rim shot, the ride's edge and a roll.
+fn articulated_kit() -> Score {
+    let mut s = Score::new();
+    s.tracks = vec![Track::drums("Drums", &s.headers)];
+    let hit = |midi: u8| Note::new(guitario_theory::drums::lane_for(midi), midi);
+    let mut choked = hit(97);
+    choked.effects.accent = true;
+    let mut flam = hit(38);
+    flam.effects.grace = Some(Grace::new(38));
+    let mut ghost = hit(38);
+    ghost.effects.ghost = true;
+    let eighth = Duration::new(guitario_theory::NoteValue::Eighth);
+    s.tracks[0].measures[0].voices[0].beats = vec![
+        Beat { rest: false, notes: vec![choked, hit(36)], ..Beat::rest(eighth) },
+        Beat { rest: false, notes: vec![hit(92), flam], ..Beat::rest(eighth) },
+        Beat { rest: false, notes: vec![hit(42), ghost], ..Beat::rest(eighth) },
+        Beat { rest: false, notes: vec![hit(93), hit(91)], ..Beat::rest(eighth) },
+        Beat { rest: false, notes: vec![hit(38)], tremolo: Some(TremoloSpeed::ThirtySecond), ..Beat::rest(Duration::new(guitario_theory::NoteValue::Half)) },
+    ];
+    assert!(s.validate().is_ok());
+    s
+}
+
+#[test]
+fn drum_articulations_become_their_pieces_and_flams_survive() {
+    let s = articulated_kit();
+    let (back, export_warnings, import_warnings) = round_trip(&s);
+    assert!(import_warnings.is_empty(), "{import_warnings:?}");
+    assert!(export_warnings.iter().any(|w| w.contains("drum articulations")), "{export_warnings:?}");
+    assert_same("articulated kit", &as_gp5(&s), &back);
+    let b = &back.tracks[0].measures[0].voices[0].beats;
+    assert_eq!(b[0].notes.iter().map(|n| n.fret).max(), Some(49), "the choked crash is a crash");
+    assert!(b[1].notes.iter().any(|n| n.effects.grace.is_some_and(|g| g.fret == 38)), "the flam");
 }

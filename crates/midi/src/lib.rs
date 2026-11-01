@@ -174,7 +174,9 @@ pub fn export(score: &Score) -> Result<Vec<u8>, MidiError> {
                     len = (len / 2).max(1);
                 }
                 // A harmonic sounds its partial; a semi-harmonic keeps the plain note under it.
-                let mut keys = vec![(n.harmonic.map_or(p.0, |h| h.key()), vel)];
+                // A drum kit plays General MIDI: Guitar Pro's articulations sound as the drum they vary.
+                let key = if track.is_drums() { guitario_theory::drums::plays(p.0) } else { n.harmonic.map_or(p.0, |h| h.key()) };
+                let mut keys = vec![(key, vel)];
                 if let Some(h) = n.harmonic.filter(|h| h.fundamental >= 0.5) {
                     keys.push((p.0, (f32::from(vel) * h.fundamental) as u8));
                 }
@@ -247,6 +249,11 @@ mod tests {
         assert!(b.windows(2).any(|w| w == [0x99, 36]));
         // The guitar stays on channel 1.
         assert!(b.windows(2).any(|w| w == [0x90, 64]));
+        // A choked crash and a rim shot are written as the crash and the snare.
+        s.tracks[1].measures[0].voices[0].beats[0].notes = vec![Note::new(0, 97), Note::new(4, 91)];
+        let b = export(&s).unwrap();
+        assert!(b.windows(2).any(|w| w == [0x99, 49]) && b.windows(2).any(|w| w == [0x99, 38]));
+        assert!(!b.windows(2).any(|w| w == [0x99, 97] || w == [0x99, 91]));
     }
 
     #[test]

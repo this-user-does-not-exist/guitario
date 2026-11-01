@@ -137,7 +137,7 @@ fn unset_beat(b: &mut Beat, what: &str) {
         b.dynamic = Dynamic::default();
     }
     if all || what == "slur" {
-        b.slur = None;
+        b.legato = false;
     }
     if all || what == "beam" {
         b.beam = None;

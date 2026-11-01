@@ -15,7 +15,7 @@ mod tests {
 
     /// Demo 10 tiled to `BARS` bars, with its two guitar tracks doubled: six tracks.
     fn long_score() -> Score {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos/10-ashes-to-distortion.gt");
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos/10-lagrima.gt");
         let demo = guitario_format::open(&root).unwrap();
         let mut s = demo.clone();
         let n = demo.headers.len();

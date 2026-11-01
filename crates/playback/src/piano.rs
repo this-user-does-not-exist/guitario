@@ -10,8 +10,12 @@
 //! soundboard and case ([`crate::body`]) colour it per track.
 //!
 //! The string and hammer data follow published measurements of concert grands (Chaigne and
-//! Askenfelt's hammer and string parameters, Conklin's scaling, Fletcher's inharmonicity) and
-//! are interpolated across the keyboard.
+//! Askenfelt's hammer and string parameters, Conklin's scaling) and are interpolated across the
+//! keyboard. What the ear judges a piano by (each key's inharmonicity, how fast its partials fall
+//! in the prompt sound and the aftersound, how loud the aftersound is, how the spectrum leans at
+//! each dynamic) is fitted to recordings of two real grands, every minor third from A0 to C8 at
+//! pp, mf and ff: the University of Iowa Electronic Music Studios' Steinway B and the Salamander
+//! Grand (a Yamaha C5). The recordings were measured, not used: nothing of them is in Guitario.
 
 use crate::body::curve;
 
@@ -44,10 +48,13 @@ struct Block {
     ui: [f32; LANES],
     /// What an impulse from the hammer (newton-seconds) adds to the imaginary part.
     kick: [f32; LANES],
+    /// The partial's number, as octaves above the fundamental (log2 n), for the voicing.
+    octave: [f32; LANES],
     /// The mode's share of the strings' displacement under the hammer (0 for the aftersound).
     contact: [f32; LANES],
-    /// The mode's share of the force on the bridge.
+    /// The mode's share of the force on the bridge: as voiced for the last blow, and before.
     out: [f32; LANES],
+    out0: [f32; LANES],
 }
 
 /// The tone of a piano program.
@@ -82,31 +89,69 @@ struct Key {
     hammer_mass: f32,
     felt_p: f32,
     felt_k: f32,
-    /// Seconds for the fundamental to fall by 60 dB: the prompt sound and the aftersound.
+    /// Seconds for the fundamental to fall by 60 dB: the prompt sound and the aftersound, and the
+    /// aftersound's level against the prompt sound's. A real piano's note falls 20 to 25 dB within
+    /// a second or two and then hangs on, quiet, for half a minute in the bass: rung out at one
+    /// steady rate instead, it sounds like an organ that is fading.
     t60: f32,
     t60_after: f32,
     after_level: f32,
-    /// Partials this far above the fundamental decay twice as fast.
+    /// Partials this far above the fundamental decay twice as fast (air and the strings' own
+    /// losses), which on the recorded grands is far up: up to ten kilohertz a partial falls at
+    /// about its fundamental's rate. Lower, the upper partials vanish within a second and leave
+    /// a bell-like tone: an electric piano.
     loss_corner: f32,
+    /// How much longer the upper partials' prompt sound lasts than the fundamental's (0: as long):
+    /// the low partials drain into the soundboard fastest, most of all in the tenor.
+    lift: f32,
+    /// How far apart the aftersound's partials sit from the prompt sound's, in hertz: the string's
+    /// two planes of motion and the bridge pull them apart, so each partial beats slowly at its own
+    /// rate (the growl of the bass), whatever its frequency.
+    polarisation_hz: f32,
     damped_t60: f32,
     damper: bool,
-    /// Loudness voicing, so the keyboard sounds even.
+    /// How much darker each octave of partials is than the hammer and strings alone make it, in
+    /// dB, at a forte blow ([`FORTE`]); softer blows lean further ([`TILT_PER_VELOCITY`]). Felt is
+    /// softer on its surface than inside, so a gentle blow meets only the soft outer layer: the
+    /// recorded grands darken with softer playing much more than a felt of one stiffness does.
+    tilt: f32,
+    /// Loudness voicing: each register as loud against middle C as on the recorded grands.
     voicing: f32,
 }
 
 /// The strings' inharmonicity coefficient at key `m`: partial n sounds at `n f0 sqrt(1 + B n²)`.
-/// Lowest in the wound strings of the tenor, rising steeply to the short treble strings.
+/// Lowest (about 1e-4) in the long wound strings from the bass to the tenor, rising steeply to the
+/// short treble strings, as measured on both recorded grands.
 fn inharmonicity(m: f32) -> f32 {
-    10f32.powf(curve(&[(21.0, -3.45), (36.0, -3.7), (48.0, -3.78), (60.0, -3.4), (72.0, -3.0), (84.0, -2.6), (96.0, -2.2), (108.0, -1.8)], m))
+    10f32.powf(curve(
+        &[
+            (21.0, -3.63),
+            (27.0, -3.87),
+            (33.0, -4.0),
+            (45.0, -4.0),
+            (51.0, -3.88),
+            (57.0, -3.65),
+            (63.0, -3.4),
+            (69.0, -3.16),
+            (75.0, -2.93),
+            (81.0, -2.71),
+            (87.0, -2.49),
+            (93.0, -2.3),
+            (99.0, -2.12),
+            (108.0, -1.8),
+        ],
+        m,
+    ))
 }
 
 /// The stretched tuning a piano tuner sets, in cents from equal temperament, worked out from the
 /// strings' own inharmonicity the way a tuner works by ear: the temperament octave A3 to A4 is set
 /// first, its octave just wide enough not to beat, then every other note against the note an
-/// octave from it: above, its fundamental on the lower note's second partial; below, its fourth
-/// partial on the upper note's second (the bass is tuned on the partials heard most). Tuned
-/// against the model's strings, octaves do not beat; a fixed Railsback curve stretched further
-/// than these strings need, and their octaves beat.
+/// octave from it, on the partials the tuner listens to there. Above, the upper note's
+/// fundamental on the lower note's second partial, leaning wider up high (towards the 12th and
+/// the double octave, 3:1.5 by C7); below, the lower note's fourth partial on the upper note's
+/// second, and higher pairs further down (10:5 at A0), where the fundamentals are faint. The
+/// recorded grands are stretched like this, to about 2 cents: 20 cents flat at A0, 10 sharp at C7.
 fn stretch_cents(m: f32) -> f32 {
     // How much wider than 2:1 the octave from `k` up must be for the lower note's partial `a` to
     // meet the upper note's partial `b`, each string with its own inharmonicity.
@@ -116,12 +161,25 @@ fn stretch_cents(m: f32) -> f32 {
     };
     let m = m.clamp(LOWEST, HIGHEST);
     if m > 69.0 {
-        stretch_cents(m - 12.0) + widening(m - 12.0, 2.0, 1.0)
+        let a = tuned_partial_above(m - 12.0);
+        stretch_cents(m - 12.0) + widening(m - 12.0, a, a / 2.0)
     } else if m < 57.0 {
-        stretch_cents(m + 12.0) - widening(m, 4.0, 2.0)
+        let a = tuned_partial_below(m);
+        stretch_cents(m + 12.0) - widening(m, a, a / 2.0)
     } else {
         (m - 69.0) / 12.0 * widening(57.0, 2.0, 1.0)
     }
+}
+
+/// The lower note's partial a tuner sets the octave above key `m` on (against the upper note's
+/// half of it), and the one for the octave below: in between partials, the tuner splits the
+/// difference.
+fn tuned_partial_above(m: f32) -> f32 {
+    curve(&[(60.0, 2.0), (84.0, 3.0)], m)
+}
+
+fn tuned_partial_below(m: f32) -> f32 {
+    curve(&[(21.0, 10.0), (48.0, 4.0)], m)
 }
 
 /// The frequency a key of the piano is tuned to, stretched.
@@ -164,13 +222,69 @@ fn key_model(freq: f32, tone: PianoTone) -> Key {
         hammer_mass: curve(&[(21.0, 6.5e-3), (36.0, 4.9e-3), (60.0, 2.97e-3), (96.0, 2.2e-3), (108.0, 2.0e-3)], m),
         felt_p: curve(&[(21.0, 2.2), (36.0, 2.3), (60.0, 2.5), (96.0, 3.0), (108.0, 3.1)], m),
         felt_k: 10f32.powf(curve(&[(21.0, 8.3), (36.0, 8.6), (60.0, 9.65), (96.0, 11.0), (108.0, 11.4)], m)) * tone.hardness,
-        t60: curve(&[(21.0, 14.0), (36.0, 11.0), (48.0, 9.0), (60.0, 6.5), (72.0, 4.5), (84.0, 3.2), (96.0, 2.0), (108.0, 0.9)], m),
-        t60_after: curve(&[(21.0, 42.0), (36.0, 36.0), (60.0, 23.0), (84.0, 9.0), (96.0, 4.5), (108.0, 1.6)], m),
-        after_level: curve(&[(21.0, 0.2), (60.0, 0.13), (96.0, 0.1), (108.0, 0.08)], m),
-        loss_corner: curve(&[(21.0, 900.0), (60.0, 1600.0), (96.0, 3500.0), (108.0, 4500.0)], m),
+        t60: curve(
+            &[
+                (21.0, 9.7),
+                (33.0, 6.5),
+                (42.0, 4.0),
+                (54.0, 4.8),
+                (60.0, 2.6),
+                (66.0, 1.6),
+                (72.0, 1.8),
+                (84.0, 2.0),
+                (90.0, 1.7),
+                (96.0, 1.05),
+                (102.0, 0.85),
+                (108.0, 0.4),
+            ],
+            m,
+        ),
+        t60_after: curve(
+            &[
+                (21.0, 65.0),
+                (39.0, 67.0),
+                (48.0, 42.0),
+                (57.0, 33.0),
+                (60.0, 27.0),
+                (66.0, 22.0),
+                (72.0, 18.0),
+                (78.0, 13.0),
+                (84.0, 8.2),
+                (90.0, 6.0),
+                (96.0, 4.2),
+                (102.0, 2.8),
+                (108.0, 2.1),
+            ],
+            m,
+        ),
+        after_level: curve(
+            &[(21.0, 0.45), (30.0, 0.355), (36.0, 0.1), (42.0, 0.06), (60.0, 0.065), (69.0, 0.09), (75.0, 0.13), (90.0, 0.14), (108.0, 0.14)],
+            m,
+        ),
+        loss_corner: curve(&[(21.0, 5000.0), (48.0, 7000.0), (60.0, 10_000.0), (108.0, 10_000.0)], m),
+        lift: curve(&[(21.0, 0.3), (36.0, 0.5), (45.0, 0.8), (54.0, 0.3), (72.0, 0.2), (84.0, 0.0)], m),
+        tilt: curve(&[(21.0, 0.2), (36.0, 0.4), (42.0, 1.6), (69.0, 1.6), (75.0, 2.5), (87.0, 2.0), (108.0, 2.0)], m),
+        polarisation_hz: curve(&[(21.0, 0.3), (48.0, 0.22), (72.0, 0.15), (108.0, 0.1)], m),
         damped_t60: curve(&[(21.0, 0.9), (48.0, 0.45), (72.0, 0.25), (88.0, 0.18)], m),
         damper: m < LAST_DAMPER,
-        voicing: curve(&[(21.0, 1.0), (108.0, 1.0)], m),
+        voicing: 10f32.powf(
+            curve(
+                &[
+                    (21.0, -5.0),
+                    (30.0, -3.0),
+                    (36.0, 0.0),
+                    (42.0, 4.0),
+                    (48.0, 4.0),
+                    (54.0, 1.5),
+                    (60.0, 0.0),
+                    (84.0, 0.0),
+                    (93.0, -4.0),
+                    (99.0, 0.0),
+                    (108.0, 4.0),
+                ],
+                m,
+            ) / 20.0,
+        ),
     }
 }
 
@@ -250,6 +364,16 @@ fn pole(freq: f32, t60: f32, sr: f32) -> (f32, f32) {
     (r * w.cos(), r * w.sin())
 }
 
+/// Above about this frequency a partial's aftersound fades: weaker, and shorter. On the recorded
+/// grands even the upper partials keep an aftersound 15 to 20 dB down, so as a note rings its highs
+/// stay 20 to 30 dB under its mids; faded from a kilohertz up, they fell 45 to 60 dB under.
+const AFTERSOUND_CORNER: f32 = 4000.0;
+
+/// The velocity at which [`Key::tilt`] holds, and how much more each octave of partials leans per
+/// unit of velocity below it (dB): fitted to the recordings' pp, mf and ff.
+const FORTE: f32 = 0.88;
+const TILT_PER_VELOCITY: f32 = 4.0;
+
 /// The hammer's thud per newton of force, and the phantom partials' strength in the bass.
 const THUMP: f32 = 0.025;
 const PHANTOM: f32 = 0.3;
@@ -272,7 +396,7 @@ impl PianoVoice {
             _ => &[0.0, 1.0, -0.8],
         };
         let mode_mass = model.mu * model.length / 2.0;
-        let mut modes: Vec<(f32, f32, f32, f32, f32, f32)> = Vec::new();
+        let mut modes: Vec<(f32, f32, f32, f32, f32, f32, f32)> = Vec::new();
         for n in 1..=MAX_PARTIALS {
             let nf = n as f32;
             let fn_ = nf * model.f0 * (1.0 + model.b * nf * nf).sqrt();
@@ -283,12 +407,17 @@ impl PianoVoice {
             if shape.abs() < 0.02 {
                 continue;
             }
-            // Losses rise with frequency (air, the felt-covered ends, the soundboard), with some
-            // irregularity per partial as the soundboard couples to each differently.
+            // Losses rise with frequency (air, the felt-covered ends), the low partials drain into
+            // the soundboard sooner than the high ones, and each partial couples to it a little
+            // differently.
             let irregular = 0.8 + 0.45 * hash01(u32::from(key), n as u32);
-            let rise = 1.0 + (fn_ * fn_ - model.f0 * model.f0) / (model.loss_corner * model.loss_corner);
-            let t60 = model.t60 * irregular / rise;
-            let t60_after = (model.t60_after * irregular / rise).max(t60);
+            let rise = 1.0 + (fn_ - model.f0).max(0.0) / model.loss_corner;
+            let t60 = model.t60 * irregular * (1.0 + model.lift * (1.0 - nf.recip())) / rise;
+            // The aftersound: the bridge lets the strings' slow motion through, less of it and for
+            // less long in the highest partials.
+            let high = 1.0 + fn_ / AFTERSOUND_CORNER;
+            let t60_after = (t60 + (model.t60_after - model.t60) * irregular / rise / high).max(t60);
+            let after_level = model.after_level / high;
             let damped = model.damped_t60.min(t60);
             // A newton-second of impulse at the striking point moves the mode this much.
             let omega = std::f32::consts::TAU * fn_;
@@ -301,18 +430,21 @@ impl PianoVoice {
                 let f = fn_ * 2f32.powf(cents * spread / 1200.0);
                 // Each string's prompt decay differs a little.
                 let t = t60 * (0.9 + 0.2 * hash01(u32::from(key) * 3 + s as u32, n as u32));
-                modes.push((f, t, damped, kick, shape * share, out * share));
+                modes.push((f, t, damped, kick, shape * share, out * share, nf.log2()));
             }
             // The aftersound: the strings' slow motion, as the bridge lets it through.
-            let f = fn_ * 2f32.powf((hash01(u32::from(key), n as u32 + 999) - 0.5) * 0.15 / 1200.0);
-            modes.push((f, t60_after, damped, kick * model.after_level, 0.0, out));
+            let f = fn_ + (hash01(u32::from(key), n as u32 + 999) * 2.0 - 1.0) * model.polarisation_hz;
+            modes.push((f, t60_after, damped, kick * after_level, 0.0, out, nf.log2()));
         }
         let mut blocks = Vec::with_capacity(modes.len().div_ceil(LANES));
         for chunk in modes.chunks(LANES) {
             let mut b = Block::default();
-            for (lane, &(f, t60, damped, kick, contact, out)) in chunk.iter().enumerate() {
+            for (lane, &(f, t60, damped, kick, contact, out, octave)) in chunk.iter().enumerate() {
                 let (ur, ui) = pole(f, t60, sr);
                 let (dr, di) = pole(f, damped, sr);
+                if let (Some(o0), Some(o)) = (b.out0.get_mut(lane), b.octave.get_mut(lane)) {
+                    (*o0, *o) = (out, octave);
+                }
                 if let (Some(a), Some(b2), Some(c), Some(d), Some(e), Some(g), Some(h), Some(i), Some(j)) = (
                     b.cr.get_mut(lane),
                     b.ci.get_mut(lane),
@@ -368,6 +500,16 @@ impl PianoVoice {
     /// The hammer strikes (again): it meets the strings where they are now.
     pub fn strike(&mut self, velocity: f32) {
         let y = self.displacement();
+        // Voiced for this blow: each octave of partials this many dB darker. It is applied where the
+        // strings meet the bridge, not to the hammer's blow: the felt's contact with the strings
+        // would sharpen to make up for strings voiced darker under it.
+        let lean = self.model.tilt + TILT_PER_VELOCITY * (FORTE - velocity.clamp(0.0, 1.0));
+        let per_octave = 10f32.powf(-lean / 20.0);
+        for b in &mut self.blocks {
+            for ((o, o0), octave) in b.out.iter_mut().zip(&b.out0).zip(&b.octave) {
+                *o = o0 * per_octave.powf(*octave);
+            }
+        }
         self.hammer = Some(Hammer {
             y,
             v: hammer_speed(velocity),
@@ -631,18 +773,50 @@ mod tests {
     #[test]
     fn octaves_are_tuned_to_the_strings_partials_so_they_do_not_beat() {
         // A tuner's octave: the upper note's fundamental on the lower note's second partial (in
-        // the bass, its second on the lower's fourth), within a fraction of a cent.
+        // the bass, its second on the lower's fourth, and higher pairs lower down), within a
+        // fraction of a cent.
         for lower in [24.0f32, 36.0, 48.0, 60.0, 72.0, 84.0] {
             let (a, b) = (
                 key_model(tuned(lower) / 2f32.powf(stretch_cents(lower) / 1200.0), PianoTone::GRAND),
                 key_model(440.0 * 2f32.powf((lower + 12.0 - 69.0) / 12.0), PianoTone::GRAND),
             );
             let partial = |k: &Key, n: f32| n * k.f0 * (1.0 + k.b * n * n).sqrt();
-            let (lo, hi) = if lower >= 57.0 { (partial(&a, 2.0), partial(&b, 1.0)) } else { (partial(&a, 4.0), partial(&b, 2.0)) };
+            let n = if lower >= 57.0 { tuned_partial_above(lower) } else { tuned_partial_below(lower) };
+            let (lo, hi) = (partial(&a, n), partial(&b, n / 2.0));
             let cents = 1200.0 * (hi / lo).log2();
             println!("octave from {lower}: {cents:+.2} cents");
             assert!(cents.abs() < 0.5, "{lower}: {cents}");
         }
-        assert!(stretch_cents(108.0) > 10.0 && stretch_cents(21.0) < -5.0, "stretched both ways");
+        // As the recorded grands: about 20 cents flat at A0, 10 sharp at C7.
+        println!("stretch: A0 {:+.1}, C1 {:+.1}, C7 {:+.1} cents", stretch_cents(21.0), stretch_cents(24.0), stretch_cents(96.0));
+        assert!((-26.0..-15.0).contains(&stretch_cents(21.0)) && (6.0..14.0).contains(&stretch_cents(96.0)), "stretched both ways");
+    }
+
+    #[test]
+    fn partials_decay_as_the_recorded_grands_do() {
+        // Middle C's partials fall at nearly its fundamental's rate up to several kilohertz (the
+        // tenth and the twentieth in two to four seconds), not within a second (an electric piano).
+        let k = key_model(261.6, PianoTone::GRAND);
+        let t60 = |n: f32| {
+            let f = n * k.f0 * (1.0 + k.b * n * n).sqrt();
+            k.t60 * (1.0 + k.lift * (1.0 - n.recip())) / (1.0 + (f - k.f0) / k.loss_corner)
+        };
+        println!("C4 T60: p1 {:.1} s, p10 {:.1} s, p20 {:.1} s", t60(1.0), t60(10.0), t60(20.0));
+        assert!((1.8..4.5).contains(&t60(10.0)) && (1.2..4.0).contains(&t60(20.0)));
+        assert!(t60(10.0) > 0.6 * t60(1.0));
+    }
+
+    #[test]
+    fn a_note_falls_quickly_then_hangs_on_in_its_aftersound() {
+        // Middle C at mezzo-forte on the recorded grands: 20 to 30 dB down within a second or so,
+        // then about 2 dB a second (an aftersound of half a minute), not one steady fall.
+        let x = render(261.6, 0.63, 9.0);
+        let at = |t: f32| 20.0 * rms(&x[(t * SR) as usize..((t + 0.2) * SR) as usize]).log10();
+        let peak = at(0.0);
+        let (one, two, eight) = (at(1.2) - peak, at(2.0) - peak, at(8.0) - peak);
+        let late = (two - eight) / 6.0;
+        println!("C4 mf: {one:.1} dB at 1.2 s, {two:.1} at 2 s, {eight:.1} at 8 s; late fall {late:.1} dB/s");
+        assert!((-32.0..-14.0).contains(&one), "{one}");
+        assert!((0.5..4.0).contains(&late), "{late}");
     }
 }

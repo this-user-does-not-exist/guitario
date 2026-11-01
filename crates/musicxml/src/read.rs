@@ -135,6 +135,9 @@ struct XNote {
     fret: Option<u8>,
     drum: Option<u8>,
     tie_stop: bool,
+    /// A slur starts or stops on this note.
+    slur_start: bool,
+    slur_stop: bool,
     dead: bool,
     effects: guitario_score::NoteEffects,
     /// A tremolo, a stroke, a technique, a brush: written on notes, held by the beat.
@@ -257,7 +260,15 @@ impl Reader {
                         info.pan = dec(mi, "pan").map(|p| (p.clamp(-90.0, 90.0) * 63.0 / 90.0).round() as i8);
                     }
                     if let (Some(iid), Some(u)) = (mi.attribute("id"), num::<u8>(mi, "midi-unpitched")) {
-                        info.unpitched.insert(iid.to_string(), u.saturating_sub(1).min(127));
+                        // An instrument named as one of the kit's articulations (a choked crash
+                        // sounds as the crash) is that articulation.
+                        let named = children(sp, "score-instrument")
+                            .find(|si| si.attribute("id") == Some(iid))
+                            .and_then(|si| text(si, "instrument-name"))
+                            .and_then(|name| guitario_theory::drums::KIT.iter().find(|p| p.name.eq_ignore_ascii_case(name.trim())))
+                            .filter(|p| p.plays == u.saturating_sub(1))
+                            .map(|p| p.midi);
+                        info.unpitched.insert(iid.to_string(), named.unwrap_or(u.saturating_sub(1).min(127)));
                     }
                 }
                 infos.insert(id.to_string(), info);
@@ -584,10 +595,10 @@ impl Reader {
             let from_staff = || {
                 let step = text(u, "display-step")?;
                 let octave: i32 = num(u, "display-octave")?;
-                let cross = text(n, "notehead") == Some("x");
+                let cross = matches!(text(n, "notehead"), Some("x" | "circle-x" | "circled"));
                 let pieces = guitario_theory::drums::KIT;
                 let at = |p: &guitario_theory::drums::DrumPiece| drum_display(p.staff_pos) == (step.chars().next().unwrap_or('E'), octave);
-                pieces.iter().find(|p| at(p) && p.cross == cross).or_else(|| pieces.iter().find(|p| at(p))).map(|p| p.midi)
+                pieces.iter().find(|p| at(p) && p.cross() == cross).or_else(|| pieces.iter().find(|p| at(p))).map(|p| p.midi)
             };
             x.drum = from_instrument.or_else(from_staff).or(Some(38));
         } else if xp.drums
@@ -607,6 +618,11 @@ impl Reader {
             for e in no.children().filter(Node::is_element) {
                 match e.tag_name().name() {
                     "tied" if e.attribute("type") == Some("stop") => x.tie_stop = true,
+                    "slur" => match e.attribute("type") {
+                        Some("start") => x.slur_start = true,
+                        Some("stop") => x.slur_stop = true,
+                        _ => {}
+                    },
                     "slide" if e.attribute("type") == Some("start") => x.effects.slide = Some(Slide::Shift),
                     "glissando" if e.attribute("type") == Some("start") => x.effects.slide = Some(Slide::Legato),
                     "fermata" => x.fermata = true,
@@ -739,6 +755,7 @@ impl Reader {
         let mut score = std::mem::take(&mut self.score);
         score.headers = headers;
         score.tracks = tracks;
+        score.end_slurs();
         score.validate()?;
         let warnings = self.warnings.iter().map(|(w, n)| if *n > 1 { format!("{w} ({n}×)") } else { w.clone() }).collect();
         Ok(Import { score, warnings })
@@ -782,6 +799,8 @@ impl Reader {
         let mut lyric_marks: Vec<Vec<(usize, usize, String, String)>> = vec![Vec::new(); guitario_score::MAX_LYRIC_LINES];
         let mut overflow = 0usize;
         let mut dropped_voices = 0usize;
+        // Per voice: whether a slur is open, so each beat under it is slurred on to the next.
+        let mut slurring = [false; MAX_VOICES];
         for (mi, (xm, header)) in part.measures.iter().zip(headers).enumerate() {
             let cap = u64::from(header.capacity());
             let mut voices: Vec<Voice> = Vec::new();
@@ -804,12 +823,24 @@ impl Reader {
                         overflow += 1;
                         continue;
                     }
+                    let slurred = slurring.get(*vkey).copied().unwrap_or(false);
                     if start > at {
                         for d in fill(start - at) {
-                            voice.beats.push(Beat::rest(d));
+                            voice.beats.push(Beat { legato: slurred, ..Beat::rest(d) });
                         }
                         at = start;
                     }
+                    // A slur that stops here ends on this beat; one that starts here (perhaps as
+                    // another stops) slurs it on.
+                    if let Some(open) = slurring.get_mut(*vkey) {
+                        if xb.notes.iter().any(|n| n.slur_stop) {
+                            *open = false;
+                        }
+                        if xb.notes.iter().any(|n| n.slur_start) {
+                            *open = true;
+                        }
+                    }
+                    let slurred = slurring.get(*vkey).copied().unwrap_or(false);
                     let mut ticks = if xb.ticks == 0 && xb.notes.is_empty() { cap.saturating_sub(at) } else { xb.ticks };
                     if at + ticks > cap {
                         overflow += usize::from(at + ticks > cap + 1);
@@ -824,7 +855,7 @@ impl Reader {
                     };
                     let placed = if xb.notes.is_empty() { Vec::new() } else { self.place(&track, xb, &mut hand, &mut prev_strings) };
                     for (i, d) in pieces.into_iter().enumerate() {
-                        let mut beat = Beat::rest(d);
+                        let mut beat = Beat { legato: slurred, ..Beat::rest(d) };
                         if !placed.is_empty() {
                             beat.rest = false;
                             beat.notes =
@@ -900,6 +931,18 @@ impl Reader {
                 let free = (0..8u8).filter(|l| !out.iter().any(|(n, _)| n.string == *l)).min_by_key(|l| (i16::from(*l) - i16::from(lane)).abs());
                 if let Some(l) = free {
                     out.push((self.note(Note::new(l, key), xn, None), xn.clone()));
+                }
+            }
+            // Hits are kept in lane order, as entering them leaves them.
+            out.sort_by_key(|(n, _)| n.string);
+            // A flam: the grace note joins the hit on its lane, or the first hit.
+            for (g, on_beat, duration, transition) in &xb.graces {
+                let Some(drum) = g.drum.or(g.key) else { continue };
+                let lane = guitario_theory::drums::lane_for(drum);
+                let at = out.iter().position(|(n, _)| n.string == lane).or(if out.is_empty() { None } else { Some(0) });
+                match at.and_then(|i| out.get_mut(i)) {
+                    Some((n, _)) => n.effects.grace = Some(Grace { fret: drum, duration: *duration, transition: *transition, on_beat: *on_beat, dead: g.dead }),
+                    None => self.warn("grace notes with no drum hit after them were left out"),
                 }
             }
             return out;

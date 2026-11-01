@@ -17,7 +17,7 @@ AppId={{6E1C4C7B-5B2F-4D8C-9A57-2F1C0E8B4A31}
 AppName=Guitario
 AppVersion={#Version}
 AppPublisher=Guitario contributors
-AppPublisherURL=https://github.com/timothydaly1/guitario
+AppPublisherURL=https://github.com/this-user-does-not-exist/guitario
 DefaultDirName={autopf}\Guitario
 DefaultGroupName=Guitario
 DisableProgramGroupPage=yes
@@ -53,7 +53,6 @@ Name: "gpdefault"; Description: "Open Guitar Pro files (.gp, .gp5 …) with Guit
 [Registry]
 ; Guitario's own scores open with it.
 Root: HKA; Subkey: "Software\Classes\.gt"; ValueType: string; ValueName: ""; ValueData: "Guitario.Score"; Flags: uninsdeletevalue
-Root: HKA; Subkey: "Software\Classes\.gt"; ValueType: string; ValueName: ""; ValueData: "Guitario.Score"; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\Guitario.Score"; ValueType: string; ValueName: ""; ValueData: "Guitario Score"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\Guitario.Score\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\guitario.exe,0"
 Root: HKA; Subkey: "Software\Classes\Guitario.Score\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\guitario.exe"" ""%1"""
@@ -74,7 +73,6 @@ Root: HKA; Subkey: "Software\Classes\.gp"; ValueType: string; ValueName: ""; Val
 Root: HKA; Subkey: "Software\Classes\.gp5"; ValueType: string; ValueName: ""; ValueData: "Guitario.Tablature"; Tasks: gpdefault; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\.gpx"; ValueType: string; ValueName: ""; ValueData: "Guitario.Tablature"; Tasks: gpdefault; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\Applications\guitario.exe\SupportedTypes"; ValueType: string; ValueName: ".gt"; ValueData: ""; Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\Classes\Applications\guitario.exe\SupportedTypes"; ValueType: string; ValueName: ".gt"; ValueData: ""
 Root: HKA; Subkey: "Software\Classes\Applications\guitario.exe\SupportedTypes"; ValueType: string; ValueName: ".gp"; ValueData: ""
 Root: HKA; Subkey: "Software\Classes\Applications\guitario.exe\SupportedTypes"; ValueType: string; ValueName: ".gpx"; ValueData: ""
 Root: HKA; Subkey: "Software\Classes\Applications\guitario.exe\SupportedTypes"; ValueType: string; ValueName: ".gp5"; ValueData: ""

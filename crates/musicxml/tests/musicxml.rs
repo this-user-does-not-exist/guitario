@@ -109,7 +109,7 @@ fn every_demo_comes_back_bar_for_bar() {
 
 #[test]
 fn the_export_is_well_formed_and_names_its_tuning() {
-    let (_, s) = scores().into_iter().find(|(n, _)| n.contains("seven")).unwrap();
+    let (_, s) = scores().into_iter().find(|(n, _)| n.contains("toccata")).unwrap();
     let xml = export(&s).xml;
     roxmltree::Document::parse_with_options(&xml, roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() }).unwrap();
     assert!(xml.contains(r#"<score-partwise version="4.0">"#));
@@ -282,13 +282,13 @@ fn hostile_files_are_refused_without_a_panic() {
     }
 }
 
-/// Steel Horizon (an original demo) exported here, opened in MuseScore 4 and written back out by
-/// it: a file from another program, without string and fret data.
+/// Steel Horizon (a former original demo) as exported here, and the same file opened in MuseScore 4
+/// and written back out by it: a file from another program, without string and fret data.
 #[test]
 fn a_file_written_by_musescore_imports_with_the_same_music() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/steel-horizon-musescore.musicxml");
-    let back = import(&std::fs::read(path).unwrap()).unwrap().score;
-    let (_, s) = scores().into_iter().find(|(n, _)| n.contains("steel")).unwrap();
+    let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let back = import(&std::fs::read(data.join("steel-horizon-musescore.musicxml")).unwrap()).unwrap().score;
+    let s = import(&std::fs::read(data.join("steel-horizon.musicxml")).unwrap()).unwrap().score;
     assert_eq!((back.headers.len(), back.tracks.len(), back.tempo, &back.meta.title), (s.headers.len(), s.tracks.len(), s.tempo, &s.meta.title));
     for (ta, tb) in s.tracks.iter().zip(&back.tracks) {
         assert_eq!((&ta.name, &ta.tuning.strings, ta.kind), (&tb.name, &tb.tuning.strings, tb.kind));
@@ -308,4 +308,57 @@ fn a_file_written_by_musescore_imports_with_the_same_music() {
         };
         assert_eq!(heard(ta), heard(tb), "{}", ta.name);
     }
+}
+
+#[test]
+fn drum_articulations_and_flams_come_back() {
+    use guitario_score::{Grace, Note, Track};
+    use guitario_theory::{Duration, NoteValue, drums::lane_for};
+    let mut s = Score::new();
+    s.tracks = vec![Track::drums("Drums", &s.headers)];
+    let hit = |midi: u8| Note::new(lane_for(midi), midi);
+    let mut flam = hit(38);
+    flam.effects.grace = Some(Grace::new(38));
+    let mut ghost = hit(91);
+    ghost.effects.ghost = true;
+    s.tracks[0].measures[0].voices[0].beats = vec![
+        Beat { rest: false, notes: vec![hit(97), hit(36)], ..Beat::rest(Duration::QUARTER) },
+        Beat { rest: false, notes: vec![hit(92), flam], ..Beat::rest(Duration::QUARTER) },
+        Beat { rest: false, notes: vec![ghost], ..Beat::rest(Duration::new(NoteValue::Half)) },
+    ];
+    let xml = export(&s).xml;
+    // Other programs hear the General MIDI drum and see the head.
+    assert!(xml.contains("<midi-unpitched>50</midi-unpitched>") && xml.contains("Crash (choke)"), "the choke sounds as the crash");
+    assert!(xml.contains("<notehead>circled</notehead>") && xml.contains(r#"<notehead parentheses="yes">diamond</notehead>"#));
+    let back = import(xml.as_bytes()).unwrap().score;
+    let b = &back.tracks[0].measures[0].voices[0].beats;
+    let frets = |i: usize| {
+        let mut f: Vec<u8> = b[i].notes.iter().map(|n| n.fret).collect();
+        f.sort_unstable();
+        f
+    };
+    assert_eq!((frets(0), frets(1), frets(2)), (vec![36, 97], vec![38, 92], vec![91]));
+    assert!(b[1].notes.iter().any(|n| n.fret == 38 && n.effects.grace.is_some_and(|g| g.fret == 38)), "the flam");
+    assert!(b[2].notes[0].effects.ghost);
+}
+
+#[test]
+fn a_slur_across_a_bar_line_comes_back() {
+    use guitario_score::{Measure, Note};
+    use guitario_theory::Duration;
+    let mut s = Score::new();
+    let h = s.headers[0].clone();
+    s.headers.push(h.clone());
+    s.tracks[0].measures.push(Measure::empty_for(&h));
+    for (mi, m) in s.tracks[0].measures.iter_mut().enumerate() {
+        m.voices[0].beats = (0..4u8).map(|i| Beat { rest: false, notes: vec![Note::new(1, i + 4 * mi as u8)], ..Beat::rest(Duration::QUARTER) }).collect();
+    }
+    for (m, b) in [(0, 2), (0, 3), (1, 0)] {
+        s.tracks[0].measures[m].voices[0].beats[b].legato = true;
+    }
+    let xml = export(&s).xml;
+    assert_eq!((xml.matches(r#"<slur type="start""#).count(), xml.matches(r#"<slur type="stop""#).count()), (1, 1));
+    let back = import(xml.as_bytes()).unwrap().score;
+    let legato = |s: &Score| -> Vec<bool> { s.tracks[0].measures.iter().flat_map(|m| &m.voices[0].beats).map(|b| b.legato).collect() };
+    assert_eq!(legato(&back), legato(&s));
 }

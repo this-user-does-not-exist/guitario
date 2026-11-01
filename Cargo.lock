@@ -1582,7 +1582,6 @@ dependencies = [
  "egui",
  "guitario-engine",
  "guitario-ui-egui",
- "serde_json",
  "winresource",
 ]
 
@@ -1626,6 +1625,7 @@ version = "0.1.0"
 dependencies = [
  "craft-atomic",
  "guitario-score",
+ "guitario-theory",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

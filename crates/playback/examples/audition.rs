@@ -1,6 +1,8 @@
 //! Renders auditions of the modelled instruments (grand piano, violin family, string sections and
 //! a string orchestra) to WAV files, through the same player the app uses:
 //! `cargo run -p guitario-playback --release --example audition -- <dir> [name …]`.
+//! `-- <dir> --keys C4@mf A0@ff …` renders single piano keys instead, each held until it has died
+//! away, to measure against recordings of a real piano.
 //!
 //! Each audition is an original phrase written in a small notation: bars split by `|`, beats by
 //! spaces. A beat is a note value (`1 2 4 8 16`, `.` dotted), then `:` and its notes as names
@@ -389,13 +391,37 @@ fn references() -> Vec<(String, Score)> {
     out
 }
 
+/// Single piano keys, each struck once and held until it has died away, to set beside recordings
+/// of a real piano (`--keys C4@mf A0@ff …`): one WAV per key, `piano.<dynamic>.<key>.wav`.
+fn keys(list: &[String]) -> Vec<(String, Score)> {
+    list.iter()
+        .map(|k| {
+            let (note, dyn_) = k.split_once('@').unwrap_or((k, "mf"));
+            // Bars of 8 s: the bass rings for half a minute, the treble for a few seconds.
+            let bars = match pitch(note) {
+                0..=47 => 5,
+                48..=71 => 3,
+                _ => 2,
+            };
+            let text: &'static str = Box::leak(format!("1:{note}@{dyn_}!l{}", " | 1:r".repeat(bars - 1)).into_boxed_str());
+            (format!("piano.{dyn_}.{note}"), score(30, &[Part::new("Piano", 0, keyboard(), vec![text])]))
+        })
+        .collect()
+}
+
 fn main() {
     let mut args = std::env::args().skip(1);
     let dir = PathBuf::from(args.next().unwrap_or_else(|| "auditions".into()));
-    let only: Vec<String> = args.collect();
+    let mut only: Vec<String> = args.collect();
     std::fs::create_dir_all(&dir).expect("output directory");
-    let all = auditions().into_iter().map(|(n, s)| (n.to_string(), s)).chain(references());
-    for (name, score) in all {
+    let list = if only.first().is_some_and(|a| a == "--keys") {
+        let list = keys(&only[1..]);
+        only.clear();
+        list
+    } else {
+        auditions().into_iter().map(|(n, s)| (n.to_string(), s)).chain(references()).collect()
+    };
+    for (name, score) in list {
         let reference = name.starts_with("ref-");
         let asked = only.iter().any(|o| *o == name || (reference && o == "ref"));
         if (only.is_empty() && reference) || (!only.is_empty() && !asked) {

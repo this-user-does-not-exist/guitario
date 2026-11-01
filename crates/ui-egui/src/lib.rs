@@ -13,6 +13,8 @@ mod bar_check;
 mod bend_dialog;
 mod bend_draw;
 mod chord_dialog;
+mod documents;
+mod drum_grid;
 mod effects_ui;
 mod fonts;
 mod fretboard;
@@ -89,6 +91,8 @@ pub struct ViewState {
     pub instrument: instrument::Display,
     /// The fretboard drawn for a left-handed player, the nut at the right.
     pub left_handed: bool,
+    /// The drum track's pads or step grid.
+    pub drums: instrument::DrumView,
     /// A scale the Scale tool shows on the fretboard and keyboard views: its key note, its index
     /// in the scale library, and whether its key note is spelled with a flat.
     pub scale: Option<(u8, usize, bool)>,
@@ -110,7 +114,11 @@ pub struct Transport {
 }
 
 pub struct GuitarioApp {
+    /// The document shown; the other open tabs wait in `docs` (see `documents`).
     session: Session,
+    docs: Vec<documents::Doc>,
+    /// The shown document's place among the tabs.
+    active: usize,
     status: String,
     status_is_error: bool,
     /// The message the toast shows and since when: Guitar Pro has no status bar, so a message
@@ -138,9 +146,9 @@ pub struct GuitarioApp {
     /// The Sound Bank window, its installer and the first-run offer.
     bank_window: bank_window::BankWindow,
     settings: prefs::Store,
-    /// A New/Open/Close waiting on the unsaved-changes prompt.
+    /// A close waiting on the unsaved-changes prompt.
     pending: Option<Pending>,
-    /// Don't Save was chosen, so the next close may go ahead.
+    /// Every unsaved document was answered for, so the window may close.
     discard_confirmed: bool,
     about_open: bool,
     print: print_dialog::PrintDialog,
@@ -174,21 +182,23 @@ pub struct GuitarioApp {
     fullscreen: bool,
     /// Window commands from menu items (full screen, minimize), sent on the next frame.
     viewport_cmds: Vec<egui::ViewportCommand>,
-    /// Autosave and crash recovery; off until the persistent preferences are in use.
+    /// Autosave and crash recovery for the document shown; off until the persistent preferences
+    /// are in use.
     autosave: autosave::Autosave,
 }
 
-/// What the unsaved-changes prompt will do once the user answers.
-#[derive(Clone, Debug, PartialEq)]
+/// What the unsaved-changes prompt will do once the user answers. It always asks about the
+/// document shown.
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum Pending {
-    Close,
-    New,
-    OpenDialog,
-    /// File › Import: a dialog that shows one kind of file (its name and extensions).
-    ImportDialog(&'static str, &'static [&'static str]),
-    OpenPath(String),
-    /// A command that replaces the document (a template, an example).
-    Start(&'static str, Value),
+    /// Close its tab.
+    CloseTab,
+    /// Close its tab, then the others, asking about each unsaved one.
+    CloseAll,
+    /// Close its tab, then every other but the one at this place.
+    CloseOthers(usize),
+    /// Close the window, asking about each unsaved document in turn.
+    Quit,
 }
 
 impl GuitarioApp {
@@ -199,6 +209,8 @@ impl GuitarioApp {
         let status_is_error = startup_error.is_some();
         Self {
             session,
+            docs: Vec::new(),
+            active: 0,
             status: startup_error.unwrap_or_default(),
             status_is_error,
             toast: (String::new(), Instant::now()),
@@ -215,6 +227,7 @@ impl GuitarioApp {
                 hidden: 0,
                 instrument: instrument::Display::Beat,
                 left_handed: false,
+                drums: instrument::DrumView::default(),
                 scale: None,
             },
             inspector_tab: inspector::Tab::Song,
@@ -292,6 +305,7 @@ impl GuitarioApp {
             hidden: 0,
             instrument: p.view.instrument,
             left_handed: p.view.left_handed,
+            drums: p.view.drums,
             scale: None,
         };
         self.panels =
@@ -318,10 +332,9 @@ impl GuitarioApp {
         self
     }
 
-    /// Opens persistent preferences the suite's way: `config.toml` in the platform folder, or
-    /// `GUITARIO_CONFIG_DIR`. The first run after the rename imports Guitario's preferences.
+    /// Opens persistent preferences: `config.toml` in the platform folder, or `GUITARIO_CONFIG_DIR`.
     pub fn open_settings() -> (prefs::Store, craft_settings::LoadReport) {
-        prefs::Store::open_with(craft_settings::OpenOptions::new(craft_settings::Location::Auto).legacy(prefs::legacy_files()))
+        prefs::Store::open_with(craft_settings::OpenOptions::new(craft_settings::Location::Auto))
     }
 
     /// Writes the current UI state into the settings store; it saves shortly after a change.
@@ -339,6 +352,7 @@ impl GuitarioApp {
             keyboard: pn.keyboard,
             instrument: v.instrument,
             left_handed: v.left_handed,
+            drums: v.drums,
         };
         let playback = prefs::PlaybackPrefs {
             metronome: t.metronome,
@@ -373,55 +387,72 @@ impl GuitarioApp {
         self.settings.update(|p| p.push_recent(path));
     }
 
-    /// Runs `action` now, or asks about unsaved changes first.
-    fn guard(&mut self, action: Pending) {
-        if self.session.is_dirty() {
-            self.pending = Some(action);
-        } else {
-            self.perform(action);
-        }
+    /// Opens a file in a new tab (or shows its tab if it is open). Public for the app, which
+    /// opens the files it is given on the command line.
+    pub fn open_file(&mut self, path: &str) {
+        self.open_path(path);
     }
 
-    fn perform(&mut self, action: Pending) {
-        match action {
-            Pending::New => {
-                if self.run("file.new", Value::Null).is_some() {
-                    self.view.hidden = 0;
-                    // As in Guitar Pro, a new file asks for its first track.
-                    self.open_add_track(Some(0));
-                }
-            }
-            Pending::OpenDialog => self.open_dialog_now(),
-            Pending::ImportDialog(name, kinds) => {
-                if let Some(p) = rfd::FileDialog::new().add_filter(name, kinds).pick_file() {
-                    self.open_path_now(&p.display().to_string());
-                }
-            }
-            Pending::OpenPath(p) => self.open_path_now(&p),
-            Pending::Start(id, params) => {
-                if self.run(id, params).is_some() {
-                    self.view.hidden = 0;
-                }
-            }
-            Pending::Close => {}
-        }
-    }
-
-    /// Replaces the document through `id` (a template or an example), asking about unsaved
-    /// changes first.
+    /// Replaces the document through `id` (a template or an example), in a new tab unless the
+    /// one shown is an untouched untitled document.
     pub(crate) fn start_document(&mut self, id: &'static str, params: Value) {
-        self.guard(Pending::Start(id, params));
+        self.open_in_tab(|app| app.run(id, params).is_some());
     }
 
     pub(crate) fn open_path(&mut self, path: &str) {
-        self.guard(Pending::OpenPath(path.to_string()));
+        if let Some(i) = self.tab_of(std::path::Path::new(path)) {
+            self.switch_to(i);
+        } else if !self.open_in_tab(|app| app.run("file.open", json!({"path": path})).is_some()) {
+            return;
+        }
+        self.remember(path);
     }
 
-    fn open_path_now(&mut self, path: &str) {
-        if self.run("file.open", json!({"path": path})).is_some() {
-            self.view.hidden = 0;
-            self.remember(path);
+    /// File › Close (⌘W): closes the tab shown, asking about unsaved changes first.
+    pub(crate) fn close_document(&mut self) {
+        if self.session.is_dirty() {
+            self.pending = Some(Pending::CloseTab);
+        } else {
+            self.close_tab_now();
         }
+    }
+
+    /// The tab menu's Close All: closes every tab, asking about each unsaved one in turn; an
+    /// untitled document is left.
+    pub(crate) fn close_all(&mut self) {
+        while self.tab_count() > 1 || !self.pristine() {
+            if self.session.is_dirty() {
+                self.pending = Some(Pending::CloseAll);
+                return;
+            }
+            self.close_tab_now();
+        }
+    }
+
+    /// The tab menu's Close Others: closes every tab but `keep`, asking about each unsaved one.
+    pub(crate) fn close_others(&mut self, mut keep: usize) {
+        while self.tab_count() > 1 && keep < self.tab_count() {
+            let j = usize::from(keep == 0);
+            self.switch_to(j);
+            if self.session.is_dirty() {
+                self.pending = Some(Pending::CloseOthers(keep));
+                return;
+            }
+            self.close_tab_now();
+            keep -= usize::from(j < keep);
+        }
+    }
+
+    /// The window is closing: shows the first unsaved document and asks about it. False when
+    /// nothing is left to ask about, so the window may close.
+    pub(crate) fn ask_before_quit(&mut self) -> bool {
+        if self.discard_confirmed {
+            return false;
+        }
+        let Some(i) = self.first_dirty_tab() else { return false };
+        self.switch_to(i);
+        self.pending = Some(Pending::Quit);
+        true
     }
 
     /// Shell actions from the menu catalog.
@@ -442,7 +473,8 @@ impl GuitarioApp {
             | U::AlternateEndings
             | U::Directions => {}
             U::Section => self.open_section(),
-            U::CloseDocument => self.new_document(),
+            U::CloseDocument => self.close_document(),
+            U::NextDocument => self.cycle_tab(true),
             U::CheckBarDurations => self.check_bar_durations(),
             U::Save => self.save_dialog(false),
             U::SaveAs => self.save_dialog(true),
@@ -469,8 +501,8 @@ impl GuitarioApp {
             U::Tuner => self.toggle_tuner(),
             U::Lyrics => self.open_lyrics(),
             U::ImportGuitarPro => self.open_dialog(),
-            U::ImportMidi => self.guard(Pending::ImportDialog("MIDI", &guitario_engine::MIDI_EXTENSIONS)),
-            U::ImportMusicXml => self.guard(Pending::ImportDialog("MusicXML", &guitario_engine::MUSICXML_EXTENSIONS)),
+            U::ImportMidi => self.import_dialog("MIDI", &guitario_engine::MIDI_EXTENSIONS),
+            U::ImportMusicXml => self.import_dialog("MusicXML", &guitario_engine::MUSICXML_EXTENSIONS),
             U::ExportMusicXml => self.export_dialog("MusicXML", "musicxml", "file.exportMusicXml"),
             U::Quit => ctx_quit(),
             U::SongInfo => {
@@ -590,7 +622,9 @@ impl GuitarioApp {
 
     /// The unsaved-changes prompt, Guitar Pro style: Save, Don't Save, Cancel.
     fn prompt(&mut self, ctx: &egui::Context) {
-        let Some(pending) = self.pending.clone() else { return };
+        if self.pending.is_none() {
+            return;
+        }
         let name = self.doc_name();
         let mut answer = None;
         egui::Modal::new(egui::Id::new("unsaved-changes")).show(ctx, |ui| {
@@ -610,34 +644,49 @@ impl GuitarioApp {
                 }
             });
         });
-        match answer {
-            Some(1) => {
-                self.save_dialog(false);
-                if !self.session.is_dirty() {
-                    self.pending = None;
-                    self.finish(pending, ctx);
-                }
-            }
-            Some(2) => {
-                self.pending = None;
-                self.discard_confirmed = true;
-                self.finish(pending, ctx);
-            }
-            Some(_) => {
-                self.pending = None;
-                self.discard_confirmed = false;
-            }
-            None => {}
+        if let Some(answer) = answer {
+            self.answer_prompt(answer);
         }
     }
 
-    fn finish(&mut self, pending: Pending, ctx: &egui::Context) {
-        if pending == Pending::Close {
-            self.discard_confirmed = true;
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-        } else {
-            self.discard_confirmed = false;
-            self.perform(pending);
+    /// The prompt's answer: 1 Save, 2 Don't Save, anything else Cancel.
+    fn answer_prompt(&mut self, answer: u8) {
+        let Some(pending) = self.pending else { return };
+        match answer {
+            1 => {
+                self.save_dialog(false);
+                // The save dialog was cancelled or the save failed: the question stays.
+                if self.session.is_dirty() {
+                    return;
+                }
+            }
+            2 => {}
+            _ => {
+                self.pending = None;
+                self.discard_confirmed = false;
+                return;
+            }
+        }
+        self.pending = None;
+        match pending {
+            Pending::CloseTab => self.close_tab_now(),
+            Pending::CloseAll => {
+                self.close_tab_now();
+                self.close_all();
+            }
+            Pending::CloseOthers(keep) => {
+                let closed = self.active;
+                self.close_tab_now();
+                self.close_others(keep - usize::from(closed < keep));
+            }
+            Pending::Quit => {
+                // Saved, or its changes thrown away: either way it is not asked about again.
+                self.close_tab_now();
+                if !self.ask_before_quit() {
+                    self.discard_confirmed = true;
+                    self.viewport_cmds.push(egui::ViewportCommand::Close);
+                }
+            }
         }
     }
 
@@ -688,11 +737,14 @@ impl GuitarioApp {
         }
     }
 
-    pub(crate) fn open_dialog(&mut self) {
-        self.guard(Pending::OpenDialog);
+    /// File › Import: a dialog that shows one kind of file (its name and extensions).
+    fn import_dialog(&mut self, name: &str, kinds: &[&str]) {
+        if let Some(p) = rfd::FileDialog::new().add_filter(name, kinds).pick_file() {
+            self.open_path(&p.display().to_string());
+        }
     }
 
-    fn open_dialog_now(&mut self) {
+    pub(crate) fn open_dialog(&mut self) {
         let mut kinds = guitario_engine::NATIVE_EXTENSIONS.to_vec();
         kinds.extend(guitario_engine::GUITAR_PRO_EXTENSIONS);
         kinds.extend(guitario_engine::MIDI_EXTENSIONS);
@@ -703,12 +755,15 @@ impl GuitarioApp {
             .add_filter("MIDI", &guitario_engine::MIDI_EXTENSIONS)
             .add_filter("MusicXML", &guitario_engine::MUSICXML_EXTENSIONS);
         if let Some(p) = dialog.pick_file() {
-            self.open_path_now(&p.display().to_string());
+            self.open_path(&p.display().to_string());
         }
     }
 
+    /// File › New (⌘N): a new score in a new tab, which asks for its first track as in Guitar Pro.
     pub(crate) fn new_document(&mut self) {
-        self.guard(Pending::New);
+        if self.open_in_tab(|app| app.run("file.new", Value::Null).is_some()) {
+            self.open_add_track(Some(0));
+        }
     }
 
     pub(crate) fn save_dialog(&mut self, as_new: bool) {
@@ -854,7 +909,7 @@ impl GuitarioApp {
     }
 
     pub(crate) fn doc_name(&self) -> String {
-        self.session.path().and_then(|p| p.file_name()).map_or_else(|| "Untitled".to_string(), |n| n.to_string_lossy().into_owned())
+        documents::session_name(&self.session)
     }
 
     fn title(&self) -> String {
@@ -884,6 +939,11 @@ impl GuitarioApp {
     fn handle_keys(&mut self, ctx: &egui::Context) {
         if ctx.egui_wants_keyboard_input() {
             return;
+        }
+        // Before the bindings, whose ⌃⇥ (Next Document) would also take ⌃⇧⇥.
+        let previous = egui::KeyboardShortcut::new(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Tab);
+        if ctx.input_mut(|i| i.consume_shortcut(&previous)) {
+            self.cycle_tab(false);
         }
         for (ks, binding) in keys::bindings() {
             if !ctx.input_mut(|i| i.consume_shortcut(&ks)) {
@@ -1014,9 +1074,11 @@ impl GuitarioApp {
         }
         if self.panels.fretboard {
             // As tall as Guitar Pro's: about 15 points a string.
-            let strings = self.session.score().tracks.get(self.session.cursor().track).map_or(6, |t| t.string_count()) as f32;
+            let track = self.session.score().tracks.get(self.session.cursor().track);
+            let strings = track.map_or(6, |t| t.string_count()) as f32;
+            let grid = self.view.drums.grid && track.is_some_and(guitario_score::Track::is_drums);
             egui::Panel::bottom("fretboard")
-                .exact_size(fretboard::height(strings))
+                .exact_size(if grid { drum_grid::HEIGHT } else { fretboard::height(strings) })
                 .frame(egui::Frame::NONE.fill(t.chrome_dark))
                 .show(ui, |ui| fretboard::show(self, ui));
         }
@@ -1131,9 +1193,9 @@ impl eframe::App for GuitarioApp {
         if QUIT_REQUESTED.swap(false, std::sync::atomic::Ordering::Relaxed) {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
-        if ctx.input(|i| i.viewport().close_requested()) && self.session.is_dirty() && !self.discard_confirmed {
+        // Asked again while the prompt is up, the window still waits for its answer.
+        if ctx.input(|i| i.viewport().close_requested()) && (self.pending == Some(Pending::Quit) || self.ask_before_quit()) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            self.pending = Some(Pending::Close);
         }
         craft_quit::on_close_request(ctx);
     }
@@ -1145,9 +1207,7 @@ impl eframe::App for GuitarioApp {
     fn on_exit(&mut self) {
         self.stop();
         // Saved, or Don't Save was chosen: nothing to recover. Otherwise the copy stays.
-        if !self.session.is_dirty() || self.discard_confirmed {
-            self.autosave.finish();
-        }
+        self.finish_autosaves(self.discard_confirmed);
         let _ = self.settings.flush();
     }
 }

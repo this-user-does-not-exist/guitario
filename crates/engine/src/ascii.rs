@@ -57,11 +57,19 @@ fn render_track(track: &Track, out: &mut String) {
                 note.map_or(String::new(), |n| match n.kind {
                     NoteKind::Dead => "x".to_string(),
                     NoteKind::Tie => format!("({})", n.fret),
+                    // Drum tab's letters: `f` a flam, `g` a ghost note, `#` a choked cymbal, capitals accented.
                     NoteKind::Normal if track.is_drums() => {
-                        if guitario_theory::drums::piece(n.fret).is_some_and(|p| p.cross) {
-                            "x".into()
+                        let piece = guitario_theory::drums::piece(n.fret);
+                        let e = n.effects;
+                        if e.grace.is_some() {
+                            "f".into()
+                        } else if e.ghost {
+                            "g".into()
+                        } else if piece.is_some_and(|p| p.choked()) {
+                            "#".into()
                         } else {
-                            "o".into()
+                            let c = if piece.is_some_and(|p| p.cross()) { "x" } else { "o" };
+                            if e.accent || e.heavy_accent { c.to_uppercase() } else { c.into() }
                         }
                     }
                     NoteKind::Normal => match n.effects.grace {
@@ -157,6 +165,18 @@ mod tests {
         assert!(t.contains("HH|x-|"), "{t}");
         assert!(t.contains("SD|o-|"), "{t}");
         assert!(t.contains("BD|o-|"), "{t}");
+        // A choked crash, an accented hat, a flammed snare and a ghosted kick.
+        let mut hat = Note::new(2, 42);
+        hat.effects.accent = true;
+        let mut snare = Note::new(4, 38);
+        snare.effects.grace = Some(guitario_score::Grace::new(38));
+        let mut kick = Note::new(7, 36);
+        kick.effects.ghost = true;
+        s.tracks[0].measures[0].voices[0].beats = vec![Beat { rest: false, notes: vec![Note::new(0, 97), hat, snare, kick], ..Beat::rest(Duration::WHOLE) }];
+        let t = render(&s);
+        for want in ["CY|#-|", "HH|X-|", "SD|f-|", "BD|g-|"] {
+            assert!(t.contains(want), "{want}: {t}");
+        }
     }
 
     #[test]

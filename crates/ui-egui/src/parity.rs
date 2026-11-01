@@ -7,7 +7,7 @@ use crate::menu_catalog::{Action, CATALOG, MenuItem, TOP};
 use guitario_engine::registry;
 
 /// Live menu items on `main`. A test fails if parity drops below this.
-pub const FLOOR: usize = 173;
+pub const FLOOR: usize = 174;
 
 pub fn is_live(item: &MenuItem) -> bool {
     match item.action {
@@ -91,6 +91,16 @@ mod tests {
     fn catalog_shortcuts_parse() {
         for i in CATALOG.iter().filter(|i| !i.shortcut.is_empty()) {
             assert!(crate::keys::parse(i.shortcut).is_some(), "{}: bad shortcut {}", i.label, i.shortcut);
+        }
+    }
+
+    #[test]
+    fn no_two_items_share_a_shortcut() {
+        let keyed: Vec<_> = CATALOG.iter().filter_map(|i| Some((crate::keys::parse(i.shortcut)?, i.label))).collect();
+        for (n, (k, label)) in keyed.iter().enumerate() {
+            if let Some((_, other)) = keyed.iter().skip(n + 1).find(|(o, _)| o == k) {
+                panic!("{label} and {other} share {k:?}");
+            }
         }
     }
 }

@@ -14,14 +14,14 @@ id = "FILE-2"
 target = "Guitar Pro 7/8 (.gp) import"
 status = "partial"
 stage = "beta"
-note = "notes, rhythms, effects, repeats, tempo, tunings, drum kits (articulation index or Midi number), shared objects; alternate endings, directions, triplet feel, free time, double bars, strums, pick strokes, slap/pop, fades, wide vibrato, heavy accents and tapping too; voices 1-4 are read (rest-only voices dropped); grace notes, chords, lyrics, fermatas and fingering are read; whammy curves (`<Whammy>`) and vibrato with the bar are read and written; tested on demos/guitar-pro/import-test.gp; the format is told by content, so File › Open takes any Guitar Pro file"
+note = "notes, rhythms, effects, repeats, tempo, tunings, slurs (`<Legato origin destination>` on each beat, read and written, a dangling last one cleared), drum kits (articulation index or Midi number; the rim shot, half-open hi-hat, ride edge and chokes are read and written as Guitar Pro 7's kit entries with its heads and technique signs, and flams as grace beats), shared objects; alternate endings, directions, triplet feel, free time, double bars, strums, pick strokes, slap/pop, fades, wide vibrato, heavy accents and tapping too; voices 1-4 are read (rest-only voices dropped); grace notes, chords, lyrics, fermatas and fingering are read; whammy curves (`<Whammy>`) and vibrato with the bar are read and written; tested on demos/guitar-pro/import-test.gp; the format is told by content, so File › Open takes any Guitar Pro file"
 
 [[item]]
 id = "FILE-3"
 target = "Guitar Pro 6 (.gpx) and 3-5 (.gp3/.gp4/.gp5) import"
 status = "done"
 stage = "beta"
-note = "crates/gp/src/legacy.rs and gpx.rs: two voices, chords, repeats and endings, directions, triplet feel, techniques; 39 real GP3-5 and 37 real GP6 files import (local corpus, crates/gp/tests/corpus.rs); GP6 drum hits are read from the kit element and variation (crates/gp/src/gpif.rs gp6_drum, from GP6 files beside their GP5 copies; elements 2 and 4 were never seen and are dropped with a warning); tremolo picking and trills are read; whammy dives are read (GP3 depth as a dip, GP4-5 curves, GP6 `WhammyBar…` properties) and written to `.gp5`"
+note = "crates/gp/src/legacy.rs and gpx.rs: two voices, chords, repeats and endings, directions, triplet feel, techniques; 39 real GP3-5 and 37 real GP6 files import (local corpus, crates/gp/tests/corpus.rs); GP6 drum hits are read from the kit element and variation (crates/gp/src/gpif.rs gp6_drum, from GP6 files beside their GP5 copies and GP7's kit order: snare rim shot, half-open hi-hat, ride edge and cymbal chokes are articulations; elements 2 and 4 were never seen and are dropped with a warning); GP3-5 flams on drum hits are read, and `.gp5` export writes an articulation as its General MIDI piece with a warning, and drops slurs (Guitar Pro 5 has none) with a warning; tremolo picking and trills are read; whammy dives are read (GP3 depth as a dip, GP4-5 curves, GP6 `WhammyBar…` properties) and written to `.gp5`"
 
 [[item]]
 id = "FILE-4"
@@ -41,7 +41,7 @@ id = "FILE-6"
 target = "MusicXML import and export"
 status = "done"
 stage = "beta"
-note = "crates/musicxml (L3): MusicXML 4.0 partwise export and import of .musicxml/.xml and compressed .mxl (File › Import/Export › MusicXML…, File › Open, cli convert). Tunings in staff-details, strings and frets in technical (checked against the pitch, fingered when absent), up to four voices, tuplets, ties, repeats, endings, sections, tempo, keys, dynamics, lyrics, chord names and diagrams, drums as unpitched parts, and the guitar effects; every demo comes back bar for bar; MuseScore 4 reads the export and its own export of a demo imports with the same rhythms and pitches (tests/data). Not written: whammy curves, fades; timewise files are refused"
+note = "crates/musicxml (L3): MusicXML 4.0 partwise export and import of .musicxml/.xml and compressed .mxl (File › Import/Export › MusicXML…, File › Open, cli convert). Tunings in staff-details, strings and frets in technical (checked against the pitch, fingered when absent), up to four voices, tuplets, ties, repeats, endings, sections, tempo, keys, dynamics, lyrics, chord names and diagrams, slurs (`<slur>` start and stop, across bars), drums as unpitched parts (an articulation sounds as its General MIDI drum and comes back by its instrument name; heads per articulation, flams), and the guitar effects; every demo comes back bar for bar; MuseScore 4 reads the export and its own export of a demo imports with the same rhythms and pitches (tests/data). Not written: whammy curves, fades; timewise files are refused"
 
 [[item]]
 id = "FILE-7"

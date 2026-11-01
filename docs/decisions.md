@@ -23,7 +23,7 @@ string gave 7-string guitars a bass clef.
 
 ## 2026-10-15: Fonts are found, not bundled
 
-Under the suite's font rule nothing is committed: the page looks for a SMuFL music font (Bravura or
+Nothing font-related is committed: the page looks for a SMuFL music font (Bravura or
 Leland, both SIL OFL) and Times New Roman/Arial equivalents (Guitar Pro's stylesheet defaults) on
 the system or in `CRAFT_FONTS_DIR`/`GUITARIO_FONTS_DIR`, and draws simpler symbols without them.
 Moving Bravura into craft-fonts is the long-term answer.
@@ -49,15 +49,6 @@ import is an unsaved document, so Save never writes native JSON over a Guitar Pr
 were checked against public test files from other projects, used only as data in a local folder
 (`GUITARIO_GP_CORPUS`, `crates/gp/tests/corpus.rs`); they are not committed, and no code of those
 projects was read. Committed tests round-trip our own demos through the `.gp5` writer instead.
-
-## 2026-10-16: Renamed from Guitario to Guitario
-
-The product is **Guitario**; crates, binaries, ids and environment variables are `guitario`
-(`GUITARIO_*`), and the native file extension is `.gt`. Nothing a user made is lost: `.gt`
-files and the old `"guitario"` format tag still open, the first run imports Guitario's
-`config.toml` through craft-settings' legacy-file hook, and a sound bank installed in Guitario's
-data folder is used until Guitario has its own. Guitario keeps using the shared craft-libs crates
-and shared-rules standards.
 
 ## 2026-10-16: Voices share columns by time
 
@@ -367,7 +358,7 @@ Windows and Linux hand a double-clicked file to the program on its command line,
 already opens. macOS sends it as an Apple Event to the application delegate, and winit 0.30
 registers none and leaves it to the program: receiving it needs an `NSApplicationDelegate`
 declared with objc2, whose class declarations and message sends are `unsafe`. The workspace forbids
-`unsafe_code` (shared-rules' never-crash standard), so the bundle declares the file types (Finder
+`unsafe_code` (the never-crash rule in `AGENTS.md`), so the bundle declares the file types (Finder
 shows the icons and Open With) but a double-click starts Guitario without opening the file.
 The options, for a human: allow one reviewed `unsafe` module in the desktop app (about 60 lines,
 macOS only, the file list handed to the shell as the command line is), or wait for winit to
@@ -458,3 +449,34 @@ numbers that matter are tests, so the calibration cannot drift unnoticed. The re
 fetched to measure against and never shipped or committed: their licences allow that use, and
 Guitario's sound stays its own model.
 
+## 2026-10-19: The piano is fitted to recordings, not tuned by ear
+
+Four listening rounds tuned the modelled piano one complaint at a time, and each fix overshot
+somewhere else (darker bass, then a bell-like midrange, then highs that died within a second). Its
+parameters are now fitted to recordings of two real grands, the University of Iowa Electronic
+Music Studios' Steinway B (free for any use) and the Salamander Grand (a Yamaha C5, CC BY 3.0),
+measured key by key the same way as the model's own renders. Two pianos, not one, so the fit
+follows what grands share rather than one instrument's voicing: where the two differ from each
+other by more than the model differs from their mean, the fit stops.
+
+This is observation, as the clean-room rule asks: the recordings were measured for numbers
+(inharmonicity, decay times, levels, spectral slopes) and none of their sound is in Guitario; they
+are not downloaded by the app or kept in the repository. The measuring scripts are not in the
+repository either (the workspace is Rust only); the method is in the changelog and the numbers are
+in `piano.rs`, whose module notes say which curves are fitted. Where the physical model and the recordings disagree
+the recordings win, as calibration: the spectrum's lean with dynamics is applied where the strings
+meet the bridge, because applied to the hammer's blow the simulated felt sharpened to undo it.
+
+## 2026-10-31: Several documents live in the shell, one `Session` each
+
+Guitar Pro 8 opens each document in a tab. Guitario keeps one `Session` per document in the egui
+shell: the shown one stays the app's `session` field, so every panel and dialog reads the active
+document as before, and the others wait in a list with their undo history, cursor, hidden
+tracks and autosave copy. The engine stays one document per `Session`: the CLI and scripts run
+one score at a time, and a control channel can name the tab when it needs to. Two things are
+shared across tabs: the clipboard, moved to whichever session is shown (`hand_clipboard_to`), so
+a copy in one pastes into another as in Guitar Pro; and the PDF renderer and spooler, which a new
+tab takes from the one before (`Session::sibling`). Switching tabs stops playback, as a
+different score cannot keep playing under the cursor of another. Opening a file into an
+untouched untitled document replaces it instead of adding a tab, so the start-up document never
+lingers next to the first file opened.

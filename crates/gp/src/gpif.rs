@@ -245,6 +245,7 @@ pub fn parse_gpif(xml: &str) -> Result<Import, GpError> {
     if unknown > 0 {
         warnings.push(format!("{unknown} Guitar Pro 6 drum hits on kit pieces Guitario does not know were dropped"));
     }
+    score.end_slurs();
     score.validate()?;
     Ok(Import { score, warnings })
 }
@@ -367,15 +368,16 @@ fn articulations(tn: Node) -> Vec<u8> {
         .collect()
 }
 
-/// A Guitar Pro 6 drum hit: the kit element and its variation, as General MIDI numbers. Read
-/// from files saved by Guitar Pro 6 next to the same song saved as Guitar Pro 5 (which stores the
-/// MIDI number): kick; snare (hit, rim, side stick); cowbell; five toms from the low floor tom up;
-/// hi-hat (closed, half, open) and its pedal; two crashes, splash; ride (middle, edge, bell); china.
+/// A Guitar Pro 6 drum hit: the kit element and its variation, as the kit's numbers. Read from
+/// files saved by Guitar Pro 6 next to the same song saved as Guitar Pro 5 (which stores the MIDI
+/// number) and as Guitar Pro 7 (which names the articulation): kick; snare (hit, rim shot, side
+/// stick); cowbell; five toms from the low floor tom up; hi-hat (closed, half, open) and its pedal;
+/// two crashes and the splash (hit, choke); ride (middle, edge, bell); china (hit, choke).
 /// Elements 2 and 4 were never seen and are left out.
 pub(crate) fn gp6_drum(element: u8, variation: u8) -> Option<u8> {
     let kit: [&[u8]; 17] = [
         &[36],
-        &[38, 40, 37],
+        &[38, 91, 37],
         &[],
         &[56],
         &[],
@@ -384,13 +386,13 @@ pub(crate) fn gp6_drum(element: u8, variation: u8) -> Option<u8> {
         &[45],
         &[47],
         &[48],
-        &[42, 46, 46],
+        &[42, 92, 46],
         &[44],
-        &[49, 49],
-        &[57, 57],
-        &[55, 55],
-        &[51, 51, 53],
-        &[52, 52],
+        &[49, 97],
+        &[57, 98],
+        &[55, 95],
+        &[51, 93, 53],
+        &[52, 96],
     ];
     let piece = kit.get(usize::from(element))?;
     piece.get(usize::from(variation)).or_else(|| piece.first()).copied()
@@ -596,7 +598,7 @@ fn fill_measures(
                 for beat_id in ids(text(voice, "Beats")) {
                     let Some(bn) = lookup(t.2, beat_id) else { continue };
                     if let Some(kind) = text(bn, "GraceNotes") {
-                        if let Some(gb) = build_beat(bn, &t, place, chords).filter(|_| matches!(place, Placement::Strings { .. })) {
+                        if let Some(gb) = build_beat(bn, &t, place, chords) {
                             for (string, grace) in grace_notes(&gb, kind == "OnBeat") {
                                 if let Some(old) = graces.iter_mut().find(|(st, _)| *st == string) {
                                     // Two grace notes on one string: the one nearer the note is kept.
@@ -779,6 +781,7 @@ fn build_beat(bn: Node, t: &Tables, place: Placement, chords: &HashMap<i64, Chor
         _ => Dynamic::Mf,
     };
     beat.text = text(bn, "FreeText").filter(|s| !s.is_empty()).map(str::to_string);
+    beat.legato = child(bn, "Legato").and_then(|l| l.attribute("origin")) == Some("true");
     beat.chord = text(bn, "Chord").and_then(|id| id.parse::<i64>().ok()).and_then(|id| chords.get(&id)).cloned();
     beat_effects(bn, &mut beat);
     // The fraction is the slash count's note value as Guitar Pro writes it: 1/8 one slash, 1/4 two, 1/2 three.
@@ -1020,7 +1023,8 @@ mod tests {
         // Kick and closed hat; snare and open hat; side stick and ride bell; an unknown piece.
         assert_eq!(hits, vec![vec![36, 42], vec![38, 46], vec![37, 53], vec![]]);
         assert!(imp.warnings.iter().any(|w| w.contains("1 Guitar Pro 6 drum hits")), "{:?}", imp.warnings);
-        assert_eq!(gp6_drum(12, 1), Some(49), "a crash choke is still the crash");
+        assert_eq!(gp6_drum(12, 1), Some(97), "the crash choked");
+        assert_eq!((gp6_drum(10, 1), gp6_drum(1, 1), gp6_drum(15, 1)), (Some(92), Some(91), Some(93)), "half-open hat, rim shot, ride edge");
         assert_eq!(gp6_drum(40, 0), None);
     }
 

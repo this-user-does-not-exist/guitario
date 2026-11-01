@@ -14,8 +14,8 @@
   <developer id="ai.storyteller">
     <name>Guitario contributors</name>
   </developer>
-  <url type="homepage">https://github.com/timothydaly1/guitario</url>
-  <url type="bugtracker">https://github.com/timothydaly1/guitario/issues</url>
+  <url type="homepage">https://github.com/this-user-does-not-exist/guitario</url>
+  <url type="bugtracker">https://github.com/this-user-does-not-exist/guitario/issues</url>
   <content_rating type="oars-1.1"/>
   <launchable type="desktop-id">ai.storyteller.guitario.desktop</launchable>
   <categories>

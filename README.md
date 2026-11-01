@@ -4,7 +4,6 @@
   <b>An open-source tablature and notation editor, in pure Rust.</b><br>
   Guitar Pro's layout, menus and keys; tab and standard notation on real pages; playback you can loop and slow down;<br>
   Guitar Pro files in and out. Native, offline, and yours.<br>
-  <sub>Formerly Guitario: <code>.gt</code> files still open.</sub>
 </p>
 
 <p align="center">
@@ -15,9 +14,9 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/guitario-steel-horizon.png" alt="Guitario showing Steel Horizon, an original power-metal demo, in the multitrack view: twin lead guitars in standard notation over tab, with lyrics, the edition palette, the inspector, the fretboard and the global view of five tracks" width="100%">
+  <img src="docs/images/guitario-caprice.png" alt="Guitario showing Paganini's Caprice No. 24 arranged for metal band in the multitrack view: the lead guitar's theme in standard notation over tab with pull-offs, the palm-muted rhythm guitar below, the edition palette, the inspector, the fretboard and the global view of four tracks" width="100%">
   <br>
-  <sub><i>Steel Horizon</i>, one of the original metal demos, in the multitrack view: twin harmony leads, rhythm guitar, bass and drums.</sub>
+  <sub>Paganini's <i>Caprice No. 24</i>, one of the demos, in the multitrack view: lead and rhythm guitar, bass and drums.</sub>
 </p>
 
 > [!WARNING]
@@ -41,13 +40,13 @@
 
 If you know Guitar Pro, you already know Guitario: the same layout, menu bar and shortcuts. Click a
 beat, type a fret number, press <kbd>P</kbd> for palm mute or <kbd>H</kbd> for a hammer-on, press
-<kbd>Space</kbd> to play. Every screenshot below is the real app rendering one of the original demo
-scores offscreen.
+<kbd>Space</kbd> to play. Every screenshot below is the real app rendering one of the demo scores
+offscreen.
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/images/guitario-odd-meters.png" alt="Odd Meter Assault: 7/8, 5/4, 13/16, 6/8 and 12/8 bars in drop D with palm-mute and let-ring lanes, tempo changes and a key change" width="100%">
+      <img src="docs/images/guitario-mars.png" alt="Holst's Mars in 5/4 for a drop D guitar: the ostinato's triplet, quarters and eighths with accents and palm-mute lanes, and a string-by-string tuning legend" width="100%">
       <h3>Notation that reads like Guitar Pro</h3>
       Standard notation and tab joined by a bracket, time signatures on both staves, key signatures, beamed rhythms, rests, tuplets, section boxes, tempo marks and repeats. Tab shows P.M. and let-ring lanes, vibrato, slides and hammer-on arcs. Any tuning from 4 to 12 strings, with presets for drop D, D and C standard, drop B and seven-string.
     </td>
@@ -71,7 +70,7 @@ scores offscreen.
   </tr>
   <tr>
     <td colspan="2" valign="top">
-      <img src="docs/images/guitario-print-preview.png" alt="Print Preview: an A4 page of Steel Horizon with title, tuning, tempo, tab, standard notation and lyrics, with options for this track, all tracks and a full score" width="100%">
+      <img src="docs/images/guitario-print-preview.png" alt="Print Preview: an A4 page of Bach's Little Fugue in G minor with title, composer, tuning, tempo, section marks, standard notation and tab, with options for this track, all tracks and a full score" width="100%">
       <h3>Pages that print</h3>
       File › Print Preview shows exactly what the PDF has: vector pages with embedded font subsets and selectable text, one section per track, in A4, A5, Letter or Legal, portrait or landscape, with your own margins. Print from the app, or export from the command line.
     </td>
@@ -82,7 +81,7 @@ scores offscreen.
 edition palette that shows the current beat, selection with copy, cut, paste and transpose, voices
 1 to 4 with multivoice editing, grace notes, trills, tremolo picking, chord diagrams, lyrics, and
 undo for every edit. The menu bar is Guitar Pro's, and the items not built yet are greyed out
-([menu parity](docs/parity-checklist.md): 161 of 177 live).
+([menu parity](docs/parity-checklist.md): 174 of 181 live).
 
 **Files.** Opens Guitar Pro 3 to 8 files (`.gp3`, `.gp4`, `.gp5`, `.gpx`, `.gp`), including drum
 tracks. Saves `.gt` atomically. Exports `.gp`, `.gp5`, PDF, MIDI, WAV and ASCII tab. Checked on
@@ -91,11 +90,14 @@ through the `.gp5` writer.
 
 ## Demos
 
-[`demos/`](demos/README.md) holds 15 original metal pieces: thrash, doom and death metal, djent on
-a seven-string, power-metal twin leads, black-metal tremolo melodies, odd meters, a shred solo, a
-fingerstyle study in two voices, and a drum-groove reference. Every band piece has a drum part, and
-each score comes with MIDI, ASCII tab and Guitar Pro 5 copies. They are generated from code and
-tested on every change.
+[`demos/`](demos/README.md) holds public-domain classics arranged for metal band: *Flight of the
+Bumblebee* as thrash, Chopin's *Funeral March* as doom, *In the Hall of the Mountain King* as death
+metal, Vivaldi's *Summer* with twin leads, Bach's *Toccata* on a seven-string, Holst's *Mars* in
+5/4, the *Little Fugue*, the *Moonlight Sonata* tremolo picked, Beethoven's Fifth as a breakdown,
+Tárrega's *Lágrima*, Paganini's *Caprice No. 24* as a shred solo, Bach's cello *Prelude* on bass and
+his *Bourrée* in two voices, plus technique and drum-groove references. Every band piece has a drum
+part, and each score comes with MIDI, ASCII tab, Guitar Pro 5 and MusicXML copies. They are
+generated from code and tested on every change.
 
 ## Built for agents
 
@@ -116,7 +118,7 @@ are on the [roadmap](docs/gaps.md#g10-automation).
 
 ```sh
 cargo run --release -p guitario
-cargo run --release -p guitario -- demos/01-thrash-attack.gt
+cargo run --release -p guitario -- demos/01-flight-of-the-bumblebee.gt
 ```
 
 Or build the package for your platform with `cargo xtask package` (into `dist/`): an app bundle
@@ -149,9 +151,9 @@ Details: [architecture](docs/architecture.md), [contributing](docs/contributing.
 | | |
 |---|---|
 | **Stage** | alpha: the six-workflow [alpha gate](docs/roadmap.md#alpha-gate) passes |
-| **Beta gate** | 0 of 8 workflows pass end to end ([the eight](docs/roadmap.md#beta-gate)) |
-| **Menus** | 172 of 180 Guitar Pro menu items live |
-| **Readiness** | about 65 % of Guitar Pro 8, estimated from weighted dimensions |
+| **Beta gate** | 1 of 8 workflows pass end to end ([the eight](docs/roadmap.md#beta-gate)) |
+| **Menus** | 174 of 181 Guitar Pro menu items live |
+| **Readiness** | about 66 % of Guitar Pro 8, estimated from weighted dimensions |
 | **Languages** | English; the localization framework is a beta item |
 
 The [ROADMAP](ROADMAP.md) has every dimension and what comes next. [Gaps](docs/gaps.md) is the

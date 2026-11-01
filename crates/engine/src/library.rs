@@ -1,6 +1,6 @@
 //! What a new document can start from besides a blank score, as Guitar Pro's Homepage offers it:
 //! templates (an empty score for an instrument or a band) and the example scores, Guitario's
-//! original metal demos, built into the program.
+//! metal arrangements of public-domain pieces, built into the program.
 
 use crate::commands::{CommandSpec, cmd};
 use crate::params;
@@ -40,21 +40,21 @@ macro_rules! example {
 
 /// The example scores: id, title, and the `.gt` file built in.
 pub const EXAMPLES: [(&str, &str, &[u8]); 15] = [
-    example!("thrash-attack", "Thrash Attack", "01-thrash-attack.gt"),
-    example!("funeral-procession", "Funeral Procession", "02-funeral-procession.gt"),
-    example!("burial-ground", "Burial Ground", "03-burial-ground.gt"),
-    example!("steel-horizon", "Steel Horizon", "04-steel-horizon.gt"),
-    example!("seven-strings-deep", "Seven Strings Deep", "05-seven-strings-deep.gt"),
-    example!("odd-meter-assault", "Odd Meter Assault", "06-odd-meter-assault.gt"),
-    example!("iron-gallop", "Iron Gallop", "07-iron-gallop.gt"),
-    example!("frostbitten-dawn", "Frostbitten Dawn", "08-frostbitten-dawn.gt"),
-    example!("breakdown-protocol", "Breakdown Protocol", "09-breakdown-protocol.gt"),
-    example!("ashes-to-distortion", "Ashes to Distortion", "10-ashes-to-distortion.gt"),
-    example!("fretboard-fury", "Fretboard Fury", "11-fretboard-fury.gt"),
+    example!("flight-of-the-bumblebee", "Flight of the Bumblebee", "01-flight-of-the-bumblebee.gt"),
+    example!("funeral-march", "Funeral March", "02-funeral-march.gt"),
+    example!("hall-of-the-mountain-king", "In the Hall of the Mountain King", "03-hall-of-the-mountain-king.gt"),
+    example!("summer-presto", "Summer: Presto", "04-summer-presto.gt"),
+    example!("toccata-and-fugue", "Toccata and Fugue in D minor", "05-toccata-and-fugue.gt"),
+    example!("mars", "Mars, the Bringer of War", "06-mars.gt"),
+    example!("little-fugue", "Little Fugue in G minor", "07-little-fugue.gt"),
+    example!("moonlight-sonata", "Moonlight Sonata: Presto agitato", "08-moonlight-sonata.gt"),
+    example!("fifth-symphony", "Symphony No. 5", "09-fifth-symphony.gt"),
+    example!("lagrima", "Lágrima", "10-lagrima.gt"),
+    example!("caprice-24", "Caprice No. 24", "11-caprice-24.gt"),
     example!("metal-technique-showcase", "Metal Technique Showcase", "12-metal-technique-showcase.gt"),
-    example!("bass-rumble", "Bass Rumble", "13-bass-rumble.gt"),
+    example!("cello-prelude", "Cello Suite No. 1: Prelude", "13-cello-prelude.gt"),
     example!("drum-grooves", "Drum Grooves", "14-drum-grooves.gt"),
-    example!("two-voices", "Two Voices", "15-two-voices.gt"),
+    example!("bourree-in-e-minor", "Bourrée in E minor", "15-bourree-in-e-minor.gt"),
 ];
 
 /// The empty score a template starts.
@@ -127,7 +127,7 @@ mod tests {
     #[test]
     fn the_commands_start_an_untitled_unchanged_document() {
         let mut s = Session::new();
-        s.run("file.openExample", &json!({"example": "iron-gallop"})).unwrap();
+        s.run("file.openExample", &json!({"example": "little-fugue"})).unwrap();
         assert!(!s.is_dirty() && s.path().is_none());
         assert!(s.score().tracks.len() > 1);
         s.run("file.newFromTemplate", &json!({"template": "drums"})).unwrap();

@@ -1,15 +1,12 @@
-//! L3 the native `.gt` file: versioned JSON, validated on load, written atomically. Files saved
-//! before the app was renamed from Guitario (`.gt`, format tag `guitario`) still load.
+//! L3 the native `.gt` file: versioned JSON, validated on load, written atomically.
 
 use guitario_score::{Score, ScoreError};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub const FORMAT: &str = "guitario";
-/// The format tag files carried before the rename; read, never written.
-pub const LEGACY_FORMAT: &str = "guitario";
-/// Native file extensions: `.gt`, and `.gt` from before the rename.
-pub const EXTENSIONS: [&str; 2] = ["gt", "gt"];
+/// Native file extensions.
+pub const EXTENSIONS: [&str; 1] = ["gt"];
 pub const VERSION: u32 = 1;
 /// Refuse absurd inputs before parsing.
 const MAX_BYTES: usize = 256 * 1024 * 1024;
@@ -54,18 +51,19 @@ pub fn from_bytes(bytes: &[u8]) -> Result<Score, FormatError> {
     if bytes.len() > MAX_BYTES {
         return Err(FormatError::TooLarge);
     }
-    let file: FileIn = serde_json::from_slice(bytes)?;
-    if file.format != FORMAT && file.format != LEGACY_FORMAT {
+    let mut file: FileIn = serde_json::from_slice(bytes)?;
+    if file.format != FORMAT {
         return Err(FormatError::NotGuitario);
     }
     if file.version > VERSION {
         return Err(FormatError::TooNew(file.version));
     }
+    file.score.upgrade();
     file.score.validate()?;
     Ok(file.score)
 }
 
-/// Saves through the suite's `craft-atomic`: the bytes are staged beside the target, flushed and
+/// Saves through `craft-atomic`: the bytes are staged beside the target, flushed and
 /// renamed, so a crash, a full disk or a locked file never truncates the previous save.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn save(score: &Score, path: &Path) -> Result<(), FormatError> {
@@ -103,13 +101,30 @@ mod tests {
     }
 
     #[test]
-    fn files_from_before_the_rename_still_load() {
+    fn a_slur_saved_as_a_count_of_beats_opens_as_slurred_beats() {
+        // Before 2026-10-31 a slur was `"slur": n` on its first beat: n beats on in the bar.
         let mut s = Score::new();
-        s.meta.title = "Old".into();
+        let q = guitario_theory::Duration::QUARTER;
+        let note = guitario_score::Beat { rest: false, notes: vec![guitario_score::Note::new(0, 3)], ..guitario_score::Beat::rest(q) };
+        s.tracks[0].measures[0].voices[0].beats = vec![note.clone(), note.clone(), note.clone(), note];
         let mut v: serde_json::Value = serde_json::from_slice(&to_bytes(&s).unwrap()).unwrap();
+        v["score"]["tracks"][0]["measures"][0]["voices"][0]["beats"][0]["slur"] = serde_json::json!(2);
+        // One that runs past the bar (stale) stops at its last beat.
+        v["score"]["tracks"][0]["measures"][0]["voices"][0]["beats"][2]["slur"] = serde_json::json!(9);
+        let back = from_bytes(&serde_json::to_vec(&v).unwrap()).unwrap();
+        let legato: Vec<bool> = back.tracks[0].measures[0].voices[0].beats.iter().map(|b| b.legato).collect();
+        assert_eq!(legato, [true, true, true, false]);
+        // Saved again, the new form only.
+        let text = String::from_utf8(to_bytes(&back).unwrap()).unwrap();
+        assert!(text.contains("\"legato\": true") && !text.contains("\"slur\""));
+    }
+
+    #[test]
+    fn other_format_tags_are_refused() {
+        let mut v: serde_json::Value = serde_json::from_slice(&to_bytes(&Score::new()).unwrap()).unwrap();
         assert_eq!(v["format"], "guitario");
-        v["format"] = LEGACY_FORMAT.into();
-        assert_eq!(from_bytes(v.to_string().as_bytes()).unwrap(), s);
+        v["format"] = "something-else".into();
+        assert!(matches!(from_bytes(v.to_string().as_bytes()), Err(FormatError::NotGuitario)));
     }
 
     #[test]

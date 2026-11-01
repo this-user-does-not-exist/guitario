@@ -58,6 +58,19 @@ pub(crate) fn drum_display(staff_pos: i8) -> (char, i32) {
     (letters.get(n.rem_euclid(7) as usize).copied().unwrap_or('E'), n.div_euclid(7))
 }
 
+/// The MusicXML notehead of drum `key` on `track` (`normal` off a drum track).
+fn drum_head(track: &Track, key: u8) -> &'static str {
+    use guitario_theory::drums::Head;
+    match guitario_theory::drums::piece(key).filter(|_| track.is_drums()).map(|p| p.head) {
+        Some(Head::X | Head::HeavyX | Head::HeavyXHat) => "x",
+        Some(Head::CircleX) => "circle-x",
+        Some(Head::CircleSlash) => "circled",
+        Some(Head::Diamond) => "diamond",
+        Some(Head::Triangle) => "triangle",
+        Some(Head::Normal) | None => "normal",
+    }
+}
+
 fn gcd(a: u32, b: u32) -> u32 {
     if b == 0 { a } else { gcd(b, a % b) }
 }
@@ -167,7 +180,8 @@ impl Writer<'_> {
     }
 
     fn drums_used(track: &Track) -> Vec<u8> {
-        let mut keys: Vec<u8> = track.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).flat_map(|b| &b.notes).map(|n| n.fret).collect();
+        let notes = track.measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).flat_map(|b| &b.notes);
+        let mut keys: Vec<u8> = notes.flat_map(|n| std::iter::once(n.fret).chain(n.effects.grace.map(|g| g.fret))).collect();
         keys.sort_unstable();
         keys.dedup();
         keys
@@ -196,7 +210,8 @@ impl Writer<'_> {
                         3,
                         &format!(
                             r#"<midi-instrument id="P{id}-I{k}"><midi-channel>10</midi-channel><midi-program>1</midi-program><midi-unpitched>{}</midi-unpitched><volume>{volume:.1}</volume><pan>{pan:.0}</pan></midi-instrument>"#,
-                            u16::from(*k) + 1
+                            // Guitar Pro's articulations sound as the General MIDI drum they vary.
+                            u16::from(guitario_theory::drums::plays(*k)) + 1
                         ),
                     );
                 }
@@ -685,7 +700,11 @@ impl Writer<'_> {
                 guitario_score::GraceDuration::ThirtySecond => "32nd",
                 guitario_score::GraceDuration::SixtyFourth => "64th",
             };
-            let head = if g.dead { "<notehead>x</notehead>" } else { "" };
+            let head = match if g.dead { "x" } else { drum_head(track, key) } {
+                "normal" => String::new(),
+                h => format!("<notehead>{h}</notehead>"),
+            };
+            let instrument = if track.is_drums() { format!(r#"<instrument id="P{}-I{key}"/>"#, self.part_of(track)) } else { String::new() };
             let transition = if g.transition == guitario_score::GraceTransition::Slide { r#"<slide type="start" line-type="solid"/>"# } else { "" };
             let hammer = if g.transition == guitario_score::GraceTransition::Hammer { r#"<hammer-on type="start">H</hammer-on>"# } else { "" };
             let technical = if track.is_drums() {
@@ -694,7 +713,7 @@ impl Writer<'_> {
                 format!("<technical><string>{}</string><fret>{}</fret>{hammer}</technical>", u16::from(n.string) + 1, g.fret)
             };
             let pitch = self.pitch_xml(track, key, ctx.key);
-            self.line(3, &format!(r#"<note><grace slash="{slash}"/>{chord}{pitch}<voice>{voice}</voice><type>{value}</type>{head}<notations>{transition}{technical}</notations></note>"#));
+            self.line(3, &format!(r#"<note><grace slash="{slash}"/>{chord}{pitch}{instrument}<voice>{voice}</voice><type>{value}</type>{head}<notations>{transition}{technical}</notations></note>"#));
         }
         let (prev, next) = (ctx.prev(), ctx.next());
         let mut first = true;
@@ -724,11 +743,15 @@ impl Writer<'_> {
                 let _ = write!(x, r#"<instrument id="P{}-I{key}"/>"#, self.part_of(track));
             }
             let _ = write!(x, "<voice>{voice}</voice>{}", self.duration_xml(beat.duration));
-            let cross = track.is_drums() && guitario_theory::drums::piece(key).is_some_and(|p| p.cross);
-            if n.kind == NoteKind::Dead || cross {
-                x.push_str("<notehead>x</notehead>");
-            } else if e.ghost {
-                x.push_str(r#"<notehead parentheses="yes">normal</notehead>"#);
+            let head = if n.kind == NoteKind::Dead { "x" } else { drum_head(track, key) };
+            match (head, e.ghost) {
+                ("normal", false) => {}
+                (head, true) => {
+                    let _ = write!(x, r#"<notehead parentheses="yes">{head}</notehead>"#);
+                }
+                (head, false) => {
+                    let _ = write!(x, "<notehead>{head}</notehead>");
+                }
             }
             let mut notations = String::new();
             if tie_stop {
@@ -736,6 +759,13 @@ impl Writer<'_> {
             }
             if tie_start {
                 notations.push_str(r#"<tied type="start"/>"#);
+            }
+            // A slur stops on the first beat after its run and starts on its first slurred beat.
+            if first && prev.is_some_and(|p| p.legato) && !beat.legato {
+                notations.push_str(r#"<slur type="stop" number="1"/>"#);
+            }
+            if first && beat.legato && !prev.is_some_and(|p| p.legato) {
+                notations.push_str(r#"<slur type="start" number="1"/>"#);
             }
             if first {
                 notations.push_str(&tuplet_marks);

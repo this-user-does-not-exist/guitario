@@ -945,10 +945,15 @@ pub struct Beat {
     /// Overrides the bar's beaming at this beat: start a new beam here, or join the one before.
     #[serde(default)]
     pub beam: Option<BeamOverride>,
-    /// A slur drawn from this beat to the one this many beats later in the same bar and voice
-    /// (notation only; it does not change how the notes play).
-    #[serde(default)]
-    pub slur: Option<u8>,
+    /// Slurred to the next beat of its voice, across a bar line too: a run of these is one slur,
+    /// from the first to the beat after the last, as Guitar Pro chains `Legato` from beat to beat.
+    /// Drawn over notation and tab; bowed instruments play it in one stroke.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub legato: bool,
+    /// How files before 2026-10-31 stored a slur: this many beats on in the same bar. Only read,
+    /// and turned into `legato` by [`Score::upgrade`].
+    #[serde(default, rename = "slur", skip_serializing)]
+    pub old_slur: Option<u8>,
     /// The whammy bar's curve over the beat: it moves every note the beat plays.
     #[serde(default)]
     pub whammy: Option<crate::Whammy>,
@@ -1256,7 +1261,8 @@ impl Beat {
             chord: None,
             tremolo: None,
             beam: None,
-            slur: None,
+            legato: false,
+            old_slur: None,
             whammy: None,
             bar_vibrato: None,
         }
@@ -1485,6 +1491,32 @@ impl Score {
 
     pub fn measure_count(&self) -> usize {
         self.headers.len()
+    }
+
+    /// Clears a slur on the last beat of each voice of a track: there is nothing for it to reach.
+    pub fn end_slurs(&mut self) {
+        for t in &mut self.tracks {
+            for vi in 0..MAX_VOICES {
+                if let Some(b) = t.measures.iter_mut().rev().filter_map(|m| m.voices.get_mut(vi)).find_map(|v| v.beats.last_mut()) {
+                    b.legato = false;
+                }
+            }
+        }
+    }
+
+    /// Brings a score read from an older file up to date: a slur stored as a count of beats in
+    /// its bar becomes a run of `legato` beats.
+    pub fn upgrade(&mut self) {
+        for v in self.tracks.iter_mut().flat_map(|t| &mut t.measures).flat_map(|m| &mut m.voices) {
+            let last = v.beats.len().saturating_sub(1);
+            for bi in 0..v.beats.len() {
+                let Some(k) = v.beats.get_mut(bi).and_then(|b| b.old_slur.take()) else { continue };
+                let end = bi.saturating_add(usize::from(k)).min(last);
+                for b in v.beats.iter_mut().take(end).skip(bi) {
+                    b.legato = true;
+                }
+            }
+        }
     }
 
     /// Where bar `measure` is held by its fermatas: each from the fermata to the next moment a beat

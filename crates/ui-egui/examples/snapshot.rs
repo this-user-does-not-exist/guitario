@@ -242,6 +242,10 @@ fn main() {
     if args.iter().any(|a| a == "--multivoice") {
         app.view.multivoice = true;
     }
+    // `--drum-grid`: the instrument view shows a drum track's bar as the step grid.
+    if args.iter().any(|a| a == "--drum-grid") {
+        app.view.drums.grid = true;
+    }
     if args.iter().any(|a| a == "--audio-settings") {
         app.open_audio_settings_dialog();
     }
@@ -283,6 +287,12 @@ fn main() {
         let mut s = demo();
         run(&mut s, "select.set", json!({"fromMeasure": 0, "fromBeat": 3, "toMeasure": 1, "toBeat": 3}));
         app = GuitarioApp::new(s, None);
+    }
+    // `--also a.gt,b.gp` opens more scores, each in a tab of its own; the last one is shown.
+    if let Some(list) = value("--also") {
+        for path in list.split(',') {
+            app.open_file(path);
+        }
     }
     if args.iter().any(|a| a == "--playing") {
         // Shows the playback cursor without opening an audio device.

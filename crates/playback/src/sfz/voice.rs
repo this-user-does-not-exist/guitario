@@ -214,6 +214,8 @@ pub struct SampleVoice {
     pub off_fast: bool,
     pub released: bool,
     pub let_ring: bool,
+    /// Song time at which the voice is cut, whatever its region says (a choked cymbal).
+    pub cut_at: f64,
     pub vibrato: bool,
     /// Song time of the note driving this voice, for its end and bend.
     pub note_start: f64,
@@ -291,6 +293,7 @@ impl SampleVoice {
             off_fast: region.off_fast,
             released: false,
             let_ring: false,
+            cut_at: f64::MAX,
             vibrato: false,
             note_start: 0.0,
             note_end: f64::MAX,

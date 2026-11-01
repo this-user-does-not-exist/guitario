@@ -33,7 +33,11 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     }
     let Some(track) = score.tracks.get(c.track) else { return };
     if track.is_drums() {
-        drum_pad(app, ui, track, c);
+        if app.view.drums.grid {
+            crate::drum_grid::show(app, ui, track, c);
+        } else {
+            drum_pad(app, ui, track, c);
+        }
         return;
     }
     let (beat, others) = instrument::beats(track, c, app.view.instrument);
@@ -159,29 +163,48 @@ pub fn show(app: &mut GuitarioApp, ui: &mut egui::Ui) {
 }
 
 /// Guitar Pro's drum pad: one pad per kit piece. Clicking a pad toggles that hit on the beat under
-/// the cursor; pads light up for the hits of the current (or playing) beat.
+/// the cursor; pads light up for the hits of the current (or playing) beat. A right click picks one
+/// of the piece's articulations (a choke, the rim shot, the half-open hi-hat).
 fn drum_pad(app: &mut GuitarioApp, ui: &mut egui::Ui, track: &guitario_score::Track, c: guitario_engine::Cursor) {
-    use guitario_theory::drums::KIT;
+    use guitario_theory::drums::{KIT, PADS, articulations};
     let t = tokens();
     let beat = track.measures.get(c.measure).and_then(|m| m.voices.get(c.voice)).and_then(|v| v.beats.get(c.beat));
-    let lit = |midi: u8| beat.is_some_and(|b| !b.rest && b.notes.iter().any(|n| n.fret == midi));
+    // The articulation of `midi` the beat plays, if any.
+    let lit = |midi: u8| beat.filter(|b| !b.rest).and_then(|b| articulations(midi).find(|a| b.notes.iter().any(|n| n.fret == a.midi)));
     let avail = ui.available_size();
     let (whole, _) = ui.allocate_exact_size(vec2(avail.x, avail.y.clamp(90.0, 170.0)), egui::Sense::hover());
     let rect = instrument::side(app, ui, whole, false);
     ui.painter().rect_filled(rect, 0.0, t.chrome_dark);
-    let cols = KIT.len().div_ceil(2);
+    let cols = PADS.div_ceil(2);
     let gap = 6.0;
     let pad_w = ((rect.width() - 24.0 - gap * (cols as f32 - 1.0)) / cols as f32).max(30.0);
     let pad_h = ((rect.height() - 24.0 - gap) / 2.0).max(24.0);
     let mut clicked = None;
-    for (i, piece) in KIT.iter().enumerate() {
+    for (i, piece) in KIT.iter().take(PADS).enumerate() {
         let (row, col) = (i / cols, i % cols);
         let r = Rect::from_min_size(pos2(rect.left() + 12.0 + col as f32 * (pad_w + gap), rect.top() + 12.0 + row as f32 * (pad_h + gap)), vec2(pad_w, pad_h));
-        let resp = ui
-            .interact(r, ui.id().with(("pad", piece.midi)), egui::Sense::click())
-            .on_hover_text(format!("{} (GM {}, key {})", piece.name, piece.midi, piece.midi));
+        let variants = articulations(piece.midi).count() > 1;
+        let hover = if variants {
+            format!("{} (GM {}); right-click for its articulations", piece.name, piece.midi)
+        } else {
+            format!("{} (GM {})", piece.name, piece.midi)
+        };
+        let resp = ui.interact(r, ui.id().with(("pad", piece.midi)), egui::Sense::click()).on_hover_text(hover);
+        if variants {
+            resp.context_menu(|ui| {
+                for a in articulations(piece.midi) {
+                    if ui.selectable_label(lit(piece.midi).is_some_and(|l| l.midi == a.midi), a.name).clicked() {
+                        clicked = Some(a.midi);
+                        ui.close();
+                    }
+                }
+            });
+        }
         let p = ui.painter();
-        let on = lit(piece.midi);
+        let shown = lit(piece.midi);
+        let on = shown.is_some();
+        // A pad playing one of its articulations shows that articulation's label.
+        let piece = shown.unwrap_or(piece);
         let fill = if on {
             t.accent
         } else if resp.hovered() {
@@ -205,6 +228,7 @@ fn drum_pad(app: &mut GuitarioApp, ui: &mut egui::Ui, track: &guitario_score::Tr
             egui::FontId::proportional(9.5),
             if on { Color32::WHITE } else { t.text_dim },
         );
+        // A lit pad takes off what it shows; an unlit one adds the piece.
         if resp.clicked() {
             clicked = Some(piece.midi);
         }

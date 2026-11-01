@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-19 · **Change:** minor (string sections, measured against recordings: playback stays 72 %; readiness ~66 %; beta ~175–360 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (several documents: UI 64 %; readiness ~68 % with the weighted sum brought up to date; beta ~144–293 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -16,11 +16,11 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 | **Stage** | **alpha** | measured: the [alpha gate](roadmap.md#alpha-gate) passes (two human checks open) |
 | **Beta gate** | **0 of 8 workflows pass** | measured by running them: [beta gate](roadmap.md#beta-gate) |
 | **Scorecard** | 58 done · 18 partial · 17 missing; **19 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
-| **Menu parity** | 173 of 181 items live (96 %) | measured: `cargo xtask parity` |
+| **Menu parity** | 174 of 181 items live (96 %) | measured: `cargo xtask parity` |
 | **Feature breadth** (does each Guitar Pro feature exist?) | **~74 %** | partly measured, weights [below](#feature-breadth-74-weighted) |
-| **Readiness** (how deep is each dimension, weighted?) | **~66 %** (range 59–71) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~175–360 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~880–1,740 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| **Readiness** (how deep is each dimension, weighted?) | **~68 %** (range 61–73) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
+| Remaining to **beta** | **~144–293 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~859–1,688 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -63,16 +63,16 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 
 | Dimension | Weight | % ready | Beta h | After beta h | Gaps | Evidence |
 |---|---:|---:|---:|---:|---|---|
-| Editing | 20% | 70% | 15–30 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends and the whammy bar have curves and editors, Paste Special, All-Track Copy, Unset; no drum step grid (G1) |
-| Notation | 15% | 74% | 6–22 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): all done; voice picking in notation is left |
+| Editing | 20% | 74% | 0 | 95–190 | G6, G1 | [scorecard › Editing](scorecard.md#editing): bends and the whammy bar have curves and editors, Paste Special, All-Track Copy, Unset; the drum step grid and articulations (G1) |
+| Notation | 15% | 77% | 0 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): voices picked by their noteheads and the manual's shortcuts; slurs as Guitar Pro chains them, across bars and in Guitar Pro files |
 | Playback | 15% | 72% | 0 + human | 140–280 | G5 | a modelled grand piano and bowed strings (soloists, orchestral sections of up to sixteen players and a string orchestra) with resonating bodies, the strings measured against recordings of real players; sampler (release samples, filters, curves, loops, OGG) with the bank installed from the app and an instrument per track, mixer, automations, effect chains, equalizer, mastering and articulations (synth and bank) in; master automation; samples in 16 bits, long ones streamed from disk (25 MB instead of 500 for the perf score); no pedalboard; checked by tests, not by ear |
 | Files and exchange | 10% | 72% | 0 + human | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
-| UI/UX fidelity | 10% | 62% | 65–125 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view and homepage match Guitar Pro 8; depth (several documents, preferences, stylesheet) does not |
+| UI/UX fidelity | 10% | 64% | 55–110 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view, homepage and document tabs match Guitar Pro 8; depth (preferences, stylesheet, shortcuts audit) does not |
 | Tools | 5% | 65% | 0 + human | 80–150 | G7 | tuner, chord window, scales, line in |
 | Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
 | Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
 | Platforms and automation | 10% | 35% | 60–120 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; packages for three platforms (`cargo xtask package`), file types declared, a release workflow that has not run yet, signing waiting on certificates; a file double-clicked in Finder does not open; no control channel or MCP |
-| **Weighted** | 100% | **~66%** | **~175–360** | **~710–1,390** | | 0.20·70 + 0.15·74 + 0.15·70 + 0.10·72 + 0.10·62 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·35 = 65.8 |
+| **Weighted** | 100% | **~68%** | **~144–293** | **~705–1,380** | | 0.20·74 + 0.15·77 + 0.15·72 + 0.10·72 + 0.10·64 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·35 = 67.5 |
 
 Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
 is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
@@ -81,8 +81,8 @@ sixties or better while the 1.0 tail (stylesheet, Design Mode, translations) sta
 ## Calibration
 
 Hours are Opus 5.5 agent wall-clock hours for one agent working sequentially, including tests.
-The rates were first borrowed from another app (2–9 h per checklist item, 8–20 h per format or
-subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17:
+The rates were first borrowed from an earlier Rust desktop app (2–9 h per checklist item, 8–20 h
+per format or subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17:
 
 - **33 pull requests merged in 35 hours of calendar time** (2026-10-16 11:08 to 2026-10-17
   21:51 UTC), about one batch an hour, about 99,000 lines added and 26,000 removed.
@@ -98,6 +98,12 @@ subsystem, from its 1,004 merged PRs). The first measurement here, on 2026-10-17
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | The 2026-10-19 string sections and recalibrated bowed strings merged, replacing the earlier recordings fit: playback stays 72% |
+| 2026-10-31 | minor | Several documents in tabs: UI 62% → 64%, its beta hours 65–125 → 55–110; the weighted row had kept old figures and now sums the table as it stands (65.8 → 67.5, ~68%) |
+| 2026-10-31 | minor | Slurs across bars, in the tab and in Guitar Pro files; head room: notation 75% → 77%, its beta hours 4–14 → 0 |
+| 2026-10-31 | minor | Voice picking and shortcuts: notation 74% → 75%, its beta hours 6–22 → 4–14 |
+| 2026-10-31 | minor | Drum articulations: editing 72% → 74%, its beta hours 8–18 → 0; readiness stays ~66% |
+| 2026-10-31 | minor | The drum step grid: editing 70% → 72%, its beta hours 15–30 → 8–18; readiness stays ~66% |
 | 2026-10-19 | minor | The bowed strings measured against recordings of real soloists and sections and recalibrated (bodies per instrument, quieter between harmonics, section vibrato and width): playback stays 72%; beta hours unchanged |
 | 2026-10-19 | minor | Orchestral string sections (players per track, Add Track's five sections, the ensembles as a string orchestra, MusicXML `<ensemble>`) and fewer whistling bow changes: playback stays 72% (no new Guitar Pro feature, a better one); readiness ~66%; beta hours unchanged |
 | 2026-10-18 | minor | A modelled grand piano and bowed strings (violin, viola, cello, double bass, sections) with resonating bodies: playback 70% → 72%; readiness stays ~66%; beta hours unchanged |

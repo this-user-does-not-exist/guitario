@@ -5,6 +5,7 @@
 //! voices, double dots, fades out …) is dropped and counted in [`Export::warnings`].
 
 use guitario_score::*;
+use guitario_theory::drums;
 use guitario_theory::{NoteValue, TICKS_PER_QUARTER};
 use std::collections::BTreeMap;
 
@@ -502,6 +503,9 @@ impl Writer {
     }
 
     fn beat(&mut self, t: &Track, b: &Beat, tempo: Option<u16>) {
+        if b.legato {
+            self.drop("slurs (Guitar Pro 5 has none)");
+        }
         let d = b.duration;
         let notes: Vec<(usize, &Note)> = if t.is_drums() {
             // Hits go on the drum track's strings in lane order; the fret is the drum number.
@@ -598,7 +602,20 @@ impl Writer {
             let mut sorted = notes;
             sorted.sort_by_key(|(s, _)| *s);
             for (_, n) in sorted {
-                self.note(n, b.dynamic, b.tremolo);
+                if t.is_drums() {
+                    // Guitar Pro 5 knows only General MIDI: an articulation is written as the drum it varies.
+                    let mut gm = *n;
+                    gm.fret = drums::plays(n.fret);
+                    if let Some(g) = gm.effects.grace.as_mut() {
+                        g.fret = drums::plays(g.fret);
+                    }
+                    if n.fret != gm.fret {
+                        self.drop("drum articulations Guitar Pro 5 lacks (written as the plain piece)");
+                    }
+                    self.note(&gm, b.dynamic, b.tremolo);
+                } else {
+                    self.note(n, b.dynamic, b.tremolo);
+                }
             }
         }
         self.i16(0);

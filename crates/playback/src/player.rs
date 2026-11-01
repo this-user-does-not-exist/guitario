@@ -87,6 +87,22 @@ struct NoteEvent {
     fade: Option<Fade>,
 }
 
+/// How long a half-open hi-hat rings at most before the hat closes, in seconds.
+const HALF_HAT: f64 = 0.18;
+
+/// When a drum hit is cut short: a choked cymbal at the end of its note, a half-open hi-hat
+/// soon after it is struck.
+fn drum_cut(n: &NoteEvent) -> Option<f64> {
+    let piece = guitario_theory::drums::piece(n.midi)?;
+    if piece.choked() {
+        Some(n.end.max(n.start + 0.01))
+    } else if piece.head == guitario_theory::drums::Head::CircleSlash {
+        Some(n.end.min(n.start + HALF_HAT).max(n.start + 0.01))
+    } else {
+        None
+    }
+}
+
 /// How far a slide into a note starts from it, and how far a slide out of one goes, in semitones.
 const SLIDE_IN: f32 = 3.0;
 const SLIDE_OUT: f32 = 8.0;
@@ -384,6 +400,24 @@ pub fn used_keys_by_track(score: &Score) -> Vec<Vec<u8>> {
         })
         .collect()
 }
+
+/// The output's ceiling: straight through below `LIMIT_KNEE`, rounding off smoothly above it to
+/// never pass 1. A plain `tanh` bends the whole range, and a loud, pedalled piano's dozens of
+/// sustained partials then intermodulate into clangorous, bell-like tones (-36 dB in a forte
+/// passage); straight below the knee, nothing does until the mix nears full scale.
+fn soft_limit(x: f32) -> f32 {
+    let a = x.abs();
+    if !a.is_finite() {
+        return 0.0;
+    }
+    if a <= LIMIT_KNEE {
+        return x;
+    }
+    let room = 1.0 - LIMIT_KNEE;
+    (LIMIT_KNEE + room * ((a - LIMIT_KNEE) / room).tanh()).copysign(x)
+}
+
+const LIMIT_KNEE: f32 = 0.75;
 
 /// The frequency of a MIDI note (with a fraction).
 fn freq_of(midi: f32) -> f32 {
@@ -848,7 +882,11 @@ impl Player {
         if self.drums.len() >= MAX_VOICES {
             self.drums.remove(0);
         }
-        self.drums.push(DrumVoice::new(n.track, n.midi, n.velocity, self.sr));
+        let mut d = DrumVoice::new(n.track, n.midi, n.velocity, self.sr);
+        if let Some(at) = drum_cut(n) {
+            d.cut_after((at - n.start) as f32);
+        }
+        self.drums.push(d);
     }
 
     fn start_sampled(&mut self, n: &NoteEvent) {
@@ -902,6 +940,7 @@ impl Player {
             self.releases.retain(|r| r.track != n.track || r.string != n.string || r.at <= n.start + 1e-9);
         }
         let damped = borrowed && (n.palm_mute || n.dead);
+        let cut = if drum { drum_cut(n) } else { None };
         // A heavier palm mute cuts the sample sooner.
         let muted_for = 0.22 - 0.12 * n.mute.clamp(0.0, 1.0);
         let end = if damped { n.end.min(n.start + if n.dead { 0.08 } else { f64::from(muted_for) }) } else { n.end };
@@ -940,6 +979,7 @@ impl Player {
             v.fade = n.fade;
             v.gain = fade_gain(n.fade, 0.0);
             v.let_ring = n.let_ring && !damped;
+            v.cut_at = cut.unwrap_or(f64::MAX);
             (v.note_start, v.note_end, v.bend, v.whammy, v.slide) = (n.start, end, n.bend, n.whammy, n.slide);
             v.bend_semis = curve_semis(n.bend, n.whammy, n.slide, n.start, n.start, end);
             if self.sampled.len() >= MAX_SAMPLE_VOICES {
@@ -1354,6 +1394,10 @@ impl Player {
                     if !v.let_ring && !v.released && t >= v.note_end {
                         v.release();
                     }
+                    if t >= v.cut_at {
+                        v.choke(true);
+                        v.cut_at = f64::MAX;
+                    }
                     if v.fade.is_some() || v.slide.is_some_and(|s| s.fade) {
                         v.gain = fade_gain(v.fade, (t - v.note_start) / (v.note_end - v.note_start).max(1e-3)) * v.slide.map_or(1.0, |s| s.gain_at(t));
                     }
@@ -1462,7 +1506,7 @@ impl Player {
             self.pianos.retain(|v| !v.finished());
             self.bowed.retain(|v| !v.finished());
             self.sampled.retain(|v| !v.finished());
-            let (l, r) = ((l * 1.4).tanh(), (r * 1.4).tanh());
+            let (l, r) = (soft_limit(l * 1.4), soft_limit(r * 1.4));
             match frame {
                 [a] => *a = 0.5 * (l + r),
                 [a, b, rest @ ..] => {
@@ -1642,6 +1686,55 @@ mod tests {
             let mut n = crate::synth::Noise::new(7);
             assert!((0..5000).all(|_| v.tick(&mut n).is_finite()), "drum {m}");
         }
+    }
+
+    /// The rms of a crash hit as an eighth note in each of its windows: the first eighth (0.25 s at
+    /// 120 bpm) and the following quarter second.
+    fn crash_rms(midi: u8, sampled: bool) -> (f32, f32) {
+        let mut s = Score::new();
+        s.tracks = vec![guitario_score::Track::drums("Drums", &s.headers)];
+        s.tracks[0].measures[0].voices[0].beats = vec![
+            Beat { rest: false, notes: vec![Note::new(0, midi)], ..Beat::rest(Duration::new(guitario_theory::NoteValue::Eighth)) },
+            Beat::rest(Duration::new(guitario_theory::NoteValue::Eighth)),
+            Beat::rest(Duration::new(guitario_theory::NoteValue::Half)),
+            Beat::rest(Duration::QUARTER),
+        ];
+        assert!(s.validate().is_ok());
+        let mut p = Player::new(&s, 44_100, Options::default());
+        if sampled {
+            p.set_instrument(0, Some(test_instrument("<region> sample=lo.wav key=49 loop_mode=one_shot", 44_100)));
+        }
+        p.play_from(0.0);
+        let mut buf = vec![0.0f32; 44_100 / 4 * 2];
+        p.render(&mut buf, 2);
+        // Skip the first 20 ms after the note's end, while the cut fades.
+        let mut after = vec![0.0f32; 44_100 / 4 * 2];
+        p.render(&mut after, 2);
+        (rms(&buf), rms(after.get(1764..).unwrap_or_default()))
+    }
+
+    #[test]
+    fn a_choked_cymbal_stops_at_the_end_of_its_note() {
+        for sampled in [false, true] {
+            let (hit, rings) = crash_rms(49, sampled);
+            let (choked, cut) = crash_rms(97, sampled);
+            assert!(hit > 0.01 && (choked - hit).abs() < hit * 0.2, "same attack: {hit} {choked} (sampled {sampled})");
+            assert!(rings > hit * 0.2, "a plain crash rings on: {rings} (sampled {sampled})");
+            // What is left is the kit's room.
+            assert!(cut < rings * 0.25, "the choke cuts it: {cut} vs {rings} (sampled {sampled})");
+        }
+        // The voice itself is silent within 20 ms of the cut.
+        let mut v = crate::synth::DrumVoice::new(0, 97, 1.0, 44_100.0);
+        v.cut_after(0.1);
+        let mut n = crate::synth::Noise::new(3);
+        let out: Vec<f32> = (0..44_100 / 2).map(|_| v.tick(&mut n)).collect();
+        assert!(rms(out.get(..4410).unwrap_or_default()) > 0.02);
+        assert!(rms(out.get(44_100 * 12 / 100..).unwrap_or_default()) < 1e-3);
+        // Sampled, a choke plays the crash's sample.
+        let mut s = Score::new();
+        s.tracks = vec![guitario_score::Track::drums("Drums", &s.headers)];
+        s.tracks[0].measures[0].voices[0].beats[0] = Beat { rest: false, notes: vec![Note::new(0, 97), Note::new(2, 92)], ..Beat::rest(Duration::QUARTER) };
+        assert_eq!(used_keys(&s, 0), vec![46, 49]);
     }
 
     fn test_instrument(sfz: &str, rate: u32) -> Arc<Instrument> {
@@ -2389,7 +2482,7 @@ mod tests {
     fn a_slur_is_one_bow_stroke_and_the_next_note_changes_bow() {
         let q = Duration::QUARTER;
         let note = |fret| Beat { rest: false, notes: vec![Note::new(1, fret)], ..Beat::rest(q) };
-        let s = on_instrument(40, guitario_theory::Tuning::violin(), vec![Beat { slur: Some(1), ..note(0) }, note(2), note(4), Beat::rest(q)]);
+        let s = on_instrument(40, guitario_theory::Tuning::violin(), vec![Beat { legato: true, ..note(0) }, note(2), note(4), Beat::rest(q)]);
         let mut p = Player::new(&s, 44_100, Options::default());
         p.play_from(0.0);
         let mut directions = Vec::new();
@@ -2454,7 +2547,7 @@ mod tests {
     fn a_section_changes_bow_together_and_slurs_together() {
         let q = Duration::QUARTER;
         let note = |fret| Beat { rest: false, notes: vec![Note::new(1, fret)], ..Beat::rest(q) };
-        let s = section(8, vec![Beat { slur: Some(1), ..note(0) }, note(2), note(4), Beat::rest(q)]);
+        let s = section(8, vec![Beat { legato: true, ..note(0) }, note(2), note(4), Beat::rest(q)]);
         let mut p = Player::new(&s, 44_100, Options::default());
         p.play_from(0.0);
         let mut directions = Vec::new();
@@ -2506,7 +2599,7 @@ mod tests {
             beats.push(Beat {
                 rest: false,
                 notes: vec![n, Note::new(((i + 3) % 6) as u8, 36)],
-                slur: Some(2),
+                legato: true,
                 tremolo: (i == 7).then_some(guitario_score::TremoloSpeed::ThirtySecond),
                 ..Beat::rest(e)
             });
@@ -2523,5 +2616,21 @@ mod tests {
                 assert!(out.iter().all(|x| x.is_finite() && x.abs() <= 1.0), "program {program} at {rate}");
             }
         }
+    }
+
+    #[test]
+    fn the_output_is_linear_until_it_nears_full_scale() {
+        for x in [0.0f32, 0.1, -0.5, 0.75, -0.75] {
+            assert_eq!(soft_limit(x), x);
+        }
+        let mut last = 0.0;
+        for i in 0..2000 {
+            let y = soft_limit(i as f32 * 0.005);
+            assert!(y >= last && y <= 1.0, "monotonic and never past 1");
+            last = y;
+        }
+        assert!((soft_limit(0.7501) - 0.7501).abs() < 1e-4, "continuous at the knee");
+        assert_eq!(soft_limit(f32::NAN), 0.0);
+        assert!(soft_limit(-50.0) >= -1.0);
     }
 }

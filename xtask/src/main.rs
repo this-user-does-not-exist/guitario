@@ -26,7 +26,8 @@ commands:
   parity [--check]
                   Guitar Pro menu parity; rewrites docs/parity-checklist.md (--check: fail if stale)
   scorecard [--check]
-                  regenerate docs/scorecard.md from scorecard/*.toml (--check: fail if stale)
+                  regenerate docs/scorecard.md from scorecard/*.toml (--check: fail if stale);
+                  fails when README.md or ROADMAP.md quotes a different menu count
   sounds [--list] [--dir <folder>] [--only <id>,..]
                   download open SFZ guitars, bass and drums and write the sound bank (docs/sounds.md)
   package [--target <triple>] [--no-build]

@@ -166,7 +166,8 @@ fn design(kind: BodyKind) -> Design {
             q: &[(5.5, 30.0), (9.0, 26.0), (12.5, 16.0)],
             scale: 1.0,
             direct: 0.55,
-            low_cut: 40.0,
+            // A soundboard radiates the lowest fundamentals weakly: the bass is heard in its partials.
+            low_cut: 75.0,
             high_cut: 12_000.0,
             voicing: &[],
             seed: 11,
@@ -194,42 +195,51 @@ struct Block {
 struct Sympathy {
     buf: Vec<f32>,
     pos: usize,
-    /// The loop's delay as whole samples back from the write point and the fraction of a sample
-    /// forward from there.
-    back: usize,
-    frac: f32,
+    delay: f32,
     gain: f32,
     lp: f32,
 }
 
-/// The low-pass in a sympathetic string's loop, `y += a (x - y)`.
-const STRING_LP: f32 = 0.6;
+/// The low-pass in a sympathetic string's loop, `y += a (x - y)`: dark, so a string in sympathy
+/// rings in its low partials. A comb's partials are exactly harmonic where a piano string's run
+/// sharp, so its upper ones, left ringing, sound pure and tine-like against the notes.
+const STRING_LP: f32 = 0.3;
 
 impl Sympathy {
-    /// A string at `f` Hz ringing for `t60` seconds. The loop's delay is shortened by the low-pass's
-    /// own delay at `f`, so the string resonates at its pitch, not a few cents (tens, high up) flat.
+    /// A string at `f` Hz ringing for `t60` seconds. The loop's delay is solved so its whole phase
+    /// (the delay, the interpolation between samples and the low-pass) is one cycle at `f`, so the
+    /// string resonates at its pitch, not a few cents (tens, high up) flat.
     fn new(f: f32, t60: f32, sr: f32) -> Sympathy {
         let f = f.clamp(20.0, sr * 0.2);
         let w = std::f32::consts::TAU * f / sr;
         let b = 1.0 - STRING_LP;
-        let lp_delay = (b * w.sin()).atan2(1.0 - b * w.cos()) / w;
-        let delay = (sr / f - lp_delay).max(2.0);
-        let n = delay as usize + 4;
-        let delay = delay.clamp(1.0, (n - 2) as f32);
-        let back = delay.ceil() as usize;
-        Sympathy { buf: vec![0.0; n], pos: 0, back, frac: back as f32 - delay, gain: 10f32.powf(-3.0 / (t60 * f)), lp: 0.0 }
+        let lp_phase = (b * w.sin()).atan2(1.0 - b * w.cos());
+        let mut delay = (sr / f - lp_phase / w).max(2.0);
+        for _ in 0..6 {
+            // The read mixes the samples `whole` and `whole + 1` back, `frac` of the second.
+            let whole = delay.floor();
+            let frac = delay - whole;
+            let phase = w * whole + (frac * w.sin()).atan2(1.0 - frac + frac * w.cos()) + lp_phase;
+            delay = (delay + (std::f32::consts::TAU - phase) / w).max(2.0);
+        }
+        Sympathy { buf: vec![0.0; delay as usize + 4], pos: 0, delay, gain: 10f32.powf(-3.0 / (t60 * f)), lp: 0.0 }
     }
 
     fn tick(&mut self, x: f32) -> f32 {
         let n = self.buf.len();
-        let i0 = if self.pos >= self.back { self.pos - self.back } else { self.pos + n - self.back };
-        let i1 = if i0 + 1 >= n { 0 } else { i0 + 1 };
-        let y = self.buf.get(i0).copied().unwrap_or(0.0) * (1.0 - self.frac) + self.buf.get(i1).copied().unwrap_or(0.0) * self.frac;
+        if n < 4 {
+            return 0.0;
+        }
+        let d = self.delay.clamp(1.0, (n - 2) as f32);
+        let read = self.pos as f32 + n as f32 - d;
+        let i0 = read.floor() as usize % n;
+        let frac = read - read.floor();
+        let y = self.buf.get(i0).copied().unwrap_or(0.0) * (1.0 - frac) + self.buf.get((i0 + 1) % n).copied().unwrap_or(0.0) * frac;
         self.lp = flush(self.lp + STRING_LP * (y - self.lp));
         if let Some(slot) = self.buf.get_mut(self.pos) {
             *slot = flush(x + self.lp * self.gain);
         }
-        self.pos = if self.pos + 1 >= n { 0 } else { self.pos + 1 };
+        self.pos = (self.pos + 1) % n;
         y
     }
 }
@@ -248,7 +258,9 @@ struct Board {
 }
 
 /// Line lengths in milliseconds, spread so the echoes never line up.
-const BOARD_MS: [f32; 8] = [2.9, 3.7, 4.6, 5.9, 7.1, 8.8, 10.7, 13.3];
+/// Their sum sets how close the network's resonances lie (one every 1/sum Hz): long enough, with
+/// the decay below, that neighbours overlap and blend; shorter, each rings as a tone of its own.
+const BOARD_MS: [f32; 8] = [4.3, 5.6, 6.9, 8.9, 10.7, 13.2, 16.1, 19.9];
 
 impl Board {
     fn new(sr: f32, t60_low: f32, highs_faster: f32) -> Board {
@@ -308,9 +320,9 @@ const SYMPATHY_IN: f32 = 0.004;
 const SYMPATHY_OUT: f32 = 0.35;
 /// The soundboard's bloom: how long it rings low down, how much faster the highs go, and its level
 /// against the strings' direct sound (power gain for noise in).
-const BOARD_T60: f32 = 0.45;
-const BOARD_HIGHS: f32 = 5.0;
-const BOARD_LEVEL: f32 = 0.5;
+const BOARD_T60: f32 = 0.22;
+const BOARD_HIGHS: f32 = 4.0;
+const BOARD_LEVEL: f32 = 0.4;
 /// The piano keys whose strings resonate with the pedal down (A0 to C7), and how strongly.
 const PEDAL_LOW: u8 = 21;
 const PEDAL_HIGH: u8 = 96;
@@ -688,8 +700,9 @@ mod tests {
     #[test]
     fn sympathetic_strings_ring_at_their_pitch() {
         // An impulse into one string; its strongest response within 60 cents below to 20 above its
-        // pitch must be within a cent of it, at the bottom and the top of the piano's pedal strings.
-        for m in [33.0f32, 60.0, 84.0, 96.0] {
+        // pitch must be within a cent of it, from A1 to C6. Higher, the dark loop leaves a
+        // resonance too broad to place a peak in (and a string that hardly rings).
+        for m in [33.0f32, 48.0, 60.0, 72.0, 84.0] {
             let f = crate::piano::tuned(m);
             let mut s = Sympathy::new(f, 4.0, 48_000.0);
             let x: Vec<f32> = (0..48_000).map(|i| s.tick(if i == 0 { 1.0 } else { 0.0 })).collect();

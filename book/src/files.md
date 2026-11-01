@@ -1,6 +1,6 @@
 # Files
 
-- **Open** `.gt` (Guitario; `.gt` files from before the rename too) and Guitar Pro files
+- **Open** `.gt` (Guitario) and Guitar Pro files
   (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`), drum tracks and up to four voices included. Some notation
   (whammy dives) is skipped for now, and Guitario tells you what.
 - **Save** as `.gt`. Saves are atomic: a crash or full disk never damages the previous save.

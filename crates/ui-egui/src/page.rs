@@ -5,7 +5,7 @@
 use crate::fonts::{FontSet, sans, serif, serif_bold, serif_italic};
 use crate::glyphs::{self as g, Pen};
 use crate::layout::{LayoutMode, Metrics, PageBox, Part, SystemBox, layout_parts};
-use crate::notation::{Accidentals, Clef, beam_groups, spell, staff_pos};
+use crate::notation::{Accidentals, Clef, beam_groups, head_kind, heads_clash, spell, staff_pos};
 use crate::theme::{Tokens, tokens};
 use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
 use guitario_engine::Cursor;
@@ -61,6 +61,9 @@ pub struct Output {
     pub drag: Option<Range>,
     pub cursor_rect: Option<Rect>,
     pub play_rect: Option<Rect>,
+    /// The clickable noteheads of the cursor's track: rectangle, voice and string.
+    #[cfg(test)]
+    heads: Vec<(Rect, usize, u8)>,
 }
 
 /// The layout metrics for `track`: a drum staff or notation over tab, with room for chord names.
@@ -178,6 +181,8 @@ pub fn paint_print_page(painter: &Painter, score: &Score, pl: &PrintLayout, page
                 // Paper is white and the inks are the score's own, whatever the theme.
                 t: &crate::theme::PAPER,
                 hits: Vec::new(),
+                heads: Default::default(),
+                slur_heads: Default::default(),
                 cursor_rect: None,
                 play: None,
                 play_rect: None,
@@ -201,7 +206,14 @@ pub fn paint_print_page(painter: &Painter, score: &Score, pl: &PrintLayout, page
 }
 
 pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Output {
-    let none = Output { click: None, drag: None, cursor_rect: None, play_rect: None };
+    let none = Output {
+        click: None,
+        drag: None,
+        cursor_rect: None,
+        play_rect: None,
+        #[cfg(test)]
+        heads: Vec::new(),
+    };
     if score.tracks.get(cursor.track).is_none() {
         return none;
     }
@@ -253,6 +265,8 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
                 cursor: if mine { cursor } else { Cursor { track: p.index, measure: usize::MAX, ..Cursor::default() } },
                 t,
                 hits: Vec::new(),
+                heads: Default::default(),
+                slur_heads: Default::default(),
                 cursor_rect: None,
                 play: view.play.filter(|_| mine),
                 play_rect: None,
@@ -297,9 +311,15 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
         let string = (m.tab && pos.y >= h.tab_top - m.tab_gap / 2.0 && pos.y <= h.tab_top + m.tab_h() + m.tab_gap / 2.0)
             .then(|| (((pos.y - h.tab_top) / m.tab_gap).round().max(0.0) as usize).min(cx.track.string_count().saturating_sub(1)));
         let h = pick(&cx.hits, pos, string).unwrap_or(h);
-        let voice = (cx.multivoice && !h.edit).then_some(h.voice);
+        // A notehead in standard notation names its note: its string, and under Multivoice
+        // Editing its voice.
+        let head = cx.heads.borrow().iter().find(|hh| hh.rect.contains(pos)).map(|hh| (hh.measure, hh.beat, hh.voice, hh.string));
+        let (measure, beat, string, voice) = match head {
+            Some((measure, beat, voice, st)) => (measure, beat, Some(usize::from(st)), (voice != edit_voice(cx)).then_some(voice)),
+            None => (h.measure, h.beat, string, (cx.multivoice && !h.edit).then_some(h.voice)),
+        };
         let shift = ui.input(|i| i.modifiers.shift) && voice.is_none();
-        click = Some(Click::Beat { track: cx.cursor.track, measure: h.measure, beat: h.beat, string, voice, shift });
+        click = Some(Click::Beat { track: cx.cursor.track, measure, beat, string, voice, shift });
     }
     let mine = ctxs.iter().find(|c| c.cursor.track == cursor.track);
     // Off-screen systems are not painted, so a playing bar out of view has no mark yet: aim at
@@ -324,7 +344,14 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
     } else {
         None
     };
-    Output { click, drag, cursor_rect: mine.and_then(|c| c.cursor_rect), play_rect }
+    Output {
+        click,
+        drag,
+        cursor_rect: mine.and_then(|c| c.cursor_rect),
+        play_rect,
+        #[cfg(test)]
+        heads: mine.map(|c| c.heads.borrow().iter().map(|h| (h.rect, h.voice, h.string)).collect()).unwrap_or_default(),
+    }
 }
 
 /// One header or footer text on the line whose top is `y`, placed across the printable width.
@@ -391,6 +418,11 @@ fn paint_systems(ctxs: &mut [Ctx], page: &PageBox, rect: Rect, first_page: bool)
     }
 }
 
+/// The voice `cx`'s cursor edits.
+fn edit_voice(cx: &Ctx) -> usize {
+    cx.cursor.voice.min(guitario_score::MAX_VOICES - 1)
+}
+
 /// The beat a click at `pos` lands on. Under Multivoice Editing several voices' beats may be
 /// there: the one with a note on the clicked string wins, else the voice being edited.
 fn pick(hits: &[Hit], pos: egui::Pos2, string: Option<usize>) -> Option<&Hit> {
@@ -417,6 +449,54 @@ struct Placed<'a> {
     x: f32,
     w: f32,
     beat: &'a Beat,
+    /// `(measure, beat)` in its voice.
+    at: (usize, usize),
+}
+
+/// A beat a slur touches, for drawing slurs across bar lines once the system is painted: where its
+/// arc end goes, whether it is slurred on to the next beat, whether one comes into it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct SlurPoint {
+    x: f32,
+    y: f32,
+    legato: bool,
+    from_prev: bool,
+}
+
+/// How far a slur `len` wide bulges: a short one by a staff space, a long one up to two and a half.
+fn slur_rise(len: f32, space: f32) -> f32 {
+    (space + len * 0.04).min(2.5 * space)
+}
+
+/// A slur in one system: from `a.x` to `b.x`, and the highest and lowest end `y` of the beats under
+/// it, so the arc can clear them all.
+type SlurSpan = (f32, f32, f32, f32);
+
+/// The arcs a voice's slurs make in a system running from `x0` to `x1`: from a slurred beat to
+/// the first beat after its run, opened at `x0` when a slur comes in from the system before and
+/// left open at `x1` when it goes on into the next.
+fn slur_spans(points: &[SlurPoint], x0: f32, x1: f32) -> Vec<SlurSpan> {
+    let mut out = Vec::new();
+    // Where the open slur starts, and the extent of the beats it covers so far.
+    let mut open: Option<(f32, f32, f32)> = None;
+    for (i, p) in points.iter().enumerate() {
+        if i == 0 && p.from_prev {
+            open = Some((x0, p.y, p.y));
+        }
+        match open {
+            Some((a, lo, hi)) if !p.legato => {
+                out.push((a, p.x, lo.min(p.y), hi.max(p.y)));
+                open = None;
+            }
+            Some((a, lo, hi)) => open = Some((a, lo.min(p.y), hi.max(p.y))),
+            None if p.legato => open = Some((p.x, p.y, p.y)),
+            None => {}
+        }
+    }
+    if let Some((a, lo, hi)) = open {
+        out.push((a, x1, lo, hi));
+    }
+    out
 }
 
 struct Ctx<'a> {
@@ -438,6 +518,19 @@ struct Ctx<'a> {
     lyrics: Vec<Vec<(usize, usize, guitario_score::Syllable)>>,
     /// Multivoice Editing: voices in colour and clickable. Never on paper.
     multivoice: bool,
+    /// The noteheads drawn in standard notation, so a click on one picks its voice and string.
+    heads: std::cell::RefCell<Vec<HeadHit>>,
+    /// Per voice, the notation's slurred beats in this system, in order, for [`Ctx::slurs`].
+    slur_heads: std::cell::RefCell<Vec<(usize, SlurPoint, bool)>>,
+}
+
+/// A notehead in standard notation: where it was drawn and the note it is.
+struct HeadHit {
+    rect: Rect,
+    measure: usize,
+    beat: usize,
+    voice: usize,
+    string: u8,
 }
 
 /// Where in a bar (from its left edge) the beat starting `tick` ticks in sits: the first drawn
@@ -467,18 +560,6 @@ fn onsets(beats: &[Beat]) -> Vec<u32> {
             start
         })
         .collect()
-}
-
-/// Whether a stem-down chord at `down` must step right of a stem-up one at `up` sounding with it
-/// (staff positions, and each one's head kind and dots): a second between them, or one pitch in
-/// both with different heads or dots. Identical heads on one pitch are shared.
-fn heads_clash(up: &[i32], (up_kind, up_dots): (u32, u8), down: &[i32], (kind, dots): (u32, u8)) -> bool {
-    down.iter().any(|p| up.iter().any(|q| (p - q).abs() == 1 || (p == q && (up_kind != kind || up_dots != dots))))
-}
-
-/// The notehead a beat takes: whole, half or black.
-fn head_kind(beat: &Beat) -> u32 {
-    beat.duration.value.divisor().min(4)
 }
 
 /// The key of bar `mi`, C when there is no such bar.
@@ -848,7 +929,7 @@ impl<'a> Ctx<'a> {
                         }
                     }
                     if let Some((_, list)) = placed.get_mut(slot) {
-                        list.push(Placed { x, w, beat });
+                        list.push(Placed { x, w, beat, at: (mb.index, bi) });
                     }
                 }
             }
@@ -872,7 +953,60 @@ impl<'a> Ctx<'a> {
         if !m.notation {
             self.tab_rhythm(sys, x0, tb);
         }
+        self.slurs(&placed, x0, x1, tt);
         self.lyrics_lane(top, &voice1_x, x1);
+    }
+
+    /// Whether the beat before `beat` of `voice` (in the bar before for the first) is slurred on.
+    fn slurred_into(&self, voice: usize, measure: usize, beat: usize) -> bool {
+        let prev = match beat.checked_sub(1) {
+            Some(b) => self.track.measures.get(measure).and_then(|m| m.voices.get(voice)).and_then(|v| v.beats.get(b)),
+            None => measure.checked_sub(1).and_then(|m| self.track.measures.get(m)).and_then(|m| m.voices.get(voice)).and_then(|v| v.beats.last()),
+        };
+        prev.is_some_and(|b| b.legato)
+    }
+
+    /// The system's slurs, across its bar lines: in notation over (or under) the outer heads, away
+    /// from the stems, and in the tablature over the highest fret.
+    fn slurs(&self, placed: &[(usize, Vec<Placed>)], x0: f32, x1: f32, tt: f32) {
+        let (m, s) = (self.m, self.m.space);
+        let heads = std::mem::take(&mut *self.slur_heads.borrow_mut());
+        let mut voices: Vec<usize> = heads.iter().map(|h| h.0).collect();
+        voices.sort_unstable();
+        voices.dedup();
+        for voice in voices {
+            let points: Vec<SlurPoint> = heads.iter().filter(|h| h.0 == voice).map(|h| h.1).collect();
+            let above = heads.iter().find(|h| h.0 == voice).is_none_or(|h| h.2);
+            let stroke = Stroke::new((0.18 * s).max(1.0), self.voice_ink(voice));
+            for (a, b, lo, hi) in slur_spans(&points, x0, x1) {
+                let y = if above { lo } else { hi };
+                let dir = if above { -1.0 } else { 1.0 };
+                g::arc(self.p(), pos2(a + 0.4 * s, y), pos2(b - 0.4 * s, y), dir * slur_rise(b - a, s), stroke);
+            }
+        }
+        if !m.tab || m.drums {
+            return;
+        }
+        for (voice, list) in placed {
+            let points: Vec<SlurPoint> = list
+                .iter()
+                .filter(|pb| !pb.beat.rest)
+                .filter_map(|pb| {
+                    let from_prev = self.slurred_into(*voice, pb.at.0, pb.at.1);
+                    let top = pb.beat.notes.iter().map(|n| n.string).min()?;
+                    (pb.beat.legato || from_prev).then(|| SlurPoint {
+                        x: pb.x,
+                        y: self.tab_y(tt, usize::from(top)) - 0.7 * m.tab_gap,
+                        legato: pb.beat.legato,
+                        from_prev,
+                    })
+                })
+                .collect();
+            let stroke = Stroke::new((0.14 * s).max(1.0), self.voice_ink(*voice));
+            for (a, b, lo, _) in slur_spans(&points, x0, x1) {
+                g::arc(self.p(), pos2(a + 0.3 * s, lo), pos2(b - 0.3 * s, lo), -slur_rise(b - a, s) * 0.8, stroke);
+            }
+        }
     }
 
     /// The lines of lyrics under the system: each syllable centred under its beat, a hyphen midway
@@ -1267,7 +1401,7 @@ impl<'a> Ctx<'a> {
                 let j = pv.beats.iter().rposition(|b| !b.rest && b.note_on(string).is_some())?;
                 Some(pmx + cols.beats.get(j)?)
             };
-            self.notation_voice(h, &voice.beats, &xs, (vc.voice, multi), (mx, nt), &incoming, &mut acc);
+            self.notation_voice(h, mb.index, &voice.beats, &xs, (vc.voice, multi), (mx, nt), &incoming, &mut acc);
         }
     }
 
@@ -1289,6 +1423,7 @@ impl<'a> Ctx<'a> {
     fn notation_voice(
         &self,
         h: &MeasureHeader,
+        measure: usize,
         beats: &[Beat],
         xs: &[f32],
         (slot, multi): (usize, bool),
@@ -1318,6 +1453,10 @@ impl<'a> Ctx<'a> {
             /// The pitch each bend reaches (when the stylesheet shows it): the bent note's staff
             /// position, then the target's, its accidental and whether it is a quarter tone higher.
             bends: Vec<(i32, i32, Option<i8>, bool)>,
+            /// Staff positions of ghost notes, drawn in brackets.
+            ghosts: Vec<i32>,
+            /// A drum articulation's sign over the beat (a choke, a cymbal's edge).
+            marks: Vec<guitario_theory::drums::Mark>,
         }
         let mut infos: Vec<Option<Info>> = Vec::new();
         for (bi, beat) in beats.iter().enumerate() {
@@ -1346,9 +1485,14 @@ impl<'a> Ctx<'a> {
             let graces: Vec<Head> = beat
                 .notes
                 .iter()
-                .filter(|n| n.kind != NoteKind::Tie && !self.m.drums)
+                .filter(|n| n.kind != NoteKind::Tie)
                 .filter_map(|n| {
                     let g = n.effects.grace?;
+                    if self.m.drums {
+                        // A flam: a small head of the piece it strikes.
+                        let piece = guitario_theory::drums::piece(g.fret);
+                        return Some((piece.map_or(6, |p| i32::from(p.staff_pos)), None, piece.map_or("n", |p| drum_head_code(p.head))));
+                    }
                     let p = self.track.tuning.pitch(usize::from(n.string), g.fret, self.track.capo)?;
                     let sp = spell(p.0.saturating_add(12).min(127), h.key);
                     Some((staff_pos(sp, self.clef), acc.next(sp, h.key), if g.dead { "x" } else { "n" }))
@@ -1363,7 +1507,7 @@ impl<'a> Ctx<'a> {
                         // Drum notation: the kit map places each piece; cymbals take a cross.
                         let piece = guitario_theory::drums::piece(n.fret);
                         let pos = piece.map_or(6, |p| i32::from(p.staff_pos));
-                        return Some((n.string, (pos, None, if piece.is_some_and(|p| p.cross) { "x" } else { "n" })));
+                        return Some((n.string, (pos, None, piece.map_or("n", |p| drum_head_code(p.head)))));
                     }
                     let p = self.track.tuning.pitch(usize::from(n.string), n.fret, self.track.capo)?;
                     let written = p.0.saturating_add(12).min(127);
@@ -1394,12 +1538,22 @@ impl<'a> Ctx<'a> {
             } else {
                 Vec::new()
             };
+            let ghosts =
+                keyed.iter().filter(|(st, _)| beat.note_on(*st).is_some_and(|n| n.effects.ghost && n.kind == NoteKind::Normal)).map(|(_, p)| p.0).collect();
+            let mut marks: Vec<guitario_theory::drums::Mark> = Vec::new();
+            if self.m.drums {
+                for m in beat.notes.iter().filter_map(|n| guitario_theory::drums::piece(n.fret)?.mark) {
+                    if !marks.contains(&m) {
+                        marks.push(m);
+                    }
+                }
+            }
             let by_string = keyed.iter().map(|(st, p)| (*st, p.0)).collect();
             let mut pos: Vec<Head> = keyed.into_iter().map(|(_, p)| p).collect();
             pos.sort_by_key(|p| p.0);
             let avg = pos.iter().map(|p| p.0).sum::<i32>() as f32 / pos.len().max(1) as f32;
             // Drum parts are written stems up (one voice, hands and feet together).
-            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed, fingers, bends }));
+            infos.push(Some(Info { x, by_string, pos, up: stem_up(avg), div: beat.duration.value.divisor(), graces, slashed, fingers, bends, ghosts, marks }));
         }
 
         let groups = beam_groups(beats, h);
@@ -1443,7 +1597,21 @@ impl<'a> Ctx<'a> {
                     self.p().line_segment([pos2(hx - 0.4 * s, ly), pos2(hx + hw + 0.4 * s, ly)], ledger);
                     lp += if *pos <= -2 { -2 } else { 2 };
                 }
-                self.pen.glyph(if *kind == "x" { g::HEAD_X } else { head }, pos2(hx, y), ink);
+                let glyph = if *kind == "n" { head } else { g::head_for(kind, info.div) };
+                self.pen.glyph(glyph, pos2(hx, y), ink);
+                // Clickable when its voice is (the edited one, or any under Multivoice Editing).
+                if let Some(&(string, _)) = info.by_string.iter().find(|(_, p)| p == pos)
+                    && (self.multivoice || slot == self.cursor.voice.min(guitario_score::MAX_VOICES - 1))
+                {
+                    let rect = Rect::from_center_size(pos2(hx + hw / 2.0, y), vec2(hw + 0.2 * s, s));
+                    self.heads.borrow_mut().push(HeadHit { rect, measure, beat: i, voice: slot, string });
+                }
+                // A ghost note is bracketed.
+                if info.ghosts.contains(pos) {
+                    let pw = self.pen.width(g::PAREN_LEFT);
+                    self.pen.glyph(g::PAREN_LEFT, pos2(hx - pw - 0.1 * s, y), ink);
+                    self.pen.glyph(g::PAREN_RIGHT, pos2(hx + hw + 0.1 * s, y), ink);
+                }
                 if let Some(a) = accidental {
                     let c = match a {
                         1 => g::SHARP,
@@ -1553,16 +1721,12 @@ impl<'a> Ctx<'a> {
                         g::arc(self.p(), pos2(from + 0.6 * head_w, y), pos2(info.x - 0.6 * head_w, y), dir * 0.9 * s, arc);
                     }
                 }
-                // A slur the user placed: from the outer head of this beat to that of a later one.
-                if let Some(to) = beat.slur.and_then(|k| xs.get(bi + usize::from(k))).filter(|_| !beat.rest) {
-                    let end = bi + usize::from(beat.slur.unwrap_or(0));
-                    if let Some(Some(end_info)) = infos.get(end) {
-                        let outer = |i: &Info| if above { i.pos.last() } else { i.pos.first() }.map_or(4, |h| h.0);
-                        let lift = if above { -1.0 } else { 1.0 };
-                        let (y0, y1) = (self.nota_y(nt, outer(info)) + lift * 0.9 * s, self.nota_y(nt, outer(end_info)) + lift * 0.9 * s);
-                        let y = if above { y0.min(y1) } else { y0.max(y1) };
-                        g::arc(self.p(), pos2(info.x + 0.3 * head_w, y), pos2(mx + to - 0.3 * head_w, y), dir * 1.4 * s, arc);
-                    }
+                // A slur the user placed: its ends are drawn with the system's (it may cross bars).
+                let from_prev = self.slurred_into(slot, measure, bi);
+                if beat.legato || from_prev {
+                    let outer = if above { info.pos.last() } else { info.pos.first() }.map_or(4, |h| h.0);
+                    let y = self.nota_y(nt, outer) + dir * 0.9 * s;
+                    self.slur_heads.borrow_mut().push((slot, SlurPoint { x: info.x, y, legato: beat.legato, from_prev }, above));
                 }
                 for n in &beat.notes {
                     let Some(&(_, pos)) = info.by_string.iter().find(|(st, _)| *st == n.string) else { continue };
@@ -1670,6 +1834,20 @@ impl<'a> Ctx<'a> {
                     None => self.slashes(info.x, self.nota_y(nt, hi) - 1.8 * s, speed.slashes()),
                 }
             }
+            // A drum articulation's sign sits over the stem: Guitar Pro writes a choke as a
+            // staccato dot above, the cymbal's edge with its pictogram.
+            if !info.marks.is_empty() {
+                let top = stem_ends.get(i).copied().flatten().filter(|_| info.up).map_or(self.nota_y(nt, hi), |(_, y)| y).min(self.nota_y(nt, 8));
+                for (k, m) in info.marks.iter().enumerate() {
+                    // Pictograms are drawn large in SMuFL fonts; the edge sign is shrunk to an articulation's size.
+                    let (c, scale) = match m {
+                        guitario_theory::drums::Mark::Choke => (g::STACCATO_ABOVE, 1.0),
+                        guitario_theory::drums::Mark::Edge => (g::EDGE_OF_CYMBAL, 0.5),
+                    };
+                    let w = self.pen.width(c) * scale;
+                    self.pen.glyph_scaled(c, pos2(info.x - w / 2.0, top - 0.9 * s - k as f32 * 1.1 * s), scale, ink);
+                }
+            }
             if b.notes.iter().any(|n| n.effects.trill.is_some()) {
                 let next = infos.iter().skip(i + 1).flatten().next().map(|n| n.x - 0.8 * s);
                 // Clear of the heads (and of an up-stem), but inside the lane above the staff.
@@ -1733,7 +1911,7 @@ impl<'a> Ctx<'a> {
                 self.p().line_segment([pos2(left - 0.25 * s, ly), pos2(left + hw + 0.25 * s, ly)], thin);
                 lp += if *pos <= -2 { -2 } else { 2 };
             }
-            self.pen.glyph_scaled(if *kind == "x" { g::HEAD_X } else { g::HEAD_BLACK }, pos2(left, y), SCALE, ink);
+            self.pen.glyph_scaled(g::head_for(kind, 4), pos2(left, y), SCALE, ink);
             if let Some(a) = accidental {
                 let c = match a {
                     1 => g::SHARP,
@@ -2154,6 +2332,21 @@ pub fn short_name(track: &Track) -> String {
     }
 }
 
+/// The head code ([`g::head_for`]) of a drum kit head.
+fn drum_head_code(head: guitario_theory::drums::Head) -> &'static str {
+    use guitario_theory::drums::Head;
+    match head {
+        Head::Normal => "n",
+        Head::X => "x",
+        Head::HeavyX => "X",
+        Head::HeavyXHat => "h",
+        Head::CircleX => "o",
+        Head::CircleSlash => "/",
+        Head::Diamond => "d",
+        Head::Triangle => "t",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2410,6 +2603,61 @@ mod tests {
         assert_eq!((inked(true, false, one), inked(true, false, two)), (4, 4), "four frets in each voice's colour");
         assert_eq!(inked(true, true, one), 0, "paper is always black");
         assert!(inked(true, true, tokens().ink) >= 8);
+    }
+
+    /// Clicks the first notehead `want` accepts in a one-bar, two-voice score (Voice 1 on the
+    /// B string, Voice 2 on the low E) and returns what the click asked for.
+    fn click_head(multivoice: bool, cursor_voice: usize, want: fn(usize, u8) -> bool) -> Option<(Option<usize>, Option<usize>)> {
+        let mut score = Score::new();
+        let half = guitario_theory::Duration::new(guitario_theory::NoteValue::Half);
+        let beat = |string: u8, fret: u8| Beat { rest: false, notes: vec![guitario_score::Note::new(string, fret)], ..Beat::rest(half) };
+        score.tracks[0].measures[0].voices =
+            vec![guitario_score::Voice { beats: vec![beat(1, 1), beat(1, 3)] }, guitario_score::Voice { beats: vec![beat(5, 0), beat(5, 3)] }];
+        let cursor = Cursor { voice: cursor_voice, ..Cursor::default() };
+        type Seen = (Vec<(Rect, usize, u8)>, Option<(Option<usize>, Option<usize>)>);
+        let seen: std::sync::Arc<std::sync::Mutex<Seen>> = Default::default();
+        let sink = seen.clone();
+        let mut fonts = None;
+        let mut harness = egui_kittest::Harness::builder().with_size(vec2(1400.0, 800.0)).build_ui(move |ui| {
+            let Some(fonts) = fonts else {
+                fonts = Some(crate::fonts::install(ui.ctx()));
+                return;
+            };
+            let view = View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice, hidden: 0 };
+            let out = show(ui, &score, cursor, &view);
+            if let Ok(mut s) = sink.lock() {
+                s.0 = out.heads;
+                if let Some(Click::Beat { string, voice, .. }) = out.click {
+                    s.1 = Some((string, voice));
+                }
+            }
+        });
+        harness.run_steps(3);
+        let at = seen.lock().ok()?.0.iter().find(|(_, v, st)| want(*v, *st))?.0.center();
+        harness.input_mut().events.push(egui::Event::PointerMoved(at));
+        harness.step();
+        for pressed in [true, false] {
+            harness.input_mut().events.push(egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Default::default(),
+            });
+            harness.step();
+        }
+        harness.run_steps(2);
+        seen.lock().ok()?.1
+    }
+
+    #[test]
+    fn a_click_on_a_notehead_picks_its_string_and_under_multivoice_its_voice() {
+        // Under Multivoice Editing, Voice 2's head on the low E moves the cursor there.
+        assert_eq!(click_head(true, 0, |v, _| v == 1), Some((Some(5), Some(1))));
+        // Its own voice's head sets the string and keeps the voice.
+        assert_eq!(click_head(true, 0, |v, _| v == 0), Some((Some(1), None)));
+        // Without it, only the edited voice's heads answer: Voice 2's are locked.
+        assert!(click_head(false, 0, |v, _| v == 1).is_none());
+        assert_eq!(click_head(false, 1, |v, _| v == 1), Some((Some(5), None)));
     }
 
     #[test]
@@ -2746,18 +2994,45 @@ mod tests {
     }
 
     #[test]
-    fn a_placed_slur_is_one_arc_in_notation_and_nothing_in_the_tab() {
+    fn a_placed_slur_is_one_arc_in_notation_and_one_over_the_tab() {
         let plain = two_notes(|_| {}, |_| {});
         let mut slurred = plain.clone();
-        if let Some(b) = slurred.tracks[0].measures[0].voices[0].beats.first_mut() {
-            b.slur = Some(1);
-        }
-        assert_eq!(curves(&slurred, true), curves(&plain, true) + 1);
-        assert_eq!(curves(&slurred, false), curves(&plain, false));
-        // One that runs off the bar (a stale value after an edit) is skipped, not a panic.
-        if let Some(b) = slurred.tracks[0].measures[0].voices[0].beats.first_mut() {
-            b.slur = Some(30);
-        }
-        assert_eq!(curves(&slurred, true), curves(&plain, true));
+        slurred.tracks[0].measures[0].voices[0].beats[0].legato = true;
+        // Tab alone: one arc over the frets; with notation, one more over the heads.
+        assert_eq!(curves(&slurred, false), curves(&plain, false) + 1);
+        assert_eq!(curves(&slurred, true), curves(&plain, true) + 2);
+        // Slurred on from the last beat of a bar into the next bar: still one slur.
+        let mut across = plain.clone();
+        let h = across.headers[0].clone();
+        across.headers.push(h);
+        let mut next = across.tracks[0].measures[0].clone();
+        next.voices[0].beats.swap(0, 2);
+        across.tracks[0].measures.push(next);
+        let plain_two = across.clone();
+        across.tracks[0].measures[0].voices[0].beats[1].legato = true;
+        across.tracks[0].measures[0].voices[0].beats[2].legato = true;
+        assert_eq!(curves(&across, false), curves(&plain_two, false) + 1);
+        // One slurred off the end of the score is drawn to the end of the system, not a panic.
+        let mut dangling = plain.clone();
+        dangling.tracks[0].measures[0].voices[0].beats[1].legato = true;
+        assert_eq!(curves(&dangling, false), curves(&plain, false) + 1);
+    }
+
+    #[test]
+    fn slurs_run_from_their_first_beat_to_the_beat_after_and_across_system_breaks() {
+        let pt = |x: f32, legato: bool, from_prev: bool| SlurPoint { x, y: 0.0, legato, from_prev };
+        let xs = |spans: Vec<SlurSpan>| spans.iter().map(|s| (s.0, s.1)).collect::<Vec<_>>();
+        // A run over three beats ends on the fourth; a second slur starts later.
+        let points = [pt(10.0, true, false), pt(20.0, true, true), pt(30.0, false, true), pt(40.0, true, false), pt(50.0, false, true)];
+        assert_eq!(xs(slur_spans(&points, 0.0, 100.0)), vec![(10.0, 30.0), (40.0, 50.0)]);
+        // Coming in from the system before, and going on into the next.
+        assert_eq!(xs(slur_spans(&[pt(10.0, false, true)], 0.0, 100.0)), vec![(0.0, 10.0)]);
+        assert_eq!(xs(slur_spans(&[pt(10.0, true, true)], 0.0, 100.0)), vec![(0.0, 100.0)]);
+        assert_eq!(xs(slur_spans(&[pt(90.0, true, false)], 0.0, 100.0)), vec![(90.0, 100.0)]);
+        assert!(slur_spans(&[], 0.0, 100.0).is_empty());
+        // The arc clears the highest and lowest beat under it, not just its ends.
+        let hill =
+            [SlurPoint { y: 5.0, ..pt(10.0, true, false) }, SlurPoint { y: -8.0, ..pt(20.0, true, true) }, SlurPoint { y: 4.0, ..pt(30.0, false, true) }];
+        assert_eq!(slur_spans(&hill, 0.0, 100.0), vec![(10.0, 30.0, -8.0, 5.0)]);
     }
 }

@@ -4,7 +4,6 @@
   <mime-type type="application/x-guitario">
     <comment>Guitario score</comment>
     <glob pattern="*.gt"/>
-    <glob pattern="*.gt"/>
     <sub-class-of type="application/json"/>
     <icon name="ai.storyteller.guitario"/>
   </mime-type>

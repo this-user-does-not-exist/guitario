@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-19 · **Change:** minor (G5: orchestral string sections, measured against recordings) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G8: several documents in tabs) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -19,6 +19,45 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   triplet fill (`crates/engine/tests/demos.rs`).
 - **Landed 2026-10-16:** a second voice for the feet (stems down, hands up) as Guitar Pro writes
   drums: Edit › Voice 2, drawn and played, and read from `.gp5` and `.gp`.
+- **Landed 2026-10-31:** the step-grid drum editor (#98). On a drum track the instrument view's
+  gear offers **Pads** or **Step grid**; the grid shows the cursor's bar as ten kit pieces (and any
+  other piece the bar uses) × steps of an eighth, sixteenth or thirty-second, straight or in
+  triplets, with beat numbers, the cursor's and the playing beat's column lit, and a count of hits
+  between steps. A click runs `drums.setStep` (`drum`, `step`, `on?`, `measure?`, `resolution?`,
+  `triplet?`), one undo step a cell: a step where no beat starts splits the beat that covers it
+  into plain, dotted or triplet lengths, and a bar not yet full is padded with rests, so the
+  groove reads as ordinary beats in the tab and notation. `drums.grid` returns the same grid as
+  JSON for agents (`crates/engine/src/drum_grid.rs`, `crates/ui-egui/src/drum_grid.rs`; snapshot
+  flag `--drum-grid`).
+- **Landed 2026-10-31 (second step):** drum articulations (#99). The kit takes Guitar Pro 7's own
+  articulation numbers, read from its drum kit in a GP7 file: 91 snare rim shot, 92 half-open
+  hi-hat, 93 ride edge and 94 to 98 the ride, splash, china, crash and second crash choked. Each
+  sits on its piece's lane with Guitar Pro's staff line and head, and says which General MIDI drum
+  sounds it (`guitario_theory::drums`: `Head`, `Mark`, `plays`, `articulations`). The heads follow
+  the kit too: heavy crosses for the crashes (the second crash moved to the hi-hat's line, the toms
+  to Guitar Pro's lines), a hatted cross for the china, a circled cross for the open hi-hat, a
+  slashed circle for the half-open one and diamonds for the bell and rim shot; a choke gets
+  Guitar Pro's staccato dot over the stem and the ride edge its pictogram. `note.setDrum` takes the
+  numbers or the short names (`crc`, `ho`, `rs` …); another piece on a lane replaces the hit and
+  keeps its accent, ghost and flam; a pad's right-click menu lists its articulations and a lit pad
+  shows the one playing. Flams are grace notes on a drum hit (`note.setGrace` takes a drum number
+  or name there), drawn as small heads slurred into the hit and played before it; ghost notes are
+  bracketed in standard notation on every track. In playback a choked cymbal stops at the end of
+  its note and the half-open hi-hat after at most 0.18 s, synthesised or sampled (the sample of
+  the piece it varies), and a rim shot is louder; MIDI export writes the General MIDI drum. `.gp`
+  writes the articulations as kit entries with Guitar Pro's heads and technique signs and flams
+  as grace beats, and reads both; Guitar Pro 6's kit variations now map to them (rim shot,
+  half-open, edge, chokes); GP3-5 flams on drums are read; `.gp5` export writes an articulation as
+  its plain piece with a warning. MusicXML writes the General MIDI drum in `midi-unpitched`, the
+  articulation's name and head, and flams, and reads them back. Drum tab writes `#` for a choke,
+  `f` a flam, `g` a ghost and capitals for accents. `14-drum-grooves` gained a bar of flams, ghosts
+  and chokes. Tests: `articulations_sit_with_their_piece_and_sound_as_it`,
+  `drum_articulations_replace_their_piece_and_keep_its_marks`, `a_drum_hit_takes_a_flam`,
+  `a_choked_cymbal_stops_at_the_end_of_its_note`, `drum_articulations_flams_and_marks_round_trip`
+  (`.gp`), `drum_articulations_become_their_pieces_and_flams_survive` (`.gp5`),
+  `drum_articulations_and_flams_come_back` (MusicXML), `drums_go_to_channel_ten` (MIDI). Not
+  checked: a file with articulations in use from Guitar Pro itself (the local corpus has the kit
+  table but no hits on it).
 
 ### G2. Print depth
 - **Landed 2026-10-16:** PDF export (File › Export › PDF…, `file.exportPdf`, `guitario-cli convert
@@ -179,6 +218,41 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   notation only; a stale one after an edit is skipped, not a panic). Both have palette buttons
   (Beam and Slur popups next to the fermata; not yet checked by eye, the snapshot cuts the
   palette off).
+
+- **Landed 2026-10-31:** voices by hand, as the manual's voice page describes. A click on a
+  notehead in standard notation puts the cursor on that note's string (before, a notation click
+  kept the string); under Multivoice Editing it also moves the cursor into the note's voice, and
+  without it only the edited voice's heads answer, the others being locked (`page.rs` records each
+  head it draws; `a_click_on_a_notehead_picks_its_string_and_under_multivoice_its_voice` clicks
+  real painted heads). ⌘1 to ⌘4 move the cursor to a voice and ⌘M toggles Multivoice Editing (the
+  manual's table; Window › Minimize gives up ⌘M, and a test now refuses two menu items on one
+  shortcut). `note.moveToVoice` (`voice`) moves the cursor's note to the same moment in another
+  voice: into the beat that starts there, or into a beat of its own length carved from that
+  voice's rests; refused where that voice holds a note across the moment or on the string, one
+  undo step. The manual's ⌥1 to ⌥4 for it are left unbound because the catalog has ⌥1 to ⌥7 on the
+  note values; the shortcuts audit (#528 to 531) decides.
+
+- **Landed 2026-10-31 (second step):** slurs the way Guitar Pro stores them. A beat's
+  `legato` says it is slurred on to the next beat of its voice, across a bar line too, and a run of
+  them is one slur (`Beat::legato` replaces `Beat::slur`, which counted beats within one bar; older
+  `.gt` files are upgraded on opening, `Score::upgrade`). `beat.setSlur` now runs across bars, and
+  clearing it from any beat under a slur removes the whole slur. Each system draws its slurs once
+  its bars are painted: over (or under) the heads away from the stems, high enough to clear every
+  head under the slur, and over the tab's highest fret; a slur crossing a system break is open at
+  the system's edge (`page.rs` `slur_spans`). Bowed instruments play a run in one stroke as before.
+  `.gp` reads and writes `<Legato origin destination>` on every beat (checked on the corpus's
+  `slur_over_3_measures.gp` and `.gpx`, `slur_voices.gp`), a last beat slurred on to nothing is
+  cleared (`Score::end_slurs`); MusicXML writes and reads `<slur>` start and stop; `.gp5` has no
+  slurs and says so in the export's warnings. A stem-down head that steps right of a stem-up one
+  now widens its column by a head (`layout.rs` `stepped_aside`, sharing `notation::heads_clash`
+  with the painter). Tests: `a_slur_spans_notes_across_bars_and_never_starts_or_ends_on_a_rest`,
+  `notes_under_a_slur_are_marked_after_its_first` (across a bar line),
+  `a_placed_slur_is_one_arc_in_notation_and_one_over_the_tab`,
+  `slurs_run_from_their_first_beat_to_the_beat_after_and_across_system_breaks`,
+  `a_slur_across_a_bar_line_round_trips_as_a_legato_chain` (`.gp`),
+  `a_slur_across_a_bar_line_comes_back` (MusicXML),
+  `a_slur_saved_as_a_count_of_beats_opens_as_slurred_beats` (`.gt`),
+  `a_head_that_steps_aside_gets_room_in_its_column`.
 
 ### G5. Playback realism
 - **Landed 2026-10-16:** an SFZ sampler and per-role sound bank ([`sounds.md`](sounds.md)) with
@@ -421,6 +495,46 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   second of sound (was 220). Still apart: viola, cello and bass sections narrower than the
   recordings (0.42, 0.53, 0.43 against 0.18, 0.14, 0.21), slower attacks in the recordings'
   sustain samples, the violin weaker around 950 Hz.
+- **Landed 2026-10-18:** the piano's bass after a second listen ("the low end still sounds too
+  plastic"): its spectrum hardly changed as it rang (A0 and E1 had the same balance of partials at
+  2 s as at the blow). Partials now decay at rates rising in proportion to their frequency, from a
+  corner of 250 Hz in the bass to 4.5 kHz at the top, as measured on real strings: a bass note starts
+  bright and darkens within a second or two, middle C keeps its tenth partial for about 2 s and its
+  twentieth for about 1 s (a first try with steeper losses left a bell-like electric piano, the
+  third listen's verdict). Each partial's aftersound sits 0.3 Hz (bass) to 0.1 Hz (treble) off its
+  prompt sound, so partials beat slowly and shallowly at their own rates; the soundboard radiates
+  the lowest fundamentals weakly (a 75 Hz roll-off, E1's fundamental 34 dB under its strongest
+  partial).
+- **Landed 2026-10-18:** a fourth listen heard the midrange turn bell-like, electric-piano-like, as
+  the ballad got louder. Found by rendering it with each part switched off: the output stage was a
+  `tanh` over the whole range, so a loud pedalled passage's sustained partials intermodulated into
+  clangorous tones (-36.5 dB in the forte against -45 dB soft); it is now straight up to 0.75 and
+  rounds off only above (`soft_limit`). A high partial's aftersound now fades above about 1.2 kHz,
+  weaker and shorter, as on real strings (left as strong as a low one, the slightly sharp high
+  partials rang on like a bell's: as the last chord rings, the highs are now 45 dB under the mids
+  instead of 34). The pedal's sympathetic strings are darker (they rang pure, exactly harmonic
+  upper partials, tine-like) and their loops are solved for their pitch exactly. The soundboard
+  network's lines are longer and its decay shorter so its resonances overlap rather than ring one
+  by one. String sections and pizzicato sit 2 dB lower.
+- **Landed 2026-10-19:** the piano is fitted to recordings of two real grands instead of tuned by
+  ear: the University of Iowa Electronic Music Studios' Steinway B and the Salamander Grand (a
+  Yamaha C5), every minor third from A0 to C8 at pp, mf and ff, measured partial by partial
+  (frequency, level at the blow, prompt and aftersound decay) and set beside the model's own keys
+  rendered and measured the same way (`audition -- <dir> --keys C4@mf …`). The recordings were
+  measured, not used. What changed: inharmonicity is about 1e-4 from the bass to the tenor (it was
+  twice that); the stretch follows the partials a tuner listens to further out (10:5 at A0, 3:1.5
+  by C7), 22 cents flat at A0 and 9 sharp at C7 as on both grands (2.2 cents rms, from 3.9); a note
+  falls 20 to 25 dB in its first second or two and then hangs on in its aftersound (middle C: 2.6 s,
+  then 27 s at -22 dB; it rang 6.5 s at one rate), partials fall at about their fundamental's rate
+  up to ten kilohertz (the treble's and the upper partials' aftersound had died early), and the low
+  partials drain faster than the high ones in the tenor; the spectrum leans 1.6 dB per octave of
+  partials darker at ff and 4 dB more per unit of velocity below it (the model was 3 to 4 dB per
+  octave too bright at pp and mf, and hardly darkened with softer playing: middle C's centroid now
+  460 Hz at pp, 830 at ff), applied at the bridge so the hammer does not sharpen against it; each
+  register is as loud against middle C as on the grands. Measured against the mean of the two:
+  decay envelopes by band within 3 dB median (8 before; the two grands differ from each other by 4),
+  spectra within 5 dB (7 to 9 between the grands). As a note rings its highs (1.5 to 6 kHz) stay 20
+  to 30 dB under its mids, as on both grands; the previous change had taken them to 45 to 60 dB.
 
 ### G6. Editing depth
 - **Landed 2026-10-16:** tuplets 3:2 to 10:8 (exact at 20160 ticks per quarter), clear bar, double
@@ -536,6 +650,20 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   (Edit Section…, Next and Previous Section) and Guitar Pro's Section window; section letters kept
   apart from names in `.gp` both ways. Sound Mastering in the Song inspector (greyed); messages as a
   toast instead of a status bar, which Guitar Pro does not have.
+- **Landed 2026-10-31:** several documents open at once (#148), a tab each as in Guitar Pro 8:
+  File › New, Open, Import, a template, an example and a recovered score each open in a new tab
+  (or in place of an untouched untitled one), and opening a file that is already open shows its
+  tab. Each document keeps its own score, undo history, cursor, selection, hidden tracks and
+  autosave copy (the copies of the tabs behind are written and their heartbeats kept fresh too);
+  the clipboard follows the tab shown, so a copy in one pastes into another
+  (`Session::hand_clipboard_to`, `Session::sibling`). The tabs share the bar's width, the shown
+  one lit, names cut short with an ellipsis; a click shows a tab, a middle click closes it, hover
+  gives save and close, and the context menu has Close, Close Others and Close All. Close (⌘W)
+  shows the right-hand neighbour; the last tab leaves an untitled document. Close Others, Close
+  All and quitting ask about each unsaved document in turn, showing its tab, and Cancel stops
+  them. Window › Next Document (⌃⇥) and ⌃⇧⇥ go round the tabs; switching stops playback. The app
+  opens every file named on its command line, each in a tab. Tests in `documents.rs`; the
+  snapshot example's `--also a.gt,b.gp` opens more tabs.
 
 ### G9. Performance budgets
 - **Landed 2026-10-16:** `cargo xtask perf` and `perf/budgets.toml`: a 400-bar, six-track score
@@ -563,7 +691,7 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
 - **Landed 2026-10-18:** packages (`cargo xtask package [--target <triple>] [--no-build]`,
   templates in `packaging/`, output in `dist/`). macOS: `Guitario.app` with both binaries, the
   icon and an `Info.plist` that declares the Guitario score type (`ai.storyteller.guitario.score`
-  for `.gt` and `.gt`, owned), Guitar Pro (`.gp` `.gpx` `.gp5` `.gp4` `.gp3`), MIDI and
+  for `.gt`, owned), Guitar Pro (`.gp` `.gpx` `.gp5` `.gp4` `.gp3`), MIDI and
   MusicXML, and the microphone use the tuner needs, zipped with `ditto` and as a `.dmg`. Linux:
   a `.tar.gz` (binaries, desktop entry, MIME types `application/x-guitario` and
   `application/x-guitar-pro`, AppStream metadata, icons, `install.sh` for `~/.local` or a prefix,

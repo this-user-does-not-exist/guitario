@@ -262,6 +262,98 @@ fn drum_tracks_take_kit_pieces_on_their_lanes() {
 }
 
 #[test]
+fn drum_articulations_replace_their_piece_and_keep_its_marks() {
+    let mut s = Session::new();
+    run(&mut s, "track.addDrums", json!({}));
+    let t = s.cursor().track;
+    run(&mut s, "note.setDrum", json!({"drum": "crash"}));
+    run(&mut s, "note.toggleEffect", json!({"effect": "accent"}));
+    // Choking the crash keeps the hit, its lane and its accent.
+    run(&mut s, "note.setDrum", json!({"drum": "crc"}));
+    let n = s.score().tracks[t].measures[0].voices[0].beats[0].notes[0];
+    assert_eq!((n.string, n.fret, n.effects.accent), (0, 97, true));
+    // Every articulation Guitar Pro 7 numbers is accepted by number; the half-open hat sits with the hats.
+    for d in 91..=98u8 {
+        run(&mut s, "note.setDrum", json!({"drum": d}));
+    }
+    run(&mut s, "note.setDrum", json!({"drum": 92}));
+    let beat = &s.score().tracks[t].measures[0].voices[0].beats[0];
+    assert!(beat.notes.iter().all(|n| n.fret != 92), "toggled off again");
+    assert!(beat.notes.iter().any(|n| n.string == 2 && n.fret == 46) || beat.notes.iter().all(|n| n.string != 2));
+    assert!(s.score().validate().is_ok());
+}
+
+#[allow(clippy::unwrap_used)]
+fn grid(s: &mut Session, params: Value) -> Value {
+    s.run("drums.grid", &params).map_err(|e| format!("drums.grid: {e}")).unwrap()
+}
+
+#[test]
+fn the_drum_step_grid_programs_a_beat_and_undoes_cell_by_cell() {
+    let mut s = Session::new();
+    run(&mut s, "track.addDrums", json!({}));
+    let t = s.cursor().track;
+    // The new bar is one whole rest: sixteen empty sixteenths.
+    let g = grid(&mut s, json!({}));
+    assert_eq!((g["steps"].as_u64(), g["rows"].as_array().map(Vec::len)), (Some(16), Some(0)));
+    // Hi-hat eighths, kick on 1 and the "and" of 3, snare on 2 and 4.
+    for step in (0..16).step_by(2) {
+        run(&mut s, "drums.setStep", json!({"drum": "hh", "step": step}));
+    }
+    for (drum, step) in [("kick", 0), ("kick", 10), ("snare", 4), ("snare", 12)] {
+        run(&mut s, "drums.setStep", json!({"drum": drum, "step": step}));
+    }
+    let g = grid(&mut s, json!({}));
+    let row = |midi: u64| g["rows"].as_array().and_then(|r| r.iter().find(|r| r["drum"] == midi)).map(|r| r["steps"].clone());
+    assert_eq!(row(42), Some(json!([0, 2, 4, 6, 8, 10, 12, 14])));
+    assert_eq!(row(36), Some(json!([0, 10])));
+    assert_eq!(row(38), Some(json!([4, 12])));
+    assert_eq!(g["offGrid"], 0);
+    let voice = &s.score().tracks[t].measures[0].voices[0];
+    assert_eq!(voice.ticks(), s.score().headers[0].capacity(), "the bar stays full");
+    assert!(voice.beats.iter().all(|b| b.rest == b.notes.is_empty()));
+    assert!(s.score().validate().is_ok());
+    // The cursor follows the last cell, so the tab and pad show it.
+    assert_eq!((s.cursor().measure, s.cursor().string), (0, 4));
+    // Each cell is one undo step; setting a cell to what it is changes nothing.
+    let before = s.score().clone();
+    run(&mut s, "drums.setStep", json!({"drum": 38, "step": 12, "on": true}));
+    assert!(std::sync::Arc::ptr_eq(s.score(), &before));
+    run(&mut s, "drums.setStep", json!({"drum": 38, "step": 12}));
+    assert!(!grid(&mut s, json!({}))["rows"].to_string().contains("[4,12]"));
+    run(&mut s, "edit.undo", Value::Null);
+    let g = grid(&mut s, json!({}));
+    assert!(g["rows"].as_array().is_some_and(|r| r.iter().any(|r| r["drum"] == 38 && r["steps"] == json!([4, 12]))));
+    // Thirty-second steps see the same hits at twice the index; eighth triplets do not divide 7/8.
+    let g = grid(&mut s, json!({"resolution": 32}));
+    assert!(g["rows"].as_array().is_some_and(|r| r.iter().any(|r| r["drum"] == 36 && r["steps"] == json!([0, 20]))));
+    run(&mut s, "drums.setStep", json!({"drum": "kick", "step": 3, "resolution": 32}));
+    assert_eq!(grid(&mut s, json!({}))["offGrid"], 1);
+    run(&mut s, "measure.append", Value::Null);
+    run(&mut s, "cursor.set", json!({"measure": 1, "beat": 0}));
+    run(&mut s, "measure.setTimeSignature", json!({"numerator": 7, "denominator": 8}));
+    let m = 1;
+    assert!(s.run("drums.setStep", &json!({"drum": "kick", "step": 0, "resolution": 8, "triplet": true, "measure": m})).is_err());
+    run(&mut s, "drums.setStep", json!({"drum": "kick", "step": 13, "measure": m}));
+    assert_eq!(grid(&mut s, json!({"measure": m}))["steps"], 14);
+    // Hostile params and the wrong track are refused without changing anything.
+    let before = s.score().clone();
+    for bad in [
+        json!({"drum": "kick", "step": 16}),
+        json!({"drum": "kick", "step": 0, "resolution": 12}),
+        json!({"drum": "nope", "step": 0}),
+        json!({"drum": 36, "step": 0, "measure": 99}),
+    ] {
+        assert!(s.run("drums.setStep", &bad).is_err(), "{bad}");
+    }
+    assert_eq!(*s.score(), before);
+    assert!(s.score().validate().is_ok());
+    run(&mut s, "track.select", json!({"index": 0}));
+    assert!(s.run("drums.setStep", &json!({"drum": "kick", "step": 0})).is_err());
+    assert!(s.run("drums.grid", &json!({})).is_err());
+}
+
+#[test]
 fn transpose_track_moves_frets_and_wraps_to_another_string() {
     let mut s = Session::new();
     run(&mut s, "cursor.set", json!({"string": 5}));

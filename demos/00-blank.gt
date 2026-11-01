@@ -231,7 +231,6 @@
                     "chord": null,
                     "tremolo": null,
                     "beam": null,
-                    "slur": null,
                     "whammy": null,
                     "bar_vibrato": null
                   }
@@ -267,7 +266,6 @@
                     "chord": null,
                     "tremolo": null,
                     "beam": null,
-                    "slur": null,
                     "whammy": null,
                     "bar_vibrato": null
                   }
@@ -303,7 +301,6 @@
                     "chord": null,
                     "tremolo": null,
                     "beam": null,
-                    "slur": null,
                     "whammy": null,
                     "bar_vibrato": null
                   }
@@ -339,7 +336,6 @@
                     "chord": null,
                     "tremolo": null,
                     "beam": null,
-                    "slur": null,
                     "whammy": null,
                     "bar_vibrato": null
                   }
@@ -375,7 +371,6 @@
                     "chord": null,
                     "tremolo": null,
                     "beam": null,
-                    "slur": null,
                     "whammy": null,
                     "bar_vibrato": null
                   }
@@ -411,7 +406,6 @@
                     "chord": null,
                     "tremolo": null,
                     "beam": null,
-                    "slur": null,
                     "whammy": null,
                     "bar_vibrato": null
                   }
@@ -447,7 +441,6 @@
                     "chord": null,
                     "tremolo": null,
                     "beam": null,
-                    "slur": null,
                     "whammy": null,
                     "bar_vibrato": null
                   }
@@ -483,7 +476,6 @@
                     "chord": null,
                     "tremolo": null,
                     "beam": null,
-                    "slur": null,
                     "whammy": null,
                     "bar_vibrato": null
                   }
@@ -523,7 +515,9 @@
       "margin_right": 10,
       "margin_top": 15,
       "margin_bottom": 12,
-      "bend_pitch": false
+      "bend_pitch": false,
+      "custom_width": 210,
+      "custom_height": 297
     }
   }
 }

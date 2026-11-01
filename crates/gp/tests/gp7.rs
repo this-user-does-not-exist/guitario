@@ -135,7 +135,7 @@ fn the_archive_is_well_formed_and_hostile_text_is_made_safe() {
 
 #[test]
 fn every_note_and_beat_has_its_own_id_and_every_reference_resolves() {
-    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("two-voices")).unwrap();
+    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("bourree")).unwrap();
     let xml = score_gpif(&export_gp(&score).unwrap().bytes);
     let doc = roxmltree::Document::parse(&xml).unwrap();
     let ids = |tag: &str| -> Vec<String> {
@@ -163,19 +163,23 @@ fn every_note_and_beat_has_its_own_id_and_every_reference_resolves() {
         assert!(vs.split_whitespace().all(|v| v == "-1" || voices.iter().any(|x| x == v)));
         assert_eq!(vs.split_whitespace().count(), 4, "a bar lists four voice slots");
     }
-    // Rhythms are shared; the two-voice study needs only a handful.
+    // Rhythms are shared; the two-voice Bourrée needs only a handful.
     assert!(rhythms.len() < 10, "{} rhythms", rhythms.len());
 }
 
 #[test]
 fn ties_mark_both_ends_and_hammer_ons_mark_their_target() {
-    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("two-voices")).unwrap();
+    let (_, score) = demos().into_iter().find(|(n, _)| n.contains("technique")).unwrap();
     let xml = score_gpif(&export_gp(&score).unwrap().bytes);
     let doc = roxmltree::Document::parse(&xml).unwrap();
     let tie = |origin: &str, destination: &str| {
         doc.descendants().filter(|n| n.has_tag_name("Tie") && n.attribute("origin") == Some(origin) && n.attribute("destination") == Some(destination)).count()
     };
-    assert_eq!((tie("true", "false"), tie("false", "true")), (1, 1), "the G tied over the bar line");
+    // The showcase ties two notes, each to the note before it.
+    let tied =
+        score.tracks[0].measures.iter().flat_map(|m| &m.voices).flat_map(|v| &v.beats).flat_map(|b| &b.notes).filter(|n| n.kind == NoteKind::Tie).count();
+    assert_eq!(tied, 2);
+    assert_eq!((tie("true", "false"), tie("false", "true")), (tied, tied), "both ends of each tie");
 
     let mut s = Score::new();
     let mut a = Note::new(0, 3);
@@ -301,6 +305,71 @@ fn drum_hits_outside_the_kit_keep_their_midi_number() {
     assert_eq!(b[0].notes.iter().map(|n| n.fret).collect::<Vec<_>>(), vec![42, 38, 36]);
     assert_eq!(b[1].notes[0].fret, 56);
     assert_same("drums", &as_gp(&s), &back);
+}
+
+/// A drum bar with Guitar Pro's articulations and a drummer's marks: a choked crash with an
+/// accent, a flammed snare, a ghost note, the half-open hat, a rim shot, the ride's edge and a roll.
+fn articulated_kit() -> Score {
+    let mut s = Score::new();
+    s.tracks = vec![Track::drums("Drums", &s.headers)];
+    let hit = |midi: u8| Note::new(guitario_theory::drums::lane_for(midi), midi);
+    let mut choked = hit(97);
+    choked.effects.accent = true;
+    let mut flam = hit(38);
+    flam.effects.grace = Some(Grace::new(38));
+    let mut ghost = hit(38);
+    ghost.effects.ghost = true;
+    let eighth = Duration::new(guitario_theory::NoteValue::Eighth);
+    s.tracks[0].measures[0].voices[0].beats = vec![
+        Beat { rest: false, notes: vec![choked, hit(36)], ..Beat::rest(eighth) },
+        Beat { rest: false, notes: vec![hit(92), flam], ..Beat::rest(eighth) },
+        Beat { rest: false, notes: vec![hit(42), ghost], ..Beat::rest(eighth) },
+        Beat { rest: false, notes: vec![hit(93), hit(91)], ..Beat::rest(eighth) },
+        Beat { rest: false, notes: vec![hit(38)], tremolo: Some(TremoloSpeed::ThirtySecond), ..Beat::rest(Duration::new(guitario_theory::NoteValue::Half)) },
+    ];
+    assert!(s.validate().is_ok());
+    s
+}
+
+#[test]
+fn drum_articulations_flams_and_marks_round_trip() {
+    let s = articulated_kit();
+    let out = export_gp(&s).expect("export");
+    let xml = score_gpif(&out.bytes);
+    // The kit lists the articulations as Guitar Pro 7 does, with their heads and signs.
+    for want in
+        ["<OutputMidiNumber>97</OutputMidiNumber>", "noteheadCircleSlash", "articStaccatoAbove", "pictEdgeOfCymbal", "<GraceNotes>BeforeBeat</GraceNotes>"]
+    {
+        assert!(xml.contains(want), "{want}");
+    }
+    let (back, export_warnings, import_warnings) = round_trip(&s);
+    assert!(export_warnings.is_empty() && import_warnings.is_empty(), "{export_warnings:?} {import_warnings:?}");
+    assert_same("articulated kit", &as_gp(&s), &back);
+}
+
+/// Two bars of four quarters, slurred from the third beat of bar 1 to the second of bar 2.
+fn slurred_over_a_bar_line() -> Score {
+    let mut s = Score::new();
+    let h = s.headers[0].clone();
+    s.headers.push(h.clone());
+    s.tracks[0].measures.push(Measure::empty_for(&h));
+    for (mi, m) in s.tracks[0].measures.iter_mut().enumerate() {
+        m.voices[0].beats = (0..4u8).map(|i| Beat { rest: false, notes: vec![Note::new(1, i + 4 * mi as u8)], ..Beat::rest(Duration::QUARTER) }).collect();
+    }
+    for (m, b) in [(0, 2), (0, 3), (1, 0)] {
+        s.tracks[0].measures[m].voices[0].beats[b].legato = true;
+    }
+    s
+}
+
+#[test]
+fn a_slur_across_a_bar_line_round_trips_as_a_legato_chain() {
+    let s = slurred_over_a_bar_line();
+    let xml = score_gpif(&export_gp(&s).expect("export").bytes);
+    assert_eq!(xml.matches("<Legato origin=\"true\" destination=\"false\"/>").count(), 1, "one slur starts");
+    assert_eq!(xml.matches("<Legato origin=\"false\" destination=\"true\"/>").count(), 1, "and ends");
+    let (back, _, _) = round_trip(&s);
+    assert_same("slur", &as_gp(&s), &back);
 }
 
 #[test]

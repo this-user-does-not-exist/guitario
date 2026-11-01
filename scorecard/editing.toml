@@ -59,7 +59,7 @@ note = "edit.pasteSpecial (count 1-100, insert or replace, tracks) and the Paste
 id = "EDIT-9"
 target = "Multiple voices per bar (up to 4)"
 status = "done"
-note = "edit.setVoice and Edit › Voice 1-4 (crates/engine/src/voices.rs): every beat command, the clipboard and selection work on the cursor's voice; all voices play, export to MIDI and ASCII tab, and show in notation and tab; Edit › Multivoice Editing (a saved toggle) draws each voice in its own colour on screen, never on paper, and a click on another voice's note (the one on the clicked string) moves the cursor into that voice; in notation a click keeps the voice being edited; no voice shortcuts yet"
+note = "edit.setVoice and Edit › Voice 1-4 (crates/engine/src/voices.rs): every beat command, the clipboard and selection work on the cursor's voice; all voices play, export to MIDI and ASCII tab, and show in notation and tab; Edit › Multivoice Editing (a saved toggle) draws each voice in its own colour on screen, never on paper, and a click on another voice's note (the one on the clicked string) moves the cursor into that voice; in notation a click on a notehead picks its string, and under Multivoice Editing its voice (page.rs HeadHit, a_click_on_a_notehead_picks_its_string_and_under_multivoice_its_voice); the manual's shortcuts Cmd+1-4 and Cmd+M (Minimize gives Cmd+M up; no_two_items_share_a_shortcut); note.moveToVoice moves the cursor's note to the same moment in another voice, splitting that voice's rests (the manual's Alt+1-4 is left unbound: the catalog gives Alt+1-7 to the note values, for the shortcuts audit)"
 
 [[item]]
 id = "EDIT-10"
@@ -94,9 +94,8 @@ note = "Session::run snapshots; failed_command_changes_nothing test"
 [[item]]
 id = "EDIT-15"
 target = "Drum tracks and a percussion editor"
-status = "partial"
-stage = "beta"
-note = "track.addDrums, note.setDrum, drum pad and two-digit GM entry (crates/engine/src/drums.rs, drum_tracks_take_kit_pieces_on_their_lanes); Voice 2 holds the feet (stems down) as Guitar Pro writes drums; no step grid"
+status = "done"
+note = "track.addDrums, note.setDrum, drum pad and two-digit GM entry (crates/engine/src/drums.rs, drum_tracks_take_kit_pieces_on_their_lanes); the step grid in the instrument view (drums.grid, drums.setStep: kit pieces × eighth to thirty-second steps or triplets, one undo step a cell, beats split where a step lands; crates/engine/src/drum_grid.rs, the_drum_step_grid_programs_a_beat_and_undoes_cell_by_cell); Voice 2 holds the feet (stems down) as Guitar Pro writes drums.; articulations as Guitar Pro 7 numbers them (91 rim shot, 92 half-open hi-hat, 93 ride edge, 94 to 98 the ride, splash, china and both crashes choked) on their piece's lane, picked from a pad's right-click menu or by number or name, and swapping one keeps the hit's accent, ghost and flam (theory drums.rs, drum_articulations_replace_their_piece_and_keep_its_marks); flams are grace notes on a drum hit (note.setGrace, a_drum_hit_takes_a_flam), rolls are tremolo picking, ghost notes and accents the note's own; drum tab writes `#` for a choke, `f` a flam, `g` a ghost and capitals for accents"
 
 [[item]]
 id = "EDIT-16"

@@ -79,9 +79,9 @@ note = "needs human review per language"
 [[item]]
 id = "UI-12"
 target = "Several documents open at once (document tabs, Window › Next Document)"
-status = "missing"
+status = "done"
 stage = "beta"
-note = "the tab bar looks right but holds one document"
+note = "a tab per document with its own undo, cursor and autosave copy; the clipboard crosses tabs; Close Others, Close All and Quit ask about each unsaved one; no lock icon"
 
 [[item]]
 id = "UI-13"
