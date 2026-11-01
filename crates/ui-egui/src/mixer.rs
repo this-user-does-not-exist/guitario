@@ -12,9 +12,10 @@ use serde_json::json;
 pub(crate) enum Control {
     Volume,
     Pan,
-    /// The master's fader and pan (the track index is unused).
+    /// The master's fader, pan and focus knob (the track index is unused).
     MasterVolume,
     MasterPan,
+    MasterFocus,
 }
 
 #[derive(Default)]
@@ -39,7 +40,7 @@ impl GuitarioApp {
             match control {
                 Control::Volume => m.volume = v.clamp(0, 127) as u8,
                 Control::Pan => m.pan = v.clamp(-63, 63) as i8,
-                Control::MasterVolume | Control::MasterPan => {}
+                Control::MasterVolume | Control::MasterPan | Control::MasterFocus => {}
             }
         }
         mix
@@ -164,6 +165,7 @@ impl GuitarioApp {
         {
             p.set_mix(&mix);
             p.set_master(&master);
+            p.set_focus_track(Some(self.session.cursor().track));
         }
     }
 }

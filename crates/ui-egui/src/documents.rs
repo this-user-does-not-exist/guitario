@@ -1,6 +1,6 @@
 //! Several documents open at once, one tab each, as in Guitar Pro 8. The tab shown is the app's
 //! own `session` (so everything else reads the active document as it always has); the others
-//! wait in [`Doc`]s with their own undo history, cursor, autosave copy and hidden tracks. The
+//! wait in [`Doc`]s with their own undo history, cursor and autosave copy. The
 //! clipboard follows the active tab, so a copy in one document pastes into another.
 
 use crate::GuitarioApp;
@@ -11,8 +11,6 @@ use guitario_engine::Session;
 pub(crate) struct Doc {
     pub session: Session,
     pub autosave: Autosave,
-    /// The tracks it hides from the multitrack view.
-    pub hidden: u64,
 }
 
 impl GuitarioApp {
@@ -68,7 +66,7 @@ impl GuitarioApp {
 
     /// Adds an empty document in a new tab at the end and shows it.
     pub(crate) fn new_tab(&mut self) {
-        let fresh = Doc { session: self.session.sibling(), autosave: self.autosave.sibling(), hidden: 0 };
+        let fresh = Doc { session: self.session.sibling(), autosave: self.autosave.sibling() };
         let current = self.park();
         self.docs.insert(self.active, current);
         self.install(fresh);
@@ -104,7 +102,7 @@ impl GuitarioApp {
     /// left). The last tab is replaced by a new untitled document.
     pub(crate) fn close_tab_now(&mut self) {
         let next = if self.docs.is_empty() {
-            Doc { session: self.session.sibling(), autosave: self.autosave.sibling(), hidden: 0 }
+            Doc { session: self.session.sibling(), autosave: self.autosave.sibling() }
         } else {
             let i = self.active.min(self.docs.len() - 1);
             self.active = i;
@@ -149,7 +147,7 @@ impl GuitarioApp {
 
     /// The active document, taken out to wait in a tab (an empty one stands in until `install`).
     fn park(&mut self) -> Doc {
-        let standin = Doc { session: Session::new(), autosave: Autosave::off(), hidden: 0 };
+        let standin = Doc { session: Session::new(), autosave: Autosave::off() };
         self.install(standin)
     }
 
@@ -159,11 +157,7 @@ impl GuitarioApp {
         self.stop();
         self.session.hand_clipboard_to(&mut doc.session);
         doc.autosave.found = std::mem::take(&mut self.autosave.found);
-        let old = Doc {
-            session: std::mem::replace(&mut self.session, doc.session),
-            autosave: std::mem::replace(&mut self.autosave, doc.autosave),
-            hidden: std::mem::replace(&mut self.view.hidden, doc.hidden),
-        };
+        let old = Doc { session: std::mem::replace(&mut self.session, doc.session), autosave: std::mem::replace(&mut self.autosave, doc.autosave) };
         self.follow_cursor = true;
         self.edit_buffers.clear();
         self.preloaded = None;

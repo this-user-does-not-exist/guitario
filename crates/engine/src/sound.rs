@@ -34,7 +34,15 @@ pub fn specs() -> Vec<CommandSpec> {
             reset_effects,
         ),
         cmd("track.setEq", "Track Equalizer", "Sound", None, EQ_PARAMS, true, set_eq),
-        cmd("score.setMaster", "Master", "Sound", None, "volume? (0..=127; 100 is unity), pan? (-63..=63)", true, set_master),
+        cmd(
+            "score.setMaster",
+            "Master",
+            "Sound",
+            None,
+            "volume? (0..=127; 100 is unity), pan? (-63..=63), focus? (-100..=100 percent: above zero the current track stands out, below it sits back)",
+            true,
+            set_master,
+        ),
         cmd(
             "score.setMastering",
             "Sound Mastering",
@@ -182,6 +190,7 @@ fn set_eq(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
 fn set_master(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     let volume = p::opt_uint(params, "volume", 127)?;
     let pan = params.get("pan").filter(|v| !v.is_null()).map(|_| p::int(params, "pan", -63, 63)).transpose()?;
+    let focus = params.get("focus").filter(|v| !v.is_null()).map(|_| p::int(params, "focus", -100, 100)).transpose()?;
     let master = &mut Arc::make_mut(&mut s.score).master;
     if let Some(v) = volume {
         master.volume = v as u8;
@@ -189,7 +198,10 @@ fn set_master(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
     if let Some(v) = pan {
         master.pan = v as i8;
     }
-    Ok(json!({"volume": master.volume, "pan": master.pan}))
+    if let Some(v) = focus {
+        master.focus = v as i8;
+    }
+    Ok(json!({"volume": master.volume, "pan": master.pan, "focus": master.focus}))
 }
 
 fn set_mastering(s: &mut Session, params: &Value) -> Result<Value, EngineError> {
@@ -341,6 +353,9 @@ mod tests {
         assert!(s.run("track.setEq", &json!({"params": {"mid": 13}})).is_err());
         s.run("score.setMaster", &json!({"volume": 80, "pan": -10})).unwrap();
         assert!(s.run("score.setMaster", &json!({"volume": 128})).is_err());
+        assert_eq!(s.run("score.setMaster", &json!({"focus": -40})).unwrap()["focus"], -40);
+        assert!(s.run("score.setMaster", &json!({"focus": 101})).is_err());
+        assert_eq!((s.score().master.volume, s.score().master.focus), (80, -40), "focus leaves the volume");
         s.run("score.setMastering", &json!({"slot": "reverb", "on": true, "preset": "Hall"})).unwrap();
         s.run("score.setMastering", &json!({"slot": 2, "params": {"b1k": -3}})).unwrap();
         assert!(s.run("score.setMastering", &json!({"slot": "chorus"})).is_err());

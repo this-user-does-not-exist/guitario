@@ -1,8 +1,8 @@
 # Guitario roadmap
 
-**Stage: alpha** · next: beta, ~104–213 h away · then 1.0 (full parity), ~705–1,380 h further
+**Stage: alpha** · next: beta, ~99–203 h away · then 1.0 (full parity), ~705–1,380 h further
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (control channel and MCP: B8 passes; readiness ~69 %; beta ~104–213 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-01 · **Change:** minor (saved track visibility and the focus knob: UI-4 done; beta ~99–203 h) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [roadmap](docs/roadmap.md) (stages, gates, current focus), [target-app parity](docs/target-app-parity.md)
@@ -20,12 +20,12 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 |---|---|---|
 | **Stage** | **alpha** | measured: the [alpha gate](docs/roadmap.md#alpha-gate) passes |
 | **Beta gate** | **2 of 8** workflows pass | measured: [beta gate](docs/roadmap.md#beta-gate) |
-| Scorecard | 62 done, 18 partial, 14 missing; **15 open for beta**, 17 for 1.0 | measured |
+| Scorecard | 63 done, 17 partial, 14 missing; **14 open for beta**, 17 for 1.0 | measured |
 | Menus | 174 of 181 live (96 %) | measured |
 | Feature breadth | **~76 %** | partly measured: weights in [target-app parity](docs/target-app-parity.md#feature-breadth-76-weighted) |
 | Readiness | **~69 %** (62–74) | estimated: weighted dimension average |
-| Remaining to **beta** | **~104–213 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
-| Remaining to **full parity** | **~809–1,593 h** | beta plus the 1.0 column |
+| Remaining to **beta** | **~99–203 h** | sum of the beta column in [gaps](docs/gaps.md#summary) |
+| Remaining to **full parity** | **~804–1,583 h** | beta plus the 1.0 column |
 
 ## Stages
 
@@ -56,7 +56,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 | Notation | 15% | 77% | 0 | [scorecard](docs/scorecard.md#notation-and-engraving) |
 | Playback | 15% | 72% | 0 + human | [scorecard](docs/scorecard.md#playback) |
 | Files and exchange | 10% | 72% | 0 + human | [file-format-parity](docs/file-format-parity.md) |
-| UI/UX fidelity | 10% | 64% | 55–110 | [ui-parity](docs/ui-parity.md) |
+| UI/UX fidelity | 10% | 65% | 50–100 | [ui-parity](docs/ui-parity.md) |
 | Tools | 5% | 65% | 0 + human | [gaps G7](docs/gaps.md#g7-tools) |
 | Stability | 10% | 65% | 15–35 | [scorecard](docs/scorecard.md#reliability) |
 | Performance | 5% | 70% | 15–30 | [gaps G9](docs/gaps.md#g9-performance-budgets) |
@@ -74,5 +74,5 @@ Ranked for the beta gate; the reasoning and the human steps are in [docs/roadmap
 | Rank | Work | Gap | Beta hours |
 |---|---|---|---:|
 | 1 | First release run, macOS file opening, signing | [G12](docs/gaps.md#g12-platforms-and-distribution) | 20–40 + human |
-| 2 | Shortcuts audit, user book, click-to-edit | [G8](docs/gaps.md#g8-ui-depth) | 40–80 |
+| 2 | Shortcuts audit, user book, click-to-edit | [G8](docs/gaps.md#g8-ui-depth) | 35–70 |
 | 3 | Fuzzing, CI budgets, localization framework | [G11](docs/gaps.md#g11-reliability-depth), [G9](docs/gaps.md#g9-performance-budgets), [G13](docs/gaps.md#g13-languages) | 45–95 |

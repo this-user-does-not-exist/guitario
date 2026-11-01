@@ -7,6 +7,7 @@
 
 use crate::GuitarioApp;
 use guitario_engine::{DuplexMode, PrintReceipt, PrinterInfo, Spooler};
+use guitario_score::Score;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
@@ -57,9 +58,15 @@ impl Default for PrintDialog {
 }
 
 impl PrintDialog {
-    /// The `file.print` request for what is chosen. `track` is the one on screen.
-    pub(crate) fn params(&self, track: usize) -> Value {
-        let tracks = if self.all_tracks { Value::Null } else { json!([track]) };
+    /// The `file.print` request for what is chosen. `track` is the one on screen; all tracks are
+    /// those the multitrack view shows (the global view's eye hides the others).
+    pub(crate) fn params(&self, score: &Score, track: usize) -> Value {
+        let shown = score.shown_tracks(track);
+        let tracks = match self.all_tracks {
+            false => json!([track]),
+            true if shown.len() == score.tracks.len() => Value::Null,
+            true => json!(shown),
+        };
         let duplex = match self.duplex {
             DuplexMode::Default => "default",
             DuplexMode::Off => "off",
@@ -129,7 +136,7 @@ impl GuitarioApp {
     /// Hands the chosen job to a worker thread.
     fn send_print(&mut self) {
         let track = self.session.cursor().track;
-        let task = match self.session.prepare_print(&self.print.params(track)) {
+        let task = match self.session.prepare_print(&self.print.params(self.session.score(), track)) {
             Ok(task) => task,
             Err(e) => {
                 self.print.error = Some(e.to_string());
@@ -193,6 +200,7 @@ impl GuitarioApp {
         }
         self.poll_print(ctx);
         let tracks = self.session.score().tracks.len();
+        let shown_tracks = self.session.score().shown_tracks(self.session.cursor().track).len();
         let current = self.session.score().tracks.get(self.session.cursor().track).map(|t| t.name.clone()).unwrap_or_default();
         let busy = self.print.sending.is_some();
         let page = self.session.score().page;
@@ -244,7 +252,13 @@ impl GuitarioApp {
                 ui.add_enabled_ui(!busy, |ui| {
                     ui.vertical(|ui| {
                         ui.radio_value(&mut d.all_tracks, false, format!("This track ({current})"));
-                        ui.add_enabled_ui(tracks > 1, |ui| ui.radio_value(&mut d.all_tracks, true, format!("All tracks ({tracks})")));
+                        ui.add_enabled_ui(tracks > 1, |ui| {
+                            ui.radio_value(
+                                &mut d.all_tracks,
+                                true,
+                                if shown_tracks < tracks { format!("Shown tracks ({shown_tracks} of {tracks})") } else { format!("All tracks ({tracks})") },
+                            )
+                        });
                         ui.add_enabled(d.all_tracks, egui::Checkbox::new(&mut d.together, "As a full score (tracks stacked in each system)"));
                     });
                 });
@@ -359,22 +373,29 @@ mod tests {
     fn the_request_follows_the_choices() {
         let mut d =
             PrintDialog { printer: Some("Office".into()), copies: 3, collate: false, duplex: DuplexMode::ShortEdge, grayscale: true, ..PrintDialog::default() };
+        let mut score = Score::new();
+        let t = score.tracks[0].clone();
+        score.tracks.extend([t.clone(), t]);
         assert_eq!(
-            d.params(1),
+            d.params(&score, 1),
             json!({"printer": "Office", "copies": 3, "collate": false, "duplex": "short", "grayscale": true, "tracks": [1], "notation": true, "together": false, "bars": null})
         );
         // A full score only with all tracks.
         d.together = true;
-        assert_eq!(d.params(1)["together"], false);
+        assert_eq!(d.params(&score, 1)["together"], false);
         d.all_tracks = true;
         d.printer = None;
-        let p = d.params(1);
+        let p = d.params(&score, 1);
         assert_eq!((p["tracks"].clone(), p["printer"].clone(), p["together"].clone()), (Value::Null, Value::Null, json!(true)));
+        // All tracks are the ones shown, the current one always.
+        score.tracks[0].hidden = true;
+        score.tracks[1].hidden = true;
+        assert_eq!(d.params(&score, 1)["tracks"], json!([1, 2]));
         // Selected bars only when asked for.
         d.selected_bars = Some((2, 5));
-        assert_eq!(d.params(1)["bars"], Value::Null);
+        assert_eq!(d.params(&score, 1)["bars"], Value::Null);
         d.only_selected = true;
-        assert_eq!(d.params(1)["bars"], json!([2, 5]));
+        assert_eq!(d.params(&score, 1)["bars"], json!([2, 5]));
     }
 
     #[test]
@@ -389,7 +410,7 @@ mod tests {
         app.session.run("select.set", &json!({"fromMeasure": 1, "fromBeat": 0, "toMeasure": 3, "toBeat": 0})).unwrap();
         app.open_print();
         assert_eq!((app.print.selected_bars, app.print.only_selected), (Some((1, 3)), true));
-        let task = app.session.prepare_print(&app.print.params(0)).unwrap();
+        let task = app.session.prepare_print(&app.print.params(app.session.score(), 0)).unwrap();
         assert_eq!(task.job().copies, 1);
         assert!(app.session.prepare_print(&json!({"bars": [3, 1]})).is_err());
         assert!(app.session.prepare_print(&json!({"bars": [0, 99]})).is_err());

@@ -25,9 +25,8 @@ note = "Guitar Pro 8 has only these two tabs; master effects behind Sound Master
 [[item]]
 id = "UI-4"
 target = "Global view in Guitar Pro 8's columns: icon, name, multitrack eye, mute, solo, volume, volume automation, pan, pan automation, equalizer; Master row with sections; bar grid with selection and playback"
-status = "partial"
-stage = "beta"
-note = "no equalizer, master volume/pan or focus (shown greyed); track visibility is not saved"
+status = "done"
+note = "the eye is saved with the track (track.setHidden) and printing follows it; the Master focus knob is live in the player; neither is in Guitar Pro files yet"
 
 [[item]]
 id = "UI-5"

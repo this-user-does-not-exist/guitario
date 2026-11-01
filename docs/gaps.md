@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G10: control channel, screenshots, MCP and the agent tasks; beta ~104–213 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-01 · **Change:** minor (G8: saved track visibility and the focus knob; beta ~99–203 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -25,7 +25,7 @@ Ranked by user impact on the way to beta.
 | 3 | [G3](#g3-guitar-pro-exchange) Exchange | `.gp` checked in Guitar Pro (human) | 0 + human | PowerTab, TablEdit, `.gtp`, ASCII import, `.gpx` export | 90–180 |
 | 4 | [G7](#g7-tools) Tools | a tuning check with a real guitar (human) | 0 + human | line in, MIDI capture, command palette | 70–130 |
 | 5 | [G12](#g12-platforms-and-distribution) Platforms | opening a double-clicked file on macOS (human decision), the release workflow's first run, signing (human), a hands-on run on Windows and Linux | 20–40 + human | browser build, update check | 30–60 |
-| 6 | [G8](#g8-ui-depth) UI depth | shortcuts audit, user book, click-to-edit, focus and track visibility | 40–80 | stylesheet window, floating panels, accessibility | 70–130 |
+| 6 | [G8](#g8-ui-depth) UI depth | shortcuts audit, user book, click-to-edit, preferences defaults, context menu | 35–70 | stylesheet window, floating panels, accessibility | 70–130 |
 | 7 | [G1](#g1-drums-depth) Drums | done | 0 | kit map editing, drum mix, sampled-kit articulations | 15–30 |
 | 8 | [G2](#g2-print-depth) Print | a real printer (human) | 0 + human | image export, stylesheet exchange with Guitar Pro | 10–20 |
 | 9 | [G4](#g4-notation-depth) Notation | done | 0 | slash and numbered notation, grand staff, clefs, Design Mode | 150–300 |
@@ -33,9 +33,9 @@ Ranked by user impact on the way to beta.
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~104–213 h** | | **~705–1,380 h** |
+| | **Total** | | **~99–203 h** | | **~705–1,380 h** |
 
-Beta plus after-beta is **~809–1,593 h** to full parity.
+Beta plus after-beta is **~804–1,583 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -147,11 +147,12 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 ### G8. UI depth
 - **Landed 2026-10-31:** several documents open at once, a tab each (#148), Window › Next
   Document (⌃⇥); see the [changelog](changelog.md#g8-ui-depth).
+- **Landed 2026-11-01:** track visibility saved with the file, printing follows it, and the Master
+  row's focus knob, live in the player (#264, #266, #315, #474).
 - **Beta:** audit the
   default shortcuts against the manual's tables (#528 to 531, #153); Help › user book (#150, #195;
   `book/` has six pages); hover highlight and click-to-edit for the tempo, signatures, sections
-  and chords (#223, #225, #228, #230, #232, #233); focus and saved track visibility (#264, #266,
-  #315, #474; the track equalizer and master volume and pan landed with G5); preferences defaults for new
+  and chords (#223, #225, #228, #230, #232, #233); preferences defaults for new
   scores and playback (#495 to 506); the score's context menu (#344).
 - **After beta:** the Stylesheet window and its five tabs (#507 to 524), floating and docked
   panels (#147), accessibility through AccessKit (#155), the remaining click-to-edit elements
@@ -160,8 +161,8 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
   preview (#274), grid and scroll display modes (#311, #312).
 - **Human:** re-measure the menu catalog, tunings and shortcuts from an installed Guitar Pro 8
   (#154).
-- **Evidence:** UI-4/6/8/13/15 (beta), UI-3/5/14 (1.0); UI-12 is done.
-- **Estimate:** 40–80 h beta, 70–130 h after.
+- **Evidence:** UI-6/8/13/15 (beta), UI-3/5/14 (1.0); UI-4 and UI-12 are done.
+- **Estimate:** 35–70 h beta, 70–130 h after.
 
 ### G1. Drums: depth
 - **Landed 2026-10-31:** the step-grid drum editor (#98) and the articulations (#99): flams,
@@ -248,6 +249,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-01 | minor | G8: the global view's eye saved in `.gt` (`track.setHidden`), print following it, and the Master focus knob live in the player (#264, #266, #315, #474; 40–80 h to 35–70 h beta); UI-4 done |
 | 2026-10-31 | minor | G10: the control channel (`guitario --control <port>`), screenshots of the window or the score over it, an MCP server (`guitario-cli mcp`, headless or `--connect`ed to the app) and ten agent tasks over MCP (#162 to 165; 40–80 h to 0 beta); B8 passes |
 | 2026-10-31 | minor | G5: orchestral string sections and the recalibrated bowed strings from the 2026-10-19 branch merged; they replace the earlier recordings fit (beta unchanged: the listening pass) |
 | 2026-10-31 | minor | G8: several documents in tabs with their own undo, autosave and unsaved-changes prompts, the clipboard across tabs, Window › Next Document (50–95 h to 40–80 h beta) |

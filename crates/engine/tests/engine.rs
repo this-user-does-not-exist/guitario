@@ -523,6 +523,30 @@ fn track_information_sets_name_short_name_and_colour() {
 }
 
 #[test]
+fn the_eye_hides_a_track_from_the_multitrack_view_and_the_file_keeps_it() {
+    let mut s = Session::new();
+    run(&mut s, "track.add", json!({"name": "Bass", "tuning": "bass"}));
+    run(&mut s, "track.add", json!({"name": "Lead"}));
+    assert_eq!(s.run("track.setHidden", &json!({"track": 1})).unwrap()["hidden"], true, "no `hidden` toggles");
+    assert_eq!(s.score().shown_tracks(0), vec![0, 2]);
+    // The flag goes with the track when the tracks are reordered.
+    run(&mut s, "track.select", json!({"index": 1}));
+    run(&mut s, "track.moveDown", json!({}));
+    assert!(s.score().tracks[2].hidden && !s.score().tracks[1].hidden);
+    assert_eq!(s.score().shown_tracks(2), vec![0, 1, 2], "the current track is always shown");
+    let text = serde_json::to_string(s.score()).unwrap();
+    let back: guitario_score::Score = serde_json::from_str(&text).unwrap();
+    assert!(back.tracks[2].hidden);
+    run(&mut s, "track.setHidden", json!({"track": 2, "hidden": false}));
+    assert!(!s.score().tracks[2].hidden);
+    run(&mut s, "edit.undo", json!({}));
+    assert!(s.score().tracks[2].hidden, "one undo step");
+    for bad in [json!({"hidden": "yes"}), json!({"track": 3}), json!({"track": -1})] {
+        assert!(s.run("track.setHidden", &bad).is_err(), "{bad}");
+    }
+}
+
+#[test]
 fn notations_are_chosen_per_track_and_one_always_stays() {
     let mut s = Session::new();
     run(&mut s, "track.add", json!({"name": "Bass", "tuning": "bass"}));

@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (control channel and MCP: breadth ~76 %, readiness ~69 %; beta ~104–213 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-01 · **Change:** minor (saved track visibility and the focus knob: UI 65 %; beta ~99–203 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -19,8 +19,8 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 | **Menu parity** | 174 of 181 items live (96 %) | measured: `cargo xtask parity` |
 | **Feature breadth** (does each Guitar Pro feature exist?) | **~76 %** | partly measured, weights [below](#feature-breadth-76-weighted) |
 | **Readiness** (how deep is each dimension, weighted?) | **~69 %** (range 62–74) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~104–213 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~809–1,593 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| Remaining to **beta** | **~99–203 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~804–1,583 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -67,12 +67,12 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 | Notation | 15% | 77% | 0 | 150–300 | G4 | [scorecard › Notation](scorecard.md#notation-and-engraving): voices picked by their noteheads and the manual's shortcuts; slurs as Guitar Pro chains them, across bars and in Guitar Pro files |
 | Playback | 15% | 72% | 0 + human | 140–280 | G5 | a modelled grand piano and bowed strings (soloists, orchestral sections of up to sixteen players and a string orchestra) with resonating bodies, the strings measured against recordings of real players; sampler (release samples, filters, curves, loops, OGG) with the bank installed from the app and an instrument per track, mixer, automations, effect chains, equalizer, mastering and articulations (synth and bank) in; master automation; samples in 16 bits, long ones streamed from disk (25 MB instead of 500 for the perf score); no pedalboard; checked by tests, not by ear |
 | Files and exchange | 10% | 72% | 0 + human | 100–200 | G3, G2 | [file-format-parity](file-format-parity.md) |
-| UI/UX fidelity | 10% | 64% | 55–110 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view, homepage and document tabs match Guitar Pro 8; depth (preferences, stylesheet, shortcuts audit) does not |
+| UI/UX fidelity | 10% | 65% | 50–100 | 110–210 | G8, G13 | [ui-parity](ui-parity.md): workspace, palette, inspector, toolbar, global view, homepage and document tabs match Guitar Pro 8; depth (preferences, stylesheet, shortcuts audit) does not |
 | Tools | 5% | 65% | 0 + human | 80–150 | G7 | tuner, chord window, scales, line in |
 | Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
 | Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
 | Platforms and automation | 10% | 50% | 20–40 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; packages for three platforms (`cargo xtask package`), file types declared, a release workflow that has not run yet, signing waiting on certificates; a file double-clicked in Finder does not open; the control channel, screenshots and an MCP server with ten agent tasks ([control](control.md)) |
-| **Weighted** | 100% | **~69%** | **~104–213** | **~705–1,380** | | 0.20·74 + 0.15·77 + 0.15·72 + 0.10·72 + 0.10·64 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·50 = 69.0 |
+| **Weighted** | 100% | **~69%** | **~99–203** | **~705–1,380** | | 0.20·74 + 0.15·77 + 0.15·72 + 0.10·72 + 0.10·65 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·50 = 69.1 |
 
 Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
 is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
@@ -98,6 +98,7 @@ per format or subsystem, from its 1,004 merged PRs). The first measurement here,
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-01 | minor | Saved track visibility and the Master focus knob (UI-4 done): UI 64% → 65%, its beta hours 55–110 → 50–100 (readiness 69.0 → 69.1) |
 | 2026-10-31 | minor | The control channel, screenshots, the MCP server and ten agent tasks: automation 30% → 80% (breadth ~74% → ~76%), platforms and automation 35% → 50% and its beta hours 60–120 → 20–40 (readiness 67.5 → 69.0); full parity re-summed from the gaps (~809–1,593 h) |
 | 2026-10-31 | minor | The 2026-10-19 string sections and recalibrated bowed strings merged, replacing the earlier recordings fit: playback stays 72% |
 | 2026-10-31 | minor | Several documents in tabs: UI 62% → 64%, its beta hours 65–125 → 55–110; the weighted row had kept old figures and now sums the table as it stands (65.8 → 67.5, ~68%) |
