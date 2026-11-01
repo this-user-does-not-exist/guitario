@@ -1,6 +1,6 @@
 # Where Guitario falls short of Guitar Pro
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G8: several documents in tabs; beta ~144–293 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G10: control channel, screenshots, MCP and the agent tasks; beta ~104–213 h) · **Target:** Guitar Pro 8
 
 Every known shortfall against Guitar Pro 8, one entry each, ranked by what stands between a
 mainstream user and the [beta gate](roadmap.md#beta-gate). This is the work list agents pick
@@ -29,13 +29,13 @@ Ranked by user impact on the way to beta.
 | 7 | [G1](#g1-drums-depth) Drums | done | 0 | kit map editing, drum mix, sampled-kit articulations | 15–30 |
 | 8 | [G2](#g2-print-depth) Print | a real printer (human) | 0 + human | image export, stylesheet exchange with Guitar Pro | 10–20 |
 | 9 | [G4](#g4-notation-depth) Notation | done | 0 | slash and numbered notation, grand staff, clefs, Design Mode | 150–300 |
-| 10 | [G10](#g10-automation) Automation | control channel, screenshots, MCP, ten agent tasks | 40–80 | | |
+| 10 | [G10](#g10-automation) Automation | done | 0 | | |
 | 11 | [G11](#g11-reliability-depth) Reliability | `.gt` and decoder fuzzing, a guard around painting | 15–35 | | |
 | 12 | [G9](#g9-performance-budgets) Performance | budgets in CI, memory, startup, layout cache | 15–30 | | |
 | 13 | [G13](#g13-languages) Languages | the localization framework | 15–30 | eleven translations | 40–80 + human |
-| | **Total** | | **~144–293 h** | | **~705–1,380 h** |
+| | **Total** | | **~104–213 h** | | **~705–1,380 h** |
 
-Beta plus after-beta is **~849–1,673 h** to full parity.
+Beta plus after-beta is **~809–1,593 h** to full parity.
 
 ## Beta gaps, in order
 
@@ -202,12 +202,9 @@ The biggest distance to Guitar Pro, and the one a listener hears first.
 - **Estimate:** 0 beta, 150–300 h after.
 
 ### G10. Automation
-- **Beta:** a JSON control channel over a local socket to drive the running app (#162), screenshots
-  over it (#163), an MCP server over the engine (#164) and an agent task suite of ten scripted edit
-  tasks (#165). Every action is already a command, so this is transport and a harness. It is on
-  the beta path because "every feature drivable by agents" is a stated goal of the project.
-- **Evidence:** AUTO-3/4.
-- **Estimate:** 40–80 h.
+- **Beta:** done (2026-10-31; see the [changelog](changelog.md#g10-automation)).
+- **Evidence:** AUTO-3/4 done; B8 passes.
+- **Estimate:** 0.
 
 ### G11. Reliability depth
 - **Beta:** fuzz the `.gt` reader (#168) and the SFZ, WAV and FLAC decoders (#169); Guitar Pro 3
@@ -251,6 +248,7 @@ is the reference; the issues should follow it:
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | G10: the control channel (`guitario --control <port>`), screenshots of the window or the score over it, an MCP server (`guitario-cli mcp`, headless or `--connect`ed to the app) and ten agent tasks over MCP (#162 to 165; 40–80 h to 0 beta); B8 passes |
 | 2026-10-31 | minor | G5: orchestral string sections and the recalibrated bowed strings from the 2026-10-19 branch merged; they replace the earlier recordings fit (beta unchanged: the listening pass) |
 | 2026-10-31 | minor | G8: several documents in tabs with their own undo, autosave and unsaved-changes prompts, the clipboard across tabs, Window › Next Document (50–95 h to 40–80 h beta) |
 | 2026-10-31 | minor | G4: slurs as a `legato` chain across bars and systems, in the tab, exchanged with `.gp`/`.gpx`/MusicXML; a stepped-aside head gets room (4–14 h to 0 beta) |

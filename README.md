@@ -22,9 +22,10 @@
 > [!WARNING]
 > Guitario is **alpha**. Writing, arranging with drums, bends and the whammy bar, playing with
 > sampled instruments through an amp, practising with the tuner, chord and scale tools, Guitar
-> Pro, MIDI and MusicXML exchange, and PDF export and printing work end to end. Beta needs
-> several documents open at once, the drum step grid, headers and footers, signed releases that
-> open a double-clicked file on every platform, and an agent control channel. See the
+> Pro, MIDI and MusicXML exchange, PDF export and printing, and driving the app by agent over
+> MCP work end to end. Beta needs signed releases that open a double-clicked file on every
+> platform, performance budgets in CI, more fuzzing and the localization framework, and checks
+> only a person can make (a listening pass, a real printer, a `.gp` opened in Guitar Pro 8). See the
 > [beta gate](docs/roadmap.md#beta-gate) and [ROADMAP.md](ROADMAP.md).
 
 <p align="center">
@@ -111,8 +112,16 @@ cargo run -p guitario-cli -- convert song.gp song.pdf       # .gt/.gp/.gp5/.pdf/
 cargo run -p guitario-cli -- run - riff.json --save riff.gt # run a script of commands
 ```
 
-A script is a JSON array of `["command.id", {params}]` steps. A control channel and an MCP server
-are on the [roadmap](docs/gaps.md#g10-automation).
+A script is a JSON array of `["command.id", {params}]` steps. Agents get an MCP server, over a
+headless session or the running app (where they can also take screenshots):
+
+```sh
+claude mcp add guitario -- guitario-cli mcp                 # headless
+cargo run -p guitario -- --control 4747                     # the app, listening on 127.0.0.1:4747
+claude mcp add guitario -- guitario-cli mcp --connect 4747  # an agent in the running app
+```
+
+The protocol and the tools are in [docs/control.md](docs/control.md).
 
 ## Get started
 

@@ -53,6 +53,7 @@ equivalents found in the system font folders, `CRAFT_FONTS_DIR` or `GUITARIO_FON
 
 | Variable | Effect |
 |---|---|
+| `GUITARIO_CONTROL` | A port: the app serves the control channel on 127.0.0.1 (as `--control <port>`; [`control.md`](control.md)) |
 | `GUITARIO_CONFIG_DIR` | Where `config.toml` lives, with `recovery/` beside it for autosaved unsaved work; set but empty keeps preferences in memory and turns autosave off (tests, agents) |
 | `GUITARIO_FONTS_DIR`, `CRAFT_FONTS_DIR` | Extra font folders |
 | `GUITARIO_MUSIC_FONT` | A SMuFL font file to use |
@@ -67,6 +68,8 @@ equivalents found in the system font folders, `CRAFT_FONTS_DIR` or `GUITARIO_FON
 `guitario-cli commands | info <file> | convert <in> <out> [--sounds <dir>] [--tracks 0,2] [--tab-only] [--score] | run <file|-> <script.json> [--save <path>]`. `convert` writes `.gt`, `.gp`, `.gp5`, `.musicxml`, `.pdf`, `.mid`, `.wav`, `.flac` or `.txt`. PDF and printing come from the `pdf` feature (on by default; `--no-default-features` builds a CLI without the UI crate and its audio libraries).
 Inputs are `.gt`, any Guitar Pro file (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`) MIDI (`.mid`, `.midi`) or MusicXML (`.musicxml`, `.xml`, `.mxl`); outputs are `.gt`, `.gp`, `.gp5`, `.musicxml`, `.pdf`, `.mid`, `.wav`, `.flac` or `.txt`.
 A script is a JSON array of `["command.id", {params}]` steps.
+
+`guitario-cli mcp [file] [--connect <port>]` is an MCP server on stdio, over a headless session or the running app; `guitario-cli send <port> <method> [params]` sends one control request to the app. Both are described in [`control.md`](control.md).
 
 ## Native format (.gt)
 

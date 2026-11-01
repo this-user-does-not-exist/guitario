@@ -1,6 +1,6 @@
 # Guitario vs Guitar Pro 8: target-app parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (several documents: UI 64 %; readiness ~68 % with the weighted sum brought up to date; beta ~144–293 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (control channel and MCP: breadth ~76 %, readiness ~69 %; beta ~104–213 h) · **Target:** Guitar Pro 8
 
 The authoritative answer to "how close is Guitario to Guitar Pro, and how much work is left".
 The one-page summary is [`ROADMAP.md`](../ROADMAP.md); what each stage means and how to tell it
@@ -17,10 +17,10 @@ measured checklists are [`scorecard.md`](scorecard.md) (`cargo xtask scorecard`)
 | **Beta gate** | **0 of 8 workflows pass** | measured by running them: [beta gate](roadmap.md#beta-gate) |
 | **Scorecard** | 58 done · 18 partial · 17 missing; **19 open for beta**, 16 for 1.0 | measured: `cargo xtask scorecard` |
 | **Menu parity** | 174 of 181 items live (96 %) | measured: `cargo xtask parity` |
-| **Feature breadth** (does each Guitar Pro feature exist?) | **~74 %** | partly measured, weights [below](#feature-breadth-74-weighted) |
-| **Readiness** (how deep is each dimension, weighted?) | **~68 %** (range 61–73) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
-| Remaining to **beta** | **~144–293 h** | sum of the beta column in [gaps](gaps.md#summary) |
-| Remaining to **full parity** | **~859–1,688 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
+| **Feature breadth** (does each Guitar Pro feature exist?) | **~76 %** | partly measured, weights [below](#feature-breadth-76-weighted) |
+| **Readiness** (how deep is each dimension, weighted?) | **~69 %** (range 62–74) | estimated per dimension, arithmetic [below](#readiness-by-dimension) |
+| Remaining to **beta** | **~104–213 h** | sum of the beta column in [gaps](gaps.md#summary) |
+| Remaining to **full parity** | **~809–1,593 h** | beta plus the 1.0 column; sampled playback and the long tail of notation dominate |
 
 What changed in this review: the previous headline said "ready for real work ~29 %" and gave
 audience percentages (essentials 76 %, mainstream 39 %) that could not be reproduced from the
@@ -42,7 +42,7 @@ beta, a *full* user needs 1.0 (definitions in [roadmap](roadmap.md#stages)).
   available: menu resources, preset tunings, shortcut defaults and sound banks (#154).
 - Clean-room: behaviour and look only. No Guitar Pro code, sounds, fonts or stylesheets are used.
 
-## Feature breadth: ~74% (weighted)
+## Feature breadth: ~76% (weighted)
 
 | Component | Weight | Ours / Guitar Pro | % | Kind |
 |---|---:|---|---:|---|
@@ -52,8 +52,8 @@ beta, a *full* user needs 1.0 (definitions in [roadmap](roadmap.md#stages)).
 | Playback | 15% | physical-model guitar and bass, synthesised drums, SFZ sampler with a sound bank, RSE or MIDI per track, interpretation settings, transport, loop, speed, metronome, count-in, live mixer, tempo, volume and pan automation, audio settings, WAV and FLAC, an effect chain per track (amp, cabinet, drive, dynamics, modulation, delay, reverb), the mixer's equalizer, master volume, pan and mastering, every articulation in the synth and a program per articulation from a bank, a modelled grand piano and violin family with sections, a sampler with release samples, filters, curves and loops; no pedalboard, MP3 or OGG export | ~67% | estimated ([scorecard](scorecard.md#playback)) |
 | File formats (usage-weighted) | 15% | `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` import (checked on 76 real files), `.gp`, `.gp5`, MIDI, WAV, FLAC and ASCII export, PDF export, print, preview, page setup; chords, lyrics and fingering both ways; MIDI import, MusicXML import and export; no PowerTab, TablEdit or ASCII import, `.gpx` export or image export | ~70% | estimated ([file-format-parity](file-format-parity.md)) |
 | Tools (tuner, chord engine, scales, line in) | 10% | chord diagram editor and namer, the Chord window, the Scale tool, the tuner; no line in, MIDI capture or command palette | ~60% | estimated |
-| Ecosystem and automation | 5% | engine commands, CLI, scripts; no control channel or MCP | ~30% | estimated |
-| **Weighted** | 100% | 0.30·96 + 0.15·80 + 0.10·50 + 0.15·67 + 0.15·70 + 0.10·60 + 0.05·30 | **~74%** (73.9%) | |
+| Ecosystem and automation | 5% | engine commands, CLI, scripts, a control channel to the running app with screenshots, an MCP server ([control](control.md)) | ~80% | estimated |
+| **Weighted** | 100% | 0.30·96 + 0.15·80 + 0.10·50 + 0.15·67 + 0.15·70 + 0.10·60 + 0.05·80 | **~76%** (76.4%) | |
 
 ## Readiness by dimension
 
@@ -71,8 +71,8 @@ are estimates; the beta hours are the dimension's gaps in [`gaps.md`](gaps.md).
 | Tools | 5% | 65% | 0 + human | 80–150 | G7 | tuner, chord window, scales, line in |
 | Stability | 10% | 65% | 15–35 | 0 | G11 | never-crash lints on every crate, a command fuzz test, a panic guard on every command, autosave and recovery, fuzzers on the Guitar Pro readers; no field reports yet, `.gt` reader not fuzzed |
 | Performance | 5% | 70% | 15–30 | 0 | G9 | measured (`cargo xtask perf`, `perf/budgets.toml`): every stage within budget on a 400-bar, six-track score; not in CI, no memory or startup budgets |
-| Platforms and automation | 10% | 35% | 60–120 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; packages for three platforms (`cargo xtask package`), file types declared, a release workflow that has not run yet, signing waiting on certificates; a file double-clicked in Finder does not open; no control channel or MCP |
-| **Weighted** | 100% | **~68%** | **~144–293** | **~705–1,380** | | 0.20·74 + 0.15·77 + 0.15·72 + 0.10·72 + 0.10·64 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·35 = 67.5 |
+| Platforms and automation | 10% | 50% | 20–40 | 30–60 | G12, G10 | CI green on macOS, Linux and Windows; app icon; packages for three platforms (`cargo xtask package`), file types declared, a release workflow that has not run yet, signing waiting on certificates; a file double-clicked in Finder does not open; the control channel, screenshots and an MCP server with ten agent tasks ([control](control.md)) |
+| **Weighted** | 100% | **~69%** | **~104–213** | **~705–1,380** | | 0.20·74 + 0.15·77 + 0.15·72 + 0.10·72 + 0.10·64 + 0.05·65 + 0.10·65 + 0.05·70 + 0.10·50 = 69.0 |
 
 Beta is not "75 % of this table": it is the beta gate. As a guide, the dimension average at beta
 is about 75 % because the beta work lifts playback, editing, tools and platforms to the high
@@ -98,6 +98,7 @@ per format or subsystem, from its 1,004 merged PRs). The first measurement here,
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | The control channel, screenshots, the MCP server and ten agent tasks: automation 30% → 80% (breadth ~74% → ~76%), platforms and automation 35% → 50% and its beta hours 60–120 → 20–40 (readiness 67.5 → 69.0); full parity re-summed from the gaps (~809–1,593 h) |
 | 2026-10-31 | minor | The 2026-10-19 string sections and recalibrated bowed strings merged, replacing the earlier recordings fit: playback stays 72% |
 | 2026-10-31 | minor | Several documents in tabs: UI 62% → 64%, its beta hours 65–125 → 55–110; the weighted row had kept old figures and now sums the table as it stands (65.8 → 67.5, ~68%) |
 | 2026-10-31 | minor | Slurs across bars, in the tab and in Guitar Pro files; head room: notation 75% → 77%, its beta hours 4–14 → 0 |
