@@ -570,6 +570,9 @@ pub struct Track {
     pub muted: bool,
     #[serde(default)]
     pub solo: bool,
+    /// Left out of the multitrack view, and of printing all tracks, by the global view's eye.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hidden: bool,
     pub measures: Vec<Measure>,
     /// Up to [`MAX_LYRIC_LINES`] lines of lyrics, sung on the track's first voice.
     #[serde(default)]
@@ -760,6 +763,7 @@ impl Track {
             pan: 0,
             muted: false,
             solo: false,
+            hidden: false,
             measures: headers.iter().map(Measure::empty_for).collect(),
             lyrics: Vec::new(),
             short_name: String::new(),
@@ -1493,6 +1497,12 @@ impl Score {
         self.headers.len()
     }
 
+    /// The tracks the multitrack view shows: every track the global view's eye has not hidden,
+    /// and the `current` track always.
+    pub fn shown_tracks(&self, current: usize) -> Vec<usize> {
+        self.tracks.iter().enumerate().filter(|(i, t)| *i == current || !t.hidden).map(|(i, _)| i).collect()
+    }
+
     /// Clears a slur on the last beat of each voice of a track: there is nothing for it to reach.
     pub fn end_slurs(&mut self) {
         for t in &mut self.tracks {
@@ -1606,6 +1616,24 @@ impl Default for Score {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hidden_tracks_are_left_out_but_never_the_current_one() {
+        let mut s = Score::new();
+        let headers = s.headers.clone();
+        s.tracks.push(Track::new("Bass", Tuning::bass(), &headers));
+        s.tracks.push(Track::new("Lead", Tuning::standard(), &headers));
+        assert_eq!(s.shown_tracks(1), vec![0, 1, 2]);
+        s.tracks.iter_mut().for_each(|t| t.hidden = true);
+        assert_eq!(s.shown_tracks(1), vec![1], "the current track stays");
+        s.tracks[0].hidden = false;
+        assert_eq!(s.shown_tracks(2), vec![0, 2]);
+        assert_eq!(s.shown_tracks(9), vec![0], "a cursor past the tracks shows only what is not hidden");
+        let json = serde_json::to_string(&s.tracks[0]).unwrap();
+        assert!(!json.contains("hidden"), "a shown track writes nothing new");
+        let back: Track = serde_json::from_str(&serde_json::to_string(&s.tracks[1]).unwrap()).unwrap();
+        assert!(back.hidden);
+    }
 
     fn bars(n: usize) -> Score {
         let mut s = Score::new();

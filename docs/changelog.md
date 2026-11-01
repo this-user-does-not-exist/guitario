@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (G10: control channel and MCP) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-01 · **Change:** minor (G8: saved track visibility and the focus knob) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -664,6 +664,21 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   them. Window › Next Document (⌃⇥) and ⌃⇧⇥ go round the tabs; switching stops playback. The app
   opens every file named on its command line, each in a tab. Tests in `documents.rs`; the
   snapshot example's `--also a.gt,b.gp` opens more tabs.
+
+- **Landed 2026-11-01:** track visibility saved and the Master row's focus knob (#264, #266,
+  #315, #474). The global view's eye is now a model flag (`Track::hidden`, written to `.gt` only
+  when set) changed by `track.setHidden` (`hidden?`, toggling without it; one undo step), so it is
+  saved with the file, follows a track when the tracks are reordered, and is the same in every tab.
+  `Score::shown_tracks` is the one rule: every track not hidden, and the current track always; the
+  multitrack view and File › Print… with all tracks follow it (the dialog says "Shown tracks
+  (2 of 4)" when some are hidden). The focus knob on the Master row (`Master::focus`,
+  -100..=100, `score.setMaster {focus}`) drags like the pan knob and resets on a double-click:
+  turned right it lowers every other track by that percentage so the current track stands out,
+  turned left it lowers the current track (unfocus). The player applies it live to the track being
+  edited (`Player::set_focus_track`); exports have no current track, so they are unaffected.
+  Neither is read from or written to Guitar Pro files yet. Tests in `score` (`shown_tracks`, the
+  file form), the engine (`track.setHidden`, reordering, undo, bad params; master focus range),
+  `player.rs` (focus gains) and `global_view.rs`/`print_dialog.rs`; checked in offscreen snapshots.
 
 ### G9. Performance budgets
 - **Landed 2026-10-16:** `cargo xtask perf` and `perf/budgets.toml`: a 400-bar, six-track score

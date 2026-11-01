@@ -468,6 +468,9 @@ pub struct Master {
     pub volume: u8,
     /// -63..=63.
     pub pan: i8,
+    /// The focus knob, -100..=100 percent: above zero the current track stands out and the others
+    /// are lowered by that much; below zero the current track is lowered (unfocus).
+    pub focus: i8,
     pub compressor: Effect,
     pub reverb: Effect,
     pub equalizer: Effect,
@@ -483,6 +486,7 @@ impl Default for Master {
         Master {
             volume: 100,
             pan: 0,
+            focus: 0,
             compressor: off(EffectType::Compressor, "Glue"),
             reverb: off(EffectType::Reverb, "Studio"),
             equalizer: off(EffectType::Equalizer, "10-Band"),
@@ -515,6 +519,9 @@ impl Master {
     pub fn check(&self) -> Result<(), String> {
         if self.volume > 127 || !(-63..=63).contains(&self.pan) {
             return Err("master volume must be 0..=127 and pan -63..=63".into());
+        }
+        if !(-100..=100).contains(&self.focus) {
+            return Err("master focus must be -100..=100".into());
         }
         for (e, (name, kind)) in self.slots().into_iter().zip(MASTER_SLOTS) {
             if e.kind != kind {

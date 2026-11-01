@@ -8,7 +8,6 @@ use crate::GuitarioApp;
 use crate::automation_dialog::MixKind;
 use crate::icons::{Icon, draw};
 use crate::mixer::Control;
-use crate::page::is_hidden;
 use crate::theme::{tokens, track_color};
 use egui::{Color32, CornerRadius, Rect, Sense, Shape, Stroke, pos2, vec2};
 use serde_json::json;
@@ -40,7 +39,6 @@ const AUTO_ON: Color32 = Color32::from_rgb(0x9c, 0xc8, 0x78);
 /// What a click in the global view asks for, done after drawing.
 enum Act {
     Run(&'static str, serde_json::Value),
-    ToggleHidden(usize),
     ToggleMultitrack,
     Automation(usize, MixKind),
     MasterAutomation(MixKind),
@@ -141,7 +139,7 @@ fn rows(app: &mut GuitarioApp, ui: &mut egui::Ui) {
     let mut vol_slots: Vec<(usize, Rect)> = Vec::new();
     let mut pan_knobs: Vec<(usize, Rect)> = Vec::new();
     // The Master row's fader and pan knob.
-    let mut master_slots: Option<(Rect, Rect)> = None;
+    let mut master_slots: Option<(Rect, Rect, Rect)> = None;
     let bars = score.headers.len();
     let n = score.tracks.len();
     let dim = t.text_dim.gamma_multiply(0.55);
@@ -240,7 +238,7 @@ fn rows(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 let at = |x: f32| pos2(right - x, cy);
                 let cell = |x: f32, w: f32| Rect::from_center_size(at(x), vec2(w, ROW - 4.0));
                 let hovered = |r: Rect| resp.hover_pos().is_some_and(|h| r.contains(h));
-                let shown = !is_hidden(app.view.hidden, i);
+                let shown = !tr.hidden;
                 let eye = cell(col::EYE, 24.0);
                 icon_cell(&p, at(col::EYE), Icon::Eye, false, t.accent, if shown { t.text } else { dim }, hovered(eye));
                 let mute = cell(col::MUTE, 24.0);
@@ -295,14 +293,15 @@ fn rows(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                     resp.clone().on_hover_text("Edit the automation");
                 }
             }
-            // The Master row: volume and pan with their automations; focus is not built yet.
+            // The Master row: focus, volume and pan with their automations.
             let (row, _) = ui.allocate_exact_size(vec2(LEFT, ROW), Sense::hover());
             let p = ui.painter().clone();
             p.rect_filled(row, 0.0, t.chrome_dark);
             let cy = row.center().y;
             p.text(pos2(row.left() + 44.0, cy), egui::Align2::LEFT_CENTER, "Master", egui::FontId::proportional(14.0), t.text);
             let at = |x: f32| pos2(row.right() - x, cy);
-            knob(&p, at(col::MUTE - 13.0), 0.0, false);
+            let focus = live(usize::MAX, Control::MasterFocus, i64::from(score.master.focus));
+            knob(&p, at(col::MUTE - 13.0), focus as f32 * 0.63, true);
             let slot = Rect::from_min_size(pos2(row.right() - col::FADER_END - FADER, row.top() + 3.0), vec2(FADER, ROW - 6.0));
             let master = &score.master;
             fader(&p, slot, live(usize::MAX, Control::MasterVolume, i64::from(master.volume)) as f32, true, false);
@@ -319,10 +318,8 @@ fn rows(app: &mut GuitarioApp, ui: &mut egui::Ui) {
                 }
             }
             knob(&p, at(col::PAN), live(usize::MAX, Control::MasterPan, i64::from(master.pan)) as f32, true);
-            master_slots = Some((slot, Rect::from_center_size(at(col::PAN), vec2(24.0, ROW - 4.0))));
-            let _ = ui
-                .interact(Rect::from_center_size(at(col::MUTE - 13.0), vec2(24.0, ROW - 4.0)), egui::Id::new("global-master-focus"), Sense::hover())
-                .on_hover_text("Focus on the current track (not in Guitario yet)");
+            master_slots =
+                Some((slot, Rect::from_center_size(at(col::PAN), vec2(24.0, ROW - 4.0)), Rect::from_center_size(at(col::MUTE - 13.0), vec2(24.0, ROW - 4.0))));
         });
         // Bar grid.
         egui::ScrollArea::horizontal().id_salt("global-bars").show(ui, |ui| {
@@ -436,7 +433,7 @@ fn rows(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             drag = None;
         }
     }
-    if let Some((slot, pan)) = master_slots {
+    if let Some((slot, pan, focus)) = master_slots {
         let r = ui.interact(slot.expand(2.0), egui::Id::new("global-master-volume"), Sense::click_and_drag()).on_hover_text("Master volume");
         if let Some(pos) = r.interact_pointer_pos().filter(|_| r.dragged() || r.clicked() || r.drag_stopped()) {
             let v = (((pos.x - slot.left() - 3.0) / (slot.width() - 6.0)).clamp(0.0, 1.0) * 127.0).round() as i64;
@@ -463,6 +460,24 @@ fn rows(app: &mut GuitarioApp, ui: &mut egui::Ui) {
             acts.push(Act::Run("score.setMaster", json!({"pan": v})));
             drag = None;
         }
+        let tip = format!("Focus on the current track (right) or unfocus it (left): {}; double-click to reset", focus_label(score.master.focus));
+        let r = ui.interact(focus, egui::Id::new("global-master-focus"), Sense::click_and_drag()).on_hover_text(tip);
+        if r.double_clicked() {
+            acts.push(Act::Run("score.setMaster", json!({"focus": 0})));
+            drag = None;
+        } else if r.dragged() {
+            let from = match drag {
+                Some((_, Control::MasterFocus, v)) => v,
+                _ => i64::from(score.master.focus),
+            };
+            let d = r.drag_delta();
+            drag = Some((usize::MAX, Control::MasterFocus, knob_step(from, d.x - d.y, 100)));
+        } else if r.drag_stopped()
+            && let Some((_, Control::MasterFocus, v)) = drag
+        {
+            acts.push(Act::Run("score.setMaster", json!({"focus": v})));
+            drag = None;
+        }
     }
     let dragging = drag.is_some();
     app.mixer.drag = drag;
@@ -470,11 +485,6 @@ fn rows(app: &mut GuitarioApp, ui: &mut egui::Ui) {
         match act {
             Act::Run(id, p) => {
                 app.run(id, p);
-            }
-            Act::ToggleHidden(i) => {
-                if let Some(bit) = u32::try_from(i).ok().and_then(|i| 1u64.checked_shl(i)) {
-                    app.view.hidden ^= bit;
-                }
             }
             Act::ToggleMultitrack => app.ui_action(crate::menu_catalog::UiAction::ToggleMultitrack),
             Act::AddTrack => app.open_add_track(None),
@@ -493,8 +503,22 @@ fn rows(app: &mut GuitarioApp, ui: &mut egui::Ui) {
 
 /// A knob drag of `pixels` (right or up is positive) moves the pan from `from`, two pixels a step.
 fn pan_step(from: i64, pixels: f32) -> i64 {
+    knob_step(from, pixels, 63)
+}
+
+/// The same for a knob that turns from `-limit` to `limit`.
+fn knob_step(from: i64, pixels: f32, limit: i64) -> i64 {
     let step = if pixels.is_finite() { (pixels / 2.0).round() as i64 } else { 0 };
-    from.saturating_add(step).clamp(-63, 63)
+    from.saturating_add(step).clamp(-limit, limit)
+}
+
+/// The focus knob's value as its tooltip says it.
+fn focus_label(focus: i8) -> String {
+    match focus {
+        0 => "off".into(),
+        f if f > 0 => format!("focus {f} %"),
+        f => format!("unfocus {} %", f.unsigned_abs()),
+    }
 }
 
 /// The (track, bar) under a point `at` measured from the grid's top-left, if it is on a cell.
@@ -526,7 +550,7 @@ fn row_click(i: usize, tr: &guitario_score::Track, part: RowPart) -> Option<Act>
         RowPart::Mute => Act::Run("track.setMix", json!({"track": i, "muted": !tr.muted})),
         RowPart::Solo => Act::Run("track.setMix", json!({"track": i, "solo": !tr.solo})),
         RowPart::Name => Act::Run("track.select", json!({"index": i})),
-        RowPart::Eye => Act::ToggleHidden(i),
+        RowPart::Eye => Act::Run("track.setHidden", json!({"track": i, "hidden": !tr.hidden})),
         RowPart::VolumeAutomation => Act::Automation(i, MixKind::Volume),
         RowPart::PanAutomation => Act::Automation(i, MixKind::Pan),
         RowPart::Equalizer => Act::Equalizer(i),
@@ -566,7 +590,12 @@ mod tests {
         run(&mut s, act);
         assert!(!s.score().tracks[1].muted);
         assert!(matches!(row_click(2, &s.score().tracks[2], RowPart::Name), Some(Act::Run("track.select", _))));
-        assert!(matches!(row_click(2, &s.score().tracks[2], RowPart::Eye), Some(Act::ToggleHidden(2))));
+        let act = row_click(2, &s.score().tracks[2].clone(), RowPart::Eye);
+        run(&mut s, act);
+        assert!(s.score().tracks[2].hidden && s.score().shown_tracks(0) == vec![0, 1], "the eye hides its own row");
+        let act = row_click(2, &s.score().tracks[2].clone(), RowPart::Eye);
+        run(&mut s, act);
+        assert!(!s.score().tracks[2].hidden);
         assert!(matches!(row_click(1, &s.score().tracks[1], RowPart::PanAutomation), Some(Act::Automation(1, MixKind::Pan))));
         assert!(matches!(row_click(1, &s.score().tracks[1], RowPart::Equalizer), Some(Act::Equalizer(1))));
     }
@@ -598,5 +627,8 @@ mod tests {
         assert_eq!(pan_step(60, 40.0), 63);
         assert_eq!(pan_step(-60, -40.0), -63);
         assert_eq!(pan_step(3, f32::NAN), 3);
+        assert_eq!(knob_step(90, 40.0, 100), 100);
+        assert_eq!(knob_step(-90, -40.0, 100), -100);
+        assert_eq!((focus_label(0), focus_label(30), focus_label(-100)), ("off".into(), "focus 30 %".into(), "unfocus 100 %".into()));
     }
 }

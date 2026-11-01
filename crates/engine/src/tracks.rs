@@ -1,6 +1,7 @@
-//! Track tools: information (name, short name, colour), duplicate, reorder and transpose.
+//! Track tools: information (name, short name, colour), visibility in the multitrack view,
+//! duplicate, reorder and transpose.
 
-use crate::commands::{CommandSpec, cmd};
+use crate::commands::{CommandSpec, cmd, mixer_track};
 use crate::params;
 use crate::{EngineError, Session};
 use serde_json::{Value, json};
@@ -63,6 +64,15 @@ pub fn specs() -> Vec<CommandSpec> {
             true,
             set_players,
         ),
+        cmd(
+            "track.setHidden",
+            "Show or Hide in Multitrack",
+            "Track",
+            None,
+            "hidden? (default: toggles), track? (index; default the cursor's): the global view's eye; the current track is always shown",
+            true,
+            set_hidden,
+        ),
         cmd("track.duplicate", "Duplicate Track", "Track", None, "", true, duplicate),
         cmd(
             "track.transpose",
@@ -76,6 +86,13 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd("track.moveUp", "Move Track Up", "Track", None, "", true, |s, _| shift(s, -1)),
         cmd("track.moveDown", "Move Track Down", "Track", None, "", true, |s, _| shift(s, 1)),
     ]
+}
+
+fn set_hidden(s: &mut Session, p: &Value) -> Result<Value, EngineError> {
+    let hidden = p.get("hidden").filter(|v| !v.is_null()).map(|_| params::boolean(p, "hidden")).transpose()?;
+    let t = mixer_track(s, p)?;
+    t.hidden = hidden.unwrap_or(!t.hidden);
+    Ok(json!({"hidden": t.hidden}))
 }
 
 /// A colour written `#rrggbb`.

@@ -101,6 +101,7 @@ impl GuitarioApp {
             match control {
                 crate::mixer::Control::MasterVolume => m.volume = v.clamp(0, 127) as u8,
                 crate::mixer::Control::MasterPan => m.pan = v.clamp(-63, 63) as i8,
+                crate::mixer::Control::MasterFocus => m.focus = v.clamp(-100, 100) as i8,
                 _ => {}
             }
         }

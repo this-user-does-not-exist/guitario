@@ -187,6 +187,18 @@ fn master_gains(volume: u8, pan: i8) -> (f32, f32) {
     (v * (1.0 - pan).min(1.0), v * (1.0 + pan).min(1.0))
 }
 
+/// What the focus knob at `focus` percent does to track `i`'s level when `current` is focused:
+/// focus lowers the other tracks by that much, unfocus lowers the current one.
+fn focus_scale(focus: i8, current: Option<usize>, i: usize) -> f32 {
+    let Some(current) = current else { return 1.0 };
+    let amount = f32::from(focus.clamp(-100, 100)) / 100.0;
+    match (amount > 0.0, i == current) {
+        (true, false) => 1.0 - amount,
+        (false, true) => 1.0 + amount,
+        _ => 1.0,
+    }
+}
+
 /// An automation curve (per written bar) laid on playback time, bar by bar, repeats included.
 fn lay(map: &TempoMap, curve: &[Option<(f64, f64)>]) -> Vec<Ramp> {
     map.segments
@@ -376,6 +388,9 @@ pub struct Player {
     /// The master's volume and pan as last set, and their automation in playback time.
     master_level: (u8, i8),
     master_automation: (Vec<Ramp>, Vec<Ramp>),
+    /// The master's focus knob (-100..=100) and the track it focuses on, the current one; none
+    /// leaves every track as the mixer sets it (an export).
+    focus: (i8, Option<usize>),
     /// Frames in a row the output has been silent, to know when effect tails have died away.
     quiet: u32,
     /// Rendering for the sound card: streamed sample tails are never waited for.
@@ -630,6 +645,7 @@ impl Player {
             master_target: (1.0, 1.0),
             master_level: (100, 0),
             master_automation,
+            focus: (0, None),
             quiet: 0,
             live: false,
         };
@@ -677,7 +693,17 @@ impl Player {
         self.master.configure(&master.slots().map(Clone::clone));
         self.master_fx = self.master.active();
         self.master_level = (master.volume, master.pan);
+        self.focus.0 = master.focus;
         self.retarget();
+    }
+
+    /// The track the master's focus knob raises above the others (or lowers, unfocused): the
+    /// current track while playing in the app.
+    pub fn set_focus_track(&mut self, track: Option<usize>) {
+        if self.focus.1 != track {
+            self.focus.1 = track;
+            self.retarget();
+        }
     }
 
     /// Bus targets from the mixer, with each track's volume and pan automation at the play time.
@@ -694,7 +720,9 @@ impl Player {
                     m.pan = p.round().clamp(-63.0, 63.0) as i8;
                 }
             }
-            (bus.target_l, bus.target_r) = m.gains(any_solo);
+            let (l, r) = m.gains(any_solo);
+            let k = focus_scale(self.focus.0, self.focus.1, i);
+            (bus.target_l, bus.target_r) = (l * k, r * k);
         }
         let (mut volume, mut pan) = self.master_level;
         if let Some(v) = ramp_at(&self.master_automation.0, t) {
@@ -2422,6 +2450,31 @@ mod tests {
         p.set_master(&m);
         level(&mut p);
         assert!(level(&mut p).1 < 1e-4);
+    }
+
+    #[test]
+    fn the_focus_knob_raises_the_current_track_over_the_others() {
+        assert_eq!(focus_scale(50, Some(1), 0), 0.5);
+        assert_eq!(focus_scale(50, Some(1), 1), 1.0);
+        assert_eq!(focus_scale(-25, Some(1), 1), 0.75);
+        assert_eq!(focus_scale(-25, Some(1), 0), 1.0);
+        assert_eq!(focus_scale(100, None, 0), 1.0, "an export has no current track");
+        assert_eq!(focus_scale(i8::MIN, Some(0), 0), 0.0);
+        let mut s = one_note(5);
+        let t = s.tracks[0].clone();
+        s.tracks.push(t);
+        let mut p = Player::new(&s, 48_000, Options::default());
+        let targets = |p: &Player| p.buses.iter().map(|b| b.target_l).collect::<Vec<_>>();
+        let level = targets(&p);
+        let mut m = s.master.clone();
+        m.focus = 100;
+        p.set_master(&m);
+        assert_eq!(targets(&p), level, "no focus until the app names the current track");
+        p.set_focus_track(Some(1));
+        assert_eq!(targets(&p), vec![0.0, level[1]]);
+        m.focus = -50;
+        p.set_master(&m);
+        assert_eq!(targets(&p), vec![level[0], level[1] * 0.5]);
     }
 
     #[test]

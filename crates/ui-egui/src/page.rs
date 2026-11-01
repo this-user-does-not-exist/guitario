@@ -37,22 +37,12 @@ pub struct View {
     pub multitrack: bool,
     /// Edit › Multivoice Editing: each voice in its own colour, and a click picks any voice's note.
     pub multivoice: bool,
-    /// Tracks hidden from the multitrack view (the global view's eye), one bit per track index.
-    pub hidden: u64,
 }
 
 /// The tracks drawn: the cursor's alone, or in the multitrack view every track not hidden by the
-/// global view's eye. The cursor's track is always drawn; tracks past the 64th cannot be hidden.
-pub fn shown_tracks(count: usize, cursor_track: usize, multitrack: bool, hidden: u64) -> Vec<usize> {
-    if !multitrack {
-        return vec![cursor_track];
-    }
-    (0..count).filter(|&i| i == cursor_track || !is_hidden(hidden, i)).collect()
-}
-
-/// Whether track `i` is hidden in `hidden` (see [`View::hidden`]).
-pub fn is_hidden(hidden: u64, i: usize) -> bool {
-    u32::try_from(i).ok().and_then(|i| 1u64.checked_shl(i)).is_some_and(|bit| hidden & bit != 0)
+/// global view's eye ([`Score::shown_tracks`]; the cursor's track is always drawn).
+pub fn shown_tracks(score: &Score, cursor_track: usize, multitrack: bool) -> Vec<usize> {
+    if multitrack { score.shown_tracks(cursor_track) } else { vec![cursor_track] }
 }
 
 pub struct Output {
@@ -219,7 +209,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
     }
     // The tracks drawn: the cursor's, or every track in the multitrack view (the top one carries
     // the bar's markers and directions).
-    let indices = shown_tracks(score.tracks.len(), cursor.track, view.multitrack, view.hidden);
+    let indices = shown_tracks(score, cursor.track, view.multitrack);
     let window = (ui.available_width() - 2.0 * PAGE_GAP).max(1.0);
     let parts: Vec<Part> = indices
         .iter()
@@ -2382,7 +2372,7 @@ mod tests {
                 fonts = Some(crate::fonts::install(ui.ctx()));
                 return;
             };
-            show(ui, &score, Cursor::default(), &View { zoom: 1.0, fonts, play: None, selection: None, layout, multitrack, multivoice: false, hidden: 0 });
+            show(ui, &score, Cursor::default(), &View { zoom: 1.0, fonts, play: None, selection: None, layout, multitrack, multivoice: false });
         });
         harness.run_steps(3);
         harness.output().shapes.iter().map(|s| count(&s.shape, &is)).sum()
@@ -2404,8 +2394,7 @@ mod tests {
                 fonts = Some(crate::fonts::install(ui.ctx()));
                 return;
             };
-            let view =
-                View { zoom: 1.0, fonts, play: Some((150, 0)), selection: None, layout: LayoutMode::Page, multitrack: false, multivoice: false, hidden: 0 };
+            let view = View { zoom: 1.0, fonts, play: Some((150, 0)), selection: None, layout: LayoutMode::Page, multitrack: false, multivoice: false };
             let clip = ui.clip_rect();
             let out = show(ui, &score, Cursor::default(), &view);
             if let Ok(mut f) = sink.lock() {
@@ -2465,11 +2454,15 @@ mod tests {
 
     #[test]
     fn hidden_tracks_leave_the_multitrack_view_but_never_the_cursor_track() {
-        assert_eq!(shown_tracks(3, 1, false, 0), vec![1]);
-        assert_eq!(shown_tracks(3, 1, true, 0), vec![0, 1, 2]);
-        assert_eq!(shown_tracks(3, 1, true, 0b111), vec![1], "the cursor's track stays");
-        assert_eq!(shown_tracks(3, 0, true, 0b100), vec![0, 1]);
-        assert!(!is_hidden(u64::MAX, 64) && !is_hidden(u64::MAX, usize::MAX) && is_hidden(u64::MAX, 63));
+        let mut score = Score::new();
+        let t = score.tracks[0].clone();
+        score.tracks.extend([t.clone(), t]);
+        assert_eq!(shown_tracks(&score, 1, false), vec![1]);
+        assert_eq!(shown_tracks(&score, 1, true), vec![0, 1, 2]);
+        score.tracks.iter_mut().for_each(|t| t.hidden = true);
+        assert_eq!(shown_tracks(&score, 1, true), vec![1], "the cursor's track stays");
+        score.tracks[1].hidden = false;
+        assert_eq!(shown_tracks(&score, 0, true), vec![0, 1]);
     }
 
     #[test]
@@ -2510,7 +2503,7 @@ mod tests {
                     ui,
                     &score,
                     Cursor::default(),
-                    &View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice: false, hidden: 0 },
+                    &View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice: false },
                 );
             });
             harness.run_steps(3);
@@ -2591,7 +2584,7 @@ mod tests {
                         paint_print_page(ui.painter(), &score, &pl, 0, (1, 1), fonts);
                     }
                 } else {
-                    let view = View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice, hidden: 0 };
+                    let view = View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice };
                     show(ui, &score, Cursor::default(), &view);
                 }
             });
@@ -2623,7 +2616,7 @@ mod tests {
                 fonts = Some(crate::fonts::install(ui.ctx()));
                 return;
             };
-            let view = View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice, hidden: 0 };
+            let view = View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice };
             let out = show(ui, &score, cursor, &view);
             if let Ok(mut s) = sink.lock() {
                 s.0 = out.heads;

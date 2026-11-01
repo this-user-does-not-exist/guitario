@@ -85,9 +85,6 @@ pub struct ViewState {
     pub multitrack: bool,
     /// Edit › Multivoice Editing: voices in colour, and a click picks a note of any voice.
     pub multivoice: bool,
-    /// Tracks hidden from the multitrack view by the global view's eye (one bit per track); not
-    /// saved, and cleared when another document opens.
-    pub hidden: u64,
     /// What the fretboard and keyboard views show besides the beat (their gear menu).
     pub instrument: instrument::Display,
     /// The fretboard drawn for a left-handed player, the nut at the right.
@@ -229,7 +226,6 @@ impl GuitarioApp {
                 layout: layout::LayoutMode::Page,
                 multitrack: false,
                 multivoice: false,
-                hidden: 0,
                 instrument: instrument::Display::Beat,
                 left_handed: false,
                 drums: instrument::DrumView::default(),
@@ -309,7 +305,6 @@ impl GuitarioApp {
             layout: p.view.layout,
             multitrack: p.view.multitrack,
             multivoice: p.view.multivoice,
-            hidden: 0,
             instrument: p.view.instrument,
             left_handed: p.view.left_handed,
             drums: p.view.drums,
@@ -898,6 +893,8 @@ impl GuitarioApp {
                 p.set_mix(&mix);
                 p.set_sound(&sound);
                 p.set_master(&master);
+                // The focus knob raises (or lowers) the track being edited.
+                p.set_focus_track(Some(track));
                 (p.is_playing(), p.position(), p.current_beat(track).map(|b| (b.measure, b.beat)))
             })
         });
@@ -1114,7 +1111,6 @@ impl GuitarioApp {
                 layout: self.view.layout,
                 multitrack: self.view.multitrack,
                 multivoice: self.view.multivoice,
-                hidden: self.view.hidden,
             };
             let score = self.session.score().clone();
             let cursor = self.session.cursor();

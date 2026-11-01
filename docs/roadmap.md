@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-31 · **Change:** minor (control channel and MCP: B8 passes; beta ~104–213 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-01 · **Change:** minor (saved track visibility and the focus knob; beta ~99–203 h) · **Target:** Guitar Pro 8
 
 Forward-looking plan: what each stage means, how to tell a stage has been reached, and what to
 build next. Where we stand is in [`target-app-parity.md`](target-app-parity.md) (headline numbers,
@@ -14,7 +14,7 @@ for one agent working sequentially, and an upper bound (see
 [calibration](target-app-parity.md#calibration)).
 
 **Stage: alpha.** The alpha gate passes. The beta gate below passes 0 of 8 workflows end to end
-today; ~104–213 h of work are left, ordered under [Current focus](#current-focus).
+today; ~99–203 h of work are left, ordered under [Current focus](#current-focus).
 
 ## Stages
 
@@ -115,7 +115,7 @@ what needs a human ear or signing material last, so the human steps overlap with
    reveal; Finder's double-click once a human decides on the `unsafe` delegate; signing waits on
    accounts. 20–40 h + human.
 2. **Shortcuts audit, user book, click-to-edit** ([G8](gaps.md#g8-ui-depth)); several documents
-   landed 2026-10-31. 40–80 h.
+   landed 2026-10-31, saved track visibility and the focus knob 2026-11-01. 35–70 h.
 3. **Fuzzing, CI budgets, layout cache** ([G11](gaps.md#g11-reliability-depth),
    [G9](gaps.md#g9-performance-budgets)); **the localization framework**
    ([G13](gaps.md#g13-languages)). 45–95 h. The control channel and MCP
@@ -168,6 +168,7 @@ and `cargo xtask wasm`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-01 | minor | Saved track visibility and the Master focus knob (G8, UI-4 done); beta ~99–203 h |
 | 2026-10-31 | minor | The control channel, screenshots, the MCP server and ten agent tasks (M9, G10): B8 passes, the beta gate is 2 of 8; beta ~104–213 h |
 | 2026-10-31 | minor | Several documents in tabs (G8, B7's first piece); beta ~144–293 h |
 | 2026-10-31 | minor | Slurs across bars and in Guitar Pro files, room for a stepped-aside head: G4 done for beta; beta ~154–308 h |
