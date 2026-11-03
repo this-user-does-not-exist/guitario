@@ -69,6 +69,8 @@ pub enum UiAction {
     /// The Add Track window.
     AddTrack,
     Layout(crate::layout::LayoutMode),
+    /// View › Score Colors (a Guitario addition).
+    ScoreColours(crate::theme::ScoreColours),
     ToggleMultitrack,
     ToggleMultivoice,
     Transpose,
@@ -116,16 +118,22 @@ pub struct MenuItem {
     pub action: Action,
     /// Shortcut shown in the menu, as Guitar Pro shows it; empty when none.
     pub shortcut: &'static str,
+    /// A Guitario addition that Guitar Pro does not have: shown in the menus, left out of parity.
+    pub extension: bool,
 }
 
 const fn c(path: &'static str, label: &'static str, id: &'static str, params: &'static str, shortcut: &'static str) -> MenuItem {
-    MenuItem { path, label, action: Action::Cmd(id, params), shortcut }
+    MenuItem { path, label, action: Action::Cmd(id, params), shortcut, extension: false }
 }
 const fn u(path: &'static str, label: &'static str, a: UiAction, shortcut: &'static str) -> MenuItem {
-    MenuItem { path, label, action: Action::Ui(a), shortcut }
+    MenuItem { path, label, action: Action::Ui(a), shortcut, extension: false }
 }
 const fn m(path: &'static str, label: &'static str) -> MenuItem {
-    MenuItem { path, label, action: Action::Missing, shortcut: "" }
+    MenuItem { path, label, action: Action::Missing, shortcut: "", extension: false }
+}
+/// A shell action Guitar Pro does not have.
+const fn x(path: &'static str, label: &'static str, a: UiAction) -> MenuItem {
+    MenuItem { path, label, action: Action::Ui(a), shortcut: "", extension: true }
 }
 
 pub const TOP: [&str; 12] = ["File", "Edit", "Track", "Bar", "Note", "Effects", "Section", "Tools", "Sound", "View", "Window", "Help"];
@@ -306,6 +314,9 @@ pub static CATALOG: &[MenuItem] = &[
     u("View/Layout", "Page", U::Layout(crate::layout::LayoutMode::Page), ""),
     u("View/Layout", "Horizontal", U::Layout(crate::layout::LayoutMode::Horizontal), ""),
     u("View/Layout", "Screen", U::Layout(crate::layout::LayoutMode::Screen), ""),
+    x("View/Score Colors", "Paper", U::ScoreColours(crate::theme::ScoreColours::Paper)),
+    x("View/Score Colors", "Dark", U::ScoreColours(crate::theme::ScoreColours::Dark)),
+    x("View/Score Colors", "Follow Theme", U::ScoreColours(crate::theme::ScoreColours::FollowTheme)),
     u("View", "Zoom In", U::ZoomIn, "Cmd+Plus"),
     u("View", "Zoom Out", U::ZoomOut, "Cmd+Minus"),
     u("View", "Zoom 100%", U::ZoomReset, "Cmd+0"),
@@ -331,7 +342,8 @@ pub static CATALOG: &[MenuItem] = &[
     u("Help", "About Guitario", U::About, ""),
 ];
 
-/// `(live, total)` over the whole catalog.
+/// `(live, total)` over Guitar Pro's items, leaving out Guitario's additions.
 pub fn counts(is_live: impl Fn(&MenuItem) -> bool) -> (usize, usize) {
-    (CATALOG.iter().filter(|i| is_live(i)).count(), CATALOG.len())
+    let gp = || CATALOG.iter().filter(|i| !i.extension);
+    (gp().filter(|i| is_live(i)).count(), gp().count())
 }

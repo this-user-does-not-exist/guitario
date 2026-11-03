@@ -6,7 +6,7 @@ use crate::fonts::{FontSet, sans, serif, serif_bold, serif_italic};
 use crate::glyphs::{self as g, Pen};
 use crate::layout::{LayoutMode, Metrics, PageBox, Part, SystemBox, layout_parts};
 use crate::notation::{Accidentals, Clef, beam_groups, head_kind, heads_clash, spell, staff_pos};
-use crate::theme::{Tokens, tokens};
+use crate::theme::Tokens;
 use egui::{Color32, Painter, Rect, Stroke, pos2, vec2};
 use guitario_engine::Cursor;
 use guitario_score::{
@@ -37,6 +37,8 @@ pub struct View {
     pub multitrack: bool,
     /// Edit › Multivoice Editing: each voice in its own colour, and a click picks any voice's note.
     pub multivoice: bool,
+    /// The page and its inks: paper or dark ([`crate::theme::page_tokens`]).
+    pub tokens: &'static Tokens,
 }
 
 /// The tracks drawn: the cursor's alone, or in the multitrack view every track not hidden by the
@@ -239,7 +241,7 @@ pub fn show(ui: &mut egui::Ui, score: &Score, cursor: Cursor, view: &View) -> Ou
     let width = (sheet_w + 2.0 * PAGE_GAP).max(ui.available_width());
     let height = pages.len() as f32 * (sheet_h + PAGE_GAP) + PAGE_GAP;
     let (response, painter) = ui.allocate_painter(vec2(width, height), egui::Sense::click_and_drag());
-    let t = tokens();
+    let t = view.tokens;
     painter.rect_filled(response.rect, 0.0, t.workspace);
     let left = response.rect.left() + (width - sheet_w) / 2.0;
     let mut ctxs: Vec<Ctx> = parts
@@ -2372,7 +2374,12 @@ mod tests {
                 fonts = Some(crate::fonts::install(ui.ctx()));
                 return;
             };
-            show(ui, &score, Cursor::default(), &View { zoom: 1.0, fonts, play: None, selection: None, layout, multitrack, multivoice: false });
+            show(
+                ui,
+                &score,
+                Cursor::default(),
+                &View { zoom: 1.0, fonts, play: None, selection: None, layout, multitrack, multivoice: false, tokens: crate::theme::tokens() },
+            );
         });
         harness.run_steps(3);
         harness.output().shapes.iter().map(|s| count(&s.shape, &is)).sum()
@@ -2394,7 +2401,16 @@ mod tests {
                 fonts = Some(crate::fonts::install(ui.ctx()));
                 return;
             };
-            let view = View { zoom: 1.0, fonts, play: Some((150, 0)), selection: None, layout: LayoutMode::Page, multitrack: false, multivoice: false };
+            let view = View {
+                zoom: 1.0,
+                fonts,
+                play: Some((150, 0)),
+                selection: None,
+                layout: LayoutMode::Page,
+                multitrack: false,
+                multivoice: false,
+                tokens: crate::theme::tokens(),
+            };
             let clip = ui.clip_rect();
             let out = show(ui, &score, Cursor::default(), &view);
             if let Ok(mut f) = sink.lock() {
@@ -2503,7 +2519,16 @@ mod tests {
                     ui,
                     &score,
                     Cursor::default(),
-                    &View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice: false },
+                    &View {
+                        zoom: 1.0,
+                        fonts,
+                        play: None,
+                        selection: None,
+                        layout: LayoutMode::Page,
+                        multitrack: false,
+                        multivoice: false,
+                        tokens: crate::theme::tokens(),
+                    },
                 );
             });
             harness.run_steps(3);
@@ -2584,18 +2609,27 @@ mod tests {
                         paint_print_page(ui.painter(), &score, &pl, 0, (1, 1), fonts);
                     }
                 } else {
-                    let view = View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice };
+                    let view = View {
+                        zoom: 1.0,
+                        fonts,
+                        play: None,
+                        selection: None,
+                        layout: LayoutMode::Page,
+                        multitrack: false,
+                        multivoice,
+                        tokens: crate::theme::tokens(),
+                    };
                     show(ui, &score, Cursor::default(), &view);
                 }
             });
             harness.run_steps(3);
             harness.output().shapes.iter().map(|s| walk(&s.shape, color)).sum::<usize>()
         };
-        let [one, two, ..] = tokens().voice_ink;
+        let [one, two, ..] = crate::theme::tokens().voice_ink;
         assert_eq!((inked(false, false, one), inked(false, false, two)), (0, 0), "black without it");
         assert_eq!((inked(true, false, one), inked(true, false, two)), (4, 4), "four frets in each voice's colour");
         assert_eq!(inked(true, true, one), 0, "paper is always black");
-        assert!(inked(true, true, tokens().ink) >= 8);
+        assert!(inked(true, true, crate::theme::tokens().ink) >= 8);
     }
 
     /// Clicks the first notehead `want` accepts in a one-bar, two-voice score (Voice 1 on the
@@ -2616,7 +2650,8 @@ mod tests {
                 fonts = Some(crate::fonts::install(ui.ctx()));
                 return;
             };
-            let view = View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice };
+            let view =
+                View { zoom: 1.0, fonts, play: None, selection: None, layout: LayoutMode::Page, multitrack: false, multivoice, tokens: crate::theme::tokens() };
             let out = show(ui, &score, cursor, &view);
             if let Ok(mut s) = sink.lock() {
                 s.0 = out.heads;

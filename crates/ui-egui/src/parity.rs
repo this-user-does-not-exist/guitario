@@ -35,17 +35,14 @@ pub fn report() -> String {
     s.push_str(&format!("**Live:** {live} of {total} menu items ({})\n\n", pct(live, total)));
     s.push_str("| Menu | Live | Total | % |\n|---|---:|---:|---:|\n");
     for top in TOP {
-        let items: Vec<&MenuItem> = CATALOG.iter().filter(|i| i.path.split('/').next() == Some(top)).collect();
+        let items: Vec<&MenuItem> = CATALOG.iter().filter(|i| !i.extension && i.path.split('/').next() == Some(top)).collect();
         let l = items.iter().filter(|i| is_live(i)).count();
         s.push_str(&format!("| {top} | {l} | {} | {} |\n", items.len(), pct(l, items.len())));
     }
     for top in TOP {
         s.push_str(&format!("\n## {top}\n\n| Item | Status | Runs |\n|---|---|---|\n"));
-        for i in CATALOG.iter().filter(|i| i.path.split('/').next() == Some(top)) {
-            let name = match i.path.split_once('/') {
-                Some((_, sub)) => format!("{} › {}", sub.replace('/', " › "), i.label),
-                None => i.label.to_string(),
-            };
+        for i in CATALOG.iter().filter(|i| !i.extension && i.path.split('/').next() == Some(top)) {
+            let name = item_name(i);
             let (status, runs) = match i.action {
                 Action::Cmd(id, "") => ("live", format!("`{id}`")),
                 Action::Cmd(id, p) => ("live", format!("`{id}` `{p}`")),
@@ -56,7 +53,24 @@ pub fn report() -> String {
             s.push_str(&format!("| {name} | {status} | {runs} |\n"));
         }
     }
+    s.push_str("\n## Guitario additions\n\nMenu items Guitar Pro does not have, left out of the counts above.\n\n| Menu | Item | Runs |\n|---|---|---|\n");
+    for i in CATALOG.iter().filter(|i| i.extension) {
+        let top = i.path.split('/').next().unwrap_or("");
+        let runs = match i.action {
+            Action::Cmd(id, _) => format!("`{id}`"),
+            Action::Ui(a) => format!("shell: {a:?}"),
+            Action::Missing => String::new(),
+        };
+        s.push_str(&format!("| {top} | {} | {runs} |\n", item_name(i)));
+    }
     s
+}
+
+fn item_name(i: &MenuItem) -> String {
+    match i.path.split_once('/') {
+        Some((_, sub)) => format!("{} › {}", sub.replace('/', " › "), i.label),
+        None => i.label.to_string(),
+    }
 }
 
 #[cfg(test)]
@@ -70,6 +84,17 @@ mod tests {
                 assert!(is_live(i), "menu item {}/{} runs unknown command `{id}` or bad params", i.path, i.label);
             }
         }
+    }
+
+    #[test]
+    fn additions_are_live_and_not_counted() {
+        let extra: Vec<_> = CATALOG.iter().filter(|i| i.extension).collect();
+        assert!(extra.iter().any(|i| i.path == "View/Score Colors"));
+        assert!(extra.iter().all(|i| is_live(i)), "an addition is never a missing Guitar Pro item");
+        let (_, total) = live_count();
+        assert_eq!(total, CATALOG.len() - extra.len());
+        assert!(report().contains("## Guitario additions\n"));
+        assert!(report().contains("| View | Score Colors › Dark | shell: ScoreColours(Dark) |"));
     }
 
     #[test]

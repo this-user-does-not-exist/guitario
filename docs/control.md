@@ -31,7 +31,7 @@ numbers work.
 | `run` | `command`, `params?` | the command's result |
 | `batch` | `steps`: `[["command.id", {params}], …]` | every step's result; all or nothing |
 | `state` | none | title, artist, tempo, bar count, tracks, cursor, selection, path, unsaved changes, undo and redo |
-| `view` (app only) | `zoom?` (0.25–4), `layout?` (`page`, `screen`, `horizontal`), `multitrack?`, `multivoice?`, `home?` | the view |
+| `view` (app only) | `zoom?` (0.25–4), `layout?` (`page`, `screen`, `horizontal`), `multitrack?`, `multivoice?`, `score_colours?` (`paper`, `dark`, `follow`), `home?` | the view |
 | `screenshot` (app only) | `area?` (`window` or `score`) | a PNG image |
 
 A command that fails comes back as a tool error (`isError: true`) with the engine's message, so

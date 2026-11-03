@@ -261,3 +261,13 @@ The catalog lists Guitar Pro 8's menu items from its documentation and observati
 | Guitario Help | **missing** |  |
 | Keyboard Shortcuts | live | shell: KeyboardShortcuts |
 | About Guitario | live | shell: About |
+
+## Guitario additions
+
+Menu items Guitar Pro does not have, left out of the counts above.
+
+| Menu | Item | Runs |
+|---|---|---|
+| View | Score Colors › Paper | shell: ScoreColours(Paper) |
+| View | Score Colors › Dark | shell: ScoreColours(Dark) |
+| View | Score Colors › Follow Theme | shell: ScoreColours(FollowTheme) |

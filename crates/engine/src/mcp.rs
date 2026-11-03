@@ -113,8 +113,8 @@ impl McpServer {
             tools.push(json!({
                 "name": "view",
                 "title": "Change the view",
-                "description": "Changes how the running app shows the score (not the score itself): zoom (0.25-4), layout (\"page\", \"screen\", \"horizontal\"), multitrack, multivoice, home (show the Homepage). Every field is optional; returns the view.",
-                "inputSchema": object(json!({"zoom": {"type": "number"}, "layout": {"type": "string", "enum": ["page", "screen", "horizontal"]}, "multitrack": {"type": "boolean"}, "multivoice": {"type": "boolean"}, "home": {"type": "boolean"}}), &[]),
+                "description": "Changes how the running app shows the score (not the score itself): zoom (0.25-4), layout (\"page\", \"screen\", \"horizontal\"), multitrack, multivoice, score_colours (\"paper\", \"dark\", or \"follow\" for dark pages in the dark theme; screen only, prints stay paper), home (show the Homepage). Every field is optional; returns the view.",
+                "inputSchema": object(json!({"zoom": {"type": "number"}, "layout": {"type": "string", "enum": ["page", "screen", "horizontal"]}, "multitrack": {"type": "boolean"}, "multivoice": {"type": "boolean"}, "score_colours": {"type": "string", "enum": ["paper", "dark", "follow"]}, "home": {"type": "boolean"}}), &[]),
             }));
             tools.push(json!({
                 "name": "screenshot",

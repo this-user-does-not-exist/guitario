@@ -191,6 +191,7 @@ fn entry(app: &mut GuitarioApp, ui: &mut egui::Ui, item: &MenuItem) {
             // View choices show which one is on.
             let on = match action {
                 Action::Ui(UiAction::Layout(mode)) => Some(app.view.layout == mode),
+                Action::Ui(UiAction::ScoreColours(c)) => Some(app.ui_prefs().score_colours == c),
                 Action::Ui(UiAction::ToggleMultitrack) => Some(app.view.multitrack),
                 Action::Ui(UiAction::ToggleMultivoice) => Some(app.view.multivoice),
                 Action::Ui(UiAction::Mixer) => Some(app.mixer.open),
