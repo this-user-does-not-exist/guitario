@@ -9,6 +9,14 @@ white pages on a grey workspace, ink and staff-line greys from Guitar Pro's defa
 (staff lines 180, bar lines 100), a blue edit cursor, a translucent blue selection band and an amber
 playback cursor. Widgets read `theme::tokens()`; never hard-code a colour.
 
+The score pages read `page::View::tokens`, chosen by `theme::page_tokens(theme, score_colours)`.
+View › Score Colors (a Guitario addition) swaps in `DARK_PAGE` (or `LIGHT_DARK_PAGE` with the light
+chrome): a charcoal page (#1e1f24), off-white ink, staff lines #74767e, bar lines #a8aab0, brighter
+voice inks and error red, pale cursor, selection and playback tints, and a workspace one step
+darker. Only the score tokens change; prints and exports always use `PAPER`. Contrast targets are
+tested in `theme.rs`: ink 7:1, lines and bar numbers 3:1, voice inks and error red 4.5:1, ink still
+readable under every highlight.
+
 ## Layout grammar (Guitar Pro)
 
 - Toolbar (`topbar.rs`), Guitar Pro 8's order: home, panel toggles, zoom and display-mode spinners,

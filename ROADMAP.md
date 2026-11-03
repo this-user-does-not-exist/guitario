@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~99–203 h away · then 1.0 (full parity), ~705–1,380 h further
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-01 · **Change:** minor (saved track visibility and the focus knob: UI-4 done; beta ~99–203 h) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-03 · **Change:** minor (dark score pages, a Guitario addition: UI-16 done; beta unchanged ~99–203 h) · **Target:** Guitar Pro 8
 
 Guitario's one-page summary of how close it is to Guitar Pro 8 at version 0.1.0. Detail:
 [roadmap](docs/roadmap.md) (stages, gates, current focus), [target-app parity](docs/target-app-parity.md)
@@ -20,7 +20,7 @@ estimates implied (see [calibration](docs/target-app-parity.md#calibration)).
 |---|---|---|
 | **Stage** | **alpha** | measured: the [alpha gate](docs/roadmap.md#alpha-gate) passes |
 | **Beta gate** | **2 of 8** workflows pass | measured: [beta gate](docs/roadmap.md#beta-gate) |
-| Scorecard | 63 done, 17 partial, 14 missing; **14 open for beta**, 17 for 1.0 | measured |
+| Scorecard | 64 done, 17 partial, 14 missing; **14 open for beta**, 17 for 1.0 | measured |
 | Menus | 174 of 181 live (96 %) | measured |
 | Feature breadth | **~76 %** | partly measured: weights in [target-app parity](docs/target-app-parity.md#feature-breadth-76-weighted) |
 | Readiness | **~69 %** (62–74) | estimated: weighted dimension average |

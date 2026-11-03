@@ -501,3 +501,21 @@ edits are undo steps the person at the window can take back. A `batch` is all or
 session's undo, path and selection are put back with the score) so an agent's half-applied plan
 never lands in someone's document. Screenshots come from egui's own `ViewportCommand::Screenshot`,
 which `egui_kittest` fulfils too, so the end-to-end test takes real pixels without a window.
+
+## 2026-11-03: Dark score pages are a Guitario addition, marked as one
+
+Guitar Pro draws white pages in its dark editor, and that stays the default. Dark pages are a
+setting Guitar Pro does not have, built the way its own view settings are: a View › Score Colors
+radio submenu (Paper, Dark, Follow Theme) and a row in Preferences, sharing one saved value.
+Follow Theme gives dark pages only with the dark theme, so the light theme keeps paper. Because
+the menu catalog is Guitar Pro's tree and parity is counted from it, an item Guitar Pro lacks
+carries `extension: true`: it is drawn in the menus but left out of the counts and listed apart,
+so the parity numbers never rise for something Guitar Pro does not do.
+
+It is shell view state, not an engine command: a preference about how this screen looks, not part
+of the document, so the score file and undo never see it. The page painter takes its tokens in
+`page::View` instead of reading a process-wide switch, which keeps it pure and tests free of races.
+Prints and exports always use `PAPER`. Dark pages are tested against contrast targets (ink 7:1,
+lines 3:1, coloured inks 4.5:1); paper is tested only against the ratios Guitar Pro's sampled
+colours have today (its staff lines and two voice inks are below the dark targets), so its look
+does not change.

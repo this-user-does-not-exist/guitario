@@ -32,11 +32,13 @@ pub struct UiPrefs {
     pub theme: crate::theme::Theme,
     /// Scale of every menu, panel and dialog (the score has its own zoom).
     pub scale: f32,
+    /// View › Score Colors: paper, dark pages, or dark pages with the dark theme.
+    pub score_colours: crate::theme::ScoreColours,
 }
 
 impl Default for UiPrefs {
     fn default() -> Self {
-        UiPrefs { theme: crate::theme::Theme::Dark, scale: 1.0 }
+        UiPrefs { theme: crate::theme::Theme::Dark, scale: 1.0, score_colours: crate::theme::ScoreColours::Paper }
     }
 }
 

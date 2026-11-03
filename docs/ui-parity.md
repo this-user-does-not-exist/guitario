@@ -1,6 +1,6 @@
 # UI parity
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-01 · **Change:** minor (saved track visibility, focus knob) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-03 · **Change:** minor (dark score pages) · **Target:** Guitar Pro 8
 
 Guitar Pro 8's workspace, element by element. Part of [target-app parity](target-app-parity.md);
 gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
@@ -23,7 +23,7 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 | Instrument views | fretboard, keyboard, drum pad | fretboard, keyboard and drum pad, each with its toolbar button, in Guitar Pro 8's look: side column with ◀ ▶ (previous/next beat) and a gear menu (current beat, beat and bar, current and next beat; left-handed fretboard; saved); notes as yellow marks with their names, the display mode's others dimmed; hover names the pitch and octave; dark neck with an open-string strip, no fret numbers, about 15 points a string tall as in Guitar Pro; keyboard C2-C7 with the keys the instrument cannot reach greyed, click enters the pitch on the best string; no scale display, no drum staff view | partial |
 | Mixer | per-track volume, pan, effects; master | Sound › Mixer…: a strip per track with instrument, pan, fader, mute, solo and EQ, and a master fader, live while playing; the same controls in the global view; effects in the inspector | done |
 | Tools | tuner, chord engine, scales, line in | chord diagram editor and namer | partial |
-| Preferences | dialog | File › Preferences… (theme, interface scale) over persisted view, transport and audio settings | partial |
+| Preferences | dialog | File › Preferences… (theme, score colours, interface scale) over persisted view, transport and audio settings | partial |
 | Themes | light and dark | dark sampled from Guitar Pro 8's screenshots (blue-grey #292a33 panels, #525771 buttons, #568fff accent, near-black LCD and fields, slate #444751 workspace, off-white page) and light (File › Preferences…); the light one has had one pass | partial |
 | Keyboard | Guitar Pro shortcuts | digits, arrows, + − . / R L X G A I P H V S B, ⌘ shortcuts; Help › Keyboard Shortcuts lists them from the menu catalog; F11 full screen | partial |
 | Unsaved changes | prompt on closing a document and on quitting | prompt on Close, Close Others, Close All and quitting, once per unsaved document with its tab shown (craft-quit on macOS) | done |
@@ -33,6 +33,7 @@ gap G8 in [gaps](gaps.md). Menu wiring is measured separately in
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-03 | minor | Dark score pages on screen, a Guitario addition: View › Score Colors and Preferences (Paper, Dark, Follow Theme); prints stay paper |
 | 2026-11-01 | minor | Global view done: the eye saved with the file and followed by printing; the Master focus knob live in the player |
 | 2026-10-31 | minor | Several documents in tabs: Close Others, Close All, Window › Next Document; unsaved changes asked per document (menus 174/181) |
 | 2026-10-18 | minor | Effect chain rows in the track inspector, Sound Mastering live, the equalizer popup from the global view and mixer, the Master row's fader and pan |

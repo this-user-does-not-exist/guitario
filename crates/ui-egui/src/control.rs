@@ -258,8 +258,8 @@ impl crate::GuitarioApp {
         })
     }
 
-    /// The `view` method: zoom, layout, multitrack, multivoice and the Homepage; every field
-    /// is checked before any is applied.
+    /// The `view` method: zoom, layout, multitrack, multivoice, the score's colours and the
+    /// Homepage; every field is checked before any is applied.
     fn control_view(&mut self, p: &Value) -> Result<Value, String> {
         let zoom = match p.get("zoom") {
             None => None,
@@ -272,6 +272,15 @@ impl crate::GuitarioApp {
                 Some("screen") => crate::layout::LayoutMode::Screen,
                 Some("horizontal") => crate::layout::LayoutMode::Horizontal,
                 _ => return Err("`layout` is \"page\", \"screen\" or \"horizontal\"".into()),
+            }),
+        };
+        let score_colours = match p.get("score_colours") {
+            None => None,
+            Some(c) => Some(match c.as_str() {
+                Some("paper") => crate::theme::ScoreColours::Paper,
+                Some("dark") => crate::theme::ScoreColours::Dark,
+                Some("follow") => crate::theme::ScoreColours::FollowTheme,
+                _ => return Err("`score_colours` is \"paper\", \"dark\" or \"follow\"".into()),
             }),
         };
         let flag = |k: &str| match p.get(k) {
@@ -291,6 +300,9 @@ impl crate::GuitarioApp {
         if let Some(m) = multivoice {
             self.view.multivoice = m;
         }
+        if let Some(c) = score_colours {
+            self.set_score_colours(c);
+        }
         if let Some(h) = home {
             self.home.open = h;
         }
@@ -299,7 +311,19 @@ impl crate::GuitarioApp {
             crate::layout::LayoutMode::Screen => "screen",
             crate::layout::LayoutMode::Horizontal => "horizontal",
         };
-        Ok(json!({"zoom": self.view.zoom, "layout": layout, "multitrack": self.view.multitrack, "multivoice": self.view.multivoice, "home": self.home.open}))
+        let score_colours = match self.ui.score_colours {
+            crate::theme::ScoreColours::Paper => "paper",
+            crate::theme::ScoreColours::Dark => "dark",
+            crate::theme::ScoreColours::FollowTheme => "follow",
+        };
+        Ok(json!({
+            "zoom": self.view.zoom,
+            "layout": layout,
+            "multitrack": self.view.multitrack,
+            "multivoice": self.view.multivoice,
+            "score_colours": score_colours,
+            "home": self.home.open
+        }))
     }
 }
 
@@ -385,6 +409,21 @@ mod tests {
         if let Err(e) = client.join() {
             std::panic::resume_unwind(e);
         }
+    }
+
+    #[test]
+    fn view_sets_the_score_colours_or_changes_nothing() -> Result<(), String> {
+        let mut app = crate::GuitarioApp::new(guitario_engine::Session::new(), None);
+        let zoom = app.view.zoom;
+        assert_eq!(app.control_view(&json!({}))?["score_colours"], "paper");
+        assert_eq!(app.control_view(&json!({"score_colours": "dark"}))?["score_colours"], "dark");
+        assert_eq!(app.ui_prefs().score_colours, crate::theme::ScoreColours::Dark);
+        let bad = app.control_view(&json!({"zoom": 2.0, "score_colours": "sepia"}));
+        assert!(bad.is_err_and(|e| e.contains("score_colours")));
+        assert_eq!(app.view.zoom, zoom, "a bad field applies nothing");
+        assert_eq!(app.control_view(&json!({"score_colours": "follow"}))?["score_colours"], "follow");
+        assert!(app.control_view(&json!({"score_colours": 3})).is_err());
+        Ok(())
     }
 
     #[test]

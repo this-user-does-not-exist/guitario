@@ -53,7 +53,7 @@ id = "UI-8"
 target = "Preferences dialog, themes (light and dark), UI scale"
 status = "partial"
 stage = "beta"
-note = "theme and interface scale only; the light theme has had one pass"
+note = "theme, score colours and interface scale only; the light theme has had one pass"
 
 [[item]]
 id = "UI-9"
@@ -102,3 +102,9 @@ target = "Help › user book: getting started, entering tab, playback, files, so
 status = "missing"
 stage = "beta"
 note = "book/ (mdBook) has introduction, getting started, editing, playback, files and shortcuts; no page on sounds, and Help › Guitario Help does not open it"
+
+[[item]]
+id = "UI-16"
+target = "Dark score pages on screen (a Guitario addition): View › Score Colors and Preferences offer Paper, Dark or Follow Theme; prints and exports stay paper"
+status = "done"
+note = "theme.rs DARK_PAGE and LIGHT_DARK_PAGE, contrast tested; control `view {score_colours}`, snapshot --score-colours"

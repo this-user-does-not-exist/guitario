@@ -1,6 +1,6 @@
 # What has landed
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-01 · **Change:** minor (G8: saved track visibility and the focus knob) · **Target:** Guitar Pro 8
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-11-03 · **Change:** minor (G8: dark score pages) · **Target:** Guitar Pro 8
 
 The record of finished work, by gap, with the detail of how each piece behaves. It is history, not
 a plan: what is still missing is in [`gaps.md`](gaps.md), the stages are in
@@ -679,6 +679,19 @@ Landed work is also visible as merged pull requests (33 between 2026-10-16 and 2
   Neither is read from or written to Guitar Pro files yet. Tests in `score` (`shown_tracks`, the
   file form), the engine (`track.setHidden`, reordering, undo, bad params; master focus range),
   `player.rs` (focus gains) and `global_view.rs`/`print_dialog.rs`; checked in offscreen snapshots.
+- **Landed 2026-11-03:** dark score pages, a Guitario addition (Guitar Pro has no such setting).
+  View › Score Colors offers **Paper** (the default, as Guitar Pro draws it), **Dark** and
+  **Follow Theme** (dark pages with the dark theme, paper with the light one); File › Preferences…
+  shows the same choice, saved as `ui.score_colours` (older settings open on paper). Dark pages are
+  charcoal (#1e1f24) with off-white ink, retuned staff and bar lines, brighter voice inks and
+  notation-error red, pale cursor, selection and playback tints, and a workspace a step darker so
+  the sheets keep their edges (`theme::DARK_PAGE`, `LIGHT_DARK_PAGE`, `page_tokens`). Only the
+  editing view changes: print, PDF, image export and the print preview stay paper. Tests hold the
+  dark pages to 7:1 for ink, 3:1 for lines and bar numbers and 4.5:1 for the voice inks and error
+  red, ink readable through every highlight, and keep paper at today's ratios. The menu items carry
+  the catalog's new `extension` mark, so they are listed under "Guitario additions" in the parity
+  checklist and left out of the counts (still 174/181). Agents set it with the control channel's
+  `view {score_colours: "paper"|"dark"|"follow"}`; the snapshot example takes `--score-colours`.
 
 ### G9. Performance budgets
 - **Landed 2026-10-16:** `cargo xtask perf` and `perf/budgets.toml`: a 400-bar, six-track score

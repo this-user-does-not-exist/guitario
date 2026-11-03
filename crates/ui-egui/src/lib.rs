@@ -62,7 +62,7 @@ pub use layout::LayoutMode;
 pub use pdf::PdfRenderer;
 pub use prefs::UiPrefs;
 pub use spool::SystemSpooler;
-pub use theme::Theme;
+pub use theme::{ScoreColours, Theme};
 
 use guitario_engine::Session;
 use serde_json::{Value, json};
@@ -560,6 +560,7 @@ impl GuitarioApp {
                 self.view.layout = mode;
                 self.follow_cursor = true;
             }
+            U::ScoreColours(c) => self.set_score_colours(c),
             U::ToggleMultitrack => {
                 self.view.multitrack = !self.view.multitrack;
                 self.follow_cursor = true;
@@ -1111,6 +1112,7 @@ impl GuitarioApp {
                 layout: self.view.layout,
                 multitrack: self.view.multitrack,
                 multivoice: self.view.multivoice,
+                tokens: theme::page_tokens(self.ui.theme, self.ui.score_colours),
             };
             let score = self.session.score().clone();
             let cursor = self.session.cursor();

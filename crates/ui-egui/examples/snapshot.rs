@@ -1,5 +1,5 @@
 //! Renders the editor offscreen to a PNG (no window, no focus stealing):
-//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--master-automation] [--audio-settings] [--sound-bank dir] [--sound-offer] [--preferences] [--keyboard] [--light] [--track-tab] [--home] [--add-track] [--add-strings i] [--section] [--crowded] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
+//! `cargo run -p guitario-ui-egui --example snapshot -- out.png [width height] [--tab-only] [--standard-only] [--print] [--preview] [--page-setup] [--trill] [--tremolo] [--grace] [--chord] [--lyrics] [--layout page|screen|horizontal] [--multitrack] [--multivoice] [--mixer] [--tempo-automation] [--volume-automation] [--master-automation] [--audio-settings] [--sound-bank dir] [--sound-offer] [--preferences] [--keyboard] [--light] [--score-colours paper|dark|follow] [--track-tab] [--home] [--add-track] [--add-strings i] [--section] [--crowded] [--home-examples] [--ppp 2] [--recovery dir] [--paper letter] [--landscape]`
 
 use guitario_engine::Session;
 use guitario_ui_egui::GuitarioApp;
@@ -330,11 +330,21 @@ fn main() {
     if args.iter().any(|a| a == "--track-tab") {
         app.show_track_inspector();
     }
+    // `--score-colours paper|dark|follow`: View › Score Colors.
+    let colours = match value("--score-colours").as_deref() {
+        Some("dark") => Some(guitario_ui_egui::ScoreColours::Dark),
+        Some("follow") => Some(guitario_ui_egui::ScoreColours::FollowTheme),
+        Some("paper") => Some(guitario_ui_egui::ScoreColours::Paper),
+        _ => None,
+    };
+    if let Some(score_colours) = colours {
+        app.set_ui_prefs(guitario_ui_egui::UiPrefs { score_colours, ..app.ui_prefs() });
+    }
     if args.iter().any(|a| a == "--preferences") {
         app.open_preferences();
     }
     if args.iter().any(|a| a == "--light") {
-        app.set_ui_prefs(guitario_ui_egui::UiPrefs { theme: guitario_ui_egui::Theme::Light, scale: 1.0 });
+        app.set_ui_prefs(guitario_ui_egui::UiPrefs { theme: guitario_ui_egui::Theme::Light, ..app.ui_prefs() });
     }
     if args.iter().any(|a| a == "--page-setup") {
         app.open_page_setup();
